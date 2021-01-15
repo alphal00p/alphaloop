@@ -412,30 +412,33 @@ class TopologyGenerator(object):
 
                     # construct all different denominator configurations, ie, 
                     # raising of loop lines that have external momentum dependence)
+                    derived_graphs = []
                     for d in range(0,dod - UV_min_dod_to_subtract + 1):
                         # get all combinations of propagators
                         for c in combinations_with_replacement(range(len(loop_lines)), d):
                             gn = copy.deepcopy(uv_subgraph)
                             for loop_line in c:
                                 gn.powers[loop_lines[loop_line][0]] += 1
+                            derived_graphs.append({'graph': gn, 'raise_map': c})
 
-                            graph_configuration = {
-                                'graph_index': graph_index,
-                                'subgraph_indices': subgraph_indices,
-                                'taylor_order': dod - UV_min_dod_to_subtract, # maximum taylor order
-                                'derived_loop_lines': c,
-                                'external_edges': subgraph_external_edges,
-                                'loop_edges': subgraph_loop_edges,
-                                'loop_lines': loop_lines,
-                                'graph': gn,
-                            }
+                    graph_configuration = {
+                        'graph_index': graph_index,
+                        'subgraph_indices': subgraph_indices,
+                        'taylor_order': dod - UV_min_dod_to_subtract, # maximum taylor order
+                        'derived_graphs': derived_graphs,
+                        'external_edges': subgraph_external_edges,
+                        'loop_edges': subgraph_loop_edges,
+                        'loop_lines': loop_lines,
+                        'graph': copy.deepcopy(uv_subgraph),
+                    }
 
-                            new_gs.append( {
-                                'uv_subgraphs': [copy.deepcopy(x) for x in graph_info['uv_subgraphs']] + [graph_configuration],
-                                'uv_vertices' : uv_vertices,
-                                'remaining_graph': copy.deepcopy(remaining_graph),
-                                'spinney': spinney,
-                            })
+                    new_gs.append( {
+                        'uv_subgraphs': [copy.deepcopy(x) for x in graph_info['uv_subgraphs']] + [graph_configuration],
+                        'uv_vertices' : uv_vertices,
+                        'remaining_graph': copy.deepcopy(remaining_graph),
+                        'spinney': spinney,
+                    })
+
                 gs = new_gs
             new_graphs.extend(gs)
 
@@ -478,6 +481,13 @@ class TopologyGenerator(object):
 
         cutkosky_cuts = set()
         cut_momenta_options = set()
+
+        # add tadpoles to the spanning tree edge
+        # TODO: add higher-loop tadpole edges as well
+        for spanning_tree in spanning_trees:
+            for i,e in enumerate(self.edge_map_lin):
+                if len(set(e[1:])) == 1:
+                    spanning_tree.append(i)
 
         for spanning_tree in spanning_trees:
             # now select the extra cut, which needs to have a loop dependence
@@ -944,7 +954,7 @@ class TopologyGenerator(object):
 
     def create_loop_topology(self, name, ext_mom, mass_map={}, loop_momenta_names=None,
             contour_closure=None, analytic_result=None, fixed_deformation=None, constant_deformation=None,
-            loop_momentum_map=None, shift_map=None, numerator_tensor_coefficients=None,
+            loop_momentum_map=None, cmb_indices=None, shift_map=None, numerator_tensor_coefficients=None,
             check_external_momenta_names=True):
         if loop_momentum_map is None:
             # FIXME: WHY?
@@ -1083,7 +1093,7 @@ class TopologyGenerator(object):
         
         loop_topology = LoopTopology(name=name, n_loops=len(self.loop_momenta), external_kinematics=external_kinematics,
             ltd_cut_structure=cs, loop_lines=ll, analytic_result = analytic_result, fixed_deformation = fixed_deformation,
-            constant_deformation = constant_deformation, loop_momentum_map=loop_momentum_map)
+            constant_deformation = constant_deformation, loop_momentum_map=loop_momentum_map, cmb_indices=cmb_indices)
 
         if analytic_result is None:
             loop_topology.analytic_result = self.guess_analytical_result(self.loop_momenta, ext_mom, mass_map)
@@ -1330,7 +1340,7 @@ class LoopTopology(object):
     _existence_threshold = 1.0e-7
     def __init__(self, ltd_cut_structure, loop_lines, external_kinematics, n_loops=1, name=None, analytic_result=None,
         fixed_deformation=None, constant_deformation=None, maximum_ratio_expansion_threshold=None, loop_momentum_map=None,
-        numerator_tensor_coefficients=None, **opts):
+        cmb_indices=None, numerator_tensor_coefficients=None, **opts):
         """
             loop_lines          : A tuple of loop lines instances corresponding to each edge of the directed
                                   graph of this topology.
@@ -1355,6 +1365,7 @@ class LoopTopology(object):
         self.constant_deformation = constant_deformation
         self.maximum_ratio_expansion_threshold = maximum_ratio_expansion_threshold
         self.loop_momentum_map = loop_momentum_map
+        self.cmb_indices = cmb_indices
         self.numerator_tensor_coefficients = numerator_tensor_coefficients
 
     def evaluate(self, loop_momenta):
@@ -1541,6 +1552,8 @@ class LoopTopology(object):
         res['constant_deformation'] = self.constant_deformation
         if self.loop_momentum_map is not None:
             res['loop_momentum_map'] = self.loop_momentum_map
+        if self.cmb_indices is not None:
+            res['cmb_indices'] = self.cmb_indices
         res['maximum_ratio_expansion_threshold'] = -1.0 if self.maximum_ratio_expansion_threshold is None else self.maximum_ratio_expansion_threshold 
         res['loop_lines'] = [ll.to_flat_format() for ll in self.loop_lines]
         res['external_kinematics'] = [ [float(v) for v in vec] for vec in self.external_kinematics]
@@ -2042,7 +2055,8 @@ class TopologyGeneratorFromPropagators(TopologyGenerator):
             ltd_cut_structure=cs, loop_lines=self.loop_lines, analytic_result = analytic_result, 
             fixed_deformation = fixed_deformation,
             constant_deformation = constant_deformation, 
-            loop_momentum_map= None
+            loop_momentum_map= None,
+            cmb_indices=None
         )
 
         loop_topology.numerator_tensor_coefficients = numerator_tensor_coefficients

@@ -834,6 +834,7 @@ utils.bcolors.RED,utils.bcolors.ENDC
         processed_args = {
             'topology': None,
             'name': 'DefaultLUScalarName',
+            'numerator': '1',
             'externals': None,
             'lmb' : None,
             'analytical_result': 0.0, 
@@ -897,6 +898,12 @@ utils.bcolors.RED,utils.bcolors.ENDC
 
                 processed_args[key[2:]] = externals
 
+            if key == '--numerator':
+                if "'" in value or '"' in value:
+                    processed_args[key[2:]] = eval(value)
+                else:
+                    processed_args[key[2:]] = value
+
             if key == '--lmb':
                 try:
                     lmb = eval(value)
@@ -932,7 +939,8 @@ utils.bcolors.RED,utils.bcolors.ENDC
             processed_args['lmb'], self._curr_model, 
             benchmark_result=processed_args['analytical_result'],
             alphaLoop_options=self.alphaLoop_options,
-            MG5aMC_options=self.options
+            MG5aMC_options=self.options,
+            numerator=processed_args['numerator'],
         )
 
         lu_scalar_exporter.output()

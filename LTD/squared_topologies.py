@@ -65,8 +65,10 @@ class SquaredTopologyGenerator:
         mu_uv = 2. * math.sqrt(sum(self.external_momenta[e][0] for e in self.incoming_momenta)**2 - 
                         sum(x*x for x in (sum(self.external_momenta[e][i] for e in self.incoming_momenta) for i in range(1, 4))))
 
-        self.cut_diagrams = []
+        #self.cut_diagrams = []
         diagram_set_counter = 0
+        graph_counter = 0
+        diagram_sets = []
         for cut_info in self.cuts:
             c = cut_info['cuts']
 
@@ -77,10 +79,8 @@ class SquaredTopologyGenerator:
 
             cut_name = tuple(a['edge'] for a in c)
 
-            # take the Cartesian product over the UV forest of every subgraph
-            uv_diagram_sets = []
             for diag_set in cut_info['diagram_sets']:
-                uv_diags = []
+                # add the uv structure to the diagram
                 for i, diag_info in enumerate(diag_set['diagram_info']):
                     diag_info['graph'].inherit_loop_momentum_basis(self.topo)
 
@@ -91,34 +91,36 @@ class SquaredTopologyGenerator:
                     if diag_info['derivative']:
                         ew[diag_info['derivative'][1]] -= 1
 
+                    #ew['pp2'] = 0 # FIXME!
+
                     uv_limits = diag_info['graph'].construct_uv_limits(vw, ew, 
                                 UV_min_dod_to_subtract=self.generation_options.get('UV_min_dod_to_subtract',0) )
 
                     # give every subdiagram a globally unique id
                     for uv_limit in uv_limits:
-                        for uv_lim in uv_limit['uv_subgraphs']:
-                            uv_lim['graph_index'] += i * 100
-                            uv_lim['subgraph_indices'] = [j + i * 100 for j in uv_lim['subgraph_indices']]
+                        for uv_sg in uv_limit['uv_subgraphs']:
+                            uv_sg['id'] = graph_counter
+                            graph_counter += 1
+                            uv_sg['graph_index'] += i * 100
+                            uv_sg['subgraph_indices'] = [j + i * 100 for j in uv_sg['subgraph_indices']]
 
-                    uv_diagram_info = [{
+                            for dg in uv_sg['derived_graphs']:
+                                dg['id'] = graph_counter
+                                graph_counter += 1
+                        uv_limit['remaining_graph_id'] = graph_counter
+                        graph_counter += 1
+
+                    del diag_info['graph']
+                    diag_info['uv'] = [{
                         'uv_subgraphs': uv_limit['uv_subgraphs'],
                         'uv_spinney': [[list(g), dod] for g, dod in uv_limit['spinney']],
                         'uv_vertices': [x for x in uv_limit['uv_vertices']],
                         'uv_propagators': [m for g, _ in uv_limit['spinney'] for m in g],
                         'remaining_graph': uv_limit['remaining_graph'],
-                        'derivative': diag_info['derivative'],
-                        'bubble_momenta': diag_info['bubble_momenta'],
-                        'conjugate_deformation': diag_info['conjugate_deformation']
+                        'remaining_graph_id' : uv_limit['remaining_graph_id']
                     } for uv_limit in uv_limits]
 
-                    uv_diags.append(uv_diagram_info)
-
-                uv_diag_sets = [{
-                    'diagram_info': list(x),
-                    'uv_spinney': list(list(d['uv_spinney']) for d in x if len(d['uv_spinney']) != 0),
-                    'uv_propagators': set(m for d in x for m in d['uv_propagators'])
-                    } for x in product(*uv_diags)]
-
+                """
                 uv_diag_sets_with_integrated_ct = []
 
                 # unpack the factorized UV subgraphs
@@ -165,6 +167,7 @@ class SquaredTopologyGenerator:
                                 'uv_propagators': copy.deepcopy(uv_diag_set['uv_propagators']),
                             }
                         )
+                """
 
                     #uv_diag_set['diagram_info'] = unfolded_diag_info
 
@@ -179,33 +182,9 @@ class SquaredTopologyGenerator:
                 #            integrated_diag_set['integrated_ct'] = True
                 #            uv_diag_sets_with_integrated_ct.append(integrated_diag_set)
 
-                uv_diagram_sets.extend(uv_diag_sets_with_integrated_ct)
+                #uv_diagram_sets.extend(uv_diag_sets_with_integrated_ct)
 
-            cut_info['diagram_sets'] = uv_diagram_sets
-
-            diagram_sets = []
-            for diag_set in uv_diagram_sets:
-                uv_name = ('_uv_' + # + ('integrated_' if diag_set['integrated_ct'] else '')
-                    '_'.join(diag_set['uv_propagators'])) if len(diag_set['uv_propagators']) > 0 else ''
-                numerator_sparse = []
-
-                # TODO: support yaml UV numerators again
-                """
-
-                # see if this diagram set has a hardcoded numerator
-                max_rank = max((len(e) for e, v in numerator_sparse), default=0)
-                
-                # pad the numerator with zeros
-                effective_loops = self.topo.n_loops
-                numerator_pows=[j for i in range(max_rank + 1) for j in combinations_with_replacement(range(4 * effective_loops), i)]
-                numerator_pows_dict = {k: i for i,k in enumerate(numerator_pows)}
-
-                numerator = [[0., 0.,] for _ in numerator_pows]
-
-                for k, v in numerator_sparse:
-                    # numerator[numerator_pows.index(k)] = list(v)
-                    numerator[numerator_pows_dict[k]] = list(v)
-                """
+            #cut_info['diagram_sets'] = uv_diagram_sets
 
                 diag_set['id'] = diagram_set_counter
                 diagram_set_counter += 1
@@ -213,50 +192,74 @@ class SquaredTopologyGenerator:
                 # construct a matrix from the cut basis to the loop momentum basis
                 # this is useful if the numerator is specified in the loop momentum basis
                 # the matrix will be padded with the loop momentum maps
+
+                # FIXME: make it global per CC!
                 cut_to_lmb = [ cut_edge['signature'][0] for cut_edge in c[:-1]]
 
                 loop_topos = []
                 for i, diag_info in enumerate(diag_set['diagram_info']):
+                    for uv_structure in diag_info['uv']:
+                        # create the LTD representation of the derived graph
+                        for uv_subgraph in uv_structure['uv_subgraphs']:
+                            for d in uv_subgraph['derived_graphs']:
+                                # the shift map cannot be constructed for UV counterterms of LTD subgraphs, so we keep the
+                                # original signature map
+                                (loop_mom_map, shift_map) = self.topo.build_proto_topology(d['graph'], c, skip_shift=True)
+
+                                loop_topo = d['graph'].create_loop_topology(name + '_' + ''.join(cut_name) + '_' + str(i),
+                                    # provide dummy external momenta
+                                    ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
+                                    fixed_deformation=False,
+                                    mass_map=masses,
+                                    loop_momentum_map=loop_mom_map,
+                                    numerator_tensor_coefficients=[[0., 0.,]],#[[0., 0.] for _ in range(numerator_entries)],
+                                    shift_map=shift_map,
+                                    check_external_momenta_names=False,
+                                    analytic_result=0)
+                                loop_topo.external_kinematics = []
+
+                                # take the UV limit of the diagram, add the mass and set the parametric shift to 0
+                                # collect the parametric shifts of the loop lines such that it can be used to Taylor expand
+                                # the UV subgraph
+                                uv_loop_lines = []
+                                for ll in loop_topo.loop_lines:
+                                    uv_loop_lines.append((ll.signature, [(p.name, p.parametric_shift) for p in ll.propagators]))
+                                    prop = ll.propagators[0]
+                                    prop.uv = True
+                                    prop.m_squared = mu_uv**2
+                                    prop.power = sum(pp.power for pp in ll.propagators)
+                                    prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
+                                    ll.propagators = [prop]
+
+                                loop_topo.uv_loop_lines = uv_loop_lines
+
+                                d['loop_topo'] = loop_topo
+
+                        # create the loop topo of the remaing graph
+                        (loop_mom_map, shift_map) = self.topo.build_proto_topology(uv_structure['remaining_graph'], c, skip_shift=False)
+
+                        if uv_structure['uv_spinney'] == []:
+                            cut_to_lmb.extend([x[0] for x in loop_mom_map])
+
+                        uv_structure['remaining_graph_loop_topo'] = uv_structure['remaining_graph'].create_loop_topology(name + '_' + ''.join(cut_name) + '_' + str(i),
+                            # provide dummy external momenta
+                            ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
+                            fixed_deformation=False,
+                            mass_map=masses,
+                            loop_momentum_map=loop_mom_map,
+                            numerator_tensor_coefficients=[[0., 0.,]],#[[0., 0.] for _ in range(numerator_entries)],
+                            shift_map=shift_map,
+                            check_external_momenta_names=False,
+                            analytic_result=0)
+                        uv_structure['remaining_graph_loop_topo'].external_kinematics = []
+
+                    """
+                    pprint(diag_info)
                     s = diag_info['graph']
-                    # create a dummy numerator for the same rank
-                    #s.loop_momentum_bases() # sets the number of loops
-                    #numerator_entries = 1
-                    #level_size = 1
-                    #for cur_rank in range(0, max_rank):
-                    #    level_size = (level_size * (s.n_loops * 4 + cur_rank)) // (cur_rank + 1)
-                    #    numerator_entries += level_size
 
-                    # the shift map cannot be constructed for UV counterterms of LTD subgraphs, so we keep the
-                    # original signature map
-                    (loop_mom_map, shift_map) = self.topo.build_proto_topology(s, c, skip_shift=diag_info['uv_info'] is not None)
-                    cut_to_lmb.extend([x[0] for x in loop_mom_map])
 
-                    loop_topo = s.create_loop_topology(name + '_' + ''.join(cut_name) + uv_name + '_' + str(i),
-                        # provide dummy external momenta
-                        ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
-                        fixed_deformation=False,
-                        mass_map=masses,
-                        loop_momentum_map=loop_mom_map,
-                        numerator_tensor_coefficients=[[0., 0.,]],#[[0., 0.] for _ in range(numerator_entries)],
-                        shift_map=shift_map,
-                        check_external_momenta_names=False,
-                        analytic_result=0)
-                    loop_topo.external_kinematics = []
 
-                    # take the UV limit of the diagram, add the mass and set the parametric shift to 0
-                    # collect the parametric shifts of the loop lines such that it can be used to Taylor expand
-                    # the UV subgraph
-                    uv_moms = [mom for mom in diag_set['uv_propagators'] if mom in set(s.edge_name_map.keys())]
-                    uv_loop_lines = []
-                    for ll in loop_topo.loop_lines:
-                        if any(p for p in ll.propagators if p.name in uv_moms):
-                            uv_loop_lines.append((ll.signature, [(p.name, p.parametric_shift) for p in ll.propagators]))
-                            prop = next(p for p in ll.propagators if p.name in uv_moms)
-                            prop.uv = True
-                            prop.m_squared = mu_uv**2
-                            prop.power = sum(pp.power for pp in ll.propagators)
-                            prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
-                            ll.propagators = [prop]
+                    #print('uvl', uv_loop_lines)
 
                     if diag_info['integrated_ct']:
                         # replace the graphs by finite vacuum bubbles
@@ -290,6 +293,7 @@ class SquaredTopologyGenerator:
                             'uv_loop_lines': uv_loop_lines,
                             'conjugate_deformation': diag_info['conjugate_deformation']
                         })
+                     """
 
                 lmb_to_cb_matrix = Matrix(cut_to_lmb)
                 # The edge #i of the LMB may not always carry k_i but sometimes -k_i.
@@ -301,16 +305,22 @@ class SquaredTopologyGenerator:
                     lmb_to_cb_matrix = lmb_to_cb_matrix*diag(*[int(s) for s in self.loop_momenta_signs])
                 lmb_to_cb_matrix = lmb_to_cb_matrix**-1
 
+                diag_set['cb_to_lmb'] = [int(x) for x in lmb_to_cb_matrix]
+
+                """
                 diagram_sets.append({
                     'id': diag_set['id'],
                     'uv_spinney': diag_set['uv_spinney'],
-                    'numerator_structure': numerator_sparse,
                     'diagram_info': loop_topos,
                     'cb_to_lmb': [int(x) for x in lmb_to_cb_matrix]
                 })
+                """
+
+            from pprint import pprint
+            pprint(cut_info)
 
             # TODO: fuse with cut_info['diagram_sets']
-            self.cut_diagrams.append(diagram_sets)
+            #self.cut_diagrams.append(diagram_sets)
 
     def export(self, output_path):
         out = {
@@ -345,21 +355,22 @@ class SquaredTopologyGenerator:
                         }
                         for cut_edge in cuts['cuts']
                     ],
-                    'diagram_sets': [
-                        {
-                            'id': diag_set['id'],
-                            'uv_spinney': diag_set['uv_spinney'],
-                            'diagram_info': [{
-                                'graph': diag['graph'].to_flat_format(),
-                                'conjugate_deformation': diag['conjugate_deformation'],
-                            } for diag in diag_set['diagram_info']],
-                            'numerator_tensor_coefficients_sparse': [[list(m[0]), list(m[1])] for m in diag_set['numerator_structure']],
-                            'cb_to_lmb': diag_set['cb_to_lmb']
-                        }
-                    for diag_set in diag_sets]
+                    # TODO!
+                    #'diagram_sets': [
+                    #    {
+                    #        'id': diag_set['id'],
+                    #        'uv_spinney': diag_set['uv_spinney'],
+                    #        'diagram_info': [{
+                    #            'graph': diag['graph'].to_flat_format(),
+                    #            'conjugate_deformation': diag['conjugate_deformation'],
+                    #        } for diag in diag_set['diagram_info']],
+                    #        'numerator_tensor_coefficients_sparse': [[list(m[0]), list(m[1])] for m in diag_set['numerator_structure']],
+                    #        'cb_to_lmb': diag_set['cb_to_lmb']
+                    #    }
+                    #for diag_set in cuts['diagram_sets']]
                 }
 
-                for cuts, diag_sets in zip(self.cuts, self.cut_diagrams)
+                for cuts in self.cuts
             ]
         }
 

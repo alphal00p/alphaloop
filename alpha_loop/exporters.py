@@ -1580,7 +1580,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
 class LUScalarTopologyExporter(QGRAFExporter):
 
-    def __init__(self, cli, output_path, topology, externals, name, lmb, model, benchmark_result=0.0, **opts):
+    def __init__(self, cli, output_path, topology, externals, name, lmb, model, benchmark_result=0.0, numerator='1', **opts):
         
         self.alphaLoop_options = opts.pop('alphaLoop_options',{})
         self.MG5aMC_options = opts.pop('MG5aMC_options',{})
@@ -1591,6 +1591,7 @@ class LUScalarTopologyExporter(QGRAFExporter):
         self.name = name
         self.lmb = lmb
         self.benchmark_result = benchmark_result
+        self.numerator = numerator
 
         self.model = copy.deepcopy(model)
         self.model['particles'].append(base_objects.Particle({
@@ -1636,7 +1637,7 @@ class LUScalarTopologyExporter(QGRAFExporter):
         )
     
     def get_overall_factor(self):
-        return '-1' # there is an overall factor of -1 wrt Forcer, presumable due to the Wick rotation?
+        return '-1*({})'.format(self.numerator) # there is an overall factor of -1 wrt Forcer, presumable due to the Wick rotation?
 
     def output(self):
 

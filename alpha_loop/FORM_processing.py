@@ -1099,14 +1099,26 @@ CTable ltdtopo(0:{});
         max_diag_id = 0
 
         unique_pf = {}
-        for cut, cut_loop_topos in zip(topo.cuts, topo.cut_diagrams):
-            for diag_set, loop_diag_set in zip(cut['diagram_sets'], cut_loop_topos):
-                signature_offset = 0
-                total_ltd_loops = topo.topo.n_loops - len(cut['cuts']) + 1
-                for diag_id, diag_info in enumerate(loop_diag_set['diagram_info']):
+        for cut in topo.cuts:
+            for diag_set in cut['diagram_sets']:
+
+                # collect all graphs
+                graphs = []
+                signature_offset = 0 # TODO: this is a problem...
+                for diag_info in diag_set['diagram_info']:  
+                    for uv_structure in diag_info['uv']:
+                        soclone = signature_offset
+                        for uv_subgraph in uv_structure['uv_subgraphs']:
+                            for dg in uv_subgraph['derived_graphs']:
+                                graphs.append((soclone, dg['id'], dg['loop_topo']))
+                            soclone += uv_subgraph['graph'].n_loops
+                        graphs.append((soclone, uv_structure['remaining_graph_id'], uv_structure['remaining_graph_loop_topo']))
+                    signature_offset += diag_info['uv'][0]['remaining_graph_loop_topo'].n_loops
+
+                for signature_offset, graph_id, g in graphs:
                     signatures, n_props, energy_map, energies, constants, shift_map = [], [], [], [], [], []
 
-                    for l in diag_info['graph'].loop_lines:
+                    for l in g.loop_lines:
                         is_constant = all(s == 0 for s in l.signature)
                         if not is_constant:
                             signatures.append(list(l.signature))
@@ -1114,7 +1126,7 @@ CTable ltdtopo(0:{});
                         for p in l.propagators:
                             # contruct the momentum in the LMB, using that LTD
                             lmp = np.array([0]*topo.topo.n_loops)
-                            for s, v in zip(l.signature, diag_info['loop_momentum_map']):
+                            for s, v in zip(l.signature, g.loop_momentum_map):
                                 lmp += s * np.array(v[0])
 
                             # transport shift to LMB
@@ -1155,22 +1167,21 @@ CTable ltdtopo(0:{});
                         res = '\n'.join(['\t' + l for l in res.split('\n')])
                         resden = ','.join(pf.den_library)
 
-                    global_diag_id = (diag_set['id'], diag_id)
-
-                    signature_offset += diag_info['graph'].n_loops
+                    global_diag_id = (diag_set['id'], graph_id)
 
                     pf_sig = (tuple(n_props), tuple(tuple(x) for x in signatures), tuple(tuple(x) for x in shift_map),
                         tuple(energies), tuple(constants), tuple(energy_map))
                     max_diag_set_id = max(max_diag_set_id, diag_set['id'])
-                    max_diag_id = max(max_diag_id, diag_id)
+                    max_diag_id = max(max_diag_id, graph_id)
                     if pf_sig not in unique_pf:
                         unique_pf[pf_sig] = global_diag_id
 
-                        integrand_body += 'Fill pftopo({},{}) = constants({})*\nallenergies({})*\nellipsoids({})*(\n{});\n'.format(*global_diag_id,
-                            ','.join(c[0] for c in constants), ','.join(energies), resden, res)
+                        integrand_body += 'Fill pftopo({},{}) = constants({})*\nallenergies({})*\nellipsoids({})*(\n{});\n'.format(global_diag_id[0],
+                            global_diag_id[1], ','.join(c[0] for c in constants), ','.join(energies), resden, res)
 
                     topo_map += 'Fill pfmap({},{}) = diag({},{});\n'.format(*global_diag_id, *unique_pf[pf_sig])
-                    self.integrand_info['PF'][global_diag_id] = (energy_map, constants, diag_info['graph'].n_loops, unique_pf[pf_sig])
+
+                    self.integrand_info['PF'][global_diag_id] = (energy_map, constants, g.n_loops, unique_pf[pf_sig])
 
         with open(pjoin(workspace, 'pftable_{}.h'.format(numerator_call)), 'w') as f:
             f.write("""
@@ -1312,136 +1323,168 @@ CTable pfmap(0:{},0:{});
         bubble_to_cut = OrderedDict()
 
         uv_diagrams = []
-        for cut_index, (cut, cut_loop_topos) in enumerate(zip(topo.cuts, topo.cut_diagrams)):
+        uv_forest = []
+        topo_map = '#procedure uvmap()\n'
+        for cut_index, cut in enumerate(topo.cuts):
             last_cmb = ''
-            for diag_set, loop_diag_set in zip(cut['diagram_sets'], cut_loop_topos):
+            for diag_set in cut['diagram_sets']:
                 trans = ['1']
                 diag_set_uv_conf = []
                 diag_momenta = []
 
-                for diag_id, (diag_info, loop_diag_info) in enumerate(zip(diag_set['diagram_info'], loop_diag_set['diagram_info'])):
-                    diag_moms = ','.join(self.momenta_decomposition_to_string(lmm, False) for lmm in loop_diag_info['loop_momentum_map'])
-                    if diag_moms != '':
-                        diag_momenta.append('diag({},{},{})'.format(diag_set['id'], diag_id, diag_moms))
-                    else:
-                        diag_momenta.append('diag({},{})'.format(diag_set['id'], diag_id))
+                for diag_info in diag_set['diagram_info']:
+                    # write the entire UV structure as a sum
+                    conf = []
+                    forestid = ''
+                    for uv_index, uv_structure in enumerate(diag_info['uv']):
+                        forest_element = []
 
-                    der_edge = None
-                    if diag_info['derivative'] is not None:
-                        trans.append('1/2') # add a factor 1/2 since the bubble will appear in two cuts
-
-                        # if the cutkosky cut has a negative sign, we derive in -p^0 instead of p^0.
-                        # here we compensate for this sign
-                        trans.append(str(next(c for c in cut['cuts'] if c['edge'] == diag_info['derivative'][0])['sign']))
-
-                        der_edge = diag_info['derivative'][1]
-                        ext_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][0])['momentum']
-                        der_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][1])['momentum']
-                        ext_sig = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][0])['signature']
-                        der_sig = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][1])['signature']
-
-                        if diag_info['bubble_momenta'] not in bubble_to_cut:
-                            bubble_to_cut[diag_info['bubble_momenta']] = (diag_info['derivative'][0], set())
-
-                        if diag_info['derivative'][0] == diag_info['derivative'][1]:
-                            # numerator derivative
-                            index = next(i for i, bub in enumerate(bubble_to_cut.keys()) if bub == diag_info['bubble_momenta'])
-                            trans.append('der(pbubble' + str(index) + ')')
+                        diag_moms = ','.join(self.momenta_decomposition_to_string(lmm, False) for lmm in uv_structure['remaining_graph_loop_topo'].loop_momentum_map)
+                        if diag_moms != '':
+                            forest_element.append('diag({},{},{})'.format(diag_set['id'], uv_structure['remaining_graph_id'], diag_moms))
                         else:
-                            # check if we pick up a sign change due to the external momentum flowing in the opposite direction
-                            signs = [se * sc for se, sc in zip(der_sig[0] + der_sig[1], ext_sig[0] + ext_sig[1]) if se * sc != 0]
-                            assert(len(set(signs)) == 1)
-                            trans.append('-2*{}({})'.format('1*' if signs[0] == 1 else '-1*', der_mom))
-                            bubble_info = bubble_to_cut[diag_info['bubble_momenta']]
-                            bubble_to_cut[diag_info['bubble_momenta']] = (bubble_info[0], bubble_info[1] | {der_edge})
+                            forest_element.append('diag({},{})'.format(diag_set['id'], uv_structure['remaining_graph_id']))
 
-                    # translate the UV forest
-                    uv_subgraphs = []
+                        if uv_index == 0:
+                            if diag_moms != '':
+                                diag_set_uv_conf.append('forestid({},{})'.format(len(uv_forest),diag_moms))
+                            else:
+                                diag_set_uv_conf.append('forestid({})'.format(len(uv_forest)))
 
-                    if diag_info['uv_info'] is None:
-                        continue
+                        for uv_subgraph in uv_structure['uv_subgraphs']:
 
-                    uv_info = diag_info['uv_info']
+                            for dg in uv_subgraph['derived_graphs']:
+                                topo_map += '\tid uvtopo({},{},k1?,...,k{}?) = diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
+                                    '1' if len(dg['raise_map']) == 0 else '*'.join('t' + str(i) for i in dg['raise_map']),
+                                    dg['graph'].n_loops, diag_set['id'], dg['id'], dg['graph'].n_loops)
 
-                    uv_sig = '*'.join(['t{}^{}'.format(x, uv_info['derived_loop_lines'].count(x)) for x in range(len(uv_info['loop_lines']))])
+                            # TODO: bubble treatment, are we properly storing the raise of the prop in the forest?
+                            
+                            #diag_moms = ','.join(self.momenta_decomposition_to_string(lmm, False) for lmm in loop_diag_info['loop_momentum_map'])
+                            #if diag_moms != '':
+                            #    diag_momenta.append('diag({},{},{})'.format(diag_set['id'], uv_structure['remaining_graph_id'], diag_moms))
+                            #else:
+                            #    diag_momenta.append('diag({},{})'.format(diag_set['id'], uv_structure['remaining_graph_id']))
 
-                    # get the external momenta without sign
-                    # note: the signatures are unaffected by the bubble treatment from before
-                    external_momenta = set(m for e in uv_info['external_edges'] 
-                        for m in self.momenta_decomposition_to_string(next(ee for ee in self.edges.values() if ee['name'] == e)['signature'], False)
-                                .replace('-', '+').split('+') if m != '')
+                            """
+                            der_edge = None
+                            if diag_info['derivative'] is not None:
+                                trans.append('1/2') # add a factor 1/2 since the bubble will appear in two cuts
 
-                    # construct the vertex structure of the UV subgraph
-                    # TODO: are the LTD vertices reliable?
-                    vertex_structure = []
-                    subgraph_vertices = set(v for ll in loop_diag_info['graph'].loop_lines for v in (ll.start_node, ll.end_node))
-                    for v in subgraph_vertices:
-                        vertex = []
-                        for ll in loop_diag_info['graph'].loop_lines:
-                            for (dv, outgoing) in ((ll.start_node, 1), (ll.end_node, -1)):
-                                if v != dv:
-                                    continue
+                                # if the cutkosky cut has a negative sign, we derive in -p^0 instead of p^0.
+                                # here we compensate for this sign
+                                trans.append(str(next(c for c in cut['cuts'] if c['edge'] == diag_info['derivative'][0])['sign']))
+
+                                der_edge = diag_info['derivative'][1]
+                                ext_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][0])['momentum']
+                                der_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][1])['momentum']
+                                ext_sig = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][0])['signature']
+                                der_sig = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][1])['signature']
+
+                                if diag_info['bubble_momenta'] not in bubble_to_cut:
+                                    bubble_to_cut[diag_info['bubble_momenta']] = (diag_info['derivative'][0], set())
+
+                                if diag_info['derivative'][0] == diag_info['derivative'][1]:
+                                    # numerator derivative
+                                    index = next(i for i, bub in enumerate(bubble_to_cut.keys()) if bub == diag_info['bubble_momenta'])
+                                    trans.append('der(pbubble' + str(index) + ')')
+                                else:
+                                    # check if we pick up a sign change due to the external momentum flowing in the opposite direction
+                                    signs = [se * sc for se, sc in zip(der_sig[0] + der_sig[1], ext_sig[0] + ext_sig[1]) if se * sc != 0]
+                                    assert(len(set(signs)) == 1)
+                                    trans.append('-2*{}({})'.format('1*' if signs[0] == 1 else '-1*', der_mom))
+                                    bubble_info = bubble_to_cut[diag_info['bubble_momenta']]
+                                    bubble_to_cut[diag_info['bubble_momenta']] = (bubble_info[0], bubble_info[1] | {der_edge})
+                            """
+                            
+                            # get the external momenta without sign
+                            # note: the signatures are unaffected by the bubble treatment from before
+                            external_momenta = tuple(sorted(set(m for e in uv_subgraph['external_edges'] 
+                                for m in self.momenta_decomposition_to_string(next(ee for ee in self.edges.values() if ee['name'] == e)['signature'], False)
+                                        .replace('-', '+').split('+') if m != '')))
+
+                            # construct the vertex structure of the UV subgraph
+                            # TODO: are the LTD vertices reliable?
+                            uv_loop_graph = uv_subgraph['derived_graphs'][0]['loop_topo'] # all derived graphs have the same topo
+                            uv_diag_moms = ','.join(self.momenta_decomposition_to_string(lmm, False) for lmm in uv_loop_graph.loop_momentum_map)
+                            vertex_structure = []
+                            subgraph_vertices = set(v for ll in uv_loop_graph.loop_lines for v in (ll.start_node, ll.end_node))
+                            for v in subgraph_vertices:
+                                vertex = []
+                                for ll in uv_loop_graph.loop_lines:
+                                    for (dv, outgoing) in ((ll.start_node, 1), (ll.end_node, -1)):
+                                        if v != dv:
+                                            continue
+                                        loop_mom_sig = ''
+                                        for s, lmm in zip(ll.signature, uv_loop_graph.loop_momentum_map):
+                                            if s != 0:
+                                                loop_mom_sig += '{}({})'.format('+' if s * outgoing == 1 else '-', self.momenta_decomposition_to_string(lmm, False))
+                                        vertex.append(loop_mom_sig)
+                                vertex_structure.append('vxs({})'.format(','.join(vertex)))
+
+                            uv_props = []
+                            for i, (ll_sig, propagators) in enumerate(uv_loop_graph.uv_loop_lines):
+                                # the parametric shift is given in terms of external momenta of the subgraph
+                                # translate the signature and param_shift to momenta of the supergraph
                                 loop_mom_sig = ''
-                                for s, lmm in zip(ll.signature, loop_diag_info['loop_momentum_map']):
+                                for s, lmm in zip(ll_sig, uv_loop_graph.loop_momentum_map):
                                     if s != 0:
-                                        loop_mom_sig += '{}({})'.format('+' if s * outgoing == 1 else '-', self.momenta_decomposition_to_string(lmm, False))
-                                vertex.append(loop_mom_sig)
-                        vertex_structure.append('vxs({})'.format(','.join(vertex)))
+                                        loop_mom_sig += '{}({})'.format('+' if s == 1 else '-', self.momenta_decomposition_to_string(lmm, False))
 
-                    uv_props = []
-                    for i, (ll_sig, propagators) in enumerate(loop_diag_info['uv_loop_lines']):
-                        # the parametric shift is given in terms of external momenta of the subgraph
-                        # translate the signature and param_shift to momenta of the supergraph
-                        loop_mom_sig = ''
-                        for s, lmm in zip(ll_sig, loop_diag_info['loop_momentum_map']):
-                            if s != 0:
-                                loop_mom_sig += '{}({})'.format('+' if s == 1 else '-', self.momenta_decomposition_to_string(lmm, False))
+                                for (edge_name, param_shift) in propagators:
+                                    ext_mom_sig = ''
+                                    edge_mass = 'masses({})'.format(next(ee for ee in self.edges.values() if ee['name'] == edge_name)['PDG'])
 
-                        for (edge_name, param_shift) in propagators:
-                            ext_mom_sig = ''
-                            edge_mass = 'masses({})'.format(next(ee for ee in self.edges.values() if ee['name'] == edge_name)['PDG'])
+                                    if all(s == 0 for s in param_shift[1]):
+                                        uv_props.append('uvprop({},t{},0,{})'.format(loop_mom_sig, i, edge_mass))
+                                        continue
 
-                            if all(s == 0 for s in param_shift[1]):
-                                uv_props.append('uvprop({},t{},0,{})'.format(loop_mom_sig, i, edge_mass))
-                                continue
+                                    for (ext_index, s) in enumerate(param_shift[1]):
+                                        if s != 0:
+                                            ext_mom = uv_subgraph['graph'].edge_map_lin[uv_subgraph['graph'].ext[ext_index]][0]
+                                            ext_edge = next(ee for ee in self.edges.values() if ee['name'] == ext_mom)
+                                            ext_mom_sig += '{}({})'.format('+' if s == 1 else '-',
+                                                self.momenta_decomposition_to_string(ext_edge['signature'], False))
 
-                            for (ext_index, s) in enumerate(param_shift[1]):
-                                if s != 0:
-                                    ext_mom = diag_info['graph'].edge_map_lin[diag_info['graph'].ext[ext_index]][0]
-                                    ext_edge = next(ee for ee in self.edges.values() if ee['name'] == ext_mom)
-                                    ext_mom_sig += '{}({})'.format('+' if s == 1 else '-',
-                                        self.momenta_decomposition_to_string(ext_edge['signature'], False))
+                                    # the edge may have a raised power due to the bubble derivative
+                                    # TODO!!
+                                    #power = 2 if edge_name == uv_subgraph['derivative_edge'] else 1
+                                    #for _ in range(power):
+                                    
+                                    uv_props.append('uvprop({},t{},{},{})'.format(loop_mom_sig, i, ext_mom_sig, edge_mass))
+                            # it could be that there are no propagators with external momentum dependence when pinching duplicate edges
+                            if uv_props == []:
+                                uv_props = ['1']
 
-                            # the edge may have a raised power due to the bubble derivative
-                            power = 2 if edge_name == diag_info['derivative_edge'] else 1
-                            for _ in range(power):
-                                uv_props.append('uvprop({},t{},{},{})'.format(loop_mom_sig, i, ext_mom_sig, edge_mass))
-                    # it could be that there are no propagators with external momentum dependence when pinching duplicate edges
-                    if uv_props == []:
-                        uv_sig = 't0^0'
-                        uv_props = ['1']
+                            #if diag_info['integrated_ct']:
+                            #    uv_sig += '*ICT'
 
-                    if diag_info['integrated_ct']:
-                        uv_sig += '*ICT'
+                            if uv_diag_moms == '':
+                                # should never happen!
+                                logger.warn("No diag moms in UV graph")
+                                uv_diag = 'uvtopo({},1)'.format(uv_subgraph['id'])
+                            else:
+                                uv_diag = 'uvtopo({},1,{})'.format(uv_subgraph['id'], uv_diag_moms)
 
-                    uv_conf_diag = 'uvconf({},{}*{})'.format(','.join(external_momenta), '*'.join(uv_props),'*'.join(vertex_structure))
-                    if uv_conf_diag not in uv_diagrams:
-                        uv_diagrams.append(uv_conf_diag)
+                            uv_conf_diag = 'uvconf({},{}*{}*{})'.format(','.join(external_momenta), '*'.join(uv_props),'*'.join(vertex_structure), uv_diag)
+                            if uv_conf_diag not in uv_diagrams:
+                                uv_diagrams.append(uv_conf_diag)
 
-                    uv_conf = 'uvconf({},{},{},{})'.format(uv_sig, uv_info['taylor_order'], ','.join(external_momenta), uv_diagrams.index(uv_conf_diag))
-                    uv_subgraphs.append('subgraph({}{},{})'.format(uv_info['graph_index'], 
-                        (',' if len(uv_info['subgraph_indices']) > 0 else '') + ','.join(str(si) for si in uv_info['subgraph_indices']),
-                        uv_conf))
+                            uv_conf = 'uvconf({},{},{})'.format(uv_subgraph['taylor_order'], ','.join(external_momenta), uv_diagrams.index(uv_conf_diag))
+                            forest_element.append('subgraph({}{},{})'.format(uv_subgraph['graph_index'], 
+                                (',' if len(uv_subgraph['subgraph_indices']) > 0 else '') + ','.join(str(si) for si in uv_subgraph['subgraph_indices']),
+                                uv_conf))
 
-                    if uv_subgraphs != []:
-                        diag_set_uv_conf.append('*'.join(uv_subgraphs))
+                        conf.append('*'.join(forest_element))
+
+                    uv_forest.append('+'.join(conf))  
 
                 # construct the map from the lmb to the cmb
                 cmb_map = []
                 n_loops = len(self.edges) - len(self.nodes) + 1
                 for i in range(n_loops):
                     s = ''
-                    for cc, cs in enumerate(loop_diag_set['cb_to_lmb'][i * n_loops:i * n_loops+n_loops]):
+                    for cc, cs in enumerate(diag_set['cb_to_lmb'][i * n_loops:i * n_loops+n_loops]):
                         if cs != 0:
                             s += '{}c{}'.format('+' if cs == 1 else '-', cc + 1)
                             if cc < len(cut['cuts'][:-1]):
@@ -1467,7 +1510,7 @@ CTable pfmap(0:{},0:{});
 
                 conf = 'conf({},{},{},{},{})*{}'.format(diag_set['id'], cut_index, cmb_map, conf, '*'.join(trans), '*'.join(diag_momenta))
                 if diag_set_uv_conf != []:
-                    conf += '*\n    uv({})'.format('*'.join(diag_set_uv_conf))
+                    conf += '*{}'.format('*'.join(diag_set_uv_conf))
 
                 configurations.append(conf)
             configurations[-1] += '\n'
@@ -1508,11 +1551,13 @@ CTable pfmap(0:{},0:{});
 
             mommap.append('subs(pbubble{},{})'.format(i, ce['momentum']))
 
+        topo_map += '#endprocedure\n'
+
         self.replacement_rules = ''
         if len(mommap) > 0:
             self.replacement_rules = '*\n' + '*\n'.join(mommap)
 
-        self.configurations = (uv_diagrams, '\n +'.join(configurations))
+        self.configurations = (topo_map, uv_diagrams, uv_forest, '\n +'.join(configurations))
 
 
 class FORMSuperGraphIsomorphicList(list):
@@ -1667,9 +1712,12 @@ class FORMSuperGraphIsomorphicList(list):
             FORM_source = pjoin(selected_workspace,'numerator.frm')
 
         with open(pjoin(selected_workspace,'input_%d.h'%i_graph), 'w') as f:
-            (uv_conf, conf) = characteristic_super_graph.configurations
+            (uv_map, uv_conf, uv_forest, conf) = characteristic_super_graph.configurations
+            f.write(uv_map + '\n')
             f.write('CTable uvdiag(0:{});\n'.format(len(uv_conf)))
             f.write('{}\n\n'.format('\n'.join('Fill uvdiag({}) = {};'.format(i, uv) for i,uv in enumerate(uv_conf))))
+            f.write('CTable forest(0:{});\n'.format(len(uv_forest)))
+            f.write('{}\n\n'.format('\n'.join('Fill forest({}) = {};'.format(i, uv) for i,uv in enumerate(uv_forest))))
             f.write('L CONF =\n +{};\n\n'.format(conf))
             f.write('L F = {}\n;'.format(form_input))
 
@@ -1696,27 +1744,31 @@ class FORMSuperGraphIsomorphicList(list):
         # TODO understand why FORM sometimes returns return_code 1 event though it apparently ran through fine
         characteristic_super_graph.code_generation_statistics = self.analyze_FORM_output(r.stdout.decode("utf-8"), FORM_vars)
 
-        if r.returncode != 0 or not os.path.isfile(pjoin(selected_workspace,'out_%d.proto_c'%i_graph)):
+
+        if r.returncode != 0:# or not os.path.isfile(pjoin(selected_workspace,'out_integrand_%d.proto_c'%i_graph)):
             raise FormProcessingError("FORM processing failed with error:\n%s\nFORM command to reproduce:\ncd %s; %s"%(
                     r.stdout.decode('UTF-8'),
                     selected_workspace, FORM_cmd
             ))
 
+        return True
+
+        # TODO: numerators are deprecated
         # return the code for the numerators
-        if not os.path.isfile(pjoin(selected_workspace,'out_%d.proto_c'%i_graph)):
-            raise FormProcessingError(
-                    ( "FORM failed to produce an output for super graph ID=%d. Output file not found at '%s'."%
-                                                                    (i_graph,pjoin(selected_workspace,'out_%d.proto_c'%i_graph)))+
-                "\nFORM command to reproduce:\ncd %s; %s"%(selected_workspace,FORM_cmd)
-            )
+        #if not os.path.isfile(pjoin(selected_workspace,'out_%d.proto_c'%i_graph)):
+        #    raise FormProcessingError(
+        #            ( "FORM failed to produce an output for super graph ID=%d. Output file not found at '%s'."%
+        #                                                            (i_graph,pjoin(selected_workspace,'out_%d.proto_c'%i_graph)))+
+        #        "\nFORM command to reproduce:\ncd %s; %s"%(selected_workspace,FORM_cmd)
+        #    )
 
-        with open(pjoin(selected_workspace,'out_%d.proto_c'%i_graph), 'r') as f:
-            num_code = f.read()
-
-        # TODO Remove when FORM will have fixed its C output bug
-        num_code = temporary_fix_FORM_output(num_code)
-
-        return num_code
+        #with open(pjoin(selected_workspace,'out_%d.proto_c'%i_graph), 'r') as f:
+        #    num_code = f.read()
+#
+        ## TODO Remove when FORM will have fixed its C output bug
+        #num_code = temporary_fix_FORM_output(num_code)
+#
+        #return num_code
 
     def to_dict(self, file_path=None):
         """ Store that into a dict."""
@@ -1841,116 +1893,11 @@ class FORMSuperGraphIsomorphicList(list):
             all_ids.append(i)
             FORM_vars['SGID']='%d'%i
             time_before = time.time()
+
             num = self.generate_numerator_functions(additional_overall_factor,
-                            workspace=workspace, FORM_vars=FORM_vars, active_graph=active_graph,process_definition=process_definition)
-            #total_time += time.time()-time_before
-            num = num.replace('i_', 'I')
-            num = input_pattern.sub(r'lm[\1]', num)
-            num = num.replace('\nZ', '\n\tZ') # nicer indentation
+                                        workspace=workspace, FORM_vars=FORM_vars, active_graph=active_graph,process_definition=process_definition)
 
-            confs = []
-            numerator_main_code = ''
-            numerator_main_code_f128 = ''
-            conf_secs = num.split('#CONF')
-            for conf_sec in conf_secs[1:]:
-                conf_sec = conf_sec.replace("#CONF\n", '')
-
-                # collect all temporary variables
-                temp_vars = list(sorted(set(var_pattern.findall(conf_sec))))
-
-                # parse the configuration id
-                conf = list(energy_exp.finditer(conf_sec))[0].groups()[0].split(',')
-                conf_id = conf[0]
-                
-                ltd_vars = [v for v in conf[1:] if v != 'c0']
-                max_rank = 8 # FIXME: determine somehow
-                # create the dense polynomial in the LTD energies
-                numerator_pows = [j for i in range(max_rank + 1) for j in combinations_with_replacement(range(len(ltd_vars)), i)]
-
-                mono_secs = conf_sec.split('#NEWMONOMIAL')
-
-                num_body = energy_exp.sub('', '\n'.join(mono_secs[0].split('\n')[2:]))
-                
-                rank = 0
-                max_index = 0
-                return_statements = []
-                for mono_sec in mono_secs[1:]:
-                    mono_sec = mono_sec.replace('#NEWMONOMIAL\n', '')
-                    mono_sec = split_number.sub('', mono_sec)
-                    # parse monomial powers and get the index in the polynomial in the LTD basis
-                    pows = list(energy_exp.finditer(mono_sec))[0].groups()[0].split(',')
-                    pows = tuple(sorted(ltd_vars.index(r) for r in pows if r != 'c0'))
-                    rank = max(rank, len(pows))
-                    index = numerator_pows.index(pows)
-                    max_index = max(index, max_index)
-                    max_buffer_size = max(index, max_buffer_size)
-                    mono_sec = energy_exp.sub('', mono_sec)
-                    returnval = list(return_exp.finditer(mono_sec))[0].groups()[0]
-                    return_statements.append((index, return_exp.sub('\tout[{}] = {};'.format(index, returnval), mono_sec)))
-
-                for r in sorted(return_statements, key=lambda x: x[0]):
-                    num_body += r[1]
-
-                num_body = num_body.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
-
-                confs.append((conf_id, rank))
-
-                if len(temp_vars) > 0:
-                    self.is_zero = False
-
-                numerator_main_code += '\n// polynomial in {}'.format(','.join(conf[1:]))
-                numerator_main_code += '\nstatic inline int %(header)sevaluate_{}_{}(double complex lm[], double complex params[], double complex* out) {{\n\t{}'.format(i, conf_id,
-                    'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else ''
-                ) + num_body + '\n\treturn {}; \n}}\n'.format(max_index + 1)
-
-                numerator_code_f128 = num_body.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
-                numerator_code_f128 = float_pattern.sub(r'\1q', numerator_code_f128)
-                numerator_main_code_f128 += '\n' + '\nstatic inline int %(header)sevaluate_{}_{}_f128(__complex128 lm[], __complex128 params[], __complex128* out) {{\n\t{}\n{}\n\treturn {};\n}}\n'.format(i, conf_id,
-                    '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', numerator_code_f128, max_index + 1
-                )
-
-            numerator_main_code += \
-"""
-int %(header)sevaluate_{}(double complex lm[], double complex params[], int conf, double complex* out) {{
-   switch(conf) {{
-{}
-    }}
-}}
-
-int %(header)sget_rank_{}(int conf) {{
-   switch(conf) {{
-{}
-    }}
-}}
-""".format(i,
-        '\n'.join(
-        ['\t\tcase {}: return %(header)sevaluate_{}_{}(lm, params, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
-        (['\t\tdefault: out[0] = 0.; return 1;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
-        ),
-        i,
-        '\n'.join(
-        ['\t\tcase {}: return {};'.format(conf, rank) for conf, rank in sorted(confs)] +
-        (['\t\tdefault: return 0;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
-        ))
-
-            writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator{}_f64.c'%header_map).format(i)).write((numerator_header + numerator_main_code)%header_map)
-
-            numerator_main_code_f128 += \
-"""
-int %(header)sevaluate_{}_f128(__complex128 lm[], __complex128 params[], int conf, __complex128* out) {{
-    switch(conf) {{
-{}
-    }}
-}}
-
-""".format(i,
-        '\n'.join(
-        ['\t\tcase {}: return %(header)sevaluate_{}_{}_f128(lm, params, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
-        (['\t\tdefault: out[0] = 0.; return 1;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
-        ))
-
-            writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator{}_f128.c'%header_map).format(i)).write((numerator_header + numerator_main_code_f128)%header_map)
-        return (i_graph, all_ids, max_buffer_size, self.is_zero, time.time() - timing, self[0].code_generation_statistics)
+        return (i_graph, all_ids, max_buffer_size, not num, time.time() - timing, self[0].code_generation_statistics)
 
     def generate_numerator_file_helper(args):
         return args[0].generate_numerator_file(*args[1:])
@@ -2006,7 +1953,7 @@ class FORMSuperGraphList(list):
 
     @classmethod
     def from_squared_topology(cls, edge_map_lin, name, incoming_momentum_names, model, loop_momenta_names=None, particle_ids={},benchmark_result=0.0, 
-                                default_kinematics=None, effective_vertex_id=None):
+                                default_kinematics=None, effective_vertex_id=None, overall_factor='1'):
         vertices = [v for e in edge_map_lin for v in e[1:]]
 
         topo_generator = LTD.ltd_utils.TopologyGenerator(edge_map_lin, {})
@@ -2056,7 +2003,7 @@ class FORMSuperGraphList(list):
 
         form_graph = FORMSuperGraph(
             name=name, edges=edges, nodes=nodes,
-            overall_factor='1',
+            overall_factor=overall_factor,
             multiplicity = 1,
             benchmark_result=benchmark_result,
             default_kinematics=default_kinematics,
@@ -2443,6 +2390,8 @@ class FORMSuperGraphList(list):
         return_exp = re.compile(r'return ([^;]*);\n')
         float_pattern = re.compile(r'((\d+\.\d*)|(\.\d+))')
         diag_pattern = re.compile(r'diag\((\d*)\)')
+        forest_pattern = re.compile(r'forestid\((\d*)\)')
+        empty_line_pattern = re.compile(r'\n\n\n')
 
         integrand_type_list = [integrand_type] if integrand_type != 'both' else ['PF', 'LTD']
 
@@ -2495,16 +2444,20 @@ class FORMSuperGraphList(list):
                             # parse the configuration id
                             conf = list(conf_exp.finditer(conf_sec))[0].groups()[0].split(',')
                             conf_sec = conf_exp.sub('', conf_sec)
+                            conf_sec = conf_sec.replace('\n    ', "\n\t")
+                            conf_sec = conf_sec.replace('\n   ', "\n\t")
 
-                            denominator_mode = int(conf[0]) < 0
-                            if denominator_mode:
+                            denominator_mode = 'NUM' if int(conf[0]) >= 0 else ('FOREST' if len(conf) == 2 else 'DIAG')
+                            
+                            if denominator_mode == 'DIAG':
                                 conf_id = (int(conf[1]), int(conf[2]))
                                 mom_map, constants, loops, orig_id = graph[0].integrand_info[itype][conf_id]
-                            elif itype == "LTD":
-                                conf_id = int(conf[0])
-                                mom_map, constants, loops, orig_id = graph[0].integrand_info['LTD'][conf_id]
+                            
+                            #elif itype == "LTD":
+                            #    conf_id = int(conf[0])
+                            #    mom_map, constants, loops, orig_id = graph[0].integrand_info['LTD'][conf_id]
 
-                            if denominator_mode or itype == "LTD":
+                            if denominator_mode == 'DIAG' : #or itype == "LTD":
                                 # parse the constants
                                 const_secs = conf_sec.split('#CONSTANTS')[1]
                                 const_secs = const_secs.replace('\n', '')
@@ -2549,27 +2502,41 @@ class FORMSuperGraphList(list):
                                 conf_sec = conf_sec.split('#ELLIPSOIDS')[-1]
 
                             returnval = list(return_exp.finditer(conf_sec))[0].groups()[0]
-                            if int(conf[0]) < 0:
+                            if denominator_mode == 'FOREST':
+                                conf_sec = return_exp.sub('return {};\n'.format(returnval), conf_sec)
+                            elif denominator_mode == 'DIAG':
                                 conf_sec = return_exp.sub('return pow(2.*pi*I,{})/({})*({});\n'.format(loops, const_code, returnval), conf_sec)
-                            elif itype == "LTD":
-                                conf_sec = return_exp.sub('*out = pow(2.*pi*I,{})/({})*({});\n'.format(loops, const_code, returnval), conf_sec)
+                            #elif itype == "LTD":
+                            #    conf_sec = return_exp.sub('*out = pow(2.*pi*I,{})/({})*({});\n'.format(loops, const_code, returnval), conf_sec)
                             else:
                                 conf_sec = return_exp.sub('*out = {};\n'.format(returnval), conf_sec)
 
                             temp_vars = list(sorted(set(var_pattern.findall(conf_sec))))
 
-                            # TODO: inline?
-                            if int(conf[0]) < 0:
-                                main_code = '{}\n{}\n{}'.format(energy_code, denom_code, conf_sec)
-                                main_code = main_code.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
-                                integrand_main_code += '\nstatic double complex diag_{}(double complex lm[], double complex params[]) {{\n\t{}\n{}}}'.format(abs(int(conf[0])),
-                                    'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code
+                            if denominator_mode == 'FOREST':
+                                main_code = conf_sec.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
+                                main_code_with_diag_call = diag_pattern.sub(r'diag_\1(lm, params)', main_code)
+                                integrand_main_code += '\nstatic double complex forest_{}(double complex lm[], double complex params[]) {{{}\n{}}}'.format(abs(int(conf[0])),
+                                    '\n\tdouble complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_with_diag_call
                                 )
 
                                 main_code_f128 = main_code.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
                                 main_code_f128 = float_pattern.sub(r'\1q', main_code_f128)
-                                integrand_f128_main_code += '\n' + '\nstatic __complex128 diag_{}_f128(__complex128 lm[], __complex128 params[]) {{\n\t{}\n{}}}'.format(abs(int(conf[0])),
-                                    '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
+                                main_code_f128 = diag_pattern.sub(r'diag_\1_f128(lm, params)', main_code_f128)
+                                integrand_f128_main_code += '\n' + '\nstatic __complex128 forest_{}_f128(__complex128 lm[], __complex128 params[]) {{{}\n{}}}'.format(abs(int(conf[0])),
+                                    '\n\t__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
+                                )
+                            elif denominator_mode == 'DIAG':
+                                main_code = '{}\n{}\n{}'.format(energy_code, denom_code, conf_sec)
+                                main_code = main_code.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
+                                integrand_main_code += '\nstatic double complex diag_{}(double complex lm[], double complex params[]) {{{}\n{}}}'.format(abs(int(conf[0])),
+                                    '\n\tdouble complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code
+                                )
+
+                                main_code_f128 = main_code.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
+                                main_code_f128 = float_pattern.sub(r'\1q', main_code_f128)
+                                integrand_f128_main_code += '\n' + '\nstatic __complex128 diag_{}_f128(__complex128 lm[], __complex128 params[]) {{{}\n{}}}'.format(abs(int(conf[0])),
+                                    '\n\t__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
                                 )
                             else:
                                 confs.append(int(conf[0]))
@@ -2577,23 +2544,23 @@ class FORMSuperGraphList(list):
                                 if len(temp_vars) > 0:
                                     graph.is_zero = False
 
-                                if itype == "LTD":
-                                    main_code = '{}\n{}\n{}'.format(energy_code, denom_code, conf_sec)
-                                else:
-                                    main_code = conf_sec
-
-                                main_code = main_code.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
-                                main_code_with_diag_call =  diag_pattern.sub(r'diag_\1(lm, params)', main_code)
-                                integrand_main_code += '\nstatic inline void %(header)sevaluate_{}_{}_{}(double complex lm[], double complex params[], double complex* out) {{\n\t{}\n{}}}'.format(itype, i, int(conf[0]),
-                                    'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_with_diag_call
+                                main_code = conf_sec.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
+                                main_code_with_forest_call = forest_pattern.sub(r'forest_\1(lm, params)', main_code)
+                                integrand_main_code += '\nstatic inline void %(header)sevaluate_{}_{}_{}(double complex lm[], double complex params[], double complex* out) {{{}\n{}}}'.format(itype, i, int(conf[0]),
+                                    '\n\tdouble complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_with_forest_call
                                 )
 
                                 main_code_f128 = main_code.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
                                 main_code_f128 = float_pattern.sub(r'\1q', main_code_f128)
-                                main_code_f128 = diag_pattern.sub(r'diag_\1_f128(lm, params)', main_code_f128)
-                                integrand_f128_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{}_{}_{}_f128(__complex128 lm[], __complex128 params[], __complex128* out) {{\n\t{}\n{}}}'.format(itype, i, int(conf[0]),
-                                    '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
+                                main_code_f128 = forest_pattern.sub(r'forest_\1_f128(lm, params)', main_code_f128)
+                                integrand_f128_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{}_{}_{}_f128(__complex128 lm[], __complex128 params[], __complex128* out) {{{}\n{}}}'.format(itype, i, int(conf[0]),
+                                    '\n\t__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
                                 )
+
+                        
+                        for x in range(4):
+                            integrand_main_code = empty_line_pattern.sub(r'\n\n', integrand_main_code)
+                            integrand_f128_main_code = empty_line_pattern.sub(r'\n\n', integrand_f128_main_code)
 
                         integrand_main_code += \
 """
@@ -2754,58 +2721,6 @@ void %(header)sevaluate_LTD_f128(__complex128 lm[], __complex128 params[], int d
 
             if FORM_processing_options["cores"] > 1:
                 pool.close()
-
-        numerator_code = \
-"""
-#include <tgmath.h>
-#include <quadmath.h>
-#include <signal.h>
-
-{}
-{}
-{}
-
-int %(header)sevaluate(double complex lm[], double complex params[], int diag, int conf, double complex* out) {{
-    switch(diag) {{
-{}
-    }}
-}}
-
-int %(header)sevaluate_f128(__complex128 lm[], __complex128 params[], int diag, int conf, __complex128* out) {{
-    switch(diag) {{
-{}
-    }}
-}}
-
-int %(header)sget_buffer_size() {{
-    return {};
-}}
-
-int %(header)sget_rank(int diag, int conf) {{
-    switch(diag) {{
-{}
-    }}
-}}
-""".format(
-    '\n'.join('int %(header)sevaluate_{}(double complex[], double complex[], int conf, double complex*);'.format(i) for i in all_numerator_ids),
-    '\n'.join('int %(header)sevaluate_{}_f128(__complex128[], __complex128[], int conf, __complex128*);'.format(i) for i in all_numerator_ids),
-    '\n'.join('int %(header)sget_rank_{}(int conf);'.format(i) for i in all_numerator_ids),
-    '\n'.join(
-    ['\t\tcase {}: return %(header)sevaluate_{}(lm, params, conf, out);'.format(i, i) for i in all_numerator_ids]+
-    ['\t\tdefault: raise(SIGABRT);']
-    ),
-    '\n'.join(
-    ['\t\tcase {}: return %(header)sevaluate_{}_f128(lm, params, conf, out);'.format(i, i) for i in all_numerator_ids]+
-    ['\t\tdefault: raise(SIGABRT);']
-    ), 
-    (max_buffer_size + 1) * 2,
-    '\n'.join(
-    ['\t\tcase {}: return %(header)sget_rank_{}(conf);'.format(i, i) for i in all_numerator_ids]+
-    ['\t\tdefault: raise(SIGABRT);']
-    )
-    )
-        writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator.c'%header_map)).write(numerator_code%header_map)
-
 
         params = copy.deepcopy(params)
         params['mUV'] = 'params[0]'
@@ -3593,8 +3508,6 @@ if __name__ == "__main__":
                         help='Process definition to consider.')
     parser.add_argument('--cores', default=1, type=int,
                         help='Number of FORM cores')
-    parser.add_argument('--optim_iter', default=100, type=int,
-                        help='Number of iterations for numerator optimization')
     parser.add_argument('--restrict_card',
         default=pjoin(os.environ['MG5DIR'],'models','sm','restrict_no_widths.dat'), 
                         type=str, help='Model restriction card to consider.')
@@ -3602,7 +3515,6 @@ if __name__ == "__main__":
 
     if args.cores > 1:
         FORM_processing_options['cores'] = args.cores
-    FORM_processing_options['extra-options'] = {'OPTIMITERATIONS': args.optim_iter}
 
     import alpha_loop.interface as interface
     cli = interface.alphaLoopInterface()
