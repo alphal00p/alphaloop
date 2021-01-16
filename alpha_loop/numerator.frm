@@ -511,6 +511,7 @@ id k1?.p0select = penergy(k1);
 * Substitute the masters and expand in ep
 #call SubstituteMasters()
 .sort:integrated-ct-1;
+
 PolyRatFun;
 id rat(x1?) = x1;
 if (count(ep, 1) != `SELECTEDEPSILONORDER') Discard; * keep only the ep^0 piece
@@ -523,7 +524,29 @@ id ep^n? = 1;
 id UVRenormFINITE^n? = 1;
 
 .sort:integrated-ct-2;
+
 #endif
+
+* Expand
+Multiply replace_(D, 4 - 2 * ep);
+id ep^n1? = rat(ep^n1,1);
+.sort
+PolyRatFun rat(expand,ep,{`MAXPOLE'+`SELECTEDEPSILONORDER'});
+Keep brackets;
+.sort:integrated-ct-1;
+
+PolyRatFun;
+id rat(x1?) = x1;
+if (count(ep, 1) != `SELECTEDEPSILONORDER') Discard; * keep only the ep^0 piece
+id ep^n? = 1;
+#if `UVRENORMFINITEPOWERTODISCARD' > 0
+    if (count(UVRenormFINITE, 1) >= `UVRENORMFINITEPOWERTODISCARD') Discard; * Discard UVRenormFinite pieces up to some order
+#elseif  `UVRENORMFINITEPOWERTODISCARD' < 0
+    if (count(UVRenormFINITE, 1) < -`UVRENORMFINITEPOWERTODISCARD') Discard; * Keep UVRenormFinitiePieces up to some order
+#endif
+id UVRenormFINITE^n? = 1;
+.sort
+
 
 * If the expression is empty (due to epsilon pole selection), we still write a file
 #if ( termsin(F) == 0 )

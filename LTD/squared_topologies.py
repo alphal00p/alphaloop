@@ -117,7 +117,7 @@ class SquaredTopologyGenerator:
                         'uv_vertices': [x for x in uv_limit['uv_vertices']],
                         'uv_propagators': [m for g, _ in uv_limit['spinney'] for m in g],
                         'remaining_graph': uv_limit['remaining_graph'],
-                        'remaining_graph_id' : uv_limit['remaining_graph_id']
+                        'remaining_graph_id' : uv_limit['remaining_graph_id'],
                     } for uv_limit in uv_limits]
 
                 """
@@ -355,19 +355,16 @@ class SquaredTopologyGenerator:
                         }
                         for cut_edge in cuts['cuts']
                     ],
-                    # TODO!
-                    #'diagram_sets': [
-                    #    {
-                    #        'id': diag_set['id'],
-                    #        'uv_spinney': diag_set['uv_spinney'],
-                    #        'diagram_info': [{
-                    #            'graph': diag['graph'].to_flat_format(),
-                    #            'conjugate_deformation': diag['conjugate_deformation'],
-                    #        } for diag in diag_set['diagram_info']],
-                    #        'numerator_tensor_coefficients_sparse': [[list(m[0]), list(m[1])] for m in diag_set['numerator_structure']],
-                    #        'cb_to_lmb': diag_set['cb_to_lmb']
-                    #    }
-                    #for diag_set in cuts['diagram_sets']]
+                    'diagram_sets': [
+                        {
+                            'id': diag_set['id'],
+                            'diagram_info': [{
+                                'graph': diag['uv'][0]['remaining_graph_loop_topo'].to_flat_format(),
+                                'conjugate_deformation': diag['conjugate_deformation'],
+                            } for diag in diag_set['diagram_info']],
+                            'cb_to_lmb': diag_set['cb_to_lmb']
+                        }
+                    for diag_set in cuts['diagram_sets']]
                 }
 
                 for cuts in self.cuts
