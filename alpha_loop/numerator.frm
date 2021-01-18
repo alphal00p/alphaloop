@@ -121,7 +121,7 @@ Fill charges(-6) = -2/3; * t
 Fill charges(-11) = 1; * e
 
 S D, ep(:3);
-V p1,...,p40,k1,...,k40,c1,...,c40; * force this internal ordering in FORM
+V p1,...,p40,k1,...,k40,c1,...,c40,ltd1,...,ltd40; * force this internal ordering in FORM
 Auto V p,k,c;
 Auto S lm,ext;
 Auto I mu=D,s=D;
@@ -134,7 +134,7 @@ Set lorentzdummy: mud1,...,mud40;
 
 CF gamma, vector,g(s),delta(s),T, counter,color, prop, replace;
 CF f, vx, vxs(s), vec, vec1;
-CF subs, configurations, conf, cmb, diag, forestid, der, energy, spatial(s);
+CF subs, configurations, conf, cmb, forestmb, diag, forestid, der, energy, spatial(s);
 CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, integrateduv;
 
 S UVRenormFINITE;
@@ -627,9 +627,6 @@ if (count(energy,1) == 0) Multiply energy(f(c0)); * signal with c0 that we are d
         exit "Error";
     endif;
 
-Print +s;
-.sort:test1;
-
     repeat id cmb(?a)*forestid(?b) = f(forestid(?b,cmb(?a)))*cmb(?a);
     id cmb(?a) = 1; * TODO: no longer needed?
     id f(?a) = forestid(?a);
@@ -751,8 +748,30 @@ if (expression(F) == 0);
     id forestid(?a) = 1;
 endif;
 
-Print +s;
-.sort:aaa;
+* The UV counterterm procedure may have create new dot products for which we extract the energies now
+* now extract the energy components of the LTD loop variables
+id k1?.k2? = g(k1, k2);
+repeat id diag(?a,k1?,?b)*g(k1?,k2?) = diag(?a,k1,?b)*f(k1,k2); * FIXME: is this safe? we may have to transform the basis first
+id g(p1?,p2?) = p1.p2;
+symmetrize f;
+id f(?a) = f(?a,1);
+id f(?a,n1?)*f(?a,n2?) = f(?a,n1+n2);
+
+B+ f;
+.sort:energy-splitoff-1;
+Keep brackets;
+id f(k1?,k2?,n?) = (penergy(k1)*penergy(k2)-spatial(k1,k2))^n;
+
+B+ diag,penergy,energy;
+.sort:energy-splitoff-2;
+Keep brackets;
+
+repeat id diag(?a,k1?,?b)*penergy(k1?) = diag(?a,k1,?b)*energy(k1);
+
+repeat id energy(?a)*energy(?b) = energy(?a,?b);
+symmetrize energy;
+id energy(?a) = energy(f(?a));
+.sort:energy-splitoff-3;
 
 
 *********************************************
@@ -825,7 +844,7 @@ endargument;
     .sort
     #include- pftable_`SGID'.h
 
-    B energy,diag,cmb;
+    B energy,diag,cmb,forestmb;
     .sort:load-pf;
     Keep brackets;
 
@@ -833,8 +852,12 @@ endargument;
     chainout energy;
     id energy(c0) = 1;
 
-    Print +s;
-    .sort
+* apply the transformation to the forest basis,
+* only for the energies
+    repeat id forestmb(p1?,p2?,p3?,p4?,?a) = forestmb(p1,p2)*forestmb(p3,p4,?a);
+    repeat id forestmb(p?,p1?)*energy(p?) = forestmb(p,p1)*energy(p1);
+    repeat id forestmb(p?,p1?)*diag(?c,p?,?d) = forestmb(p,p1)*diag(?c,p1,?d);
+    id forestmb(?a) = 1;
 
 * map all diagrams to their unique representative
     id diag(x1?,x2?,?a) = diag(pfmap(x1,x2),?a);
@@ -902,8 +925,7 @@ endargument;
     .sort
 
     UnHide forest1,...,forest`forestcount';
-    Print +s;
-    .sort:test1234;
+    .sort:pf-num;
     Drop diag1,...,diag`diagcount',forest1,...,forest`forestcount';
 
 * now add all PF structures as a special conf
@@ -925,10 +947,6 @@ endargument;
         UnHide FINTEGRANDLTD;
     #endif
 #endif
-
-    B conf;
-    Print +s;
-    .sort:bbb;
 
 * fill in the shifts
     id replace(?a) = replace_(?a);

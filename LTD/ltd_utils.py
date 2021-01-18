@@ -622,7 +622,7 @@ class TopologyGenerator(object):
                     'power': p}
                 for c, p in zip(cutkosky_cut, cut_powers)],
             'diagram_sets': [{
-                    'diagram_info': [ diag for diag in diag_set ] }
+                    'diagram_info': [ copy.deepcopy(diag) for diag in diag_set ] }
                 for diag_set in graph_prod]
         }
         from pprint import pprint

@@ -1104,16 +1104,17 @@ CTable ltdtopo(0:{});
 
                 # collect all graphs
                 graphs = []
-                signature_offset = 0 # TODO: this is a problem...
-                for diag_info in diag_set['diagram_info']:  
+                for diag_info in diag_set['diagram_info']:
                     for uv_structure in diag_info['uv']:
-                        soclone = signature_offset
+                        signature_offset = 0 # offset in the forest basis
+                        #soclone = signature_offset
                         for uv_subgraph in uv_structure['uv_subgraphs']:
                             for dg in uv_subgraph['derived_graphs']:
-                                graphs.append((soclone, dg['id'], dg['loop_topo']))
-                            soclone += uv_subgraph['graph'].n_loops
-                        graphs.append((soclone, uv_structure['remaining_graph_id'], uv_structure['remaining_graph_loop_topo']))
-                    signature_offset += diag_info['uv'][0]['remaining_graph_loop_topo'].n_loops
+                                graphs.append((signature_offset, dg['id'], dg['loop_topo'])) # soclone
+                            #soclone += uv_subgraph['graph'].n_loops
+                            signature_offset += uv_subgraph['derived_graphs'][0]['loop_topo'].n_loops
+                        graphs.append((signature_offset, uv_structure['remaining_graph_id'], uv_structure['remaining_graph_loop_topo']))
+                    #signature_offset += diag_info['uv'][0]['remaining_graph_loop_topo'].n_loops
 
                 for signature_offset, graph_id, g in graphs:
                     signatures, n_props, energy_map, energies, constants, shift_map = [], [], [], [], [], []
@@ -1160,7 +1161,7 @@ CTable ltdtopo(0:{});
                         #))
                         pf = LTD.partial_fractioning.PartialFractioning(n_props, signatures,
                                                 name=str(diag_set['id']), shift_map=np.array(shift_map).T,
-                                                n_sg_loops=topo.topo.n_loops, ltd_index=len(cut['cuts']) - 1 + signature_offset,
+                                                n_sg_loops=topo.topo.n_loops, ltd_index=signature_offset,
                                                 progress_bar = progress_bar)
                         pf.shifts_to_externals() #shift_map=np.array(shift_map).T)
                         res = pf.to_FORM()
@@ -1185,7 +1186,7 @@ CTable ltdtopo(0:{});
 
         with open(pjoin(workspace, 'pftable_{}.h'.format(numerator_call)), 'w') as f:
             f.write("""
-Auto S invd, E, shift;
+Auto S invd, E, shift, ltd;
 S r, s;
 CF a, num, ncmd, conf1, ellipsoids, allenergies, replace, constants;
 NF energies;
@@ -1339,6 +1340,17 @@ CTable pfmap(0:{},0:{});
                     for uv_index, uv_structure in enumerate(diag_info['uv']):
                         forest_element = []
 
+                        # construct the map from the cmb/lmb to the forest basis
+                        forest_to_cb = []
+                        for lmb_index, r in enumerate(uv_structure['forest_to_cb_matrix']):
+                            if all(x == 0 for x in r):
+                                continue
+                            m = 'k{},{}'.format(lmb_index + 1, ''.join(('+' if a > 0 else '-') +
+                                    'ltd{}'.format(forest_index + 1) for forest_index, a in enumerate(r) if a != 0))
+                            forest_to_cb.append(m)
+                        if len(forest_to_cb) > 0:
+                            forest_element.append('forestmb({})'.format(','.join(forest_to_cb)))
+
                         diag_moms = ','.join(self.momenta_decomposition_to_string(lmm, False) for lmm in uv_structure['remaining_graph_loop_topo'].loop_momentum_map)
                         if diag_moms != '':
                             forest_element.append('diag({},{},{})'.format(diag_set['id'], uv_structure['remaining_graph_id'], diag_moms))
@@ -1477,7 +1489,7 @@ CTable pfmap(0:{},0:{});
 
                         conf.append('*'.join(forest_element))
 
-                    uv_forest.append('+'.join(conf))  
+                    uv_forest.append('+\n\t'.join(conf))
 
                 # construct the map from the lmb to the cmb
                 cmb_map = []
@@ -1557,7 +1569,7 @@ CTable pfmap(0:{},0:{});
         if len(mommap) > 0:
             self.replacement_rules = '*\n' + '*\n'.join(mommap)
 
-        self.configurations = (topo_map, uv_diagrams, uv_forest, '\n +'.join(configurations))
+        self.configurations = (topo_map, uv_diagrams, uv_forest, ' +'.join(configurations))
 
 
 class FORMSuperGraphIsomorphicList(list):

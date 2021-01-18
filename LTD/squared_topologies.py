@@ -110,7 +110,7 @@ class SquaredTopologyGenerator:
                         uv_limit['remaining_graph_id'] = graph_counter
                         graph_counter += 1
 
-                    del diag_info['graph']
+                    diag_info.pop('graph')
                     diag_info['uv'] = [{
                         'uv_subgraphs': uv_limit['uv_subgraphs'],
                         'uv_spinney': [[list(g), dod] for g, dod in uv_limit['spinney']],
@@ -192,19 +192,20 @@ class SquaredTopologyGenerator:
                 # construct a matrix from the cut basis to the loop momentum basis
                 # this is useful if the numerator is specified in the loop momentum basis
                 # the matrix will be padded with the loop momentum maps
-
-                # FIXME: make it global per CC!
                 cut_to_lmb = [ cut_edge['signature'][0] for cut_edge in c[:-1]]
 
                 loop_topos = []
                 for i, diag_info in enumerate(diag_set['diagram_info']):
                     for uv_structure in diag_info['uv']:
                         # create the LTD representation of the derived graph
+                        forest_to_cb = []
                         for uv_subgraph in uv_structure['uv_subgraphs']:
-                            for d in uv_subgraph['derived_graphs']:
+                            for di, d in enumerate(uv_subgraph['derived_graphs']):
                                 # the shift map cannot be constructed for UV counterterms of LTD subgraphs, so we keep the
                                 # original signature map
                                 (loop_mom_map, shift_map) = self.topo.build_proto_topology(d['graph'], c, skip_shift=True)
+                                if di == 0:
+                                    forest_to_cb.extend([x[0] for x in loop_mom_map])
 
                                 loop_topo = d['graph'].create_loop_topology(name + '_' + ''.join(cut_name) + '_' + str(i),
                                     # provide dummy external momenta
@@ -237,6 +238,7 @@ class SquaredTopologyGenerator:
 
                         # create the loop topo of the remaing graph
                         (loop_mom_map, shift_map) = self.topo.build_proto_topology(uv_structure['remaining_graph'], c, skip_shift=False)
+                        forest_to_cb.extend([x[0] for x in loop_mom_map])
 
                         if uv_structure['uv_spinney'] == []:
                             cut_to_lmb.extend([x[0] for x in loop_mom_map])
@@ -252,6 +254,11 @@ class SquaredTopologyGenerator:
                             check_external_momenta_names=False,
                             analytic_result=0)
                         uv_structure['remaining_graph_loop_topo'].external_kinematics = []
+
+                        # store the left inverse
+                        forest_to_cb_matrix = Matrix(forest_to_cb)
+                        forest_to_cb_matrix = forest_to_cb_matrix.T * (forest_to_cb_matrix * forest_to_cb_matrix.T)**-1
+                        uv_structure['forest_to_cb_matrix'] = forest_to_cb_matrix.tolist()
 
                     """
                     pprint(diag_info)
