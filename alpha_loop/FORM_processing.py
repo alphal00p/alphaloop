@@ -1074,7 +1074,7 @@ aGraph=%s;
 
                 res = '\n\t\t*'.join(['({})'.format(l) for l in res])
 
-                self.integrand_info['LTD'][diag_set['id']] = (energy_map, constants, loops, diag_set['id'])
+                self.integrand_info['LTD'][(numerator_call, diag_set['id'])] = (energy_map, constants, loops, diag_set['id'])
                 max_diag_id = max(max_diag_id, diag_set['id'])
                 integrand_body += 'Fill ltdtopo({}) = (-1)^{}*constants({})*\n\tellipsoids({})*\n\tallenergies({})*(\n\t\t{}\n);\n'.format(diag_set['id'],
                     loops, ','.join(c[0] for c in constants), ','.join(propagators), ','.join(energies), res)
@@ -1170,7 +1170,7 @@ CTable ltdtopo(0:{});
                             ','.join(c[0] for c in constants), ','.join(energies), resden, res)
 
                     topo_map += 'Fill pfmap({},{}) = diag({},{});\n'.format(*global_diag_id, *unique_pf[pf_sig])
-                    self.integrand_info['PF'][global_diag_id] = (energy_map, constants, diag_info['graph'].n_loops, unique_pf[pf_sig])
+                    self.integrand_info['PF'][(numerator_call, *global_diag_id)] = (energy_map, constants, diag_info['graph'].n_loops, unique_pf[pf_sig])
 
         with open(pjoin(workspace, 'pftable_{}.h'.format(numerator_call)), 'w') as f:
             f.write("""
@@ -2496,13 +2496,17 @@ class FORMSuperGraphList(list):
                             conf = list(conf_exp.finditer(conf_sec))[0].groups()[0].split(',')
                             conf_sec = conf_exp.sub('', conf_sec)
 
+                            if active_graph is None:
+                                # TODO: check if correct
+                                active_graph = graph[0]
+
                             denominator_mode = int(conf[0]) < 0
                             if denominator_mode:
-                                conf_id = (int(conf[1]), int(conf[2]))
-                                mom_map, constants, loops, orig_id = graph[0].integrand_info[itype][conf_id]
+                                conf_id = (i, int(conf[1]), int(conf[2]))
+                                mom_map, constants, loops, orig_id = active_graph.integrand_info[itype][conf_id]
                             elif itype == "LTD":
-                                conf_id = int(conf[0])
-                                mom_map, constants, loops, orig_id = graph[0].integrand_info['LTD'][conf_id]
+                                conf_id = (i, int(conf[0]))
+                                mom_map, constants, loops, orig_id = active_graph.integrand_info['LTD'][conf_id]
 
                             if denominator_mode or itype == "LTD":
                                 # parse the constants
