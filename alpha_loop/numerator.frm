@@ -121,7 +121,7 @@ Fill charges(-6) = -2/3; * t
 Fill charges(-11) = 1; * e
 
 S D, ep(:3);
-V p1,...,p40,k1,...,k40,c1,...,c40,ltd1,...,ltd40; * force this internal ordering in FORM
+V p1,...,p40,k1,...,k40,c1,...,c40,fmb1,...,fmb40; * force this internal ordering in FORM
 Auto V p,k,c;
 Auto S lm,ext;
 Auto I mu=D,s=D;
@@ -555,36 +555,6 @@ id UVRenormFINITE^n? = 1;
     #write<out_integrand_LTD_`SGID'.proto_c> "#0 due to epsilon pole selection\n"
 #endif
 
-#ifdef `INTEGRAND'
-    #if (`INTEGRAND' == "LTD") || (`INTEGRAND' == "both")
-        .sort
-        L FINTEGRANDLTD = F;
-        .sort
-
-        #include- ltdtable_`SGID'.h
-        .sort:load-ltd;
-        Hide F;
-
-        id conf(n?,n1?,?a) = conf(n,n1,?a)*ltdtopo(n);
-        id ltdtopo(n?) = 0; * unrecognized topology
-
-        id cmb(?a) = cmb(?a)*replace(?a);
-* gradually transform the basis to prevent term blow-up
-        #do i=1,1
-            id replace = 1;
-            if (count(replace,1)) redefine i "0";
-
-            AB+ cmb;
-            .sort:cmb-1;
-            Keep brackets; * make sure cmb is not replaced
-
-            id replace(p1?,p2?,?a) = replace_(p1,p2)*replace(?a);
-        #enddo
-        .sort
-        UnHide F;
-    #endif
-#endif
-
 * now extract the energy components of the LTD loop variables
 id k1?.k2? = g(k1, k2);
 repeat id conf(x?,?a,k1?,?b)*g(k1?,k2?) = conf(x,?a,k1,?b)*f(k1,k2);
@@ -610,38 +580,34 @@ id energy(?a) = energy(f(?a));
 if (count(energy,1) == 0) Multiply energy(f(c0)); * signal with c0 that we are dealing with the constant term
 .sort:energy-splitoff-3;
 
-
-*** NEW PART
-
-    id energy(f(?a)) = energy(?a);
-    chainout energy;
-    id energy(c0) = 1;
+id energy(f(?a)) = energy(?a);
+chainout energy;
+id energy(c0) = 1;
 
 * collect all the energies in the diagram
-    repeat id forestid(?a,p1?,p2?,?b) = forestid(?a,p1,0,p2,?b);
-    id forestid(?a,p1?) = forestid(?a,p1,0);
-    repeat id energy(c?)*forestid(?a,c?,n?,?b) = forestid(?a,c,n+1,?b);
+repeat id forestid(?a,p1?,p2?,?b) = forestid(?a,p1,0,p2,?b);
+id forestid(?a,p1?) = forestid(?a,p1,0);
+repeat id energy(c?)*forestid(?a,c?,n?,?b) = forestid(?a,c,n+1,?b);
 
-    if (count(energy,1));
-        Print "Energy left: %t";
-        exit "Error";
-    endif;
+if (count(energy,1));
+    Print "Energy left: %t";
+    exit "Error";
+endif;
 
-    repeat id cmb(?a)*forestid(?b) = f(forestid(?b,cmb(?a)))*cmb(?a);
-    id cmb(?a) = 1; * TODO: no longer needed?
-    id f(?a) = forestid(?a);
-    argtoextrasymbol tonumber,forestid,1;
-    #redefine oldextrasymbols "`extrasymbols_'"
+repeat id cmb(?a)*forestid(?b) = f(forestid(?b,cmb(?a)))*cmb(?a);
+id cmb(?a) = 1; * TODO: no longer needed?
+id f(?a) = forestid(?a);
+argtoextrasymbol tonumber,forestid,1;
+#redefine oldextrasymbols "`extrasymbols_'"
 
-    .sort:diag-1;
-    #redefine forestend "`extrasymbols_'"
-    #do ext={`oldextrasymbols'+1},`forestend'
-        L forest{`ext'-`oldextrasymbols'} = extrasymbol_(`ext');
-    #enddo
-    #define forestcount "{`forestend'-`oldextrasymbols'}"
+.sort:diag-1;
+#redefine forestend "`extrasymbols_'"
+#do ext={`oldextrasymbols'+1},`forestend'
+    L forest{`ext'-`oldextrasymbols'} = extrasymbol_(`ext');
+#enddo
+#define forestcount "{`forestend'-`oldextrasymbols'}"
 
-    id forestid(x1?,?a,x3?) = forestid(?a)*forest(x1)*x3*conf(-1,x1);
-
+id forestid(x1?,?a,x3?) = forestid(?a)*forest(x1)*x3*conf(-1,x1);
 
 * Create the local UV counterterm
 * TODO: create a new expr per UV subgraph as well since it gens many terms?
@@ -773,30 +739,89 @@ symmetrize energy;
 id energy(?a) = energy(f(?a));
 .sort:energy-splitoff-3;
 
+B energy,diag,cmb,forestmb;
+.sort:energy-splitoff-4;
+Keep brackets;
+
+id energy(f(?a)) = energy(?a);
+chainout energy;
+id energy(c0) = 1;
+
+* apply the transformation to the forest basis, only for the energies
+repeat id forestmb(p1?,p2?,p3?,p4?,?a) = forestmb(p1,p2)*forestmb(p3,p4,?a);
+repeat id forestmb(p?,p1?)*energy(p?) = forestmb(p,p1)*energy(p1);
+repeat id forestmb(p?,p1?)*diag(?c,p?,?d) = forestmb(p,p1)*diag(?c,p1,?d);
+id forestmb(?a) = 1;
+
+.sort
+Hide F;
 
 *********************************************
 * Construction of the integrand
 *********************************************
-#ifdef `INTEGRAND'
-    Hide F;
-    .sort
 
 #if (`INTEGRAND' == "LTD") || (`INTEGRAND' == "both")
-    id diag(?a) = 1;
-    id cmb(?a) = 1;
+    Hide forest1,...,forest`forestcount';
+
+* copy the forest since LTD and PF may map the diag calls differently
+* TODO: unify call
+    #do i=1,`forestcount'
+        L forestltd`i' = forest`i';
+    #enddo
+
+    .sort
+    #include- ltdtable_`SGID'.h
+
+* map all diagrams to their unique representative
+    id diag(x1?,x2?,?a) = diag(ltdmap(x1,x2),?a);
+    id diag(diag(?a),?b) = diag(?a,?b);
+
+* collect all the energies in the diagram
+    repeat id diag(?a,p1?,p2?,?b) = diag(?a,p1,0,p2,?b);
+    id diag(?a,p1?) = diag(?a,p1,0);
+
+    repeat id energy(k?)*diag(?a,k?,n?,?b) = diag(?a,k,n+1,?b);
+
+    if (count(energy,1));
+        Print "Energy left: %t";
+    endif;
+
+    if (count(cmb,1) == 0);
+        Print "FAIL: %t";
+    endif;
+
+    repeat id cmb(?a)*diag(?b) = f(diag(?b,cmb(?a)))*cmb(?a);
+    id f(?a) = diag(?a);
+    argtoextrasymbol tonumber,diag,1;
+    #redefine oldextrasymbols "`extrasymbols_'"
+
+    .sort:diag-1;
+    #redefine diagend "`extrasymbols_'"
+    #do ext={`oldextrasymbols'+1},`diagend'
+        L diag{`ext'-`oldextrasymbols'} = extrasymbol_(`ext');
+    #enddo
+    #define diagcount "{`diagend'-`oldextrasymbols'}"
+
+    id diag(x1?,x2?,?a,x3?) = diag(?a)*ltdtopo(x1,x2)*x3*conf(-1,x1,x2);
+    id cmb(?a) = replace_(?a);
+    .sort:ltd-splitoff;
+    Hide forestltd1,...,forestltd`forestcount';
 
 * transform the LTD energies back to normal energies
     id energy(f(?a)) = energy(?a);
     chainout energy;
     id energy(c0) = 1;
 
-    repeat id ltdcbtolmb(?a,c1?,x?,?b)*energy(c1?) = x*ltdcbtolmb(?a,c1,x,?b);
+    repeat id ltdcbtolmb(?a,fmb1?,x?,?b)*diag(fmb1?,n?,?c) = x^n*ltdcbtolmb(?a,fmb1,x,?b)*diag(?c);
+    id diag = 1;
     id ltdcbtolmb(?a) = 1;
 
-    if (count(energy,1));
+    if (count(diag,1));
         Print "Unsubstituted energies: %t";
         exit "Critical error";
     endif;
+
+    .sort:energy-replacement;
 
     id prop(?a) = prop(-1,?a);
     repeat id prop(x1?,x?,?a)*prop(x2?,x?,?a) = prop(x1+x2,x,?a);
@@ -822,42 +847,47 @@ id energy(?a) = energy(f(?a));
     id der = 1;
 
 * rewrite the propagators
-id energies(0) = 0;
-id prop(n?,x?,?a) = invdset[x]^(-n);
+    id energies(0) = 0;
+    id prop(n?,x?,?a) = invdset[x]^(-n);
 
 * set the ltd energies (including cut sign)
-id ltdenergy(?a) = replace_(?a);
+    id ltdenergy(?a) = replace_(?a);
 
+    argument ellipsoids;
+        id energies(0) = 0;
+    endargument;
 
-argument ellipsoids;
-    id energies(0) = 0;
-endargument;
+    .sort
+    UnHide forestltd1,...,forestltd`forestcount';
+    .sort:pf-num;
+    Drop diag1,...,diag`diagcount',forestltd1,...,forestltd`forestcount';
 
-.sort:integrand-ltd;
+* now add all LTD structures as a special conf
+    #if `diagcount' > 0
+        L FINTEGRANDLTD = F + <diag1*conf(-{1+`forestcount'})>+...+<diag`diagcount'*conf(-{`diagcount'+`forestcount'})> + <forestltd1*conf(-1)>+...+<forestltd`forestcount'*conf(-`forestcount')>;
+    #endif
 
-#if (`INTEGRAND' == "both")
-*    Hide FINTEGRANDLTD;
-#endif
+    id conf(x?)*conf(x1?{<0},?a) = conf(x,?a); *TODO: is this correct?
+
+* TODO: deprecated
+    #if (`SUMDIAGRAMSETS' == "onlysum")
+        id conf(x?{>=0},x1?,?a) = conf(1000 + x1);
+    #elseif (`SUMDIAGRAMSETS' == "both")
+        id conf(x?{>=0},x1?,?a) = conf(x,?a) + conf(1000 + x1);
+    #endif
+
+    .sort:integrand-ltd;
+    #if (`INTEGRAND' == "both")
+        Hide FINTEGRANDLTD;
+        UnHide forest1,...,forest`forestcount';
+        delete extrasymbols>`oldextrasymbols';
+    #endif
 #endif
 
 #if (`INTEGRAND' == "PF") || (`INTEGRAND' == "both")
     .sort
     #include- pftable_`SGID'.h
-
-    B energy,diag,cmb,forestmb;
     .sort:load-pf;
-    Keep brackets;
-
-    id energy(f(?a)) = energy(?a);
-    chainout energy;
-    id energy(c0) = 1;
-
-* apply the transformation to the forest basis,
-* only for the energies
-    repeat id forestmb(p1?,p2?,p3?,p4?,?a) = forestmb(p1,p2)*forestmb(p3,p4,?a);
-    repeat id forestmb(p?,p1?)*energy(p?) = forestmb(p,p1)*energy(p1);
-    repeat id forestmb(p?,p1?)*diag(?c,p?,?d) = forestmb(p,p1)*diag(?c,p1,?d);
-    id forestmb(?a) = 1;
 
 * map all diagrams to their unique representative
     id diag(x1?,x2?,?a) = diag(pfmap(x1,x2),?a);
@@ -949,119 +979,119 @@ endargument;
 #endif
 
 * fill in the shifts
-    id replace(?a) = replace_(?a);
-    id energy(p?) = penergy(p);
+id replace(?a) = replace_(?a);
+id energy(p?) = penergy(p);
+id energies(p?) = penergy(p);
+
+B+ penergy,spatial,energies,allenergies, ellipsoids, constants;
+.sort:func-prep;
+Keep brackets;
+
+argument ellipsoids;
     id energies(p?) = penergy(p);
+endargument;
 
-    B+ penergy,spatial,energies,allenergies, ellipsoids, constants;
-    .sort:func-prep;
-    Keep brackets;
+repeat id allenergies(p?,?a) = energync(p.p)*allenergies(?a);
+argument energync;
+    id p1?.p2? = spatial(p1, p2);
+endargument;
+chainin energync;
+id energync(?a)*allenergies = allenergies(?a);
+id allenergies(?a) = energies(?a);
 
-    argument ellipsoids;
-        id energies(p?) = penergy(p);
-    endargument;
+repeat id constants(p?,?a) = energync(p.p)*constants(?a);
+chainin energync;
+id energync(?a)*constants = constants(?a);
 
-    repeat id allenergies(p?,?a) = energync(p.p)*allenergies(?a);
-    argument energync;
-        id p1?.p2? = spatial(p1, p2);
-    endargument;
-    chainin energync;
-    id energync(?a)*allenergies = allenergies(?a);
-    id allenergies(?a) = energies(?a);
-
-    repeat id constants(p?,?a) = energync(p.p)*constants(?a);
-    chainin energync;
-    id energync(?a)*constants = constants(?a);
-
-    argument ellipsoids, constants;
-        id energy(p?) = penergy(p);
-    endargument;
+argument ellipsoids, constants;
+    id energy(p?) = penergy(p);
+endargument;
 
 * Convert the dot products and energies to a symbol
-    #$MAXK = `NFINALMOMENTA';
-    #$MAXP = `NINITIALMOMENTA';
-    #$OFFSET = 0;
-    #do i=1,`$MAXP'
+#$MAXK = `NFINALMOMENTA';
+#$MAXP = `NINITIALMOMENTA';
+#$OFFSET = 0;
+#do i=1,`$MAXP'
+    id penergy(p`i') = lm`$OFFSET';
+    argument energies, ellipsoids, constants;
         id penergy(p`i') = lm`$OFFSET';
+    endargument;
+    #$OFFSET = $OFFSET + 1;
+    #do j=`i',`$MAXP'
         argument energies, ellipsoids, constants;
-            id penergy(p`i') = lm`$OFFSET';
-        endargument;
-        #$OFFSET = $OFFSET + 1;
-        #do j=`i',`$MAXP'
-            argument energies, ellipsoids, constants;
-                id p`i'.p`j' = lm`$OFFSET';
-            endargument;
-            #$OFFSET = $OFFSET + 1;
-            id spatial(p`i', p`j') = lm`$OFFSET';
-            argument energies;
-                id spatial(p`i', p`j') = lm`$OFFSET';
-            endargument;
-            #$OFFSET = $OFFSET + 1;
-        #enddo
-    #enddo
-
-    #do i=1,`$MAXK'
-        id penergy(c`i') = lm`$OFFSET';
-        argument energies, ellipsoids, constants;
-            id penergy(c`i') = lm`$OFFSET';
-        endargument;
-        #$OFFSET = $OFFSET + 1;
-        #do j=1,`$MAXP'
-            argument energies, ellipsoids, constants;
-                id c`i'.p`j' = lm`$OFFSET';
-            endargument;
-            #$OFFSET = $OFFSET + 1;
-            id spatial(p`j', c`i') = lm`$OFFSET';
-            argument energies;
-                id spatial(p`j', c`i') = lm`$OFFSET';
-            endargument;
-            #$OFFSET = $OFFSET + 1;
-        #enddo
-
-        #do j=`i',`$MAXK'
-            argument energies, ellipsoids, constants;
-                id c`i'.c`j' = lm`$OFFSET';
-            endargument;
-            #$OFFSET = $OFFSET + 1;
-            id spatial(c`i', c`j') = lm`$OFFSET';
-            argument energies;
-                id spatial(c`i', c`j') = lm`$OFFSET';
-            endargument;
-            #$OFFSET = $OFFSET + 1;
-        #enddo
-    #enddo
-
-    .sort:conv-func;
-
-    #$OFFSET = 0;
-    #do i=1,`$MAXP'
-        #$OFFSET = $OFFSET + 1;
-        #do j=`i',`$MAXP'
             id p`i'.p`j' = lm`$OFFSET';
-            #$OFFSET = $OFFSET + 2;
-        #enddo
-    #enddo
-
-    #do i=1,`$MAXK'
+        endargument;
         #$OFFSET = $OFFSET + 1;
-        #do j=1,`$MAXP'
-            id c`i'.p`j' = lm`$OFFSET';
-            #$OFFSET = $OFFSET + 2;
-        #enddo
-
-        #do j=`i',`$MAXK'
-            id c`i'.c`j' = lm`$OFFSET';
-            #$OFFSET = $OFFSET + 2;
-        #enddo
+        id spatial(p`i', p`j') = lm`$OFFSET';
+        argument energies;
+            id spatial(p`i', p`j') = lm`$OFFSET';
+        endargument;
+        #$OFFSET = $OFFSET + 1;
     #enddo
-    .sort:conv-dots;
+#enddo
+
+#do i=1,`$MAXK'
+    id penergy(c`i') = lm`$OFFSET';
+    argument energies, ellipsoids, constants;
+        id penergy(c`i') = lm`$OFFSET';
+    endargument;
+    #$OFFSET = $OFFSET + 1;
+    #do j=1,`$MAXP'
+        argument energies, ellipsoids, constants;
+            id c`i'.p`j' = lm`$OFFSET';
+        endargument;
+        #$OFFSET = $OFFSET + 1;
+        id spatial(p`j', c`i') = lm`$OFFSET';
+        argument energies;
+            id spatial(p`j', c`i') = lm`$OFFSET';
+        endargument;
+        #$OFFSET = $OFFSET + 1;
+    #enddo
+
+    #do j=`i',`$MAXK'
+        argument energies, ellipsoids, constants;
+            id c`i'.c`j' = lm`$OFFSET';
+        endargument;
+        #$OFFSET = $OFFSET + 1;
+        id spatial(c`i', c`j') = lm`$OFFSET';
+        argument energies;
+            id spatial(c`i', c`j') = lm`$OFFSET';
+        endargument;
+        #$OFFSET = $OFFSET + 1;
+    #enddo
+#enddo
+
+.sort:conv-func;
+
+#$OFFSET = 0;
+#do i=1,`$MAXP'
+    #$OFFSET = $OFFSET + 1;
+    #do j=`i',`$MAXP'
+        id p`i'.p`j' = lm`$OFFSET';
+        #$OFFSET = $OFFSET + 2;
+    #enddo
+#enddo
+
+#do i=1,`$MAXK'
+    #$OFFSET = $OFFSET + 1;
+    #do j=1,`$MAXP'
+        id c`i'.p`j' = lm`$OFFSET';
+        #$OFFSET = $OFFSET + 2;
+    #enddo
+
+    #do j=`i',`$MAXK'
+        id c`i'.c`j' = lm`$OFFSET';
+        #$OFFSET = $OFFSET + 2;
+    #enddo
+#enddo
+.sort:conv-dots;
 
 * split off every energy configuration into a new expression
-    B+ conf;
-    .sort:conf-collect;
-    Keep brackets;
+B+ conf;
+.sort:conf-collect;
+Keep brackets;
 
-    #do INTEGRANDTYPE = {PF,LTD}
+#do INTEGRANDTYPE = {PF,LTD}
     #if (`INTEGRAND' == `INTEGRANDTYPE') || (`INTEGRAND' == "both")
         Hide;
         UNHide FINTEGRAND`INTEGRANDTYPE';
@@ -1084,11 +1114,7 @@ endargument;
             #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "#CONF\n%$", $conf;
             L FF`ext' = FINTEGRAND`INTEGRANDTYPE'[conf(`ext')];
 
-            #if (`INTEGRANDTYPE' == "PF")
-                $isdenominator = 0;
-            #else
-                $isdenominator = 1;
-            #endif
+            $isdenominator = 0;
             inside $conf;
                 if (match(conf(x?{<0},x1?,x2?))) $isdenominator = 1;
             endinside;
@@ -1133,8 +1159,6 @@ endargument;
         Drop FINTEGRAND`INTEGRANDTYPE';
         delete extrasymbols>`oldextrasymbols';
     #endif
-    #enddo
-    Unhide F;
-#endif
+#enddo
 
 .end

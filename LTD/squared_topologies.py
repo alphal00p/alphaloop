@@ -314,17 +314,8 @@ class SquaredTopologyGenerator:
 
                 diag_set['cb_to_lmb'] = [int(x) for x in lmb_to_cb_matrix]
 
-                """
-                diagram_sets.append({
-                    'id': diag_set['id'],
-                    'uv_spinney': diag_set['uv_spinney'],
-                    'diagram_info': loop_topos,
-                    'cb_to_lmb': [int(x) for x in lmb_to_cb_matrix]
-                })
-                """
-
-            from pprint import pprint
-            pprint(cut_info)
+            #from pprint import pprint
+            #pprint(cut_info)
 
             # TODO: fuse with cut_info['diagram_sets']
             #self.cut_diagrams.append(diagram_sets)
