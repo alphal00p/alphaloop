@@ -612,6 +612,10 @@ id forestid(x1?,?a,x3?) = forestid(?a)*forest(x1)*x3*conf(-1,x1);
 * Create the local UV counterterm
 * TODO: create a new expr per UV subgraph as well since it gens many terms?
 
+B+ subgraph;
+.sort:uv-subgraphs;
+Keep brackets;
+
 id subgraph(?a,uvconf(?b,x?)) = subgraph(?a,uvconf(?b,uvdiag(x)));
 * uvdiag is filled in from the table and yields a uvconf
 id subgraph(?a,uvconf(?b,uvconf(?c,x?))) = subgraph(?a,uvconf(?b,x));
@@ -659,7 +663,7 @@ repeat;
 
 * match the denominator structure to a diagram
         id uvprop(?a,m?) = uvprop(?a);
-        id t1?ts^n2? = tmp(t1,n2);
+        repeat id t1?ts^n2? = tmp(t1,n2);
         repeat id uvprop(k?,t1?,n1?)*uvprop(k?,t1?,n2?) = uvprop(k,t1,n1+n2); 
         repeat id uvprop(k?,t1?,n1?)*uvtopo(x?,x1?,?a)*tmp(t1?,n2?) = uvprop(k,n1 + n2)*uvtopo(x,x1*t1^n2,?a);
         id uvprop(k?,t1?ts,n?) = uvprop(k, n);
@@ -697,8 +701,9 @@ if (count(subgraph, 1));
     exit "Critical error";
 endif;
 
-id cmb(?a) = cmb(?a)*replace(?a);
+.sort
 
+id cmb(?a) = cmb(?a)*replace(?a);
 AB+ cmb;
 .sort
 Keep brackets;
@@ -748,13 +753,29 @@ chainout energy;
 id energy(c0) = 1;
 
 * apply the transformation to the forest basis, only for the energies
-repeat id forestmb(p1?,p2?,p3?,p4?,?a) = forestmb(p1,p2)*forestmb(p3,p4,?a);
-repeat id forestmb(p?,p1?)*energy(p?) = forestmb(p,p1)*energy(p1);
-repeat id forestmb(p?,p1?)*diag(?c,p?,?d) = forestmb(p,p1)*diag(?c,p1,?d);
-id forestmb(?a) = 1;
+B+ diag, energy, forestmb;
+Print +s;
+.sort:fmb-1;
+Keep brackets;
+id forestmb(?a) = replace_(?a);
 
-.sort
+.sort:fmb-2;
 Hide F;
+
+* collect all the energies in the diagram
+repeat id diag(?a,p1?,p2?,?b) = diag(?a,p1,0,p2,?b);
+id diag(?a,p1?) = diag(?a,p1,0);
+
+repeat id energy(k?)*diag(?a,k?,n?,?b) = diag(?a,k,n+1,?b);
+
+if (count(energy,1));
+    Print "Energy left: %t";
+endif;
+
+if (count(cmb,1) == 0);
+    Print "CMB missing: %t";
+endif;
+.sort
 
 *********************************************
 * Construction of the integrand
@@ -775,20 +796,6 @@ Hide F;
 * map all diagrams to their unique representative
     id diag(x1?,x2?,?a) = diag(ltdmap(x1,x2),?a);
     id diag(diag(?a),?b) = diag(?a,?b);
-
-* collect all the energies in the diagram
-    repeat id diag(?a,p1?,p2?,?b) = diag(?a,p1,0,p2,?b);
-    id diag(?a,p1?) = diag(?a,p1,0);
-
-    repeat id energy(k?)*diag(?a,k?,n?,?b) = diag(?a,k,n+1,?b);
-
-    if (count(energy,1));
-        Print "Energy left: %t";
-    endif;
-
-    if (count(cmb,1) == 0);
-        Print "FAIL: %t";
-    endif;
 
     repeat id cmb(?a)*diag(?b) = f(diag(?b,cmb(?a)))*cmb(?a);
     id f(?a) = diag(?a);
@@ -892,20 +899,6 @@ Hide F;
 * map all diagrams to their unique representative
     id diag(x1?,x2?,?a) = diag(pfmap(x1,x2),?a);
     id diag(diag(?a),?b) = diag(?a,?b);
-
-* collect all the energies in the diagram
-    repeat id diag(?a,p1?,p2?,?b) = diag(?a,p1,0,p2,?b);
-    id diag(?a,p1?) = diag(?a,p1,0);
-
-    repeat id energy(k?)*diag(?a,k?,n?,?b) = diag(?a,k,n+1,?b);
-
-    if (count(energy,1));
-        Print "Energy left: %t";
-    endif;
-
-    if (count(cmb,1) == 0);
-        Print "FAIL: %t";
-    endif;
 
     repeat id cmb(?a)*diag(?b) = f(diag(?b,cmb(?a)))*cmb(?a);
     id f(?a) = diag(?a);

@@ -1394,8 +1394,7 @@ CTable pfmap(0:{},0:{});
                         for lmb_index, r in enumerate(uv_structure['forest_to_cb_matrix']):
                             if all(x == 0 for x in r):
                                 continue
-                            m = 'k{},{}'.format(lmb_index + 1, ''.join(('+' if a > 0 else '-') +
-                                    'fmb{}'.format(forest_index + 1) for forest_index, a in enumerate(r) if a != 0))
+                            m = 'k{},{}'.format(lmb_index + 1, ''.join('+{}*fmb{}'.format(a,forest_index + 1) for forest_index, a in enumerate(r) if a != 0))
                             forest_to_cb.append(m)
                         if len(forest_to_cb) > 0:
                             forest_element.append('forestmb({})'.format(','.join(forest_to_cb)))
