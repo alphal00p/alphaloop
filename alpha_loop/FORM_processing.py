@@ -2367,6 +2367,7 @@ class FORMSuperGraphList(list):
             shutil.copy(pjoin(plugin_path,"multiplicity.frm"),pjoin(selected_workspace,'multiplicity.frm'))
             shutil.copy(pjoin(plugin_path,"numerator.frm"),pjoin(selected_workspace,'numerator.frm'))
             shutil.copy(pjoin(plugin_path,"tensorreduce.frm"),pjoin(selected_workspace,'tensorreduce.frm'))
+            shutil.copy(pjoin(plugin_path,"Gstring.prc"),pjoin(selected_workspace,'Gstring.prc'))
             shutil.copy(pjoin(plugin_path,"integrateduv.frm"),pjoin(selected_workspace,'integrateduv.frm'))
             shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(selected_workspace,'diacolor.h'))
             FORM_source = pjoin(selected_workspace,'multiplicity.frm')
@@ -2713,6 +2714,7 @@ void %(header)sevaluate_LTD_f128(__complex128 lm[], __complex128 params[], int d
         if workspace is not None:
             shutil.copy(pjoin(plugin_path,"numerator.frm"),pjoin(workspace,'numerator.frm'))
             shutil.copy(pjoin(plugin_path,"tensorreduce.frm"),pjoin(workspace,'tensorreduce.frm'))
+            shutil.copy(pjoin(plugin_path,"Gstring.prc"),pjoin(workspace,'Gstring.prc'))
             shutil.copy(pjoin(plugin_path,"integrateduv.frm"),pjoin(workspace,'integrateduv.frm'))
             shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(workspace,'diacolor.h'))
 

@@ -132,10 +132,11 @@ Set dirac: s1,...,s40;
 Set lorentz: mu1,...,mu40;
 Set lorentzdummy: mud1,...,mud40;
 
-CF gamma, vector,g(s),delta(s),T, counter,color, prop, replace;
+CF gamma, gammatrace(c), GGstring, NN, vector,g(s),delta(s),T, counter,color, prop, replace;
 CF f, vx, vxs(s), vec, vec1;
 CF subs, configurations, conf, cmb, diag, der, energy, spatial(s);
 CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, integrateduv;
+CT gammatracetensor(c);
 
 S UVRenormFINITE;
 S ICT, mUV, logmu, logmUV, logmt, mi1L1, alarmMi1L1;
@@ -287,6 +288,17 @@ id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (1/3) * (-1) * i_ * d_(colA[idx1],
 id D^n? = rat(D^n, 1);
 .sort:feynman-rules-vertices-1;
 
+* construct gamma string, drop odd-length gamma traces and symmetrize the trace
+repeat id gamma(s1?,?a,s2?)*gamma(s2?,?b,s3?) = gamma(s1,?a,?b,s3);
+id gamma(s1?,?a,s1?) = gammatrace(?a)*delta_(mod_(nargs_(?a), 2));
+
+if (count(gamma, 1));
+    Print "Unsubstituted gamma string: %t";
+    exit "Critical error";
+endif;
+
+.sort:gamma-filter;
+
 * TODO: use momentum conservation to reduce the number of different terms
 id vx(`GLU', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = i_ * gs * cOlf(colA[idx1], colA[idx2], colA[idx3]) *(
     - d_(lorentz[idx1], lorentz[idx3]) * p1(lorentz[idx2])
@@ -371,40 +383,19 @@ EndArgument;
 * set the SU(3) values
 id cOlNR = 3;
 
-* construct gamma string
-repeat id gamma(s1?,?a,s2?)*gamma(s2?,?b,s3?) = gamma(s1,?a,?b,s3);
-
 Multiply counter(1);
-repeat id gamma(mu?,?a,p?,?b,mu?)*counter(i?) = vec(p,lorentzdummy[i])*gamma(mu,?a,lorentzdummy[i],?b,mu)*counter(i+1);
+repeat id gammatrace(?a,p?,?b)*counter(i?) = vec(p,lorentzdummy[i])*gammatrace(?a,lorentzdummy[i],?b)*counter(i+1);
 id counter(n?) = 1;
 
-#do i=1,10
-    id once gamma(mu?,?a,mu?) = g_(`i',?a);
-#enddo
-
+id gammatrace(?a) = gammatracetensor(?a);
 id vec(p?,mu?) = p(mu);
-.sort
+.sort:gamma-to-tensor;
 
-#do i=1,10
-    tracen `i';
-    .sort:trace-`i';
-#enddo
-
-if (count(gamma, 1));
-    Print "Unsubstituted gamma string: %t";
-    exit "Critical error";
-endif;
-
-id D^n? = rat(D^n, 1);
+* at this stage all indices should be inside the gammatracetensor only
+#call Gstring(gammatracetensor,1)
 .sort:gamma-traces;
 
 id color(x?) = x;
-
-* Set all external momenta on-shell
-* FIXME: incorrect for massive externals
-#do i=1,10
-*    id p`i'.p`i' = 0;
-#enddo
 
 id pzero = 0; * Substitute the 0-momentum by 0
 .sort:feynman-rules-final;
