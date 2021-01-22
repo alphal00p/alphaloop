@@ -36,6 +36,9 @@ drop sF1, sF2;
 * Apply multiplicity factor
 L isoCHECK = isoF * F1 - F2;
 .sort
+* sort again to work around a tform bug having to do with normalization of the rat
+.sort
+
 #if termsin(isoCHECK) != 0
 	print +s isoCHECK;
 	.sort;

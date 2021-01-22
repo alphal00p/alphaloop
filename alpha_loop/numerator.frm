@@ -389,10 +389,12 @@ id counter(n?) = 1;
 
 id gammatrace(?a) = gammatracetensor(?a);
 id vec(p?,mu?) = p(mu);
+Multiply replace_(D, 4-2*ep);
 .sort:gamma-to-tensor;
 
 * at this stage all indices should be inside the gammatracetensor only
 #call Gstring(gammatracetensor,1)
+Multiply replace_(D, 4-2*ep);
 .sort:gamma-traces;
 
 id color(x?) = x;
