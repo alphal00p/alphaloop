@@ -2200,174 +2200,176 @@ class FORMSuperGraphList(list):
             # Now adust the string momenta of edges and nodes accordingly.            
             g.impose_signatures()
 
-
         if first is not None:
             logger.info("Taking first {} supergraphs.".format(first))
             full_graph_list = full_graph_list[:first]
 
-        if not cuts is None:
-            graph_filtered = {'DUMP':[], 'KEEP':[]}
-            with progressbar.ProgressBar(prefix='Filter SG with valid cuts: {variables.keep}\u2713  {variables.drop}\u2717 : ', max_value=len(full_graph_list),variables={'keep': '0', 'drop':'0'}) as bar:
-                for sgid, graph in enumerate(full_graph_list):
-                    if graph.filter_valid_cuts(cuts):
-                        graph_filtered["KEEP"] += [graph]
-                    else: 
-                        graph_filtered["DUMP"] += [graph]
-                    bar.update(sgid+1)
-                    bar.update(keep=len(graph_filtered['KEEP']))
-                    bar.update(drop=len(graph_filtered['DUMP']))
-            #for k,v in graph_filtered.items():
-            #    print(k,":")
-            #    print("\t",np.array([g.name for g in v]))
-            full_graph_list[:] = graph_filtered['KEEP']
-            logger.info("\033[1mRemoved {} graphs with no valid cuts\033[0m".format(len(graph_filtered['DUMP'])))
-
-        iso_groups = []
-
-        import time
         import sympy as sp
         # group all isomorphic graphs
+        iso_groups = []
         n_externals = max(len([1 for e in graph.edges.values() if e['type']=='in' or e['type']=='out']) for graph in full_graph_list)
         if model is None:
             pdg_primes = {pdg : sp.prime(i + n_externals + 1) for i, pdg in enumerate([1,2,3,4,5,6,11,12,13,21,22,25,82])}
         else:
             pdg_primes = {pdg : sp.prime(i + n_externals + 1) for i, pdg in enumerate([p['pdg_code'] for p in model['particles']])}
         
-        for graph in full_graph_list:
-            g = igraph.Graph()
-            g.add_vertices(len(graph.nodes))
-            undirected_edges = set()
+        with progressbar.ProgressBar(prefix='Group ISO graphs: {variables.graph_nr} -> {variables.iso_size} : ', max_value=len(full_graph_list),variables={'graph_nr':'0', 'iso_size':'0'}) as bar:
+            for g_id, graph in enumerate(full_graph_list):
+                g = igraph.Graph()
+                g.add_vertices(len(graph.nodes))
+                undirected_edges = set()
 
-            for e in graph.edges.values():
-                undirected_edges.add(tuple(sorted(e['vertices'])))
-
-            edge_colors = []
-            ext_id = 0
-            for ue in undirected_edges:
-                e_color = 1
                 for e in graph.edges.values():
-                    if tuple(sorted(e['vertices'])) == ue:
-                        #TODO: Reserve the first #externals primes for external edges
-                        # with the current implementation it still allows swap 
-                        # of final/initial state edges
-                        if e['type'] == 'in':
-                            ext_id += 1
-                            e_color *= sp.prime(ext_id)
-                        else:
-                            e_color *= pdg_primes[abs(e['PDG'])]
-                edge_colors.append(e_color)
-                g.add_edges([tuple(sorted([x - 1 for x in ue]))])
-            
-            for (ref_graph, ref_colors), graph_list in iso_groups:
-                v_maps = ref_graph.get_isomorphisms_vf2(g, edge_color1=ref_colors, edge_color2=edge_colors)
-                if v_maps != [] and merge_isomorphic_graphs:
-                    v_map = v_maps[0]
-                    if verbose: 
-                        logger.info("\033[1m{} <- {}\033[0m".format(graph_list[0].name,graph.name))
-                    
-                    # map the signature from the new graph to the reference graph using the vertex map
-                    edge_map = [next(re.index for re in ref_graph.es if (re.source, re.target) == (v_map[e.source], v_map[e.target]) or \
-                        (re.source, re.target) == (v_map[e.target], v_map[e.source])) for e in g.es]
+                    undirected_edges.add(tuple(sorted(e['vertices'])))
 
-                    # go through all loop momenta and make the matrix
-                    # and the shifts
-                    mat = []
-                    shifts = []
-                    selected_edges = []
-                    n_loops = len(graph_list[0].edges) - len(graph_list[0].nodes) + 1
-                    for loop_var in range(n_loops):
-                        # find the edge that has (+-)k`loop_var`
-                        # TODO: Fix for higher degeneracy
-                        orig_edge = next(ee for ee in graph_list[0].edges.values() if all(s == 0 for s in ee['signature'][1]) and \
-                            sum(abs(s) for s in ee['signature'][0]) == 1 and ee['signature'][0][loop_var] != 0)
-                        orig_edge_in_ref = next(ee for ee in ref_graph.es if tuple(sorted(orig_edge['vertices'])) == (ee.source + 1, ee.target + 1))
-
-                        # now get the corresponding edge(s) in the new graph
-                        en = g.es[edge_map.index(orig_edge_in_ref.index)]
-                        new_edges = [ee for ee in graph.edges.values() \
-                            if (ee['vertices'] == (en.source + 1, en.target + 1) or ee['vertices'] == (en.target + 1, en.source + 1)) and abs(ee['PDG'])== abs(orig_edge['PDG']) and ee not in selected_edges]
-                       
-                        # in the case of a multi-edge, we simply take the one with the shortest momentum string
-                        new_edge = sorted(new_edges, key=lambda x: len(x['momentum']))[0]
-                        selected_edges.append(new_edge)
-                        new_edge['name'] += 'LMB'
-                        
-                        orientation_factor = 1
-                        if model.get_particle(abs(new_edge['PDG']))['self_antipart']:
-                            if v_map[new_edge['vertices'][0]-1]+1 != orig_edge['vertices'][0]:
-                                orientation_factor = -1
-                        else:
-                            match_direction = v_map[new_edge['vertices'][0]-1]+1 == orig_edge['vertices'][0]
-                            match_particle = new_edge['PDG'] == orig_edge['PDG']
-                            if not match_direction:# != match_particle:
-                                orientation_factor = -1
-
-                        shifts.append([-orientation_factor * s * orig_edge['signature'][0][loop_var] for s in new_edge['signature'][1]])
-                        mat.append([orientation_factor * s * orig_edge['signature'][0][loop_var] for s in new_edge['signature'][0]])
-
-                    # Map all signatures and momentum labels of the new graph
-                    shifts = np.array(shifts).T
-                    mat = np.array(np.matrix(mat).T.I)
+                edge_colors = []
+                ext_id = 0
+                for ue in undirected_edges:
+                    e_color = 1
                     for e in graph.edges.values():
-                        # skip external edges
-                        if e["type"] != "virtual":
-                            continue
+                        if tuple(sorted(e['vertices'])) == ue:
+                            #TODO: Reserve the first #externals primes for external edges
+                            # with the current implementation it still allows swap 
+                            # of final/initial state edges
+                            if e['type'] == 'in':
+                                ext_id += 1
+                                e_color *= sp.prime(ext_id)
+                            else:
+                                e_color *= pdg_primes[abs(e['PDG'])]
+                    edge_colors.append(e_color)
+                    g.add_edges([tuple(sorted([x - 1 for x in ue]))])
 
-                        new_sig = mat.dot(np.array(e['signature'][0]))
-                        new_shift = e['signature'][1]+shifts.dot(new_sig)
-                        
-                        e['signature'] = (list(new_sig), list(new_shift))
-                        e['momentum'] = graph.momenta_decomposition_to_string(e['signature'], set_outgoing_equal_to_incoming=False)
-                    
-                    if verbose:
-                        parser = re.compile(r'(^|\+|-)(k|p)(\d*)')
-                        n_incoming = sum([1 for edge in graph.edges.values() if edge['type'] == 'in'])
-                        n_loops = len(graph.edges) - len(graph.nodes) + 1
-                        old_momenta =['k%d'%(i+1) for i in range(n_loops)] 
-                        new_momenta =[] 
-                        for momentum in old_momenta:
-                            parsed = [e.groups() for e in parser.finditer(momentum)]
-                            signature = ([0 for _ in range(n_loops)], [0 for _ in range(n_incoming)])
-                            for pa in parsed:
-                                if pa[1] == 'p':
-                                    signature[1][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
-                                else:
-                                    signature[0][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
-                            new_sig = mat.dot(np.array(signature[0]))
-                            new_shift = signature[1]+shifts.dot(new_sig)
-                            new_momenta.append(graph.momenta_decomposition_to_string((list(new_sig), list(new_shift)), set_outgoing_equal_to_incoming=False))
-                        logger.info("Map: {} -> {}".format(tuple(old_momenta), tuple(new_momenta)))
-                    
-                    
-                    # Map vertices
-                    for v in graph.nodes.values():
-                        if v['vertex_id']<0:
-                            continue
-                        # skip external edge        
-                        n_incoming = sum([1 for edge in graph.edges.values() if edge['type'] == 'in'])
-                        n_loops = len(graph.edges) - len(graph.nodes) + 1
+                for (ref_graph, ref_colors), graph_list in iso_groups:
+                    v_maps = ref_graph.get_isomorphisms_vf2(g, edge_color1=ref_colors, edge_color2=edge_colors)
+                    if v_maps != [] and merge_isomorphic_graphs:
+                        v_map = v_maps[0]
+                        if verbose: 
+                            logger.info("\033[1m{} <- {}\033[0m".format(graph_list[0].name,graph.name))
 
-                        # parse momentum
-                        parser = re.compile(r'(^|\+|-)(k|p)(\d*)')
-                        new_momenta = []
-                        for momentum in v['momenta']:
-                            parsed = [e.groups() for e in parser.finditer(momentum)]
-                            signature = ([0 for _ in range(n_loops)], [0 for _ in range(n_incoming)])
-                            for pa in parsed:
-                                if pa[1] == 'p':
-                                    signature[1][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
-                                else:
-                                    signature[0][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
-                            new_sig = mat.dot(np.array(signature[0]))
-                            new_shift = signature[1]+shifts.dot(new_sig)
-                            new_momenta.append(graph.momenta_decomposition_to_string((list(new_sig), list(new_shift)), set_outgoing_equal_to_incoming=False))
-                        v['momenta'] = tuple(new_momenta)
-                    graph_list.append(graph)
-                    break
-            else:
-                iso_groups.append(((g, edge_colors), [graph]))
+                        # map the signature from the new graph to the reference graph using the vertex map
+                        edge_map = [next(re.index for re in ref_graph.es if (re.source, re.target) == (v_map[e.source], v_map[e.target]) or \
+                            (re.source, re.target) == (v_map[e.target], v_map[e.source])) for e in g.es]
+
+                        # go through all loop momenta and make the matrix
+                        # and the shifts
+                        mat = []
+                        shifts = []
+                        selected_edges = []
+                        n_loops = len(graph_list[0].edges) - len(graph_list[0].nodes) + 1
+                        for loop_var in range(n_loops):
+                            # find the edge that has (+-)k`loop_var`
+                            # TODO: Fix for higher degeneracy
+                            orig_edge = next(ee for ee in graph_list[0].edges.values() if all(s == 0 for s in ee['signature'][1]) and \
+                                sum(abs(s) for s in ee['signature'][0]) == 1 and ee['signature'][0][loop_var] != 0)
+                            orig_edge_in_ref = next(ee for ee in ref_graph.es if tuple(sorted(orig_edge['vertices'])) == (ee.source + 1, ee.target + 1))
+
+                            # now get the corresponding edge(s) in the new graph
+                            en = g.es[edge_map.index(orig_edge_in_ref.index)]
+                            new_edges = [ee for ee in graph.edges.values() \
+                                if (ee['vertices'] == (en.source + 1, en.target + 1) or ee['vertices'] == (en.target + 1, en.source + 1)) and abs(ee['PDG'])== abs(orig_edge['PDG']) and ee not in selected_edges]
+
+                            # in the case of a multi-edge, we simply take the one with the shortest momentum string
+                            new_edge = sorted(new_edges, key=lambda x: len(x['momentum']))[0]
+                            selected_edges.append(new_edge)
+                            new_edge['name'] += 'LMB'
+
+                            orientation_factor = 1
+                            if model.get_particle(abs(new_edge['PDG']))['self_antipart']:
+                                if v_map[new_edge['vertices'][0]-1]+1 != orig_edge['vertices'][0]:
+                                    orientation_factor = -1
+                            else:
+                                match_direction = v_map[new_edge['vertices'][0]-1]+1 == orig_edge['vertices'][0]
+                                match_particle = new_edge['PDG'] == orig_edge['PDG']
+                                if not match_direction:# != match_particle:
+                                    orientation_factor = -1
+
+                            shifts.append([-orientation_factor * s * orig_edge['signature'][0][loop_var] for s in new_edge['signature'][1]])
+                            mat.append([orientation_factor * s * orig_edge['signature'][0][loop_var] for s in new_edge['signature'][0]])
+
+                        # Map all signatures and momentum labels of the new graph
+                        shifts = np.array(shifts).T
+                        mat = np.array(np.matrix(mat).T.I)
+                        for e in graph.edges.values():
+                            # skip external edges
+                            if e["type"] != "virtual":
+                                continue
+
+                            new_sig = mat.dot(np.array(e['signature'][0]))
+                            new_shift = e['signature'][1]+shifts.dot(new_sig)
+
+                            e['signature'] = (list(new_sig), list(new_shift))
+                            e['momentum'] = graph.momenta_decomposition_to_string(e['signature'], set_outgoing_equal_to_incoming=False)
+
+                        if verbose:
+                            parser = re.compile(r'(^|\+|-)(k|p)(\d*)')
+                            n_incoming = sum([1 for edge in graph.edges.values() if edge['type'] == 'in'])
+                            n_loops = len(graph.edges) - len(graph.nodes) + 1
+                            old_momenta =['k%d'%(i+1) for i in range(n_loops)] 
+                            new_momenta =[] 
+                            for momentum in old_momenta:
+                                parsed = [e.groups() for e in parser.finditer(momentum)]
+                                signature = ([0 for _ in range(n_loops)], [0 for _ in range(n_incoming)])
+                                for pa in parsed:
+                                    if pa[1] == 'p':
+                                        signature[1][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
+                                    else:
+                                        signature[0][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
+                                new_sig = mat.dot(np.array(signature[0]))
+                                new_shift = signature[1]+shifts.dot(new_sig)
+                                new_momenta.append(graph.momenta_decomposition_to_string((list(new_sig), list(new_shift)), set_outgoing_equal_to_incoming=False))
+                            logger.info("Map: {} -> {}".format(tuple(old_momenta), tuple(new_momenta)))
+
+
+                        # Map vertices
+                        for v in graph.nodes.values():
+                            if v['vertex_id']<0:
+                                continue
+                            # skip external edge        
+                            n_incoming = sum([1 for edge in graph.edges.values() if edge['type'] == 'in'])
+                            n_loops = len(graph.edges) - len(graph.nodes) + 1
+
+                            # parse momentum
+                            parser = re.compile(r'(^|\+|-)(k|p)(\d*)')
+                            new_momenta = []
+                            for momentum in v['momenta']:
+                                parsed = [e.groups() for e in parser.finditer(momentum)]
+                                signature = ([0 for _ in range(n_loops)], [0 for _ in range(n_incoming)])
+                                for pa in parsed:
+                                    if pa[1] == 'p':
+                                        signature[1][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
+                                    else:
+                                        signature[0][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
+                                new_sig = mat.dot(np.array(signature[0]))
+                                new_shift = signature[1]+shifts.dot(new_sig)
+                                new_momenta.append(graph.momenta_decomposition_to_string((list(new_sig), list(new_shift)), set_outgoing_equal_to_incoming=False))
+                            v['momenta'] = tuple(new_momenta)
+                        graph_list.append(graph)
+                        break
+                else:
+                    iso_groups.append(((g, edge_colors), [graph]))
+                
+                bar.update(g_id+1)
+                bar.update(graph_nr=g_id+1)
+                bar.update(iso_size=len(iso_groups))
 
         logger.info("\033[1m{} unique supergraphs\033[m".format(len(iso_groups)))
+        if not cuts is None:
+            graph_filtered = {'DUMP':[], 'KEEP':[]}
+            with progressbar.ProgressBar(prefix='Filter SG with valid cuts: {variables.keep}\u2713  {variables.drop}\u2717 : ', max_value=len(iso_groups),variables={'keep': '0', 'drop':'0'}) as bar:
+                for sgid, (refs, graphs) in enumerate(iso_groups):
+                    if graphs[0].filter_valid_cuts(cuts):
+                        graph_filtered["KEEP"] += [(refs,graphs)]
+                    else: 
+                        graph_filtered["DUMP"] += [(refs,graphs)]
+                    bar.update(sgid+1)
+                    bar.update(keep=len(graph_filtered['KEEP']))
+                    bar.update(drop=len(graph_filtered['DUMP']))
+            #for k,v in graph_filtered.items():
+            #    print(k,":")
+            #    print("\t",np.array([g.name for g in v]))
+            #full_graph_list[:] = graph_filtered['KEEP']
+            iso_groups[:] = graph_filtered['KEEP']
+            logger.info("\033[1mRemoved {} graphs with no valid cuts\033[0m".format(len(graph_filtered['DUMP'])))
 
         FORM_iso_sg_list = FORMSuperGraphList([FORMSuperGraphIsomorphicList(iso_group) for _, iso_group in iso_groups], name=p.stem)
 
