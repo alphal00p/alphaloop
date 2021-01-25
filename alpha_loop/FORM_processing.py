@@ -2076,13 +2076,12 @@ class FORMSuperGraphList(list):
         sys.path.insert(0, str(p.parent))
 
         # compile the file first before importing it
+        # with the same optimization flag as MG5
         # this avoids that memory isn't freed after compiling
         # when using the __import__ directly
         logger.info("Compiling imported supergraphs.")
-        py_compile.compile(dict_file_path)
-
+        subprocess.run([sys.executable, '-O', '-m', p.stem], cwd=p.parent)
         m = __import__(p.stem)
-
         logger.info("Imported {} supergraphs.".format(len(m.graphs)))
 
         # Filter specific graphs by name 
