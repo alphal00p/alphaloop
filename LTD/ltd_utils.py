@@ -217,6 +217,35 @@ class TopologyGenerator(object):
                 accum.pop()
                 excluded_edges = excluded_edges[:-ei]
 
+    def generate_spanning_tree(self):
+        if len(self.edge_map_lin) == 0:
+            return ()
+
+        unprocessed_edges = list(enumerate(self.edges))
+        vertices = {self.edges[0][0]}
+        edges = []
+
+        i = 0
+        while len(unprocessed_edges) > 0:
+            if i >= len(unprocessed_edges):
+                i = 0
+
+            e = unprocessed_edges[i][1]
+            v1_in = e[0] in vertices
+            v2_in = e[1] in vertices
+            if v1_in and not v2_in or not v1_in and v2_in:
+                vertices.add(e[0])
+                vertices.add(e[1])
+                edges.append(unprocessed_edges[i][0])
+                unprocessed_edges.pop(i)
+            elif v1_in and v2_in:
+                unprocessed_edges.pop(i)
+
+            i += 1
+
+        return tuple(edges)
+
+
     def find_path(self, start, dest, excluding=set()):
         # find all paths from source to dest
         loop = start == dest
@@ -741,7 +770,8 @@ class TopologyGenerator(object):
 
     def generate_momentum_flow(self, loop_momenta=None, sink=None):
         if loop_momenta is None:
-            loop_momenta = self.loop_momentum_bases()[0]
+            st = self.generate_spanning_tree()
+            loop_momenta = [i for i in range(len(self.edge_map_lin)) if i not in st]
         else:
             self.n_loops = len(loop_momenta)
             if isinstance(loop_momenta[0], str):
