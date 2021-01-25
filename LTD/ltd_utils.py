@@ -217,7 +217,7 @@ class TopologyGenerator(object):
                 accum.pop()
                 excluded_edges = excluded_edges[:-ei]
 
-    def find_path(self, start, dest):
+    def find_path(self, start, dest, excluding=set()):
         # find all paths from source to dest
         loop = start == dest
         start_check = 1 if loop else 0
@@ -233,7 +233,7 @@ class TopologyGenerator(object):
                     continue
                 last_vertex = self.edges[p[-1][0]][1] if p[-1][1] else self.edges[p[-1][0]][0]
                 for i, x in enumerate(self.edges):
-                    if all(i != pp[0] for pp in p[start_check:]):
+                    if i not in excluding and all(i != pp[0] for pp in p[start_check:]):
                         if loop and i == start:
                             # if we need a loop, we need to enter from the right direction
                             if x[0] == last_vertex:
@@ -754,11 +754,8 @@ class TopologyGenerator(object):
 
         flows = []
         for l in loop_momenta:
-            paths = self.find_path(l, l)
-            # make sure other loop momenta propagators are not in the path
-            paths = [x for x in paths if all(
-                y[0] not in loop_momenta for y in x[1:-1])]
-            # TODO: take shortest?
+            paths = self.find_path(l, l, excluding={lm for lm in loop_momenta if lm != l})
+            assert(len(paths) == 1)
             flows.append(paths[0][:-1])
 
         # now route the external loop_momenta to the sink
@@ -773,9 +770,7 @@ class TopologyGenerator(object):
         for i, e in enumerate(self.ext):
             if e == sink:
                 continue
-            paths = self.find_path(e, sink)
-            paths = [x for x in paths if all(
-                y[0] not in loop_momenta for y in x[1:-1])]
+            paths = self.find_path(e, sink, excluding=set(loop_momenta))
             assert(len(paths) == 1)
             ext_flows.append((i, paths[0]))
 
