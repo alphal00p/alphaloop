@@ -124,7 +124,11 @@ S D, ep(:3);
 V p1,...,p40,k1,...,k40,c1,...,c40; * force this internal ordering in FORM
 Auto V p,k,c;
 Auto S lm,ext;
-Auto I mu=D,s=D;
+#ifdef `FOURDIM'
+    Auto I mu=4,s=4;
+#else
+    Auto I mu=D,s=D;
+#endif
 Symbol ge, gs, ghhh, type, in, out, virtual;
 Auto S x, idx, t, n;
 
@@ -390,11 +394,33 @@ id counter(n?) = 1;
 id gammatrace(?a) = gammatracetensor(?a);
 id vec(p?,mu?) = p(mu);
 Multiply replace_(D, 4-2*ep);
-.sort:gamma-to-tensor;
 
+#ifdef `FOURDIM'
+    .sort
+    Polyratfun;
+    id rat(x1?,x2?) = x1/x2;
+#endif
+
+B+ gammatracetensor;
+.sort:gamma-to-tensor;
+Keep brackets;
+
+#ifdef `FOURDIM'
+    #do i=1,10
+        id once gammatracetensor(?a) = g_(`i',?a);
+        trace4 `i';
+        B+ gammatracetensor;
+        .sort:trace-`i';
+        Keep brackets;
+    #enddo
+    .sort
+    Polyratfun rat;
+#else
 * at this stage all indices should be inside the gammatracetensor only
-#call Gstring(gammatracetensor,1)
-Multiply replace_(D, 4-2*ep);
+    #call Gstring(gammatracetensor,1)
+    Multiply replace_(D, 4-2*ep);
+#endif
+
 .sort:gamma-traces;
 
 id color(x?) = x;

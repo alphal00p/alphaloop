@@ -1735,6 +1735,7 @@ class FORMSuperGraphIsomorphicList(list):
         FORM_vars = {}
         FORM_vars['SGID'] = iso_id
         FORM_vars['ID0'] = 0
+        FORM_vars['FOURDIM'] = 1
         for i_graph, g in enumerate(self):
             mapped = g.generate_numerator_form_input('', only_algebra=True)
             with open(pjoin(workspace,'iso_check_{}_{}_{}.frm'.format(iso_id, 0, i_graph+1)), 'w') as f:
