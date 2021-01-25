@@ -19,6 +19,8 @@ import sys
 import subprocess
 import argparse
 import shutil
+import py_compile
+
 pjoin = os.path.join
 
 if __name__ == "__main__":
@@ -2072,6 +2074,13 @@ class FORMSuperGraphList(list):
         from pathlib import Path
         p = Path(dict_file_path)
         sys.path.insert(0, str(p.parent))
+
+        # compile the file first before importing it
+        # this avoids that memory isn't freed after compiling
+        # when using the __import__ directly
+        logger.info("Compiling imported supergraphs.")
+        py_compile.compile(dict_file_path)
+
         m = __import__(p.stem)
 
         logger.info("Imported {} supergraphs.".format(len(m.graphs)))
