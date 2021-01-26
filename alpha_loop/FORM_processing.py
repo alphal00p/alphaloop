@@ -1728,50 +1728,45 @@ class FORMSuperGraphIsomorphicList(list):
         else:
             return to_dump
     
-    def multiplicity_factor(self,iso_id, workspace, form_source):
+    def multiplicity_factor(self, iso_id, workspace, form_source):
+        if len(self) == 1:
+            return (self, 1)
+
         output_match = re.compile(r'isoF=(.*?);')
-        multiplicity = 0
         reference = self[0].generate_numerator_form_input('', only_algebra=True)
         FORM_vars = {}
         FORM_vars['SGID'] = iso_id
-        FORM_vars['ID0'] = 0
+        FORM_vars['NUMD'] = len(self)
         FORM_vars['FOURDIM'] = 1
-        for i_graph, g in enumerate(self):
-            mapped = g.generate_numerator_form_input('', only_algebra=True)
-            with open(pjoin(workspace,'iso_check_{}_{}_{}.frm'.format(iso_id, 0, i_graph+1)), 'w') as f:
-                FORM_vars['IDn'] = i_graph+1
-                f.write("L F1 = %s;\n"%reference)
-                f.write("L F2 = %s;\n"%mapped)
+
+        with open(pjoin(workspace,'iso_check_{}.frm'.format(iso_id)), 'w') as f:
+            for i_graph, g in enumerate(self):
+                mapped = g.generate_numerator_form_input('', only_algebra=True)
+                f.write("L F{} = {};\n".format(i_graph + 1, mapped))
             
-            cmd = ' '.join([
-                FORM_processing_options["tFORM_path"],
-                ]+
-                ['-w%d' % FORM_processing_options['cores']]+
-                [ '-D %s=%s'%(k,v) for k,v in FORM_vars.items() ]+
-                [ form_source, ]
-            )
-            with open(pjoin(workspace,'run_iso_checks.exe'), 'a') as f:
-                f.write(cmd+'\n')
-            #misc.sprint(cmd)
-            #misc.sprint(workspace)
-            r = subprocess.run(cmd,
-            shell=True,
-            cwd=workspace,
-            capture_output=True)
-            if r.returncode != 0:
-                raise FormProcessingError("FORM processing failed with error:\n%s"%(r.stdout.decode('UTF-8')))
+        cmd = ' '.join([
+            FORM_processing_options["FORM_path"],
+            ]+
+            [ '-D %s=%s'%(k,v) for k,v in FORM_vars.items() ]+
+            [ form_source, ]
+        )
 
-            output = r.stdout.decode('UTF-8').replace(' ','').replace('\n','')
-            factor = re.sub(r'rat\(([-0-9]+),([-0-9]+)\)', r'(\1)/(\2)', output_match.findall(output)[0])
-            with open(pjoin(workspace,'run_iso_checks.exe'), 'a') as f:
-                f.write('result: %s'%factor+'\n')
-            if "rat" in factor:
-                raise FormProcessingError("Multiplicity not found: {} / {} is not rational (iso_check_%(SGID)d_%(ID0)d_%(IDn)d)".format(self[0].name,g.name )%FORM_vars)
-            else:
-                multiplicity += eval(factor)
+        r = subprocess.run(cmd, shell=True, cwd=workspace, capture_output=True)
+        if r.returncode != 0:
+            raise FormProcessingError("FORM processing failed with error:\n%s"%(r.stdout.decode('UTF-8')))
 
-            #logger.info("{} = {} * {}".format(self[0].name, factor, g.name ))
-        return multiplicity    
+        output = r.stdout.decode('UTF-8').replace(' ','').replace('\n','')
+        factor = re.sub(r'rat\(([-0-9]+),([-0-9]+)\)', r'(\1)/(\2)', output_match.findall(output)[0])
+        if "rat" in factor:
+            raise FormProcessingError("Multiplicity not found: {} / {} is not rational (iso_check_%(SGID)d)".format(self[0].name,g.name )%FORM_vars)
+
+        multiplicity = 1 + eval(factor)
+
+        #logger.info("{} = {} * {}".format(self[0].name, factor, g.name ))
+        return (self, multiplicity)
+
+    def multiplicity_factor_helper(args):
+        return args[0].multiplicity_factor(*args[1:])
 
     def generate_squared_topology_files(self, root_output_path, model, process_definition, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None, workspace=None, bar=None,
             integrand_type=None):
@@ -2383,28 +2378,43 @@ class FORMSuperGraphList(list):
             shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(selected_workspace,'diacolor.h'))
             FORM_source = pjoin(selected_workspace,'multiplicity.frm')
 
+            if FORM_processing_options["cores"] == 1:
+                graph_it = map(FORMSuperGraphIsomorphicList.multiplicity_factor_helper, 
+                    (list((iso_graphs, iso_id, selected_workspace, FORM_source))
+                    for iso_id, iso_graphs in enumerate(FORM_iso_sg_list)))
+            else:
+                pool = multiprocessing.Pool(processes=FORM_processing_options["cores"])
+                graph_it = pool.imap_unordered(FORMSuperGraphIsomorphicList.multiplicity_factor_helper, 
+                    (list((iso_graphs, iso_id, selected_workspace, FORM_source))
+                    for iso_id, iso_graphs in enumerate(FORM_iso_sg_list)))
+
             with progressbar.ProgressBar(
-                prefix = 'Processing Isomorphic sets (ISO #{variables.iso_id}/%d, Zeros: {variables.zero_multiplicity_count})'%len(iso_groups),
+                prefix = 'Processing Isomorphic sets (ISO #{variables.processed}/%d, Zeros: {variables.zero_multiplicity_count})'%len(iso_groups),
                 max_value=len(iso_groups),
-                variables = {'iso_id' : '0', 'zero_multiplicity_count' : '0'}
+                variables = {'processed' : '0', 'zero_multiplicity_count' : '0'}
                 ) as bar:
             
                 zero_multiplicity_count = 0
-                for iso_id, iso_graphs in enumerate(FORM_iso_sg_list):
-                    bar.update(iso_id='%d'%iso_id, zero_multiplicity_count='%d'%zero_multiplicity_count)
-                    multiplicity = iso_graphs.multiplicity_factor(iso_id, selected_workspace, FORM_source)
+                processed_graphs = 0
+
+                for iso_graphs, multiplicity in graph_it:
+                    processed_graphs += 1
+                    bar.update(processed='%d'%processed_graphs, zero_multiplicity_count='%d'%zero_multiplicity_count)
                     if multiplicity == 0:
                         zero_multiplicity_count += 1
                         iso_graphs[:] = []
                     else:
                         iso_graphs[:] = iso_graphs[:1]
                         iso_graphs[0].multiplicity = multiplicity
-                    bar.update(iso_id + 1)
+                    bar.update(processed_graphs)
                 bar.update(zero_multiplicity_count='%d'%zero_multiplicity_count)
 
                 for iso_id in reversed(range(len(FORM_iso_sg_list))):
                     if FORM_iso_sg_list[iso_id] == []:
                         del FORM_iso_sg_list[iso_id]
+
+            if FORM_processing_options["cores"] > 1:
+                pool.close()
                 
             if zero_multiplicity_count > 0 :
                 logger.info("%d isomorphic sets have 0 multiplicity -> they are dropped!"%zero_multiplicity_count)

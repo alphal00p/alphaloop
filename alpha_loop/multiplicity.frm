@@ -5,9 +5,22 @@ CF dotp;
 #include numerator.frm # setup
 
 * Load the diagrams
-#include iso_check_`SGID'_`ID0'_`IDn'.frm
+#include iso_check_`SGID'.frm
+
+.sort
+Drop F1,...,F`NUMD';
+L F = F1 + x * (F2+...+F`NUMD');
+
 * Do algebra
 #include numerator.frm # feynman-rules
+
+B+ x;
+.sort
+Drop F;
+
+L F1 = F[1];
+L F2 = F[x];
+.sort
 
 ********************************
 * Check multiplicity 
