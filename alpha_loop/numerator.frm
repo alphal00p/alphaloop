@@ -207,6 +207,11 @@ id prop(`PSI', virtual, p?, idx1?, idx2?) = -i_;
 id prop(`PSI', in, p?, idx1?) = 1;
 id prop(`PSI', out, p?, idx1?) = 1;
 
+if (count(prop, 1));
+    Print "Unsubstituted propagator: %t";
+    exit "Critical error";
+endif;
+
 .sort:feynman-rules-edges;
 
 * vertices
@@ -304,13 +309,22 @@ endif;
 .sort:gamma-filter;
 
 * TODO: use momentum conservation to reduce the number of different terms
-id vx(`GLU', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = i_ * gs * cOlf(colA[idx1], colA[idx2], colA[idx3]) *(
+#do i=1,1
+    id once ifnomatch->skip vx(`GLU', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = i_ * gs * cOlf(colA[idx1], colA[idx2], colA[idx3]) *(
     - d_(lorentz[idx1], lorentz[idx3]) * p1(lorentz[idx2])
     + d_(lorentz[idx1], lorentz[idx2]) * p1(lorentz[idx3])
     + d_(lorentz[idx2], lorentz[idx3]) * p2(lorentz[idx1])
     - d_(lorentz[idx1], lorentz[idx2]) * p2(lorentz[idx3])
     - d_(lorentz[idx2], lorentz[idx3]) * p3(lorentz[idx1])
     + d_(lorentz[idx1], lorentz[idx3]) * p3(lorentz[idx2]));
+
+    redefine i "0";
+    label skip;
+
+    B+ vx;
+    .sort:3g;
+    Keep brackets;
+#enddo
 
 * For the quartic gluon vertex we need an extra dummy index
 Multiply counter(1);
@@ -332,8 +346,8 @@ repeat id vx(`H', `GLU', `GLU', `GLU', `GLU', p5?, p1?, p2?, p3?, p4?, idx5?, id
 );
 id counter(x?) = 1;
 
-if (count(vx, 1, prop, 1));
-    Print "Unsubstituted propagator or vertex: %t";
+if (count(vx, 1));
+    Print "Unsubstituted vertex: %t";
     exit "Critical error";
 endif;
 
