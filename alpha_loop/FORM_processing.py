@@ -2179,7 +2179,7 @@ class FORMSuperGraphList(list):
                     # should already have been aligned at this stage.
                     flipped_part = model.get_particle(g.edges[edge_key]['PDG'])
                     if flipped_part.is_fermion():
-                        raise FormProcessingError("A *fermionic* repeated edge with oppoosite signatures was found. This should happen for bosons only.")
+                        raise FormProcessingError("A *fermionic* repeated edge with opposite signatures was found. This should happen for bosons only.")
 
                     g.edges[edge_key]['PDG'] = flipped_part.get_anti_pdg_code()
                     g.edges[edge_key]['signature'] = [[-s for s in sp] for sp in g.edges[edge_key]['signature']]
@@ -2429,6 +2429,13 @@ class FORMSuperGraphList(list):
         for FORM_iso_sg in FORM_iso_sg_list:
             FORM_iso_sg[0].generate_additional_LMBs()
 
+        # Export the drawings corresponding to each ISO supergraphs
+        for i_graph, super_graphs in enumerate(FORM_iso_sg_list):
+            super_graphs[0].draw(model, pjoin(workspace, '../../Drawings'), FORM_id=i_graph)
+            # Draw supergraphs for additional LMBs
+            if isinstance(super_graphs[0].additional_lmbs,list):
+                for i_lmb,_,_,sg in super_graphs[0].additional_lmbs:
+                    sg.draw(model, pjoin(workspace, '../../Drawings'), FORM_id=i_graph, lmb_id=i_lmb)
         return FORM_iso_sg_list
 
     def to_dict(self, file_path):
