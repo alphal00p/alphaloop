@@ -1301,7 +1301,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
         FORM_workspace = pjoin(self.dir_path, 'FORM', 'workspace')
         
-        if self.alphaLoop_options['checkpoint_lvl'] < 1 or not os.path.isdir(FORM_workspace):
+        if self.alphaLoop_options['checkpoint_lvl'] < 1 or not os.path.isfile(self.checkpoint[0]):
             Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
             super_graph_list = FORM_processing.FORMSuperGraphList.from_dict(
                 self.qgraf_output, merge_isomorphic_graphs=True, 
