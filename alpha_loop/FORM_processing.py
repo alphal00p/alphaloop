@@ -264,7 +264,7 @@ class FORMSuperGraph(object):
         valid_cut = False
         for ci, cut in enumerate(cuts):
             cut_colors += [cut[0]] * cut[1]
-            if cut[0] == 'any':
+            if cut[0] == 'any' or None in cut[0]:
                 n_optional += cut[1]
                 take_cuts += [cut_edges[ci]+[None]] * cut[1]
             else:
@@ -289,7 +289,7 @@ class FORMSuperGraph(object):
             # Check valid color cuts
             ec = copy.deepcopy(edge_colors)
             for ce, cc in zip(cut_edges,cut_colors):
-                if cc == 'any':
+                if cc == 'any' or None in cc:
                     continue
                 for color in cc:
                     if color in ec[ce]:

@@ -1296,7 +1296,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
         final_state_particle_ids = [ abs(pdg) for pdg in self.alphaLoop_options['_jet_PDGs']]
         if self.alphaLoop_options['qgraf_cut_filter']:
-            cuts = self.get_cuts(representative_proc, final_state_particle_ids=final_state_particle_ids)
+            cuts = self.get_cuts(representative_proc, final_state_particle_ids=final_state_particle_ids+[None])
         else:
             cuts = None
 
