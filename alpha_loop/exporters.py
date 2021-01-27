@@ -15,6 +15,8 @@ import aloha
 import shutil
 import copy
 import subprocess
+import pickle
+import time
 
 import aloha.create_aloha as create_aloha
 
@@ -1245,6 +1247,10 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         self.qgraf_raw_output = pjoin(self.dir_path,'qgraf','output.py')
         self.qgraf_output = pjoin(self.dir_path,'qgraf','all_QG_supergraphs.py')
 
+        #Checkpoints 
+        self.checkpoints_path = pjoin(self.dir_path,'checkpoints')
+        self.checkpoint = [pjoin(self.checkpoints_path, name) for name in ['FORM_iso_sq_list']] 
+
         logger.info("Writing output of hardcoded QGRAF generation to '%s'"%self.dir_path)
 
         # Extract process information
@@ -1254,9 +1260,10 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             representative_proc = self.proc_def
 
         # Generate all supergraphs using QGRAF
-        self.build_output_directory()
-        getattr(self,"build_qgraf_%s"%self.alphaLoop_options['qgraf_template_model'])(representative_proc)
-        self.standalone_qgraf_file()
+        if self.alphaLoop_options['checkpoint_lvl'] < 1 or not os.path.isfile(self.qgraf_output):
+            self.build_output_directory()
+            getattr(self,"build_qgraf_%s"%self.alphaLoop_options['qgraf_template_model'])(representative_proc)
+            self.standalone_qgraf_file()
 
         # Process supergraph numerators with FORM and output result in the process output.
         write_dir=pjoin(self.dir_path, 'Source', 'MODEL')
@@ -1293,11 +1300,18 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             cuts = None
 
         FORM_workspace = pjoin(self.dir_path, 'FORM', 'workspace')
-        Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
-        super_graph_list = FORM_processing.FORMSuperGraphList.from_dict(
-            self.qgraf_output, merge_isomorphic_graphs=True, 
-            model=self.model, workspace=FORM_workspace,cuts=cuts)
         
+        if self.alphaLoop_options['checkpoint_lvl'] < 1 or not os.path.isdir(FORM_workspace):
+            Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
+            super_graph_list = FORM_processing.FORMSuperGraphList.from_dict(
+                self.qgraf_output, merge_isomorphic_graphs=True, 
+                model=self.model, workspace=FORM_workspace, cuts=cuts)
+            pickle.dump(super_graph_list, open(self.checkpoint[0],'wb'))
+            logger.info("\033[1:32mFirst Checkpoint!\033[0m")
+        else:
+            logger.info("\033[1:32mRecovering from first checkpoint!\033[0m")
+            super_graph_list = pickle.load(open(self.checkpoint[0],'rb'))
+
         # Add phase
         for graphs in super_graph_list:
             for g in graphs:
@@ -1545,6 +1559,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
     def build_output_directory(self):
 
         Path(self.dir_path).mkdir(parents=True, exist_ok=True)
+        Path(pjoin(self.dir_path,'checkpoints')).mkdir(parents=True, exist_ok=True)
         Path(pjoin(self.dir_path,'Rust_inputs')).mkdir(parents=True, exist_ok=True)
         Path(pjoin(self.dir_path,'Cards')).mkdir(parents=True, exist_ok=True)
         # TODO add param_card in Source
