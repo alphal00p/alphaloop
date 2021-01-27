@@ -1294,8 +1294,9 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         # Assign the name of the model to be qgraf name, as it is useful for deciding between SM and HEFT renormalisation
         computed_model.set('name',self.alphaLoop_options['qgraf_model'])
 
+        final_state_particle_ids = [ abs(pdg) for pdg in self.alphaLoop_options['_jet_PDGs']]
         if self.alphaLoop_options['qgraf_cut_filter']:
-            cuts = self.get_cuts(representative_proc)
+            cuts = self.get_cuts(representative_proc, final_state_particle_ids=final_state_particle_ids)
         else:
             cuts = None
 
@@ -1364,12 +1365,13 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
         form_processor.compile(pjoin(self.dir_path,'FORM'))
 
-    def get_cuts(self, representative_process):
+    def get_cuts(self, representative_process, final_state_particle_ids='any'):
         cuts=[]
         additional_loops = len(representative_process['perturbation_couplings'])
         for pdgs in self.final_states:
             cuts += [([abs(pdg) for pdg in pdgs],1)]
-        cuts += [('any', additional_loops )]
+        #cuts += [('any', additional_loops )]
+        cuts += [(final_state_particle_ids, additional_loops )]
         return cuts
 
     def build_qgraf_epem(self, representative_process):
