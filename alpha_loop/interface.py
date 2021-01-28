@@ -370,8 +370,8 @@ utils.bcolors.RED,utils.bcolors.ENDC
             except ValueError:
                 raise alphaLoopInvalidCmd("Specified value for 'n_rust_inputs_to_generate' should be an integer, not '%s'."%value)
         elif key == 'checkpoint_lvl':
-            if not value in [str(opt_n) for opt_n in range(2)]:
-                raise alphaLoopInvalidCmd("alphaLoop option 'checkpoint_lvl' should be between 0 and 1, not %s"%value)
+            if not value in [str(opt_n) for opt_n in range(3)]:
+                raise alphaLoopInvalidCmd("alphaLoop option 'checkpoint_lvl' should be between 0 and 2, not %s"%value)
             self.alphaLoop_options['checkpoint_lvl'] = int(value)
         else:
             raise alphaLoopInvalidCmd("Unrecognized alphaLoop option: %s"%key)
