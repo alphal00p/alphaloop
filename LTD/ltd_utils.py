@@ -841,40 +841,56 @@ class TopologyGenerator(object):
 
     def evaluate_residues(self, allowed_systems, close_contour):
         residues = []
-        for sigmas in itertools.product(*([[1, -1]]*self.n_loops)):
-            for allowed_system in allowed_systems:
-                residue = self.get_thetas_for_residue(
-                    sigmas, allowed_system, close_contour)
-                residues += [residue]
+
+        for allowed_system in allowed_systems:
+            thetas = self.get_thetas_for_residue(allowed_system, close_contour)
+
+            if thetas == []:
+                continue
+
+            # determine the sigma that makes all thetas positive
+            sigmas = [0]*self.n_loops
+            for i in range(self.n_loops):
+                theta_sign = [t[i] for t in thetas if t[i] != 0.]
+                assert(len(set(theta_sign)) == 1)
+                sigmas[i] = int(theta_sign[0])
+
+            thetas = [[1.0 if tt == -1. else tt for tt in t] for t in thetas]
+
+            # close_contour is a list, 0 means contour closed on lower half plane, 1 upper half plane for every int variable
+            contour_sign = numpy.prod([-1 for i in close_contour if i == 0])
+            cut_struct_sign = numpy.prod(sigmas)
+            det_sign = numpy.linalg.det(allowed_system[2])
+            residue = [[allowed_system[0], tuple(sigmas), det_sign*cut_struct_sign*contour_sign]] + [thetas]
+            residues.append(residue)
+
         residues.sort()
         return residues
 
-    def get_thetas_for_residue(self, sigmas, allowed_system, close_contour):
-        # close_contour is a list, 0 means contour closed on lower half plane, 1 upper half plane for every int variable
-        contour_sign = numpy.prod([-1 for i in close_contour if i == 0])
-        cut_struct_sign = numpy.prod(sigmas)
-        det_sign = numpy.linalg.det(allowed_system[2])
-        residue = [[allowed_system[0], sigmas, det_sign*cut_struct_sign*contour_sign]]
+    def get_thetas_for_residue(self, allowed_system, close_contour):
         thetas = []
         for n_iter in range(self.n_loops):
-            theta = [0 for i in range(self.n_loops)]
+            theta = [0. for i in range(self.n_loops)]
             sub_matrix = numpy.array(
                 [[allowed_system[2][i][j] for j in range(n_iter+1)] for i in range(n_iter+1)])
             if n_iter == 0:
-                theta[allowed_system[1][n_iter]] = 1. / \
-                    numpy.linalg.det(sub_matrix) * \
-                    sigmas[allowed_system[1][n_iter]]
+                theta[allowed_system[1][n_iter]] = (-1.)**close_contour[n_iter] / numpy.linalg.det(sub_matrix)
+
+                # check for inconsistent thetas that will always cancel
+                if any(t[allowed_system[1][n_iter]] * theta[allowed_system[1][n_iter]] < 0. for t in thetas):
+                    return []
             else:
                 for r in range(n_iter+1):
                     subsub_matrix = numpy.array([[allowed_system[2][i][j] for j in range(
                         n_iter)] for i in range(n_iter+1) if i != r])
                     theta[allowed_system[1][r]] = (-1.)**(n_iter+r)*numpy.linalg.det(
-                        subsub_matrix)/numpy.linalg.det(sub_matrix)
-                    theta[allowed_system[1][r]] *= sigmas[allowed_system[1][r]]
-            theta = [th*(-1.)**close_contour[n_iter] for th in theta]
+                        subsub_matrix)/numpy.linalg.det(sub_matrix) * (-1.)**close_contour[n_iter]
+
+                    if any(t[allowed_system[1][r]] * theta[allowed_system[1][r]] < 0. for t in thetas):
+                        return []
+
             thetas += [theta]
-        residue += [thetas]
-        return residue
+        return thetas
 
     def evaluate_thetas(self, residues):
         evaluated_theta_resides = []
@@ -956,11 +972,10 @@ class TopologyGenerator(object):
         allowed_systems = self.find_allowed_systems(
             momentum_bases, signature_matrix)
         residues = self.evaluate_residues(allowed_systems, contour_closure)
-        residues = self.evaluate_thetas(residues)
-        residues = self.remove_cancelling_residues(residues)
 
         # generate the cut structure
         cut_stucture = []
+        assert(len(residues) == len(momentum_bases))
         for residue, momentum_basis in zip(residues, momentum_bases):
             cut_struct_iter = iter(residue[0][1])
             cut_stucture += [[next(cut_struct_iter)
