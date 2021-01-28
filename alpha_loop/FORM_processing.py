@@ -2384,7 +2384,7 @@ class FORMSuperGraphList(list):
                     for iso_id, iso_graphs in enumerate(FORM_iso_sg_list)))
             else:
                 pool = multiprocessing.Pool(processes=FORM_processing_options["cores"])
-                graph_it = pool.imap_unordered(FORMSuperGraphIsomorphicList.multiplicity_factor_helper, 
+                graph_it = pool.imap(FORMSuperGraphIsomorphicList.multiplicity_factor_helper, 
                     (list((iso_graphs, iso_id, selected_workspace, FORM_source))
                     for iso_id, iso_graphs in enumerate(FORM_iso_sg_list)))
 
@@ -2397,7 +2397,9 @@ class FORMSuperGraphList(list):
                 zero_multiplicity_count = 0
                 processed_graphs = 0
 
-                for iso_graphs, multiplicity in graph_it:
+                for iso_graphs,(isogs, multiplicity) in zip(FORM_iso_sg_list, graph_it):
+                    if iso_graphs[0].name != isogs[0].name:
+                        raise FormProcessingError("Failed to assign the multiplicity factor to the correct graph!")
                     processed_graphs += 1
                     bar.update(processed='%d'%processed_graphs, zero_multiplicity_count='%d'%zero_multiplicity_count)
                     if multiplicity == 0:
