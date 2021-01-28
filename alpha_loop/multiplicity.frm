@@ -26,10 +26,12 @@ L F2 = F[x];
 * Check multiplicity 
 ********************************
 * Dot product to symbols
-id k1?.k2? = dotp(k1*k2);
+#redefine oldextrasymbols "`extrasymbols_'"
+id k1?.k2? = dotp(k1.k2);
 argtoextrasymbol dotp;
 id dotp(x?) = x;
 .sort
+Hide F1, F2;
 
 * Infer multiplicity factor
 L sF1 = firstterm_(F1);
@@ -53,7 +55,10 @@ L isoCHECK = isoF * F1 - F2;
 .sort
 
 #if termsin(isoCHECK) != 0
-	print +s isoCHECK;
+	Multiply replace_(<Z{`oldextrasymbols'+1}_,extrasymbol_({`oldextrasymbols'+1})>,...,<Z`extrasymbols_'_,extrasymbol_(`extrasymbols_')>);
+	.sort
+
+	print +s isoCHECK, isoF;
 	.sort;
 	exit "ISO CHECK FAIL: multiplicity factor not found";
 #endif
