@@ -1737,7 +1737,7 @@ class FORMSuperGraphIsomorphicList(list):
         FORM_vars = {}
         FORM_vars['SGID'] = iso_id
         FORM_vars['NUMD'] = len(self)
-        #FORM_vars['FOURDIM'] = 1 # Use D dimension for the trace will trace4 is fixed
+        FORM_vars['FOURDIM'] = 1 
 
         with open(pjoin(workspace,'iso_check_{}.frm'.format(iso_id)), 'w') as f:
             for i_graph, g in enumerate(self):
