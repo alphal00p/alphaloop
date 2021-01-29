@@ -124,7 +124,11 @@ S D, ep(:3);
 V p1,...,p40,k1,...,k40,c1,...,c40,fmb1,...,fmb40; * force this internal ordering in FORM
 Auto V p,k,c;
 Auto S lm,ext;
-Auto I mu=D,s=D;
+#ifdef `FOURDIM'
+    Auto I mu=4,s=4;
+#else
+    Auto I mu=D,s=D;
+#endif
 Symbol ge, gs, ghhh, type, in, out, virtual;
 Auto S x, idx, t, n;
 
@@ -132,10 +136,11 @@ Set dirac: s1,...,s40;
 Set lorentz: mu1,...,mu40;
 Set lorentzdummy: mud1,...,mud40;
 
-CF gamma, vector,g(s),delta(s),T, counter,color, prop, replace;
+CF gamma, gammatrace(c), GGstring, NN, vector,g(s),delta(s),T, counter,color, prop, replace;
 CF f, vx, vxs(s), vec, vec1;
 CF subs, configurations, conf, cmb, forestmb, diag, forestid, der, energy, spatial(s);
 CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, integrateduv;
+CT gammatracetensor(c);
 
 S UVRenormFINITE;
 S ICT, mUV, logmu, logmUV, logmt, mi1L1, alarmMi1L1;
@@ -201,6 +206,11 @@ id prop(`H', out, p?, idx1?) = 1;
 id prop(`PSI', virtual, p?, idx1?, idx2?) = -i_;
 id prop(`PSI', in, p?, idx1?) = 1;
 id prop(`PSI', out, p?, idx1?) = 1;
+
+if (count(prop, 1));
+    Print "Unsubstituted propagator: %t";
+    exit "Critical error";
+endif;
 
 .sort:feynman-rules-edges;
 
@@ -287,14 +297,34 @@ id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (1/3) * (-1) * i_ * d_(colA[idx1],
 id D^n? = rat(D^n, 1);
 .sort:feynman-rules-vertices-1;
 
+* construct gamma string, drop odd-length gamma traces and symmetrize the trace
+repeat id gamma(s1?,?a,s2?)*gamma(s2?,?b,s3?) = gamma(s1,?a,?b,s3);
+id gamma(s1?,?a,s1?) = gammatrace(?a)*delta_(mod_(nargs_(?a), 2));
+
+if (count(gamma, 1));
+    Print "Unsubstituted gamma string: %t";
+    exit "Critical error";
+endif;
+
+.sort:gamma-filter;
+
 * TODO: use momentum conservation to reduce the number of different terms
-id vx(`GLU', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = i_ * gs * cOlf(colA[idx1], colA[idx2], colA[idx3]) *(
+#do i=1,1
+    id once ifnomatch->skip vx(`GLU', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = i_ * gs * cOlf(colA[idx1], colA[idx2], colA[idx3]) *(
     - d_(lorentz[idx1], lorentz[idx3]) * p1(lorentz[idx2])
     + d_(lorentz[idx1], lorentz[idx2]) * p1(lorentz[idx3])
     + d_(lorentz[idx2], lorentz[idx3]) * p2(lorentz[idx1])
     - d_(lorentz[idx1], lorentz[idx2]) * p2(lorentz[idx3])
     - d_(lorentz[idx2], lorentz[idx3]) * p3(lorentz[idx1])
     + d_(lorentz[idx1], lorentz[idx3]) * p3(lorentz[idx2]));
+
+    redefine i "0";
+    label skip;
+
+    B+ vx;
+    .sort:3g;
+    Keep brackets;
+#enddo
 
 * For the quartic gluon vertex we need an extra dummy index
 Multiply counter(1);
@@ -316,8 +346,8 @@ repeat id vx(`H', `GLU', `GLU', `GLU', `GLU', p5?, p1?, p2?, p3?, p4?, idx5?, id
 );
 id counter(x?) = 1;
 
-if (count(vx, 1, prop, 1));
-    Print "Unsubstituted propagator or vertex: %t";
+if (count(vx, 1));
+    Print "Unsubstituted vertex: %t";
     exit "Critical error";
 endif;
 
@@ -371,40 +401,43 @@ EndArgument;
 * set the SU(3) values
 id cOlNR = 3;
 
-* construct gamma string
-repeat id gamma(s1?,?a,s2?)*gamma(s2?,?b,s3?) = gamma(s1,?a,?b,s3);
-
 Multiply counter(1);
-repeat id gamma(mu?,?a,p?,?b,mu?)*counter(i?) = vec(p,lorentzdummy[i])*gamma(mu,?a,lorentzdummy[i],?b,mu)*counter(i+1);
+repeat id gammatrace(?a,p?,?b)*counter(i?) = vec(p,lorentzdummy[i])*gammatrace(?a,lorentzdummy[i],?b)*counter(i+1);
 id counter(n?) = 1;
 
-#do i=1,10
-    id once gamma(mu?,?a,mu?) = g_(`i',?a);
-#enddo
-
+id gammatrace(?a) = gammatracetensor(?a);
 id vec(p?,mu?) = p(mu);
-.sort
+Multiply replace_(D, 4-2*ep);
 
-#do i=1,10
-    tracen `i';
-    .sort:trace-`i';
-#enddo
+#ifdef `FOURDIM'
+    .sort
+    Polyratfun;
+    id rat(x1?,x2?) = x1/x2;
+#endif
 
-if (count(gamma, 1));
-    Print "Unsubstituted gamma string: %t";
-    exit "Critical error";
-endif;
+B+ gammatracetensor;
+.sort:gamma-to-tensor;
+Keep brackets;
 
-id D^n? = rat(D^n, 1);
+#ifdef `FOURDIM'
+    #do i=1,10
+        id once gammatracetensor(?a) = g_(`i',?a);
+        trace4 `i';
+        B+ gammatracetensor;
+        .sort:trace-`i';
+        Keep brackets;
+    #enddo
+    .sort
+    Polyratfun rat;
+#else
+* at this stage all indices should be inside the gammatracetensor only
+    #call Gstring(gammatracetensor,1)
+    Multiply replace_(D, 4-2*ep);
+#endif
+
 .sort:gamma-traces;
 
 id color(x?) = x;
-
-* Set all external momenta on-shell
-* FIXME: incorrect for massive externals
-#do i=1,10
-*    id p`i'.p`i' = 0;
-#enddo
 
 id pzero = 0; * Substitute the 0-momentum by 0
 .sort:feynman-rules-final;

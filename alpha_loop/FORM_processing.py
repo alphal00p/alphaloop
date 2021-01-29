@@ -19,6 +19,8 @@ import sys
 import subprocess
 import argparse
 import shutil
+import py_compile
+
 pjoin = os.path.join
 
 if __name__ == "__main__":
@@ -262,7 +264,7 @@ class FORMSuperGraph(object):
         valid_cut = False
         for ci, cut in enumerate(cuts):
             cut_colors += [cut[0]] * cut[1]
-            if cut[0] == 'any':
+            if cut[0] == 'any' or None in cut[0]:
                 n_optional += cut[1]
                 take_cuts += [cut_edges[ci]+[None]] * cut[1]
             else:
@@ -287,7 +289,7 @@ class FORMSuperGraph(object):
             # Check valid color cuts
             ec = copy.deepcopy(edge_colors)
             for ce, cc in zip(cut_edges,cut_colors):
-                if cc == 'any':
+                if cc == 'any' or ce == None:
                     continue
                 for color in cc:
                     if color in ec[ce]:
@@ -1094,7 +1096,7 @@ aGraph=%s;
 
                     topo_map += 'Fill ltdmap({},{}) = diag({},{});\n'.format(*global_diag_id, *unique_ltd[ltd_sig])
 
-                    self.integrand_info['LTD'][global_diag_id] = (energy_map, constants, g.n_loops, unique_ltd[ltd_sig])
+                    self.integrand_info['LTD'][(numerator_call, *global_diag_id)] = (energy_map, constants, g.n_loops, unique_ltd[ltd_sig])
                     
 
         with open(pjoin(workspace, 'ltdtable_{}.h'.format(numerator_call)), 'w') as f:
@@ -1201,7 +1203,7 @@ CTable ltdmap(0:{},0:{});
 
                     topo_map += 'Fill pfmap({},{}) = diag({},{});\n'.format(*global_diag_id, *unique_pf[pf_sig])
 
-                    self.integrand_info['PF'][global_diag_id] = (energy_map, constants, g.n_loops, unique_pf[pf_sig])
+                    self.integrand_info['PF'][(numerator_call, *global_diag_id)] = (energy_map, constants, g.n_loops, unique_pf[pf_sig])
 
         with open(pjoin(workspace, 'pftable_{}.h'.format(numerator_call)), 'w') as f:
             f.write("""
@@ -1797,49 +1799,45 @@ class FORMSuperGraphIsomorphicList(list):
         else:
             return to_dump
     
-    def multiplicity_factor(self,iso_id, workspace, form_source):
+    def multiplicity_factor(self, iso_id, workspace, form_source):
+        if len(self) == 1:
+            return (self, 1)
+
         output_match = re.compile(r'isoF=(.*?);')
-        multiplicity = 0
         reference = self[0].generate_numerator_form_input('', only_algebra=True)
         FORM_vars = {}
         FORM_vars['SGID'] = iso_id
-        FORM_vars['ID0'] = 0
-        for i_graph, g in enumerate(self):
-            mapped = g.generate_numerator_form_input('', only_algebra=True)
-            with open(pjoin(workspace,'iso_check_{}_{}_{}.frm'.format(iso_id, 0, i_graph+1)), 'w') as f:
-                FORM_vars['IDn'] = i_graph+1
-                f.write("L F1 = %s;\n"%reference)
-                f.write("L F2 = %s;\n"%mapped)
+        FORM_vars['NUMD'] = len(self)
+        FORM_vars['FOURDIM'] = 1 
+
+        with open(pjoin(workspace,'iso_check_{}.frm'.format(iso_id)), 'w') as f:
+            for i_graph, g in enumerate(self):
+                mapped = g.generate_numerator_form_input('', only_algebra=True)
+                f.write("L F{} = {};\n".format(i_graph + 1, mapped))
             
-            cmd = ' '.join([
-                FORM_processing_options["tFORM_path"],
-                ]+
-                ['-w%d' % FORM_processing_options['cores']]+
-                [ '-D %s=%s'%(k,v) for k,v in FORM_vars.items() ]+
-                [ form_source, ]
-            )
-            with open(pjoin(workspace,'run_iso_checks.exe'), 'a') as f:
-                f.write(cmd+'\n')
-            #misc.sprint(cmd)
-            #misc.sprint(workspace)
-            r = subprocess.run(cmd,
-            shell=True,
-            cwd=workspace,
-            capture_output=True)
-            if r.returncode != 0:
-                raise FormProcessingError("FORM processing failed with error:\n%s"%(r.stdout.decode('UTF-8')))
+        cmd = ' '.join([
+            FORM_processing_options["FORM_path"],
+            ]+
+            [ '-D %s=%s'%(k,v) for k,v in FORM_vars.items() ]+
+            [ form_source, ]
+        )
 
-            output = r.stdout.decode('UTF-8').replace(' ','').replace('\n','')
-            factor = re.sub(r'rat\(([-0-9]+),([-0-9]+)\)', r'(\1)/(\2)', output_match.findall(output)[0])
-            with open(pjoin(workspace,'run_iso_checks.exe'), 'a') as f:
-                f.write('result: %s'%factor+'\n')
-            if "rat" in factor:
-                raise FormProcessingError("Multiplicity not found: {} / {} is not rational (iso_check_%(SGID)d_%(ID0)d_%(IDn)d)".format(self[0].name,g.name )%FORM_vars)
-            else:
-                multiplicity += eval(factor)
+        r = subprocess.run(cmd, shell=True, cwd=workspace, capture_output=True)
+        if r.returncode != 0:
+            raise FormProcessingError("FORM processing failed with error:\n%s"%(r.stdout.decode('UTF-8')))
 
-            #logger.info("{} = {} * {}".format(self[0].name, factor, g.name ))
-        return multiplicity    
+        output = r.stdout.decode('UTF-8').replace(' ','').replace('\n','')
+        factor = re.sub(r'rat\(([-0-9]+),([-0-9]+)\)', r'(\1)/(\2)', output_match.findall(output)[0])
+        if "rat" in factor:
+            raise FormProcessingError("Multiplicity not found: {} / {} is not rational (iso_check_%(SGID)d)".format(self[0].name,g.name )%FORM_vars)
+
+        multiplicity = 1 + eval(factor)
+
+        #logger.info("{} = {} * {}".format(self[0].name, factor, g.name ))
+        return (self, multiplicity)
+
+    def multiplicity_factor_helper(args):
+        return args[0].multiplicity_factor(*args[1:])
 
     def generate_squared_topology_files(self, root_output_path, model, process_definition, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None, workspace=None, bar=None,
             integrand_type=None):
@@ -2038,8 +2036,14 @@ class FORMSuperGraphList(list):
         from pathlib import Path
         p = Path(dict_file_path)
         sys.path.insert(0, str(p.parent))
-        m = __import__(p.stem)
 
+        # compile the file first before importing it
+        # with the same optimization flag as MG5
+        # this avoids that memory isn't freed after compiling
+        # when using the __import__ directly
+        logger.info("Compiling imported supergraphs.")
+        subprocess.run([sys.executable, '-O', '-m', p.stem], cwd=p.parent)
+        m = __import__(p.stem)
         logger.info("Imported {} supergraphs.".format(len(m.graphs)))
 
         # Filter specific graphs by name 
@@ -2141,7 +2145,7 @@ class FORMSuperGraphList(list):
                     # should already have been aligned at this stage.
                     flipped_part = model.get_particle(g.edges[edge_key]['PDG'])
                     if flipped_part.is_fermion():
-                        raise FormProcessingError("A *fermionic* repeated edge with oppoosite signatures was found. This should happen for bosons only.")
+                        raise FormProcessingError("A *fermionic* repeated edge with opposite signatures was found. This should happen for bosons only.")
 
                     g.edges[edge_key]['PDG'] = flipped_part.get_anti_pdg_code()
                     g.edges[edge_key]['signature'] = [[-s for s in sp] for sp in g.edges[edge_key]['signature']]
@@ -2157,174 +2161,176 @@ class FORMSuperGraphList(list):
             # Now adust the string momenta of edges and nodes accordingly.            
             g.impose_signatures()
 
-
         if first is not None:
             logger.info("Taking first {} supergraphs.".format(first))
             full_graph_list = full_graph_list[:first]
 
-        if not cuts is None:
-            graph_filtered = {'DUMP':[], 'KEEP':[]}
-            with progressbar.ProgressBar(prefix='Filter SG with valid cuts: {variables.keep}\u2713  {variables.drop}\u2717 : ', max_value=len(full_graph_list),variables={'keep': '0', 'drop':'0'}) as bar:
-                for sgid, graph in enumerate(full_graph_list):
-                    if graph.filter_valid_cuts(cuts):
-                        graph_filtered["KEEP"] += [graph]
-                    else: 
-                        graph_filtered["DUMP"] += [graph]
-                    bar.update(sgid+1)
-                    bar.update(keep=len(graph_filtered['KEEP']))
-                    bar.update(drop=len(graph_filtered['DUMP']))
-            #for k,v in graph_filtered.items():
-            #    print(k,":")
-            #    print("\t",np.array([g.name for g in v]))
-            full_graph_list[:] = graph_filtered['KEEP']
-            logger.info("\033[1mRemoved {} graphs with no valid cuts\033[0m".format(len(graph_filtered['DUMP'])))
-
-        iso_groups = []
-
-        import time
         import sympy as sp
         # group all isomorphic graphs
+        iso_groups = []
         n_externals = max(len([1 for e in graph.edges.values() if e['type']=='in' or e['type']=='out']) for graph in full_graph_list)
         if model is None:
             pdg_primes = {pdg : sp.prime(i + n_externals + 1) for i, pdg in enumerate([1,2,3,4,5,6,11,12,13,21,22,25,82])}
         else:
             pdg_primes = {pdg : sp.prime(i + n_externals + 1) for i, pdg in enumerate([p['pdg_code'] for p in model['particles']])}
         
-        for graph in full_graph_list:
-            g = igraph.Graph()
-            g.add_vertices(len(graph.nodes))
-            undirected_edges = set()
+        with progressbar.ProgressBar(prefix='Group ISO graphs: {variables.graph_nr} -> {variables.iso_size} : ', max_value=len(full_graph_list),variables={'graph_nr':'0', 'iso_size':'0'}) as bar:
+            for g_id, graph in enumerate(full_graph_list):
+                g = igraph.Graph()
+                g.add_vertices(len(graph.nodes))
+                undirected_edges = set()
 
-            for e in graph.edges.values():
-                undirected_edges.add(tuple(sorted(e['vertices'])))
-
-            edge_colors = []
-            ext_id = 0
-            for ue in undirected_edges:
-                e_color = 1
                 for e in graph.edges.values():
-                    if tuple(sorted(e['vertices'])) == ue:
-                        #TODO: Reserve the first #externals primes for external edges
-                        # with the current implementation it still allows swap 
-                        # of final/initial state edges
-                        if e['type'] == 'in':
-                            ext_id += 1
-                            e_color *= sp.prime(ext_id)
-                        else:
-                            e_color *= pdg_primes[abs(e['PDG'])]
-                edge_colors.append(e_color)
-                g.add_edges([tuple(sorted([x - 1 for x in ue]))])
-            
-            for (ref_graph, ref_colors), graph_list in iso_groups:
-                v_maps = ref_graph.get_isomorphisms_vf2(g, edge_color1=ref_colors, edge_color2=edge_colors)
-                if v_maps != [] and merge_isomorphic_graphs:
-                    v_map = v_maps[0]
-                    if verbose: 
-                        logger.info("\033[1m{} <- {}\033[0m".format(graph_list[0].name,graph.name))
-                    
-                    # map the signature from the new graph to the reference graph using the vertex map
-                    edge_map = [next(re.index for re in ref_graph.es if (re.source, re.target) == (v_map[e.source], v_map[e.target]) or \
-                        (re.source, re.target) == (v_map[e.target], v_map[e.source])) for e in g.es]
+                    undirected_edges.add(tuple(sorted(e['vertices'])))
 
-                    # go through all loop momenta and make the matrix
-                    # and the shifts
-                    mat = []
-                    shifts = []
-                    selected_edges = []
-                    n_loops = len(graph_list[0].edges) - len(graph_list[0].nodes) + 1
-                    for loop_var in range(n_loops):
-                        # find the edge that has (+-)k`loop_var`
-                        # TODO: Fix for higher degeneracy
-                        orig_edge = next(ee for ee in graph_list[0].edges.values() if all(s == 0 for s in ee['signature'][1]) and \
-                            sum(abs(s) for s in ee['signature'][0]) == 1 and ee['signature'][0][loop_var] != 0)
-                        orig_edge_in_ref = next(ee for ee in ref_graph.es if tuple(sorted(orig_edge['vertices'])) == (ee.source + 1, ee.target + 1))
-
-                        # now get the corresponding edge(s) in the new graph
-                        en = g.es[edge_map.index(orig_edge_in_ref.index)]
-                        new_edges = [ee for ee in graph.edges.values() \
-                            if (ee['vertices'] == (en.source + 1, en.target + 1) or ee['vertices'] == (en.target + 1, en.source + 1)) and abs(ee['PDG'])== abs(orig_edge['PDG']) and ee not in selected_edges]
-                       
-                        # in the case of a multi-edge, we simply take the one with the shortest momentum string
-                        new_edge = sorted(new_edges, key=lambda x: len(x['momentum']))[0]
-                        selected_edges.append(new_edge)
-                        new_edge['name'] += 'LMB'
-                        
-                        orientation_factor = 1
-                        if model.get_particle(abs(new_edge['PDG']))['self_antipart']:
-                            if v_map[new_edge['vertices'][0]-1]+1 != orig_edge['vertices'][0]:
-                                orientation_factor = -1
-                        else:
-                            match_direction = v_map[new_edge['vertices'][0]-1]+1 == orig_edge['vertices'][0]
-                            match_particle = new_edge['PDG'] == orig_edge['PDG']
-                            if not match_direction:# != match_particle:
-                                orientation_factor = -1
-
-                        shifts.append([-orientation_factor * s * orig_edge['signature'][0][loop_var] for s in new_edge['signature'][1]])
-                        mat.append([orientation_factor * s * orig_edge['signature'][0][loop_var] for s in new_edge['signature'][0]])
-
-                    # Map all signatures and momentum labels of the new graph
-                    shifts = np.array(shifts).T
-                    mat = np.array(np.matrix(mat).T.I)
+                edge_colors = []
+                ext_id = 0
+                for ue in undirected_edges:
+                    e_color = 1
                     for e in graph.edges.values():
-                        # skip external edges
-                        if e["type"] != "virtual":
-                            continue
+                        if tuple(sorted(e['vertices'])) == ue:
+                            #TODO: Reserve the first #externals primes for external edges
+                            # with the current implementation it still allows swap 
+                            # of final/initial state edges
+                            if e['type'] == 'in':
+                                ext_id += 1
+                                e_color *= sp.prime(ext_id)
+                            else:
+                                e_color *= pdg_primes[abs(e['PDG'])]
+                    edge_colors.append(e_color)
+                    g.add_edges([tuple(sorted([x - 1 for x in ue]))])
 
-                        new_sig = mat.dot(np.array(e['signature'][0]))
-                        new_shift = e['signature'][1]+shifts.dot(new_sig)
-                        
-                        e['signature'] = (list(new_sig), list(new_shift))
-                        e['momentum'] = graph.momenta_decomposition_to_string(e['signature'], set_outgoing_equal_to_incoming=False)
-                    
-                    if verbose:
-                        parser = re.compile(r'(^|\+|-)(k|p)(\d*)')
-                        n_incoming = sum([1 for edge in graph.edges.values() if edge['type'] == 'in'])
-                        n_loops = len(graph.edges) - len(graph.nodes) + 1
-                        old_momenta =['k%d'%(i+1) for i in range(n_loops)] 
-                        new_momenta =[] 
-                        for momentum in old_momenta:
-                            parsed = [e.groups() for e in parser.finditer(momentum)]
-                            signature = ([0 for _ in range(n_loops)], [0 for _ in range(n_incoming)])
-                            for pa in parsed:
-                                if pa[1] == 'p':
-                                    signature[1][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
-                                else:
-                                    signature[0][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
-                            new_sig = mat.dot(np.array(signature[0]))
-                            new_shift = signature[1]+shifts.dot(new_sig)
-                            new_momenta.append(graph.momenta_decomposition_to_string((list(new_sig), list(new_shift)), set_outgoing_equal_to_incoming=False))
-                        logger.info("Map: {} -> {}".format(tuple(old_momenta), tuple(new_momenta)))
-                    
-                    
-                    # Map vertices
-                    for v in graph.nodes.values():
-                        if v['vertex_id']<0:
-                            continue
-                        # skip external edge        
-                        n_incoming = sum([1 for edge in graph.edges.values() if edge['type'] == 'in'])
-                        n_loops = len(graph.edges) - len(graph.nodes) + 1
+                for (ref_graph, ref_colors), graph_list in iso_groups:
+                    v_maps = ref_graph.get_isomorphisms_vf2(g, edge_color1=ref_colors, edge_color2=edge_colors)
+                    if v_maps != [] and merge_isomorphic_graphs:
+                        v_map = v_maps[0]
+                        if verbose: 
+                            logger.info("\033[1m{} <- {}\033[0m".format(graph_list[0].name,graph.name))
 
-                        # parse momentum
-                        parser = re.compile(r'(^|\+|-)(k|p)(\d*)')
-                        new_momenta = []
-                        for momentum in v['momenta']:
-                            parsed = [e.groups() for e in parser.finditer(momentum)]
-                            signature = ([0 for _ in range(n_loops)], [0 for _ in range(n_incoming)])
-                            for pa in parsed:
-                                if pa[1] == 'p':
-                                    signature[1][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
-                                else:
-                                    signature[0][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
-                            new_sig = mat.dot(np.array(signature[0]))
-                            new_shift = signature[1]+shifts.dot(new_sig)
-                            new_momenta.append(graph.momenta_decomposition_to_string((list(new_sig), list(new_shift)), set_outgoing_equal_to_incoming=False))
-                        v['momenta'] = tuple(new_momenta)
-                    graph_list.append(graph)
-                    break
-            else:
-                iso_groups.append(((g, edge_colors), [graph]))
+                        # map the signature from the new graph to the reference graph using the vertex map
+                        edge_map = [next(re.index for re in ref_graph.es if (re.source, re.target) == (v_map[e.source], v_map[e.target]) or \
+                            (re.source, re.target) == (v_map[e.target], v_map[e.source])) for e in g.es]
+
+                        # go through all loop momenta and make the matrix
+                        # and the shifts
+                        mat = []
+                        shifts = []
+                        selected_edges = []
+                        n_loops = len(graph_list[0].edges) - len(graph_list[0].nodes) + 1
+                        for loop_var in range(n_loops):
+                            # find the edge that has (+-)k`loop_var`
+                            # TODO: Fix for higher degeneracy
+                            orig_edge = next(ee for ee in graph_list[0].edges.values() if all(s == 0 for s in ee['signature'][1]) and \
+                                sum(abs(s) for s in ee['signature'][0]) == 1 and ee['signature'][0][loop_var] != 0)
+                            orig_edge_in_ref = next(ee for ee in ref_graph.es if tuple(sorted(orig_edge['vertices'])) == (ee.source + 1, ee.target + 1))
+
+                            # now get the corresponding edge(s) in the new graph
+                            en = g.es[edge_map.index(orig_edge_in_ref.index)]
+                            new_edges = [ee for ee in graph.edges.values() \
+                                if (ee['vertices'] == (en.source + 1, en.target + 1) or ee['vertices'] == (en.target + 1, en.source + 1)) and abs(ee['PDG'])== abs(orig_edge['PDG']) and ee not in selected_edges]
+
+                            # in the case of a multi-edge, we simply take the one with the shortest momentum string
+                            new_edge = sorted(new_edges, key=lambda x: len(x['momentum']))[0]
+                            selected_edges.append(new_edge)
+                            new_edge['name'] += 'LMB'
+
+                            orientation_factor = 1
+                            if model.get_particle(abs(new_edge['PDG']))['self_antipart']:
+                                if v_map[new_edge['vertices'][0]-1]+1 != orig_edge['vertices'][0]:
+                                    orientation_factor = -1
+                            else:
+                                match_direction = v_map[new_edge['vertices'][0]-1]+1 == orig_edge['vertices'][0]
+                                match_particle = new_edge['PDG'] == orig_edge['PDG']
+                                if not match_direction:# != match_particle:
+                                    orientation_factor = -1
+
+                            shifts.append([-orientation_factor * s * orig_edge['signature'][0][loop_var] for s in new_edge['signature'][1]])
+                            mat.append([orientation_factor * s * orig_edge['signature'][0][loop_var] for s in new_edge['signature'][0]])
+
+                        # Map all signatures and momentum labels of the new graph
+                        shifts = np.array(shifts).T
+                        mat = np.array(np.matrix(mat).T.I)
+                        for e in graph.edges.values():
+                            # skip external edges
+                            if e["type"] != "virtual":
+                                continue
+
+                            new_sig = mat.dot(np.array(e['signature'][0]))
+                            new_shift = e['signature'][1]+shifts.dot(new_sig)
+
+                            e['signature'] = (list(new_sig), list(new_shift))
+                            e['momentum'] = graph.momenta_decomposition_to_string(e['signature'], set_outgoing_equal_to_incoming=False)
+
+                        if verbose:
+                            parser = re.compile(r'(^|\+|-)(k|p)(\d*)')
+                            n_incoming = sum([1 for edge in graph.edges.values() if edge['type'] == 'in'])
+                            n_loops = len(graph.edges) - len(graph.nodes) + 1
+                            old_momenta =['k%d'%(i+1) for i in range(n_loops)] 
+                            new_momenta =[] 
+                            for momentum in old_momenta:
+                                parsed = [e.groups() for e in parser.finditer(momentum)]
+                                signature = ([0 for _ in range(n_loops)], [0 for _ in range(n_incoming)])
+                                for pa in parsed:
+                                    if pa[1] == 'p':
+                                        signature[1][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
+                                    else:
+                                        signature[0][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
+                                new_sig = mat.dot(np.array(signature[0]))
+                                new_shift = signature[1]+shifts.dot(new_sig)
+                                new_momenta.append(graph.momenta_decomposition_to_string((list(new_sig), list(new_shift)), set_outgoing_equal_to_incoming=False))
+                            logger.info("Map: {} -> {}".format(tuple(old_momenta), tuple(new_momenta)))
+
+
+                        # Map vertices
+                        for v in graph.nodes.values():
+                            if v['vertex_id']<0:
+                                continue
+                            # skip external edge        
+                            n_incoming = sum([1 for edge in graph.edges.values() if edge['type'] == 'in'])
+                            n_loops = len(graph.edges) - len(graph.nodes) + 1
+
+                            # parse momentum
+                            parser = re.compile(r'(^|\+|-)(k|p)(\d*)')
+                            new_momenta = []
+                            for momentum in v['momenta']:
+                                parsed = [e.groups() for e in parser.finditer(momentum)]
+                                signature = ([0 for _ in range(n_loops)], [0 for _ in range(n_incoming)])
+                                for pa in parsed:
+                                    if pa[1] == 'p':
+                                        signature[1][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
+                                    else:
+                                        signature[0][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
+                                new_sig = mat.dot(np.array(signature[0]))
+                                new_shift = signature[1]+shifts.dot(new_sig)
+                                new_momenta.append(graph.momenta_decomposition_to_string((list(new_sig), list(new_shift)), set_outgoing_equal_to_incoming=False))
+                            v['momenta'] = tuple(new_momenta)
+                        graph_list.append(graph)
+                        break
+                else:
+                    iso_groups.append(((g, edge_colors), [graph]))
+                
+                bar.update(g_id+1)
+                bar.update(graph_nr=g_id+1)
+                bar.update(iso_size=len(iso_groups))
 
         logger.info("\033[1m{} unique supergraphs\033[m".format(len(iso_groups)))
+        if not cuts is None:
+            graph_filtered = {'DUMP':[], 'KEEP':[]}
+            with progressbar.ProgressBar(prefix='Filter SG with valid cuts: {variables.keep}\u2713  {variables.drop}\u2717 : ', max_value=len(iso_groups),variables={'keep': '0', 'drop':'0'}) as bar:
+                for sgid, (refs, graphs) in enumerate(iso_groups):
+                    if graphs[0].filter_valid_cuts(cuts):
+                        graph_filtered["KEEP"] += [(refs,graphs)]
+                    else: 
+                        graph_filtered["DUMP"] += [(refs,graphs)]
+                    bar.update(sgid+1)
+                    bar.update(keep=len(graph_filtered['KEEP']))
+                    bar.update(drop=len(graph_filtered['DUMP']))
+            #for k,v in graph_filtered.items():
+            #    print(k,":")
+            #    print("\t",np.array([g.name for g in v]))
+            #full_graph_list[:] = graph_filtered['KEEP']
+            iso_groups[:] = graph_filtered['KEEP']
+            logger.info("\033[1mRemoved {} graphs with no valid cuts\033[0m".format(len(graph_filtered['DUMP'])))
 
         FORM_iso_sg_list = FORMSuperGraphList([FORMSuperGraphIsomorphicList(iso_group) for _, iso_group in iso_groups], name=p.stem)
 
@@ -2333,32 +2339,50 @@ class FORMSuperGraphList(list):
             shutil.copy(pjoin(plugin_path,"multiplicity.frm"),pjoin(selected_workspace,'multiplicity.frm'))
             shutil.copy(pjoin(plugin_path,"numerator.frm"),pjoin(selected_workspace,'numerator.frm'))
             shutil.copy(pjoin(plugin_path,"tensorreduce.frm"),pjoin(selected_workspace,'tensorreduce.frm'))
+            shutil.copy(pjoin(plugin_path,"Gstring.prc"),pjoin(selected_workspace,'Gstring.prc'))
             shutil.copy(pjoin(plugin_path,"integrateduv.frm"),pjoin(selected_workspace,'integrateduv.frm'))
             shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(selected_workspace,'diacolor.h'))
             FORM_source = pjoin(selected_workspace,'multiplicity.frm')
 
+            if FORM_processing_options["cores"] == 1:
+                graph_it = map(FORMSuperGraphIsomorphicList.multiplicity_factor_helper, 
+                    (list((iso_graphs, iso_id, selected_workspace, FORM_source))
+                    for iso_id, iso_graphs in enumerate(FORM_iso_sg_list)))
+            else:
+                pool = multiprocessing.Pool(processes=FORM_processing_options["cores"])
+                graph_it = pool.imap(FORMSuperGraphIsomorphicList.multiplicity_factor_helper, 
+                    (list((iso_graphs, iso_id, selected_workspace, FORM_source))
+                    for iso_id, iso_graphs in enumerate(FORM_iso_sg_list)))
+
             with progressbar.ProgressBar(
-                prefix = 'Processing Isomorphic sets (ISO #{variables.iso_id}/%d, Zeros: {variables.zero_multiplicity_count})'%len(iso_groups),
+                prefix = 'Processing Isomorphic sets (ISO #{variables.processed}/%d, Zeros: {variables.zero_multiplicity_count})'%len(iso_groups),
                 max_value=len(iso_groups),
-                variables = {'iso_id' : '0', 'zero_multiplicity_count' : '0'}
+                variables = {'processed' : '0', 'zero_multiplicity_count' : '0'}
                 ) as bar:
             
                 zero_multiplicity_count = 0
-                for iso_id, iso_graphs in enumerate(FORM_iso_sg_list):
-                    bar.update(iso_id='%d'%iso_id, zero_multiplicity_count='%d'%zero_multiplicity_count)
-                    multiplicity = iso_graphs.multiplicity_factor(iso_id, selected_workspace, FORM_source)
+                processed_graphs = 0
+
+                for iso_graphs,(isogs, multiplicity) in zip(FORM_iso_sg_list, graph_it):
+                    if iso_graphs[0].name != isogs[0].name:
+                        raise FormProcessingError("Failed to assign the multiplicity factor to the correct graph!")
+                    processed_graphs += 1
+                    bar.update(processed='%d'%processed_graphs, zero_multiplicity_count='%d'%zero_multiplicity_count)
                     if multiplicity == 0:
                         zero_multiplicity_count += 1
                         iso_graphs[:] = []
                     else:
                         iso_graphs[:] = iso_graphs[:1]
                         iso_graphs[0].multiplicity = multiplicity
-                    bar.update(iso_id + 1)
+                    bar.update(processed_graphs)
                 bar.update(zero_multiplicity_count='%d'%zero_multiplicity_count)
 
                 for iso_id in reversed(range(len(FORM_iso_sg_list))):
                     if FORM_iso_sg_list[iso_id] == []:
                         del FORM_iso_sg_list[iso_id]
+
+            if FORM_processing_options["cores"] > 1:
+                pool.close()
                 
             if zero_multiplicity_count > 0 :
                 logger.info("%d isomorphic sets have 0 multiplicity -> they are dropped!"%zero_multiplicity_count)
@@ -2373,6 +2397,13 @@ class FORMSuperGraphList(list):
         for FORM_iso_sg in FORM_iso_sg_list:
             FORM_iso_sg[0].generate_additional_LMBs()
 
+        # Export the drawings corresponding to each ISO supergraphs
+        for i_graph, super_graphs in enumerate(FORM_iso_sg_list):
+            super_graphs[0].draw(model, pjoin(workspace, '../../Drawings'), FORM_id=i_graph)
+            # Draw supergraphs for additional LMBs
+            if isinstance(super_graphs[0].additional_lmbs,list):
+                for i_lmb,_,_,sg in super_graphs[0].additional_lmbs:
+                    sg.draw(model, pjoin(workspace, '../../Drawings'), FORM_id=i_graph, lmb_id=i_lmb)
         return FORM_iso_sg_list
 
     def to_dict(self, file_path):
@@ -2469,7 +2500,7 @@ class FORMSuperGraphList(list):
                             denominator_mode = 'NUM' if int(conf[0]) >= 0 else ('FOREST' if len(conf) == 2 else 'DIAG')
                             
                             if denominator_mode == 'DIAG':
-                                conf_id = (int(conf[1]), int(conf[2]))
+                                conf_id = (i, int(conf[1]), int(conf[2]))
                                 mom_map, constants, loops, orig_id = graph[0].integrand_info[itype][conf_id]
 
                             if denominator_mode == 'DIAG':
@@ -2689,6 +2720,7 @@ void %(header)sevaluate_LTD_f128(__complex128 lm[], __complex128 params[], int d
         if workspace is not None:
             shutil.copy(pjoin(plugin_path,"numerator.frm"),pjoin(workspace,'numerator.frm'))
             shutil.copy(pjoin(plugin_path,"tensorreduce.frm"),pjoin(workspace,'tensorreduce.frm'))
+            shutil.copy(pjoin(plugin_path,"Gstring.prc"),pjoin(workspace,'Gstring.prc'))
             shutil.copy(pjoin(plugin_path,"integrateduv.frm"),pjoin(workspace,'integrateduv.frm'))
             shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(workspace,'diacolor.h'))
 

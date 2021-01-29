@@ -441,12 +441,12 @@ class SuperGraphCollection(dict):
         res = []
 
         all_SG_dods = sorted([
-            (SG_name,k,v) for SG_name,SG in self.items() for k,v in SG['DERIVED_UV_dod'].items() if 'DERIVED_UV_dod' in SG
+            (SG_name,k,v) for SG_name,SG in self.items() if 'DERIVED_UV_dod' in SG for k,v in SG['DERIVED_UV_dod'].items()
         ],key=lambda el: el[2][0], reverse=True)
         fail_SG_dods = [ (SG_name,k,v) for SG_name,k,v in all_SG_dods if not v[-1] ]
         all_SG_cut_dods = sorted([
             (SG_name, cut_ID, k, v) for SG_name,SG in self.items() for cut_ID, cut in enumerate(SG['cutkosky_cuts'])
-            for k,v in cut['DERIVED_UV_dod'].items() if 'DERIVED_UV_dod' in cut
+            if 'DERIVED_UV_dod' in cut for k,v in cut['DERIVED_UV_dod'].items()
         ],key=lambda el: el[3][0], reverse=True)
         fail_SG_cut_dods = [ (SG_name, cut_ID, k, v) for SG_name,cut_ID,k,v in all_SG_cut_dods if not v[-1] ]
         if len(all_SG_dods)==0 and len(all_SG_cut_dods)==0:
@@ -697,6 +697,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     timing_profile_parser.add_argument(
         "-f", "--f128", action="store_true", dest="f128", default=False,
         help="Enable timing profile of the f128 output too.")
+    def help_timing_profile(self):
+        self.timing_profile_parser.print_help()
+        return
     # We must wrape this function in a process because of the border effects of the pyO3 rust Python bindings
     @wrap_in_process()
     @with_tmp_hyperparameters({
@@ -868,8 +871,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         "-srw", "--show_rust_warnings", action="store_true", dest="show_rust_warnings", default=False,
         help="Show rust warnings.")
     uv_profile_parser.add_argument(
-        "-sof", "--skip_once_failed", action="store_true", dest="skip_once_failed", default=True,
-        help="Skip the probing of a supergraph once it failed.")
+        "-nsof", "--no_skip_once_failed", action="store_false", dest="skip_once_failed", default=True,
+        help="Do not skip the probing of a supergraph once it failed.")
     uv_profile_parser.add_argument(
         "-sf", "--show_fails", action="store_true", dest="show_fails", default=True,
         help="Show exhaustive information for each fail.")
@@ -881,6 +884,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     uv_profile_parser.add_argument(
         "-v", "--verbose", action="store_true", dest="verbose", default=False,
         help="Enable verbose output.")
+    def help_uv_profile(self):
+        self.uv_profile_parser.print_help()
+        return
     # We must wrape this function in a process because of the border effects of the pyO3 rust Python bindings
     @wrap_in_process()
     @with_tmp_hyperparameters({
@@ -1132,6 +1138,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 else:
                                     res_re, res_im = rust_worker.evaluate_integrand(xs_in_defining_LMB)
                             # We must multiply by the overall jac to get a convergence UV scaling for dod = 0 as defined including line A).
+                            #overall_jac = 1.0
                             results.append( (scaling, complex(res_re, res_im)*overall_jac ) )
 
 #                        misc.sprint(results)
@@ -1375,6 +1382,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     display_parser.add_argument(
         "-f","--full", action="store_true", dest="full", default=False,
         help="exhaustively show information")
+    def help_display(self):
+        self.display_parser.print_help()
+        return
     def do_display(self, line):
         """ display command """
 
@@ -1439,6 +1449,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     set_hyperparameter_parser.add_argument(
         "-w", "--write", action="store_true", dest="write", default=False,
         help="Write hyperparameter to disk.")
+    def help_set_hyperparameter(self):
+        self.set_hyperparameter_parser.print_help()
+        return
     def do_set_hyperparameter(self, line):
         """ set_hyperparameter command """
 
@@ -1463,8 +1476,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser = ArgumentParser(prog='integrate')
     integrate_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
                     help='the name of a supergraph to display')
-    integrate_parser.add_argument('-s','--sampling', metavar='sampling', type=str, default='flat', 
-                    choices=('flat', 'advanced', 'test_h_function'), help='Specify the sampling method (default: %(default)s)')
+    integrate_parser.add_argument('-s','--sampling', metavar='sampling', type=str, default='xs', 
+                    choices=('xs','rambo', 'advanced', 'test_h_function'), help='Specify the sampling method (default: %(default)s)')
     integrate_parser.add_argument('-i','--integrator', metavar='integrator', type=str, default='vegas3', 
                     choices=('naive','vegas', 'vegas3'), help='Specify the integrator (default: %(default)s)')
     integrate_parser.add_argument('-hf','--h_function', metavar='h_function', type=str, default='left_right_polynomial', 
@@ -1483,8 +1496,16 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='Number of sample points per iteration for the survey stage (default: %(default)s).')
     integrate_parser.add_argument('-npr','--n_points_refine', metavar='n_points_refine', type=int, default=int(1.0e5),
                     help='Number of sample points per iteration for the refine stage (default: %(default)s).')
-    integrate_parser.add_argument('--n_max', metavar='n_max', type=int, default=-1,
+    integrate_parser.add_argument('--n_max', metavar='n_max', type=int, default=int(1.0e7),
                     help='Maximum number of sample points in Vegas (default: as per hyperparameters).')
+    integrate_parser.add_argument('--n_max_survey', metavar='n_max_survey', type=int, default=-1,
+                    help='Maximum number of sample points in Vegas for survey (default: no survey).')
+    integrate_parser.add_argument('--target_accuracy_survey', metavar='target_accuracy_survey', type=float, default=1.0e-5,
+                    help='Target accuracy for Vegas survey stage (default: %(default)f).')
+    integrate_parser.add_argument('--target_accuracy', metavar='target_accuracy', type=float, default=1.0e-5,
+                    help='Target accuracy for Vegas refine stage (default: %(default)f).')
+    integrate_parser.add_argument('--load_grids', metavar='load_grids', type=str, default=None,
+                    help='Specify a Vegas grid file to load from. (default: None).')
     integrate_parser.add_argument('--n_start', metavar='n_start', type=int, default=-1,
                     help='Starting number of sample points in Vegas (default: as per hyperparameters).')
     integrate_parser.add_argument('--n_increase', metavar='n_increase', type=int, default=-1,
@@ -1496,6 +1517,12 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser.add_argument(
         '-mc','--multichanneling',action="store_true", dest="multichanneling", default=False,
         help="Enable multichanneling (default: as per hyperparameters)")
+    integrate_parser.add_argument(
+        '-no_mc','--no_multichanneling',action="store_false", dest="multichanneling", default=False,
+        help="Disable multichanneling (default: as per hyperparameters)")
+    def help_integrate(self):
+        self.integrate_parser.print_help()
+        return
     # We must wrape this function in a process because of the border effects of the pyO3 rust Python bindings
     @wrap_in_process()
     @with_tmp_hyperparameters({
@@ -1510,6 +1537,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         args = self.split_arg(line)
         args = self.integrate_parser.parse_args(args)
+
+        self.hyperparameters.set_parameter('General.multi_channeling',args.multichanneling)
 
         if args.h_function == 'left_right_polynomial':
             selected_h_function = sampler.HFunction(args.h_function_sigma, debug=args.verbosity)
@@ -1544,10 +1573,18 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             selected_integrator = pyCubaIntegrator.pyCubaIntegrator
             integrator_options = {
                  'cluster' : runner,
-                 'max_eval' : args.max_eval,
+                 'max_eval' : args.n_max,
                  'n_start' : args.n_start,
                  'n_increase' : args.n_increase,
-                 'n_batch' : args.batch_size
+                 'n_start_survey' : args.n_start,
+                 'n_increase_survey' : args.n_increase,
+                 'n_batch' : args.batch_size,
+                 'state_file_folder' : pjoin(self.dir_path, self._run_workspace_folder),
+                 'max_eval_survey' : args.n_max_survey,
+                 'target_accuracy_survey' :args.target_accuracy_survey,
+                 'target_accuracy' :args.target_accuracy,
+                 'load_grids' : args.load_grids,
+                 'n_vec' : 1,
             }
         elif args.integrator == 'vegas3':
             selected_integrator = vegas3_integrator.Vegas3Integrator
@@ -1567,7 +1604,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         if args.sampling == 'test_h_function':
 
-            logger.info("Dummy integrand for testing h function:")
+            logger.info("Dummy integrand for testing h-function with integrator '%s':"%args.integrator)
 
             my_integrand = sampler.TestHFuncIntegrand( selected_h_function, debug=args.verbosity )
 
@@ -1576,45 +1613,56 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             result = my_integrator.integrate()
 
             logger.info('')
-            logger.info("Result of the test integration using h function '%s' with %d function calls (target is 1.0): %.4e +/- %.2e"%(
+            logger.info("Result of the test integration using h function %s with %d function calls (target is 1.0): %.4e +/- %.2e"%(
                 args.h_function, my_integrator.tot_func_evals, result[0], result[1]))
             logger.info('')
             return
         else:
-            raise NotImplementedError
+            SG_name = args.SG_name
+            if SG_name not in self.all_supergraphs:
+                raise alphaLoopInvalidRunCmd("Cannot find SG named in '%s' in the collection loaded."%SG_name)
+            
+            rust_worker = self.get_rust_worker(SG_name)
+            SG_info = self.all_supergraphs[SG_name]
 
-        # dimensions = integrands.DimensionList(
-        #         [ integrands.ContinuousDimension('x_%d'%i,lower_bound=0.0, upper_bound=1.0) for i in range(1, n_loops*3) ]+
-        #         [ integrands.ContinuousDimension('t',lower_bound=0.0, upper_bound=1.0), ] 
-        #         )
-        # my_PS_generator = None
-        # try:
-        #     my_PS_generator = eval("generator_%s(dimensions, rust_worker, SG_info, model, selected_h_function, hyperparameters, debug=args.debug)"%args.run_mode)
-        # except Exception as e:
-        #     logger.critical("Unreckognized run mode: '%s'"%args.run_mode)
-        #     raise
+            logger.info("Integrating SG '%s' with sampler '%s' and integrator '%s':"%(
+                SG_name, args.sampling, args.integrator
+            ))
 
-        # logger.info("Integrating '%s' with the parameterisation %s:"%(args.diag_name,args.run_mode))
+            if args.sampling == 'xs':
 
-        # SG = self.all_supergraphs[args.SG_name]
-        # E_cm = SG.get_E_cm(self.hyperparameters)
-        # rust_worker = self.get_rust_worker(args.SG_name)
+                my_sampler = sampler.generator_aL( 
+                    integrands.DimensionList([ 
+                        integrands.ContinuousDimension('x_%d'%i_dim,lower_bound=0.0, upper_bound=1.0) 
+                        for i_dim in range(1,SG_info['topo']['n_loops']*3+1) 
+                    ]),
+                    rust_worker,
+                    SG_info,
+                    self.alphaLoop_interface._curr_model,
+                    selected_h_function,
+                    self.hyperparameters,
+                    debug=args.verbosity,
+                )
 
-        # my_integrand = integrator.DefaultALIntegrand(rust_worker, my_PS_generator, debug=args.verbosity)
+                my_integrand = sampler.DefaultALIntegrand( rust_worker, my_sampler, 
+                    debug=args.verbosity, phase=self.hyperparameters['Integrator']['integrated_phase'] )
 
-        # my_integrator = integrator.vegas3.Vegas3Integrator(my_integrand, 
-        #         n_points_survey=args.n_points_survey, n_points_refine=args.n_points_refine, accuracy_target=None,
-        #         verbosity=args.verbosity, cluster=runner
-        # )
+                my_integrator = selected_integrator(my_integrand, **integrator_options)
 
-        # result = my_integrator.integrate()
+                result = my_integrator.integrate()
 
-        # logger.info('')
-        # logger.info("Result of integration using the '%s' parameterisation with %d function calls: %.7e +/- %.2e"%(
-        #     args.run_mode, my_integrator.tot_func_evals, result[0], result[1]))
-        # logger.info('')
+            logger.info('')
+            logger.info("Result of the cross-section for %s%s%s of %s%s%s with sampler %s%s%s and integrator %s%s%s, using %s%d%s function calls:\n%s %.6g +/- %.4g%s"%(
+                utils.bcolors.GREEN, SG_name, utils.bcolors.ENDC,
+                utils.bcolors.GREEN,os.path.basename(self.dir_path), utils.bcolors.ENDC,
+                utils.bcolors.BLUE, args.sampling, utils.bcolors.ENDC,
+                utils.bcolors.BLUE, args.integrator, utils.bcolors.ENDC,
+                utils.bcolors.GREEN, my_integrator.tot_func_evals, utils.bcolors.ENDC,
+                utils.bcolors.GREEN, result[0], result[1], utils.bcolors.ENDC,
+            ))
+            logger.info('')
 
-
+            return
 
     #### EXPERIMENT COMMAND
     experiment_parser = ArgumentParser(prog='experiment')
@@ -1623,6 +1671,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     experiment_parser.add_argument(
         '-e','--experiment', dest="experiment", type=str, default='default',
         help="Which experiment to run")
+    def help_experiment(self):
+        self.experiment_parser.print_help()
+        return 
     # We must wrape this function in a process because of the border effects of the pyO3 rust Python bindings
     @wrap_in_process()
     @with_tmp_hyperparameters({

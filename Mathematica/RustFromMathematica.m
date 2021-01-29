@@ -126,6 +126,7 @@ If[OptionValue[DEBUG],
 RunProcess[Arguments,
 ProcessEnvironment-><|
 "DYLD_LIBRARY_PATH"->RFM$DYLDPATHS,
+"LD_LIBRARY_PATH"->RFM$DYLDPATHS,
 "MG_NUMERATOR_PATH"->(OptionValue[MGNumeratorPath]<>"/")
 |>
 ],
@@ -133,6 +134,7 @@ AppendTo[RFM$AllHooksStarted,
 StartProcess[Arguments,
 ProcessEnvironment-><|
 "DYLD_LIBRARY_PATH"->RFM$DYLDPATHS,
+"LD_LIBRARY_PATH"->RFM$DYLDPATHS,
 "MG_NUMERATOR_PATH"->(OptionValue[MGNumeratorPath]<>"/")
 |>
 ]

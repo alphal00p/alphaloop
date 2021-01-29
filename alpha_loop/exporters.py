@@ -15,6 +15,8 @@ import aloha
 import shutil
 import copy
 import subprocess
+import pickle
+import time
 
 import aloha.create_aloha as create_aloha
 
@@ -1245,6 +1247,17 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         self.qgraf_raw_output = pjoin(self.dir_path,'qgraf','output.py')
         self.qgraf_output = pjoin(self.dir_path,'qgraf','all_QG_supergraphs.py')
 
+        # Checkpoints 
+        self.checkpoints_path = pjoin(self.dir_path,'checkpoints')
+        self.checkpoint = [[pjoin(self.checkpoints_path, name) for name in names]
+                             for names in [['FORM_iso_sq_list_1'],['FORM_iso_sq_list_2', 'FORM_processor_2']]] 
+
+        # Preparing Drawing Folder
+        drawings_output_path = pjoin(self.dir_path, 'Drawings')
+        Path(drawings_output_path).mkdir(parents=True, exist_ok=True)
+        shutil.copy(pjoin(plugin_path, 'Templates','Drawings_makefile'),
+                    pjoin(drawings_output_path,'Makefile'))
+        
         logger.info("Writing output of hardcoded QGRAF generation to '%s'"%self.dir_path)
 
         # Extract process information
@@ -1254,9 +1267,10 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             representative_proc = self.proc_def
 
         # Generate all supergraphs using QGRAF
-        self.build_output_directory()
-        getattr(self,"build_qgraf_%s"%self.alphaLoop_options['qgraf_template_model'])(representative_proc)
-        self.standalone_qgraf_file()
+        if self.alphaLoop_options['checkpoint_lvl'] < 1 or not os.path.isfile(self.qgraf_output):
+            self.build_output_directory()
+            getattr(self,"build_qgraf_%s"%self.alphaLoop_options['qgraf_template_model'])(representative_proc)
+            self.standalone_qgraf_file()
 
         # Process supergraph numerators with FORM and output result in the process output.
         write_dir=pjoin(self.dir_path, 'Source', 'MODEL')
@@ -1287,58 +1301,74 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         # Assign the name of the model to be qgraf name, as it is useful for deciding between SM and HEFT renormalisation
         computed_model.set('name',self.alphaLoop_options['qgraf_model'])
 
+        final_state_particle_ids = [ abs(pdg) for pdg in self.alphaLoop_options['_jet_PDGs']]
         if self.alphaLoop_options['qgraf_cut_filter']:
-            cuts = self.get_cuts(representative_proc)
+            cuts = self.get_cuts(representative_proc, final_state_particle_ids=final_state_particle_ids+[None])
         else:
             cuts = None
 
         FORM_workspace = pjoin(self.dir_path, 'FORM', 'workspace')
-        Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
-        super_graph_list = FORM_processing.FORMSuperGraphList.from_dict(
-            self.qgraf_output, merge_isomorphic_graphs=True, 
-            model=self.model, workspace=FORM_workspace,cuts=cuts)
         
+        if self.alphaLoop_options['checkpoint_lvl'] < 1 or not all(os.path.isfile(cp) for cp in self.checkpoint[0]):
+            Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
+            super_graph_list = FORM_processing.FORMSuperGraphList.from_dict(
+                self.qgraf_output, merge_isomorphic_graphs=True, 
+                model=self.model, workspace=FORM_workspace, cuts=cuts)
+            pickle.dump(super_graph_list, open(self.checkpoint[0][0],'wb'))
+            logger.info("\033[1:32mFirst Checkpoint!\033[0m")
+        else:
+            logger.info("\033[1:32mRecovering from first checkpoint!\033[0m")
+            super_graph_list = pickle.load(open(self.checkpoint[0][0],'rb'))
+
         # Add phase
         for graphs in super_graph_list:
             for g in graphs:
                 g.overall_factor = "({})*({})"\
                     .format(self.overall_phase, g.overall_factor)
 
-        form_processor = FORM_processing.FORMProcessor(super_graph_list, computed_model, self.proc_def)
-        shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
-                pjoin(self.dir_path,'FORM', 'Makefile'))
+        if self.alphaLoop_options['checkpoint_lvl'] < 2 or not all(os.path.isfile(cp) for cp in self.checkpoint[1]):
+            # Create FORM_processing instance and generate the squared topologies
+            form_processor = FORM_processing.FORMProcessor(super_graph_list, computed_model, self.proc_def)
+            shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
+                    pjoin(self.dir_path,'FORM', 'Makefile'))
 
-        if self.alphaLoop_options['n_rust_inputs_to_generate']<0:
-            if self.alphaLoop_options['n_jets'] is None:
-                n_jets = len([1 for leg in representative_proc.get('legs') if 
-                            leg.get('state')==True and leg.get('id') in self.alphaLoop_options['_jet_PDGs']])
-            else:
-                n_jets = self.alphaLoop_options['n_jets']
-            if self.alphaLoop_options['final_state_pdgs'] is None:
-                final_state_particle_ids = tuple([leg.get('id') for leg in representative_proc.get('legs') if 
-                            leg.get('state')==True and leg.get('id') not in self.alphaLoop_options['_jet_PDGs']])
-            else:
-                final_state_particle_ids = self.alphaLoop_options['final_state_pdgs']
+            if self.alphaLoop_options['n_rust_inputs_to_generate']<0:
+                if self.alphaLoop_options['n_jets'] is None:
+                    n_jets = len([1 for leg in representative_proc.get('legs') if 
+                                leg.get('state')==True and leg.get('id') in self.alphaLoop_options['_jet_PDGs']])
+                else:
+                    n_jets = self.alphaLoop_options['n_jets']
+                if self.alphaLoop_options['final_state_pdgs'] is None:
+                    final_state_particle_ids = tuple([leg.get('id') for leg in representative_proc.get('legs') if 
+                                leg.get('state')==True and leg.get('id') not in self.alphaLoop_options['_jet_PDGs']])
+                else:
+                    final_state_particle_ids = self.alphaLoop_options['final_state_pdgs']
+
+                #print(n_jets)
+                #print(final_state_particle_ids)
+                #print(self.alphaLoop_options['_jet_PDGs'])
+                form_processor.generate_squared_topology_files(
+                    pjoin(self.dir_path,'Rust_inputs'), n_jets, 
+                    final_state_particle_ids=final_state_particle_ids,
+                    jet_ids=self.alphaLoop_options['_jet_PDGs'],
+                    # Remove non-contributing graphs from the list stored in the form_processor
+                    filter_non_contributing_graphs=True,
+                    workspace=FORM_workspace, 
+                    integrand_type=self.alphaLoop_options['FORM_integrand_type']
+                )
+
+            # Draw all the graphs contributing to the process
+            form_processor.draw(drawings_output_path)
             
-            #print(n_jets)
-            #print(final_state_particle_ids)
-            #print(self.alphaLoop_options['_jet_PDGs'])
-            form_processor.generate_squared_topology_files(
-                pjoin(self.dir_path,'Rust_inputs'), n_jets, 
-                final_state_particle_ids=final_state_particle_ids,
-                jet_ids=self.alphaLoop_options['_jet_PDGs'],
-                # Remove non-contributing graphs from the list stored in the form_processor
-                filter_non_contributing_graphs=True,
-                workspace=FORM_workspace, 
-                integrand_type=self.alphaLoop_options['FORM_integrand_type']
-            )
+            # Checkpoint 2
+            pickle.dump(super_graph_list, open(self.checkpoint[1][0],'wb'))
+            pickle.dump(form_processor, open(self.checkpoint[1][1],'wb'))
+            logger.info("\033[1:32mSecond Checkpoint!\033[0m")
+        else:
+            logger.info("\033[1:32mRecovering from second checkpoint!\033[0m")
+            super_graph_list = pickle.load(open(self.checkpoint[1][0],'rb'))
+            form_processor = pickle.load(open(self.checkpoint[1][1],'rb'))
 
-        # Draw
-        drawings_output_path = pjoin(self.dir_path, 'Drawings')
-        Path(drawings_output_path).mkdir(parents=True, exist_ok=True)
-        shutil.copy(pjoin(plugin_path, 'Templates','Drawings_makefile'),
-                    pjoin(drawings_output_path,'Makefile'))
-        form_processor.draw(drawings_output_path)
 
         if self.alphaLoop_options['n_rust_inputs_to_generate']<0:
 
@@ -1350,12 +1380,13 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
         form_processor.compile(pjoin(self.dir_path,'FORM'))
 
-    def get_cuts(self, representative_process):
+    def get_cuts(self, representative_process, final_state_particle_ids='any'):
         cuts=[]
         additional_loops = len(representative_process['perturbation_couplings'])
         for pdgs in self.final_states:
             cuts += [([abs(pdg) for pdg in pdgs],1)]
-        cuts += [('any', additional_loops )]
+        #cuts += [('any', additional_loops )]
+        cuts += [(final_state_particle_ids, additional_loops )]
         return cuts
 
     def build_qgraf_epem(self, representative_process):
@@ -1545,6 +1576,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
     def build_output_directory(self):
 
         Path(self.dir_path).mkdir(parents=True, exist_ok=True)
+        Path(pjoin(self.dir_path,'checkpoints')).mkdir(parents=True, exist_ok=True)
         Path(pjoin(self.dir_path,'Rust_inputs')).mkdir(parents=True, exist_ok=True)
         Path(pjoin(self.dir_path,'Cards')).mkdir(parents=True, exist_ok=True)
         # TODO add param_card in Source

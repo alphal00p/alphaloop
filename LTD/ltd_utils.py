@@ -217,7 +217,36 @@ class TopologyGenerator(object):
                 accum.pop()
                 excluded_edges = excluded_edges[:-ei]
 
-    def find_path(self, start, dest):
+    def generate_spanning_tree(self):
+        if len(self.edge_map_lin) == 0:
+            return ()
+
+        unprocessed_edges = list(enumerate(self.edges))
+        vertices = {self.edges[0][0]}
+        edges = []
+
+        i = 0
+        while len(unprocessed_edges) > 0:
+            if i >= len(unprocessed_edges):
+                i = 0
+
+            e = unprocessed_edges[i][1]
+            v1_in = e[0] in vertices
+            v2_in = e[1] in vertices
+            if v1_in and not v2_in or not v1_in and v2_in:
+                vertices.add(e[0])
+                vertices.add(e[1])
+                edges.append(unprocessed_edges[i][0])
+                unprocessed_edges.pop(i)
+            elif v1_in and v2_in:
+                unprocessed_edges.pop(i)
+
+            i += 1
+
+        return tuple(edges)
+
+
+    def find_path(self, start, dest, excluding=set()):
         # find all paths from source to dest
         loop = start == dest
         start_check = 1 if loop else 0
@@ -233,7 +262,7 @@ class TopologyGenerator(object):
                     continue
                 last_vertex = self.edges[p[-1][0]][1] if p[-1][1] else self.edges[p[-1][0]][0]
                 for i, x in enumerate(self.edges):
-                    if all(i != pp[0] for pp in p[start_check:]):
+                    if i not in excluding and all(i != pp[0] for pp in p[start_check:]):
                         if loop and i == start:
                             # if we need a loop, we need to enter from the right direction
                             if x[0] == last_vertex:
@@ -751,7 +780,8 @@ class TopologyGenerator(object):
 
     def generate_momentum_flow(self, loop_momenta=None, sink=None):
         if loop_momenta is None:
-            loop_momenta = self.loop_momentum_bases()[0]
+            st = self.generate_spanning_tree()
+            loop_momenta = [i for i in range(len(self.edge_map_lin)) if i not in st]
         else:
             self.n_loops = len(loop_momenta)
             if isinstance(loop_momenta[0], str):
@@ -764,11 +794,8 @@ class TopologyGenerator(object):
 
         flows = []
         for l in loop_momenta:
-            paths = self.find_path(l, l)
-            # make sure other loop momenta propagators are not in the path
-            paths = [x for x in paths if all(
-                y[0] not in loop_momenta for y in x[1:-1])]
-            # TODO: take shortest?
+            paths = self.find_path(l, l, excluding={lm for lm in loop_momenta if lm != l})
+            assert(len(paths) == 1)
             flows.append(paths[0][:-1])
 
         # now route the external loop_momenta to the sink
@@ -783,9 +810,7 @@ class TopologyGenerator(object):
         for i, e in enumerate(self.ext):
             if e == sink:
                 continue
-            paths = self.find_path(e, sink)
-            paths = [x for x in paths if all(
-                y[0] not in loop_momenta for y in x[1:-1])]
+            paths = self.find_path(e, sink, excluding=set(loop_momenta))
             assert(len(paths) == 1)
             ext_flows.append((i, paths[0]))
 
@@ -826,40 +851,56 @@ class TopologyGenerator(object):
 
     def evaluate_residues(self, allowed_systems, close_contour):
         residues = []
-        for sigmas in itertools.product(*([[1, -1]]*self.n_loops)):
-            for allowed_system in allowed_systems:
-                residue = self.get_thetas_for_residue(
-                    sigmas, allowed_system, close_contour)
-                residues += [residue]
+
+        for allowed_system in allowed_systems:
+            thetas = self.get_thetas_for_residue(allowed_system, close_contour)
+
+            if thetas == []:
+                continue
+
+            # determine the sigma that makes all thetas positive
+            sigmas = [0]*self.n_loops
+            for i in range(self.n_loops):
+                theta_sign = [t[i] for t in thetas if t[i] != 0.]
+                assert(len(set(theta_sign)) == 1)
+                sigmas[i] = int(theta_sign[0])
+
+            thetas = [[1.0 if tt == -1. else tt for tt in t] for t in thetas]
+
+            # close_contour is a list, 0 means contour closed on lower half plane, 1 upper half plane for every int variable
+            contour_sign = numpy.prod([-1 for i in close_contour if i == 0])
+            cut_struct_sign = numpy.prod(sigmas)
+            det_sign = numpy.linalg.det(allowed_system[2])
+            residue = [[allowed_system[0], tuple(sigmas), det_sign*cut_struct_sign*contour_sign]] + [thetas]
+            residues.append(residue)
+
         residues.sort()
         return residues
 
-    def get_thetas_for_residue(self, sigmas, allowed_system, close_contour):
-        # close_contour is a list, 0 means contour closed on lower half plane, 1 upper half plane for every int variable
-        contour_sign = numpy.prod([-1 for i in close_contour if i == 0])
-        cut_struct_sign = numpy.prod(sigmas)
-        det_sign = numpy.linalg.det(allowed_system[2])
-        residue = [[allowed_system[0], sigmas, det_sign*cut_struct_sign*contour_sign]]
+    def get_thetas_for_residue(self, allowed_system, close_contour):
         thetas = []
         for n_iter in range(self.n_loops):
-            theta = [0 for i in range(self.n_loops)]
+            theta = [0. for i in range(self.n_loops)]
             sub_matrix = numpy.array(
                 [[allowed_system[2][i][j] for j in range(n_iter+1)] for i in range(n_iter+1)])
             if n_iter == 0:
-                theta[allowed_system[1][n_iter]] = 1. / \
-                    numpy.linalg.det(sub_matrix) * \
-                    sigmas[allowed_system[1][n_iter]]
+                theta[allowed_system[1][n_iter]] = (-1.)**close_contour[n_iter] / numpy.linalg.det(sub_matrix)
+
+                # check for inconsistent thetas that will always cancel
+                if any(t[allowed_system[1][n_iter]] * theta[allowed_system[1][n_iter]] < 0. for t in thetas):
+                    return []
             else:
                 for r in range(n_iter+1):
                     subsub_matrix = numpy.array([[allowed_system[2][i][j] for j in range(
                         n_iter)] for i in range(n_iter+1) if i != r])
                     theta[allowed_system[1][r]] = (-1.)**(n_iter+r)*numpy.linalg.det(
-                        subsub_matrix)/numpy.linalg.det(sub_matrix)
-                    theta[allowed_system[1][r]] *= sigmas[allowed_system[1][r]]
-            theta = [th*(-1.)**close_contour[n_iter] for th in theta]
+                        subsub_matrix)/numpy.linalg.det(sub_matrix) * (-1.)**close_contour[n_iter]
+
+                    if any(t[allowed_system[1][r]] * theta[allowed_system[1][r]] < 0. for t in thetas):
+                        return []
+
             thetas += [theta]
-        residue += [thetas]
-        return residue
+        return thetas
 
     def evaluate_thetas(self, residues):
         evaluated_theta_resides = []
@@ -941,11 +982,10 @@ class TopologyGenerator(object):
         allowed_systems = self.find_allowed_systems(
             momentum_bases, signature_matrix)
         residues = self.evaluate_residues(allowed_systems, contour_closure)
-        residues = self.evaluate_thetas(residues)
-        residues = self.remove_cancelling_residues(residues)
 
         # generate the cut structure
         cut_stucture = []
+        assert(len(residues) == len(momentum_bases))
         for residue, momentum_basis in zip(residues, momentum_bases):
             cut_struct_iter = iter(residue[0][1])
             cut_stucture += [[next(cut_struct_iter)

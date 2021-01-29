@@ -1722,7 +1722,7 @@ fn main() -> Result<(), Report> {
     }
 
     if let Some(x) = matches.value_of("state_filename_prefix") {
-        settings.integrator.state_filename_prefix = serde::export::Some(x.to_owned());
+        settings.integrator.state_filename_prefix = Some(x.to_owned());
     }
 
     if let Some(x) = matches.value_of("res_file_prefix") {
