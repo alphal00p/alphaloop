@@ -20,6 +20,7 @@ import subprocess
 import argparse
 import shutil
 import py_compile
+from warnings import catch_warnings
 
 pjoin = os.path.join
 
@@ -328,13 +329,14 @@ class FORMSuperGraph(object):
                             # to the left and right paths
                             # Meaning two vertices involved in a cut should belong do
                             # the opposite disconnected graphs
-                            if any(len(gtmp.get_shortest_paths(c[0],to=c[1])[0])>0 for c in cut_edges):
-                                break
-                            # check that incoming and outgoing are on separate disconnected graphs
-                            if any(len(gtmp.get_shortest_paths(incoming_vertices[0],to=c)[0])==0 for c in incoming_vertices[1:]) or\
-                               any(len(gtmp.get_shortest_paths(incoming_vertices[0],to=c)[0])>0 for c in outgoing_vertices):
-                                break
-                            valid_cut = True
+                            with catch_warnings(record=True) as caught_warnings:
+                                if any(len(gtmp.get_shortest_paths(c[0],to=c[1])[0])>0 for c in cut_edges):
+                                    break
+                                # check that incoming and outgoing are on separate disconnected graphs
+                                if any(len(gtmp.get_shortest_paths(incoming_vertices[0],to=c)[0])==0 for c in incoming_vertices[1:]) or\
+                                    any(len(gtmp.get_shortest_paths(incoming_vertices[0],to=c)[0])>0 for c in outgoing_vertices):
+                                    break
+                                valid_cut = True
         return valid_cut
 
 
