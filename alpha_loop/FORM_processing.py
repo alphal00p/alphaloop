@@ -338,6 +338,10 @@ class FORMSuperGraph(object):
                                     break
                                 valid_cut = True
         return valid_cut
+    
+    def filter_valid_cuts_helper(args):
+        (iso_graph, cuts) = args
+        return (iso_graph, iso_graph[1][0].filter_valid_cuts(cuts))
 
 
     def get_mathematica_rendering_code(self, model, FORM_id=None, lmb_id=None):
@@ -2348,16 +2352,26 @@ class FORMSuperGraphList(list):
                 bar.update(g_id+1)
                 bar.update(graph_nr=g_id+1)
                 bar.update(iso_size=len(iso_groups))
+        
+
 
         logger.info("\033[1m{} unique supergraphs\033[m".format(len(iso_groups)))
         if not cuts is None:
+            if FORM_processing_options["cores"] == 1:
+                cut_it = map(FORMSuperGraph.filter_valid_cuts_helper, 
+                    list((iso_graph, cuts) for iso_graph in iso_groups))
+            else:
+                pool = multiprocessing.Pool(processes=FORM_processing_options["cores"])
+                cut_it = pool.imap(FORMSuperGraph.filter_valid_cuts_helper, 
+                    list((iso_graph, cuts) for iso_graph in iso_groups))
+            
             graph_filtered = {'DUMP':[], 'KEEP':[]}
             with progressbar.ProgressBar(prefix='Filter SG with valid cuts: {variables.keep}\u2713  {variables.drop}\u2717 : ', max_value=len(iso_groups),variables={'keep': '0', 'drop':'0'}) as bar:
-                for sgid, (refs, graphs) in enumerate(iso_groups):
-                    if graphs[0].filter_valid_cuts(cuts):
-                        graph_filtered["KEEP"] += [(refs,graphs)]
+                for sgid, (iso_graph, valid_cutQ) in enumerate(cut_it):
+                    if valid_cutQ: 
+                        graph_filtered["KEEP"] += [iso_graph]
                     else: 
-                        graph_filtered["DUMP"] += [(refs,graphs)]
+                        graph_filtered["DUMP"] += [iso_graph]
                     bar.update(sgid+1)
                     bar.update(keep=len(graph_filtered['KEEP']))
                     bar.update(drop=len(graph_filtered['DUMP']))
