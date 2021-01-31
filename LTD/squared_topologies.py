@@ -88,7 +88,7 @@ class SquaredTopologyGenerator:
                     ew = {e: edge_weights[e] if e in edge_weights else -2 for e, _, _ in diag_info['graph'].edge_map_lin}
                     # correct the edge weight of the bubble derivative
                     # the derivative wrt the numerator does not change the UV scaling
-                    if diag_info['derivative']:
+                    if diag_info['derivative'] and diag_info['derivative'][0] != diag_info['derivative'][1]:
                         ew[diag_info['derivative'][1]] -= 1
 
                     #ew['pp2'] = 0 # FIXME!
