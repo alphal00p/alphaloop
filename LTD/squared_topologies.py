@@ -16,7 +16,7 @@ class SquaredTopologyGenerator:
         MG_numerator={}, subgraphs_info={},overall_numerator=1., numerator_structure={},
         cut_filter=set(), FORM_numerator={}, FORM_integrand={},
         vertex_weights={}, edge_weights={}, generation_options={},analytic_result=None,
-        default_kinematics=None):
+        default_kinematics=None, external_data={}, color_struc = None, is_amplitude = False):
         self.name = name
         self.topo = TopologyGenerator(edges, powers)
         self.topo.generate_momentum_flow(loop_momenta_names)
@@ -36,6 +36,15 @@ class SquaredTopologyGenerator:
         self.loop_momenta_signs = loop_momenta_signs
         # However, we no longer want to support this case and instead enforce momenta to always follow
         # the edge orientation. The numerator must therefore be modified upstream so as to satisfy this requirement.
+
+        # relevant only for amplitudes
+        self.is_amplitude = is_amplitude
+        self.external_data = external_data
+        self.color_struc = color_struc
+
+
+
+
         assert(loop_momenta_signs is None or all(lms==1 for lms in loop_momenta_signs))
 
         self.loop_topo = self.topo.create_loop_topology(name,
@@ -313,13 +322,20 @@ class SquaredTopologyGenerator:
             self.cut_diagrams.append(diagram_sets)
 
     def export(self, output_path):
+        if self.is_amplitude == False:
+            out_amp ={'external_momenta': [self.external_momenta["q%d"%n] for n in sorted([int(qi.replace("q","")) for qi in self.external_momenta.keys()])],
+                'default_fixed_cut_momenta': [[], []] if self.default_kinematics is None else self.default_kinematics}
+        else: 
+            out_amp ={}
+            out_amp['external_data'] = self.external_data
+            out_amp['color_struc'] = self.color_struc 
+        
         out = {
             'name': self.name,
             'n_loops': self.topo.n_loops,
             'overall_numerator': self.overall_numerator,
             'n_incoming_momenta': len(self.incoming_momenta),
-            'external_momenta': [self.external_momenta["q%d"%n] for n in sorted([int(qi.replace("q","")) for qi in self.external_momenta.keys()])],
-            'default_fixed_cut_momenta': [[], []] if self.default_kinematics is None else self.default_kinematics,
+        
             'topo': self.loop_topo.to_flat_format(),
             'topo_edges' : [ list(e)+[ (self.topo.powers[e[0]] if i not in self.topo.ext else 0), ]
                                 for i, e in enumerate(self.topo.edge_map_lin) ],
@@ -363,6 +379,8 @@ class SquaredTopologyGenerator:
             ]
         }
 
+        out.update(out_amp)
+        
         try:
             import yaml
             from yaml import Loader, Dumper

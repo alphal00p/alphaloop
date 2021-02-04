@@ -1235,19 +1235,25 @@ class HardCodedAmpExporter():
 
     def output(self, output_path):
         
-        self.amp_input = self.alphaLoop_options['AMPLITUDE_runcard_path']
-               
+        #############################################
         # Create amplitude with fake interference 
+        #############################################
+        self.amp_input = self.alphaLoop_options['AMPLITUDE_runcard_path']
         outpath = os.path.abspath(output_path)
         amp = AMP_TOOLS.amplitude(runcard=self.amp_input, output=os.path.abspath(output_path),src_dir=plugin_path)
-        color_dicts = amp.initialize_process(clean_up=True)
+        # The left diagram amplitude has outgoing (dependent) momenta: p_(Nintial+1),...,p_(Ninitial+Nfinal) and k1,...,kL loop-momenta
+        # The translation to the LMB is
+        # p_(Nintial+1) = k(L+1) ,...,p_(Ninitial+Nfinal-1) = k(L+Nfinal-1) and p_(Ninitial+Nfinal): momentum conservation
+        # see in amplitudes.py: sew_amp_diags()  after comment: "declare formally external momenta to now beeing loop-momenta" therein
+        # see in amplitudes.py: impose_mom_conservation() 
+        color_dicts = amp.initialize_process(clean_up=True) # is SG-list for indepent color-struct in 
         external_data = amp.external_data
 
         # Overwrite default option of FORM processor to forbid UV-treatment
         FORM_processing.FORM_processing_options['generate_integrated_UV_CTs'] = False
         FORM_processing.FORM_processing_options['generate_renormalisation_graphs'] = False
 
-        # loop over color
+        # loop over color-structures
         for colstruc,dictpath in enumerate(color_dicts):
             self.dir_path = os.path.abspath(os.path.join(outpath,"color_struc_"+str(colstruc)))
             logger.info("Writing output of hardcoded amplitdue process to '%s'"%self.dir_path)    

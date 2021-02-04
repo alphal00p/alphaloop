@@ -1274,26 +1274,51 @@ CTable pfmap(0:{},0:{});
             vrtx_weights = {nv: self.get_node_scaling(n['PDGs']) for nv, n in self.nodes.items()}
         else: 
             vrtx_weights ={}
+        if self.is_amplitude:
+            topo = LTD.squared_topologies.SquaredTopologyGenerator(edge_map_lin,
+                self.name, ['q1', 'q2'][:num_incoming], n_jets, external_momenta,
+                loop_momenta_names=tuple([l for l,s in loop_momenta]),
+                loop_momenta_signs=tuple([s for l,s in loop_momenta]),
+                particle_ids=particle_ids,
+                masses=particle_masses,
+                final_state_particle_ids=final_state_particle_ids,
+                jet_ids=jet_ids,
+                overall_numerator=1.0,
+                numerator_structure={},
+                FORM_numerator={'call_signature': {'id': call_signature_ID}},
+                FORM_integrand={'call_signature': {'id': call_signature_ID}},
+                edge_weights={e['name']: self.get_edge_scaling(e['PDG']) for e in self.edges.values()},
+                vertex_weights=vrtx_weights,
+                generation_options=FORM_processing_options,
+                analytic_result=(self.benchmark_result if hasattr(self,"benchmark_result") else None),
+                default_kinematics=self.default_kinematics,
+                cut_filter=cut_filter,
+                is_amplitude = self.is_amplitude,
+                external_data = self.external_data,
+                color_struc = self.color_struc
 
-        topo = LTD.squared_topologies.SquaredTopologyGenerator(edge_map_lin,
-            self.name, ['q1', 'q2'][:num_incoming], n_jets, external_momenta,
-            loop_momenta_names=tuple([l for l,s in loop_momenta]),
-            loop_momenta_signs=tuple([s for l,s in loop_momenta]),
-            particle_ids=particle_ids,
-            masses=particle_masses,
-            final_state_particle_ids=final_state_particle_ids,
-            jet_ids=jet_ids,
-            overall_numerator=1.0,
-            numerator_structure={},
-            FORM_numerator={'call_signature': {'id': call_signature_ID}},
-            FORM_integrand={'call_signature': {'id': call_signature_ID}},
-            edge_weights={e['name']: self.get_edge_scaling(e['PDG']) for e in self.edges.values()},
-            vertex_weights=vrtx_weights,
-            generation_options=FORM_processing_options,
-            analytic_result=(self.benchmark_result if hasattr(self,"benchmark_result") else None),
-            default_kinematics=self.default_kinematics,
-            cut_filter=cut_filter
-        )
+            )
+        else:
+            topo = LTD.squared_topologies.SquaredTopologyGenerator(edge_map_lin,
+                self.name, ['q1', 'q2'][:num_incoming], n_jets, external_momenta,
+                loop_momenta_names=tuple([l for l,s in loop_momenta]),
+                loop_momenta_signs=tuple([s for l,s in loop_momenta]),
+                particle_ids=particle_ids,
+                masses=particle_masses,
+                final_state_particle_ids=final_state_particle_ids,
+                jet_ids=jet_ids,
+                overall_numerator=1.0,
+                numerator_structure={},
+                FORM_numerator={'call_signature': {'id': call_signature_ID}},
+                FORM_integrand={'call_signature': {'id': call_signature_ID}},
+                edge_weights={e['name']: self.get_edge_scaling(e['PDG']) for e in self.edges.values()},
+                vertex_weights=vrtx_weights,
+                generation_options=FORM_processing_options,
+                analytic_result=(self.benchmark_result if hasattr(self,"benchmark_result") else None),
+                default_kinematics=self.default_kinematics,
+                cut_filter=cut_filter
+
+            )
         # check if cut is possible
         if len(topo.cuts) == 0:
             logger.info("No cuts for graph {}".format(self.name))
@@ -3057,7 +3082,9 @@ int %(header)sget_rank(int diag, int conf) {{
                 total_time += time.time()-time_before
                 bar.update(timing='%d'%int((total_time/float(i+1))*1000.0))
                 bar.update(i+1)
-
+        if self.is_amplitude:
+            topo_collection['color_struc'] = self.color_struc
+            topo_collection['external_data'] = self.external_data
         try:
             import yaml
             from yaml import Loader, Dumper

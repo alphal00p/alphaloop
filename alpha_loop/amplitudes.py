@@ -216,7 +216,7 @@ def sew_amp_diags(ld, rd):
     left_diag = impose_mom_conservation(left_diag)
     right_diag = impose_mom_conservation(right_diag)
 
-    # check if loop-momenta need relabeling (they are not different)
+    # check if loop-momenta need relabeling (they are not different: only relevant for squaring)
     offset = max(len(left_diag['loop_momenta']),
                  len(left_diag['loop_momenta']))
     if len(left_diag['loop_momenta'])+len(right_diag['loop_momenta']) != len(set(left_diag['loop_momenta']+right_diag['loop_momenta'])):
