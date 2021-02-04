@@ -45,7 +45,7 @@ import alpha_loop.LTD_squared as LTD_squared
 import alpha_loop.helas_call_writers as aL_helas_call_writers
 import alpha_loop.utils as utils
 import alpha_loop.FORM_processing as FORM_processing
-
+import alpha_loop.amplitudes as AMP_TOOLS
 import yaml
 from yaml import Loader, Dumper
 
@@ -1173,6 +1173,7 @@ class QGRAFExporter(object):
     def output(self):
         pass
 
+    
     def replace_make_opt_c_compiler(self, compiler, root_dir = ""):
         """Set CXX=compiler in Source/make_opts.
         The version is also checked, in order to set some extra flags
@@ -1213,6 +1214,178 @@ class QGRAFExporter(object):
     
         return
 
+
+class HardCodedAmpExporter():
+        
+
+    def __init__(self, process_definition, model,allow_mom_remap=False, **opts):
+        
+        self.MG5aMC_options = opts.pop('MG5aMC_options',{})
+        self.dir_path = None
+        self.amp_runcard = None
+        self.alphaLoop_options = opts.pop('alphaLoop_options',{})
+        self.model = model
+        self.proc_def = process_definition
+        self.color_dict = []
+        # TODO: Ensure no multiparticles in the initial states
+        self.initial_states = [leg.get('ids')[0] for leg in process_definition.get('legs') if not leg.get('state')]
+        self.final_states = [leg.get('ids') for leg in process_definition.get('legs') if leg.get('state')]
+
+        
+
+    def output(self, output_path):
+        
+        self.amp_input = self.alphaLoop_options['AMPLITUDE_runcard_path']
+               
+        # Create amplitude with fake interference 
+        outpath = os.path.abspath(output_path)
+        amp = AMP_TOOLS.amplitude(runcard=self.amp_input, output=os.path.abspath(output_path),src_dir=plugin_path)
+        color_dicts = amp.initialize_process(clean_up=True)
+        external_data = amp.external_data
+
+        # Overwrite default option of FORM processor to forbid UV-treatment
+        FORM_processing.FORM_processing_options['generate_integrated_UV_CTs'] = False
+        FORM_processing.FORM_processing_options['generate_renormalisation_graphs'] = False
+
+        # loop over color
+        for colstruc,dictpath in enumerate(color_dicts):
+            self.dir_path = os.path.abspath(os.path.join(outpath,"color_struc_"+str(colstruc)))
+            logger.info("Writing output of hardcoded amplitdue process to '%s'"%self.dir_path)    
+            
+            # Build output system
+            self.build_output_directory()
+            write_dir=pjoin(self.dir_path, 'Source', 'MODEL')
+            model_builder = alphaLoopModelConverter(self.model, write_dir)
+            model_builder.build([])
+            shutil.copy(
+                pjoin(self.dir_path,'Source','MODEL','param_card.dat'),
+                pjoin(self.dir_path,'Cards','param_card.dat'),
+            )
+            shutil.copy(
+                pjoin(self.dir_path,'Source','MODEL','ident_card.dat'),
+                pjoin(self.dir_path,'Cards','ident_card.dat'),
+            )
+
+            computed_model = model_reader.ModelReader(self.model)
+            computed_model.set_parameters_and_couplings(
+                                                pjoin(self.dir_path,'Source','MODEL','param_card.dat'))   
+            
+            
+            FORM_workspace = pjoin(self.dir_path, 'FORM', 'workspace')
+            Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
+
+            # LOAD SGS
+            super_graph_list = FORM_processing.FORMSuperGraphList.from_dict_amp(
+                dictpath, verbose=True, model=self.model,external_data=external_data)       
+            form_processor = FORM_processing.FORMProcessor(super_graph_list, computed_model, self.proc_def)
+            shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
+                    pjoin(self.dir_path,'FORM', 'Makefile'))
+
+            if self.alphaLoop_options['n_rust_inputs_to_generate']<0:
+                if self.alphaLoop_options['n_jets'] is None:
+                    n_jets = len([1 for leg in self.proc_def.get('legs') if 
+                                leg.get('state')==True and leg.get('ids')[0] in self.alphaLoop_options['_jet_PDGs']])
+                else:
+                    n_jets = self.alphaLoop_options['n_jets']
+                if self.alphaLoop_options['final_state_pdgs'] is None:
+                    final_state_particle_ids = tuple([leg.get('ids')[0] for leg in self.proc_def.get('legs') if 
+                                leg.get('state')==True and leg.get('ids')[0] not in self.alphaLoop_options['_jet_PDGs']])
+                else:
+                    final_state_particle_ids = self.alphaLoop_options['final_state_pdgs']
+                
+
+                form_processor.generate_squared_topology_files(
+                    pjoin(self.dir_path,'Rust_inputs'), n_jets, 
+                    final_state_particle_ids=final_state_particle_ids,
+                    jet_ids=self.alphaLoop_options['_jet_PDGs'],
+                    # Remove non-contributing graphs from the list stored in the form_processor
+                    filter_non_contributing_graphs=True,
+                    workspace=FORM_workspace, 
+                    integrand_type=self.alphaLoop_options['FORM_integrand_type']
+                )
+
+            # Draw
+            drawings_output_path = pjoin(self.dir_path, 'Drawings')
+            Path(drawings_output_path).mkdir(parents=True, exist_ok=True)
+            shutil.copy(pjoin(plugin_path, 'Templates','Drawings_makefile'),
+                        pjoin(drawings_output_path,'Makefile'))
+            form_processor.draw(drawings_output_path)
+
+            if self.alphaLoop_options['n_rust_inputs_to_generate']<0:
+
+                form_processor.generate_numerator_functions(pjoin(self.dir_path,'FORM'), 
+                    output_format=self.alphaLoop_options['FORM_processing_output_format'],
+                    workspace=FORM_workspace,
+                    integrand_type=self.alphaLoop_options['FORM_integrand_type'],
+                    force_overall_factor=1
+                )
+
+            form_processor.compile(pjoin(self.dir_path,'FORM'))
+    
+    def build_output_directory(self):
+
+        Path(self.dir_path).mkdir(parents=True, exist_ok=True)
+        Path(pjoin(self.dir_path,'Rust_inputs')).mkdir(parents=True, exist_ok=True)
+        Path(pjoin(self.dir_path,'Cards')).mkdir(parents=True, exist_ok=True)
+        # TODO add param_card in Source
+
+        Path(pjoin(self.dir_path,'lib')).mkdir(parents=True, exist_ok=True)
+        Path(pjoin(self.dir_path,'FORM')).mkdir(parents=True, exist_ok=True)
+
+        Path(pjoin(self.dir_path,'Source')).mkdir(parents=True, exist_ok=True)
+        Path(pjoin(self.dir_path,'Source','MODEL')).mkdir(parents=True, exist_ok=True)
+        shutil.copy(pjoin(plugin_path, 'Templates', 'Source_make_opts'), 
+                    pjoin(self.dir_path, 'Source','make_opts'))
+
+        # Fix makefiles compiler definition
+        self.replace_make_opt_c_compiler(self.MG5aMC_options['cpp_compiler'])
+
+    def replace_make_opt_c_compiler(self, compiler, root_dir = ""):
+        """Set CXX=compiler in Source/make_opts.
+        The version is also checked, in order to set some extra flags
+        if the compiler is clang (on MACOS)"""
+       
+        is_clang = misc.detect_if_cpp_compiler_is_clang(compiler)
+        is_lc    = misc.detect_cpp_std_lib_dependence(compiler) == '-lc++'
+
+
+        # list of the variable to set in the make_opts file
+        for_update= {'DEFAULT_CPP_COMPILER':compiler,
+                     'MACFLAG':'-mmacosx-version-min=10.7' if is_clang and is_lc else '',
+                     'STDLIB': '-lc++' if is_lc else '-lstdc++',
+                     'STDLIB_FLAG': '-stdlib=libc++' if is_lc and is_clang else ''
+                     }
+
+        # for MOJAVE remove the MACFLAG:
+        if is_clang:
+            import platform
+            version, _, _ = platform.mac_ver()
+            if not version:# not linux 
+                version = 14 # set version to remove MACFLAG
+            else:
+                version = int(version.split('.')[1])
+            if version >= 14:
+                for_update['MACFLAG'] = '-mmacosx-version-min=10.8' if is_lc else ''
+
+        if not root_dir:
+            root_dir = self.dir_path
+        make_opts = pjoin(root_dir, 'Source', 'make_opts')
+
+        try:
+            common_run_interface.CommonRunCmd.update_make_opts_full(
+                            make_opts, for_update)
+        except IOError:
+            if root_dir == self.dir_path:
+                logger.info('Fail to set compiler. Trying to continue anyway.')  
+    
+        return
+
+
+
+
+
+
+
 class HardCodedQGRAFExporter(QGRAFExporter):
 
     def __init__(self, process_definition, model, **opts):
@@ -1240,6 +1413,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             raise alphaLoopExporterError("No support for overall complex phase yet (Ben: how do we put a complex number in FORM? ^^)")
         else:
             self.overall_phase = '%d'%int(overall_phase.real)
+
 
 
     def output(self, output_path):

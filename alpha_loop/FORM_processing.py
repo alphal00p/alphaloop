@@ -188,7 +188,11 @@ class FORMSuperGraph(object):
         multiplicity=1,
         benchmark_result=0.0,
         default_kinematics=None,
-        effective_vertex_id=None
+        effective_vertex_id=None,
+        is_amplitude = False,
+        color_struc = None,
+        numerator = None,
+        external_data = {}
     ):
         """ initialize a FORM SuperGraph from several options."""
 
@@ -218,6 +222,12 @@ class FORMSuperGraph(object):
 
         # Store copies of self for different choices of LMB to be used for cross-check.
         self.additional_lmbs = []
+
+        # add properties for amplitudes
+        self.is_amplitude = is_amplitude
+        self.color_struc = color_struc
+        self.numerator = numerator
+        self.external_data = external_data
 
     def filter_valid_cuts(self, cuts):
         """ 
@@ -480,23 +490,26 @@ aGraph=%s;
     def generate_numerator_form_input(self, additional_overall_factor='', only_algebra=False):
         # create the input file for FORM
         form_diag = self.overall_factor+additional_overall_factor
-        for node in self.nodes.values():
-            if node['vertex_id'] < 0:
-                continue
-        
-            form_diag += '*\n vx({},{},{})'.format(
-                ','.join(str(p) for p in node['PDGs']),
-                ','.join(node['momenta']),
-                ','.join(str(i) for i in node['indices']),
-            )
+        if self.is_amplitude == False:
+            for node in self.nodes.values():
+                if node['vertex_id'] < 0:
+                    continue
+            
+                form_diag += '*\n vx({},{},{})'.format(
+                    ','.join(str(p) for p in node['PDGs']),
+                    ','.join(node['momenta']),
+                    ','.join(str(i) for i in node['indices']),
+                )
 
-        for edge in self.edges.values():
-            form_diag += '*\n prop({},{},{},{})'.format(
-                edge['PDG'],
-                edge['type'],
-                edge['momentum'],
-                ','.join(str(i) for i in edge['indices']),
-            )
+            for edge in self.edges.values():
+                form_diag += '*\n prop({},{},{},{})'.format(
+                    edge['PDG'],
+                    edge['type'],
+                    edge['momentum'],
+                    ','.join(str(i) for i in edge['indices']),
+                )
+        else:
+            form_diag += '*'+self.numerator
 
         if only_algebra:
             return form_diag
@@ -1257,6 +1270,11 @@ CTable pfmap(0:{},0:{});
         if self.effective_vertex_id is not None:
             cut_filter.append( tuple( edge_data['name' ] for edge_key, edge_data in self.edges.items() if self.effective_vertex_id in edge_data['vertices'] and edge_data['type']=='virtual' ) )
 
+        if 'PDGs' in  self.nodes[1].values():
+            vrtx_weights = {nv: self.get_node_scaling(n['PDGs']) for nv, n in self.nodes.items()}
+        else: 
+            vrtx_weights ={}
+
         topo = LTD.squared_topologies.SquaredTopologyGenerator(edge_map_lin,
             self.name, ['q1', 'q2'][:num_incoming], n_jets, external_momenta,
             loop_momenta_names=tuple([l for l,s in loop_momenta]),
@@ -1270,7 +1288,7 @@ CTable pfmap(0:{},0:{});
             FORM_numerator={'call_signature': {'id': call_signature_ID}},
             FORM_integrand={'call_signature': {'id': call_signature_ID}},
             edge_weights={e['name']: self.get_edge_scaling(e['PDG']) for e in self.edges.values()},
-            vertex_weights={nv: self.get_node_scaling(n['PDGs']) for nv, n in self.nodes.items()},
+            vertex_weights=vrtx_weights,
             generation_options=FORM_processing_options,
             analytic_result=(self.benchmark_result if hasattr(self,"benchmark_result") else None),
             default_kinematics=self.default_kinematics,
@@ -1523,12 +1541,18 @@ class FORMSuperGraphIsomorphicList(list):
     def __init__(self, graph_list):
         """ Instantiates a list of FORMSuperGraphs from a list of either
         FORMSuperGraph instances or LTD2SuperGraph instances."""
-
+        
         for g in graph_list:
             if isinstance(g,FORMSuperGraph):
                 self.append(g)
+                self.is_amplitude = g.is_amplitude
+                self.color_struc = g.color_struc
+                self.external_data = g.external_data
             else:
                 self.append(FORMSuperGraph.from_LTD2SuperGraph(g))
+                self.is_amplitude = False
+                self.color_struc = None
+                self.external_data = g.external_data
 
     def generate_numerator_form_input(self, additional_overall_factor='',):
         return '+'.join(g.generate_numerator_form_input(additional_overall_factor) for g in self)
@@ -1630,7 +1654,11 @@ class FORMSuperGraphIsomorphicList(list):
         """ Use form to plugin Feynman Rules and process the numerator algebra so as
         to generate a low-level routine in file_path that encodes the numerator of this supergraph."""
 
+        
         _MANDATORY_FORM_VARIABLES = ['SGID','NINITIALMOMENTA','NFINALMOMENTA','SELECTEDEPSILONORDER','UVRENORMFINITEPOWERTODISCARD','OPTIMISATIONSTRATEGY']
+        # external data needed for amplitude
+        if self.is_amplitude:
+            _MANDATORY_FORM_VARIABLES += ['NPOL','NCPOL','NSPINV','NSPINVBAR','NSPINU','NSPINUBAR'] 
 
         if FORM_vars is None:
             raise FormProcessingError("FORM_vars must be supplied when calling generate_numerator_functions.")
@@ -1648,6 +1676,25 @@ class FORMSuperGraphIsomorphicList(list):
             n_loops = len(characteristic_super_graph.edges) - len(characteristic_super_graph.nodes) + 1
             FORM_vars['NFINALMOMENTA'] = n_loops
 
+        # for amplitudes
+        if self.is_amplitude and 'NPOL' not in FORM_vars:
+            n_pol = len(self.external_data.get('pol',[]))
+            FORM_vars['NPOL'] = n_pol
+        if self.is_amplitude and 'NCPOL' not in FORM_vars:
+            n_cpol = len(self.external_data.get('cpol',[]))
+            FORM_vars['NCPOL'] = n_cpol
+        if self.is_amplitude and 'NSPINV' not in FORM_vars:
+            n_spin_v = len(self.external_data.get('spinorV',[]))
+            FORM_vars['NSPINV'] = n_spin_v
+        if self.is_amplitude and 'NSPINU' not in FORM_vars:
+            n_spin_u = len(self.external_data.get('spinorU',[]))
+            FORM_vars['NSPINU'] = n_spin_u
+        if self.is_amplitude and 'NSPINVBAR' not in FORM_vars:
+            n_spin_v_bar = len(self.external_data.get('spinorVbar',[]))
+            FORM_vars['NSPINVBAR'] = n_spin_v_bar
+        if self.is_amplitude and 'NSPINUBAR' not in FORM_vars:
+            n_spin_u_bar = len(self.external_data.get('spinorUbar',[]))
+            FORM_vars['NSPINUBAR'] = n_spin_u_bar
         if FORM_vars is None or not all(opt in FORM_vars for opt in _MANDATORY_FORM_VARIABLES):
             raise FormProcessingError("The following variables must be supplied to FORM: %s"%str(_MANDATORY_FORM_VARIABLES))
 
@@ -1661,12 +1708,19 @@ class FORMSuperGraphIsomorphicList(list):
         else:
             form_input = characteristic_super_graph.generate_numerator_form_input(additional_overall_factor)
 
-        if workspace is None:
+        if workspace is None and self.is_amplitude == False:
             selected_workspace = FORM_workspace
             FORM_source = pjoin(plugin_path,"numerator.frm")
-        else:
+        elif workspace is None and self.is_amplitude == True:
+            selected_workspace = FORM_workspace
+            FORM_source = pjoin(plugin_path,"amp_numerator.frm")
+        elif workspace is not None and self.is_amplitude == False:
             selected_workspace = workspace
             FORM_source = pjoin(selected_workspace,'numerator.frm')
+        elif workspace is not None and self.is_amplitude == True:
+            selected_workspace = workspace
+            FORM_source = pjoin(selected_workspace,'amp_numerator.frm')
+
 
         with open(pjoin(selected_workspace,'input_%d.h'%i_graph), 'w') as f:
             (uv_conf, conf) = characteristic_super_graph.configurations
@@ -1813,7 +1867,7 @@ class FORMSuperGraphIsomorphicList(list):
                                       "can only take the following value: 'together', 'only' or 'removed', but not '%s'."%FORM_processing_options['renormalisation_finite_terms'])
 
         _MANDATORY_FORM_VARIABLES = ['SGID','NINITIALMOMENTA','NFINALMOMENTA','SELECTEDEPSILONORDER','UVRENORMFINITEPOWERTODISCARD','OPTIMISATIONSTRATEGY']
-
+    
         if integrand_type is not None:
             FORM_vars['INTEGRAND'] = integrand_type
 
@@ -1963,14 +2017,23 @@ class FORMSuperGraphList(list):
         FORMSuperGraphIsomorphicList instances, FORMSuperGraph, or LTD2SuperGraph instances."""
 
         self.name = name
-
+        
         for g in graph_list:
             if isinstance(g, FORMSuperGraph):
                 self.append(FORMSuperGraphIsomorphicList([g]))
+                self.is_amplitude = g.is_amplitude
+                self.color_struc = g.color_struc
+                self.external_data = g.external_data
             elif isinstance(g, FORMSuperGraphIsomorphicList):
                 self.append(g)
+                self.is_amplitude = g.is_amplitude
+                self.color_struc = g.color_struc
+                self.external_data = g.external_data
             else:
                 self.append(FORMSuperGraphIsomorphicList([FORMSuperGraph.from_LTD2SuperGraph(g)]))
+                self.is_amplitude = False
+                self.color_struc = None
+                self.external_data = None
 
         self.code_generation_statistics = {}
 
@@ -2439,6 +2502,47 @@ class FORMSuperGraphList(list):
                 for i_lmb,_,_,sg in super_graphs[0].additional_lmbs:
                     sg.draw(model, pjoin(workspace, '../../Drawings'), FORM_id=i_graph, lmb_id=i_lmb)
         return FORM_iso_sg_list
+    @classmethod
+    def from_dict_amp(cls, dict_file_path, first=None, verbose=False, model = None,  cuts=None, allow_mom_remap = False, external_data = {}):
+        """ Creates a FORMSuperGraph list from a dict file path."""
+        from pathlib import Path
+        p = Path(dict_file_path)
+        sys.path.insert(0, str(p.parent))
+        m = __import__(p.stem)
+        logger.info("Imported {} supergraphs.".format(len(m.graphs)))
+
+        # Filter specific graphs by name 
+        #filter_graphs = ['SG_QG3','SG_QG4']
+        #m.graphs = [ g for (g,name) in zip(m.graphs, m.graph_names) if name in filter_graphs]
+        #m.graph_names = ['SG_MG3','SG_QG4']
+        #m.graph_names = [name for name in m.graph_names if name in filter_graphs ]
+
+        # fill sgs with graphs
+        full_graph_list = []
+        for i, g in enumerate(m.graphs):
+            if hasattr(m,'graph_names'):
+                graph_name=m.graph_names[i]
+            else:
+                graph_name=p.stem + '_' + str(i)
+            # convert to FORM supergraph
+            form_graph = FORMSuperGraph(name=graph_name, edges = g['edges'], nodes=g['nodes'], 
+                        overall_factor=g['overall_factor'], multiplicity = g.get('multiplicity',1),is_amplitude = True, color_struc=g.get('color_struc',None) , effective_vertex_id = g.get('effective_vertex_id',None), numerator = g.get('analytic_num'),external_data = external_data )
+            form_graph.derive_signatures()
+            full_graph_list.append(form_graph)
+        
+
+
+        if first is not None:
+            logger.info("Taking first {} supergraphs.".format(first))
+            full_graph_list = full_graph_list[:first]
+
+
+
+        logger.info("\033[1m{} amplitude supergraphs\033[m".format(len(full_graph_list)))
+
+        FORM_sg_list = FORMSuperGraphList(full_graph_list, name=p.stem)
+
+        return FORM_sg_list
 
     def to_dict(self, file_path):
         """ Outputs the FORMSuperGraph list to a Python dict file path."""
@@ -2747,7 +2851,10 @@ void %(header)sevaluate_LTD_f128(__complex128 lm[], __complex128 params[], int d
             shutil.copy(pjoin(plugin_path,"Gstring.prc"),pjoin(workspace,'Gstring.prc'))
             shutil.copy(pjoin(plugin_path,"integrateduv.frm"),pjoin(workspace,'integrateduv.frm'))
             shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(workspace,'diacolor.h'))
-
+            if self.is_amplitude == True:
+                shutil.copy(pjoin(plugin_path,"amp_numerator.frm"),pjoin(workspace,'amp_numerator.frm'))
+                shutil.copy(pjoin(plugin_path,"ChisholmIdentities.prc"),pjoin(workspace,'ChisholmIdentities.prc'))
+                shutil.copy(pjoin(plugin_path,"definition_gamma_explicit.h"),pjoin(workspace,'definition_gamma_explicit.h'))
         # add all numerators in one file and write the headers
         numerator_header = """#include <tgmath.h>
 #include <quadmath.h>
@@ -3527,6 +3634,9 @@ class FORMProcessor(object):
             logger.warning(("%s\n\nAs per user request, the finite part of the renormalisation counterterms have been elected to be included "+
                             "as '%s' (and not the default 'together'). Results will be incorrect if not post-processed.\n\n%s")%(
                 utils.bcolors.RED, FORM_processing_options['renormalisation_finite_terms'], utils.bcolors.ENDC))
+
+        self.is_amplitude = super_graphs_list.is_amplitude
+        self.color_struc = super_graphs_list.color_struc
 
     def draw(self, output_dir):
         """ For now simply one Mathematica script per supergraph."""

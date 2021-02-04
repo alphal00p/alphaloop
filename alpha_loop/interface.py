@@ -134,6 +134,8 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'FORM_compile_optimization' : 3,
             # Try to recover from selected checkpoint
             'checkpoint_lvl' : 0,
+            # dictionary path to amplitude file
+            'AMPLITUDE_runcard_path': ""
         }
         self.FORM_options=FORM_processing.FORM_processing_options
         self.plugin_output_format_selected = None
@@ -141,6 +143,8 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         self.model_backup_copy = None
 
         self.qgraf_exporter = None
+
+        self.amp_exporter = None
 
         super(alphaLoopInterface, self).__init__(*args, **opts)
 
@@ -373,6 +377,11 @@ utils.bcolors.RED,utils.bcolors.ENDC
             if not value in [str(opt_n) for opt_n in range(3)]:
                 raise alphaLoopInvalidCmd("alphaLoop option 'checkpoint_lvl' should be between 0 and 2, not %s"%value)
             self.alphaLoop_options['checkpoint_lvl'] = int(value)
+        elif key == 'AMPLITUDE_runcard_path':
+            if os.path.isfile(value):
+                self.alphaLoop_options['AMPLITUDE_runcard_path'] = value
+            else:
+                raise alphaLoopInvalidCmd("File does not exist: %s"%value)
         else:
             raise alphaLoopInvalidCmd("Unrecognized alphaLoop option: %s"%key)
 
@@ -779,6 +788,28 @@ utils.bcolors.RED,utils.bcolors.ENDC
             process_definition, self._curr_model, 
             MG5aMC_options=self.options,alphaLoop_options=self.alphaLoop_options)
 
+    def do_process_amplitude(self,line):
+        """ process amplitude from dictionary.  """
+        args = self.split_arg(line)
+        process_definition = self.extract_process(" ".join(args), proc_number=0)
+
+        self.alphaLoop_options['_jet_PDGs'] = tuple([
+            pdg for pdg in self._multiparticles['j'] ]+
+            [pdg for pdg in [82,-82] if pdg not in self._multiparticles['j'] 
+                and (self.alphaLoop_options['final_state_pdgs'] is None 
+                    or pdg not in self.alphaLoop_options['final_state_pdgs'])])
+        
+        self.amp_exporter =  aL_exporters.HardCodedAmpExporter(
+            process_definition, self._curr_model, 
+            MG5aMC_options=self.options,alphaLoop_options=self.alphaLoop_options)
+
+
+        
+        
+
+
+
+
     def do_output(self, line):
         """ Wrapper to support the syntax output alphaLoop <args>.
         This just to add extra freedom in adding special action that may be needed at the output
@@ -791,6 +822,9 @@ utils.bcolors.RED,utils.bcolors.ENDC
         elif len(args)>=1 and args[0]=='qgraf':
             self.plugin_output_format_selected = 'qgraf'
             self.do_output_qgraf(' '.join(args[1:]))
+        elif len(args)>=1 and args[0]=='amplitude':
+            self.plugin_output_format_selected = 'amplitude'
+            self.do_output_amp(' '.join(args[1:]))
         else:
             super(alphaLoopInterface,self).do_output(' '.join(args))
 
@@ -802,6 +836,11 @@ utils.bcolors.RED,utils.bcolors.ENDC
         args = self.split_arg(line)
         print(' '.join(args))
         self.qgraf_exporter.output(' '.join(args))
+
+    def do_output_amp(self, line):
+        args = self.split_arg(line)
+        print(' '.join(args))
+        self.amp_exporter.output(' '.join(args))
 
     def export(self,*args,**opts):
         """Overwrite this so as to force a pythia8 type of output if the output mode is PY8MEs."""
@@ -1015,7 +1054,7 @@ utils.bcolors.RED,utils.bcolors.ENDC
                     processed_args[key[2:]] = eval(value)
                 else:
                     processed_args[key[2:]] = value
-
+            # TRUE EXTERNALS
             if key == '--externals':
                 try:
                     externals = eval(value)
@@ -1030,7 +1069,7 @@ utils.bcolors.RED,utils.bcolors.ENDC
                     raise alphaLoopInvalidCmd("Each element of each of the two lists provided in the 2-tuple 'externals' must be a string identifying the edge name.")                        
 
                 processed_args[key[2:]] = externals
-
+            # FROZEN loop-momenta (add PS-generator?)
             if key == '--default_kinematics':
                 try:
                     default_kinematics = eval(value)
