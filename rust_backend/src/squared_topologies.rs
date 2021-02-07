@@ -433,12 +433,19 @@ pub struct SquaredTopology {
     pub form_integrand: FORMIntegrand,
     #[serde(skip_deserializing)]
     pub is_stability_check_topo: bool,
-    pub pol: Option<Vec<LorentzVector<f64>>>,
-    pub cpol: Option<Vec<LorentzVector<f64>>>,
-    pub spinor_u: Option<Vec<LorentzVector<f64>>>,
-    pub spinor_ubar: Option<Vec<LorentzVector<f64>>>,
-    pub spinor_v: Option<Vec<LorentzVector<f64>>>,
-    pub spinor_vbar: Option<Vec<LorentzVector<f64>>>,
+    #[serde(skip_deserializing)]
+    pub pol: Option<Vec<LorentzVector<Complex<f64>>>>,
+    #[serde(skip_deserializing)]
+    pub cpol: Option<Vec<LorentzVector<Complex<f64>>>>,
+    #[serde(skip_deserializing)]
+    pub spinor_u: Option<Vec<Vec<Complex<f64>>>>,
+    #[serde(skip_deserializing)]
+    pub spinor_ubar: Option<Vec<Vec<Complex<f64>>>>,
+    #[serde(skip_deserializing)]
+    pub spinor_v: Option<Vec<Vec<Complex<f64>>>>,
+    #[serde(skip_deserializing)]
+    pub spinor_vbar: Option<Vec<Vec<Complex<f64>>>>,
+    pub is_amplitude: Option<bool>,
 }
 
 // accomodate <- external data from here: read in set -> feed to squared topology (set up struc in squaredtopology as well)
@@ -479,12 +486,12 @@ pub struct SquaredTopologySetTopology {
 pub struct ExternalData {
     pub in_momenta: Vec<LorentzVector<f64>>,
     pub out_momenta: Vec<LorentzVector<f64>>,
-    pub pol: Vec<LorentzVector<f64>>,
-    pub cpol: Vec<LorentzVector<f64>>,
-    pub spinor_u: Vec<LorentzVector<f64>>,
-    pub spinor_ubar: Vec<LorentzVector<f64>>,
-    pub spinor_v: Vec<LorentzVector<f64>>,
-    pub spinor_vbar: Vec<LorentzVector<f64>>,
+    pub pol: Vec<AmpLorentzVec> ,
+    pub cpol: Vec<AmpLorentzVec>,
+    pub spinor_u: Vec<AmpLorentzVec> ,
+    pub spinor_ubar: Vec<AmpLorentzVec> ,
+    pub spinor_v: Vec<AmpLorentzVec>  ,
+    pub spinor_vbar: Vec<AmpLorentzVec>  ,
     pub  n_in : u32,
     pub n_out : u32,
 }
@@ -504,6 +511,42 @@ impl Default for ExternalData {
         }
     }
 }
+
+#[derive(Debug, Clone,Deserialize)]
+pub struct AmpLorentzVec {
+    pub lorentz_vec : Vec<Vec<f64>>,
+}
+impl AmpLorentzVec {
+    pub fn from_vec_vec_to_cmplx_lv(self) -> LorentzVector<Complex<f64>>  {
+    let mut v = self.lorentz_vec.clone();
+    let (t_re, x_re, y_re, z_re) = (v[0][0], v[1][0], v[2][0], v[3][0]);
+    let (t_im, x_im, y_im, z_im) = (v[0][1], v[1][1], v[2][1], v[3][1]);
+    
+    let l_vec = LorentzVector {
+            t: Complex::new(t_re, t_im),
+            x: Complex::new(x_re, x_im),
+            y: Complex::new(y_re, y_im),
+            z: Complex::new(z_re, z_im),
+        };
+    l_vec
+    
+    }
+    pub fn from_vec_vec_to_cmplx_v(self) -> Vec<Complex<f64>>  {
+        let mut v = self.lorentz_vec.clone();
+        let (t_re, x_re, y_re, z_re) = (v[0][0], v[1][0], v[2][0], v[3][0]);
+        let (t_im, x_im, y_im, z_im) = (v[0][1], v[1][1], v[2][1], v[3][1]);
+        
+        let vec = vec![ 
+                Complex::new(t_re, t_im),
+                Complex::new(x_re, x_im),
+                Complex::new(y_re, y_im),
+                Complex::new(z_re, z_im)];
+        vec
+        
+        }
+
+}
+
 
 
 #[derive(Debug, Clone, Deserialize)]
@@ -1356,16 +1399,48 @@ impl SquaredTopology {
     // 
     pub fn set_external_data(&mut self,input:& SquaredTopologySetInput) {
         
-        let mut e_data: ExternalData = Default::default();
+
         if input.external_data.is_some() {
-            e_data= input.external_data.clone().unwrap();
+            let e_data= input.external_data.clone().unwrap();
+            let mut vv = Vec::new();
+            for elem in e_data.pol {
+                vv.push(elem.from_vec_vec_to_cmplx_lv())
+            }
+            self.pol.get_or_insert_with(||vv);
+
+            let mut vv = Vec::new();
+            for elem in e_data.cpol {
+                vv.push(elem.from_vec_vec_to_cmplx_lv())
+            }
+            self.cpol.get_or_insert_with(||vv);
+
+            let mut vv = Vec::new();
+            for elem in e_data.spinor_u {
+                vv.push(elem.from_vec_vec_to_cmplx_v())
+            }
+            self.spinor_u.get_or_insert_with(||vv);
+
+            let mut vv = Vec::new();
+            for elem in e_data.spinor_ubar {
+                vv.push(elem.from_vec_vec_to_cmplx_v())
+            }            
+            self.spinor_ubar.get_or_insert_with(||vv);
+
+            let mut vv = Vec::new();
+            for elem in e_data.spinor_v {
+                vv.push(elem.from_vec_vec_to_cmplx_v())
+            }            
+            self.spinor_v.get_or_insert_with(||vv);
+            
+
+            let mut vv = Vec::new();
+            for elem in e_data.spinor_vbar {
+                vv.push(elem.from_vec_vec_to_cmplx_v())
+            }            
+            self.spinor_vbar.get_or_insert_with(||vv);
+
+            self.is_amplitude.get_or_insert_with(||true);
         }
-        self.pol.get_or_insert_with(||e_data.pol.clone());
-        self.cpol.get_or_insert_with(||e_data.cpol.clone());
-        self.spinor_u.get_or_insert_with(||e_data.spinor_u.clone());
-        self.spinor_ubar.get_or_insert_with(||e_data.spinor_ubar.clone());
-        self.spinor_v.get_or_insert_with(||e_data.spinor_v.clone());
-        self.spinor_vbar.get_or_insert_with(||e_data.spinor_vbar.clone());
 
     }
 
@@ -1398,6 +1473,7 @@ impl SquaredTopology {
             self.settings.cross_section.incoming_momenta = (*in_momenta).clone();
             self.settings.cross_section.fixed_cut_momenta= c_mom_fix.clone();
             self.default_fixed_cut_momenta = ((*in_momenta).clone(),c_mom_fix);
+            self.is_amplitude.get_or_insert_with(||true);
 
             
 
@@ -2425,7 +2501,7 @@ impl SquaredTopology {
 
                 subgraph_cache.cached_topology_integrand.clear();
             }
-
+            // Setup for evaluation of FORM code
             if self.settings.cross_section.numerator_source == NumeratorSource::Form
                 || self.settings.cross_section.numerator_source == NumeratorSource::FormIntegrand
             {
@@ -2466,7 +2542,12 @@ impl SquaredTopology {
                                 .extend_from_slice(&[d.re, d.im, ds.re, ds.im]);
                         }
                     }
-                    // TODO: add additional dot products (unravel form)
+                    // ADDITIONAL ENTRIES FROM AMPLITUDES                                            
+                    if self.is_amplitude.is_some() {
+                        println!("I arrived but dont know what to do :(")
+
+                    }
+
                 }
 
                 if self.settings.cross_section.numerator_source == NumeratorSource::Form {

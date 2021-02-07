@@ -538,6 +538,16 @@ class amplitude():
                 if entry not in self.external_data.keys():
                     print("Missing entry in external_data:",entry)
                     sys.exit("Extend the run-card.yaml")
+            for entry in _MANDATORY_EXTERNAL_DATA[2:-2]:
+                if len(self.external_data.get(entry)) > 0:
+                    for elem in self.external_data.get(entry):
+                        for el in elem:
+                            if len(el)<2:
+                                print(entry, "is supposed to be complex. Its components are of the form [Re, Im] ")
+                                sys.exit("Extend the run-card.yaml")
+
+
+
             # perform color decomposition
             if self.perform_color:
                 self.super_graphs = intefered_sgs_list(self.math_sg)
