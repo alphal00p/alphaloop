@@ -486,12 +486,12 @@ pub struct SquaredTopologySetTopology {
 pub struct ExternalData {
     pub in_momenta: Vec<LorentzVector<f64>>,
     pub out_momenta: Vec<LorentzVector<f64>>,
-    pub pol: Vec<AmpLorentzVec> ,
-    pub cpol: Vec<AmpLorentzVec>,
-    pub spinor_u: Vec<AmpLorentzVec> ,
-    pub spinor_ubar: Vec<AmpLorentzVec> ,
-    pub spinor_v: Vec<AmpLorentzVec>  ,
-    pub spinor_vbar: Vec<AmpLorentzVec>  ,
+    pub pol: Vec<Vec<Vec<f64>>> ,
+    pub cpol: Vec<Vec<Vec<f64>>>,
+    pub spinor_u: Vec<Vec<Vec<f64>>> ,
+    pub spinor_ubar: Vec<Vec<Vec<f64>>> ,
+    pub spinor_v: Vec<Vec<Vec<f64>>>  ,
+    pub spinor_vbar: Vec<Vec<Vec<f64>>>  ,
     pub  n_in : u32,
     pub n_out : u32,
 }
@@ -511,14 +511,9 @@ impl Default for ExternalData {
         }
     }
 }
-
-#[derive(Debug, Clone,Deserialize)]
-pub struct AmpLorentzVec {
-    pub lorentz_vec : Vec<Vec<f64>>,
-}
-impl AmpLorentzVec {
-    pub fn from_vec_vec_to_cmplx_lv(self) -> LorentzVector<Complex<f64>>  {
-    let mut v = self.lorentz_vec.clone();
+// HELPER FUNCTIONS FOR INPUT CONVERSION
+pub fn from_vec_vec_to_cmplx_lv(input:Vec<Vec<f64>>) -> LorentzVector<Complex<f64>>  {
+    let v = input.clone();
     let (t_re, x_re, y_re, z_re) = (v[0][0], v[1][0], v[2][0], v[3][0]);
     let (t_im, x_im, y_im, z_im) = (v[0][1], v[1][1], v[2][1], v[3][1]);
     
@@ -531,8 +526,8 @@ impl AmpLorentzVec {
     l_vec
     
     }
-    pub fn from_vec_vec_to_cmplx_v(self) -> Vec<Complex<f64>>  {
-        let mut v = self.lorentz_vec.clone();
+pub fn from_vec_vec_to_cmplx_v(input:Vec<Vec<f64>>) -> Vec<Complex<f64>>  {
+        let v = input.clone();
         let (t_re, x_re, y_re, z_re) = (v[0][0], v[1][0], v[2][0], v[3][0]);
         let (t_im, x_im, y_im, z_im) = (v[0][1], v[1][1], v[2][1], v[3][1]);
         
@@ -544,10 +539,7 @@ impl AmpLorentzVec {
         vec
         
         }
-
-}
-
-
+// HELPER FUNCTIONS FOR INPUT CONVERSION: END
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct SquaredTopologySetInput {
@@ -1404,38 +1396,38 @@ impl SquaredTopology {
             let e_data= input.external_data.clone().unwrap();
             let mut vv = Vec::new();
             for elem in e_data.pol {
-                vv.push(elem.from_vec_vec_to_cmplx_lv())
+                vv.push(from_vec_vec_to_cmplx_lv(elem))
             }
             self.pol.get_or_insert_with(||vv);
 
             let mut vv = Vec::new();
             for elem in e_data.cpol {
-                vv.push(elem.from_vec_vec_to_cmplx_lv())
+                vv.push(from_vec_vec_to_cmplx_lv(elem))
             }
             self.cpol.get_or_insert_with(||vv);
 
             let mut vv = Vec::new();
             for elem in e_data.spinor_u {
-                vv.push(elem.from_vec_vec_to_cmplx_v())
+                vv.push(from_vec_vec_to_cmplx_v(elem))
             }
             self.spinor_u.get_or_insert_with(||vv);
 
             let mut vv = Vec::new();
             for elem in e_data.spinor_ubar {
-                vv.push(elem.from_vec_vec_to_cmplx_v())
+                vv.push(from_vec_vec_to_cmplx_v(elem))
             }            
             self.spinor_ubar.get_or_insert_with(||vv);
 
             let mut vv = Vec::new();
             for elem in e_data.spinor_v {
-                vv.push(elem.from_vec_vec_to_cmplx_v())
+                vv.push(from_vec_vec_to_cmplx_v(elem))
             }            
             self.spinor_v.get_or_insert_with(||vv);
             
 
             let mut vv = Vec::new();
             for elem in e_data.spinor_vbar {
-                vv.push(elem.from_vec_vec_to_cmplx_v())
+                vv.push(from_vec_vec_to_cmplx_v(elem))
             }            
             self.spinor_vbar.get_or_insert_with(||vv);
 
