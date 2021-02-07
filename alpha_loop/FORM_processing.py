@@ -1701,6 +1701,7 @@ class FORMSuperGraphIsomorphicList(list):
             n_loops = len(characteristic_super_graph.edges) - len(characteristic_super_graph.nodes) + 1
             FORM_vars['NFINALMOMENTA'] = n_loops
 
+
         # for amplitudes
         if self.is_amplitude and 'NPOL' not in FORM_vars:
             n_pol = len(self.external_data.get('pol',[]))
@@ -1709,19 +1710,27 @@ class FORMSuperGraphIsomorphicList(list):
             n_cpol = len(self.external_data.get('cpol',[]))
             FORM_vars['NCPOL'] = n_cpol
         if self.is_amplitude and 'NSPINV' not in FORM_vars:
-            n_spin_v = len(self.external_data.get('spinorV',[]))
+            n_spin_v = len(self.external_data.get('spinor_v',[]))
             FORM_vars['NSPINV'] = n_spin_v
         if self.is_amplitude and 'NSPINU' not in FORM_vars:
-            n_spin_u = len(self.external_data.get('spinorU',[]))
+            n_spin_u = len(self.external_data.get('spinor_u',[]))
             FORM_vars['NSPINU'] = n_spin_u
         if self.is_amplitude and 'NSPINVBAR' not in FORM_vars:
-            n_spin_v_bar = len(self.external_data.get('spinorVbar',[]))
+            n_spin_v_bar = len(self.external_data.get('spinor_vbar',[]))
             FORM_vars['NSPINVBAR'] = n_spin_v_bar
         if self.is_amplitude and 'NSPINUBAR' not in FORM_vars:
-            n_spin_u_bar = len(self.external_data.get('spinorUbar',[]))
+            n_spin_u_bar = len(self.external_data.get('spinor_ubar',[]))
             FORM_vars['NSPINUBAR'] = n_spin_u_bar
+        if self.is_amplitude:
+            FORM_vars['NFINALMOMENTA'] = self.external_data.get('n_out')
+        if self.is_amplitude:
+            FORM_vars['NINITIALMOMENTA'] = self.external_data.get('n_in')
+
+        
+
         if FORM_vars is None or not all(opt in FORM_vars for opt in _MANDATORY_FORM_VARIABLES):
             raise FormProcessingError("The following variables must be supplied to FORM: %s"%str(_MANDATORY_FORM_VARIABLES))
+
 
         FORM_vars.update(FORM_processing_options['extra-options'])
 
@@ -1861,7 +1870,7 @@ class FORMSuperGraphIsomorphicList(list):
                 g.replacement_rules = self[0].replacement_rules
         #print(r)
         return r
-
+    # ADD option for additional parameters here (only when needed. rust needs extension then as well :( ))!
     def generate_numerator_file(self, i_graph, root_output_path, additional_overall_factor, workspace, integrand_type,  process_definition, header_map):
         timing = time.time()
         self.is_zero = True
@@ -3091,7 +3100,7 @@ int %(header)sget_rank(int diag, int conf) {{
         except ImportError:
             raise BaseException("Install yaml python module in order to import topologies from yaml.")
 
-        open(pjoin(root_output_path, self.name + '.yaml'), 'w').write(yaml.dump(topo_collection, Dumper=Dumper))
+        open(pjoin(root_output_path, self.name + '.yaml'), 'w').write(yaml.dump(topo_collection, Dumper=Dumper,default_flow_style=None))
 
     def get_renormalization_vertex(self, in_pdgs, loop_count, model, process_definition, is_external_bubble=False):
         

@@ -503,6 +503,7 @@ class amplitude():
                 self.perform_color= (proc_dict['process_specification']).pop('perform_color',True)
                 self.color_per_graph = (proc_dict['process_specification']).pop('color_per_graph',False)
                 self.external_data = (proc_dict['process_specification']).get('external_data',{})
+              
             else:
                 sys.exit("type has to be a dictionary") 
             if self.interfence_type != "effective_vertex":
@@ -531,6 +532,12 @@ class amplitude():
             self.initialized = True
             save_sg_dict_to_file(self.math_sg,os.path.join(self.root_dir,'TEMPDIR',self.name+'_sgs_intefered'))
             out_dicts = []
+            
+            _MANDATORY_EXTERNAL_DATA = ['in_momenta' , 'out_momenta', 'spinor_v', 'spinor_vbar', 'spinor_u', 'spinor_ubar', 'pol',  'cpol',  'n_in', 'n_out']
+            for entry in _MANDATORY_EXTERNAL_DATA:
+                if entry not in self.external_data.keys():
+                    print("Missing entry in external_data:",entry)
+                    sys.exit("Extend the run-card.yaml")
             # perform color decomposition
             if self.perform_color:
                 self.super_graphs = intefered_sgs_list(self.math_sg)

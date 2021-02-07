@@ -323,19 +323,22 @@ class SquaredTopologyGenerator:
 
     def export(self, output_path):
         if self.is_amplitude == False:
-            out_amp ={'external_momenta': [self.external_momenta["q%d"%n] for n in sorted([int(qi.replace("q","")) for qi in self.external_momenta.keys()])],
+            out_amp ={
                 'default_fixed_cut_momenta': [[], []] if self.default_kinematics is None else self.default_kinematics}
         else: 
             out_amp ={}
-            out_amp['external_data'] = self.external_data
+            # we do not export the external structure. It is supposed to be set in the sg_list
+            #out_amp['external_data'] = self.external_data
             out_amp['color_struc'] = self.color_struc 
+            out_amp['default_fixed_cut_momenta']=[[],[]]
+            
         
         out = {
             'name': self.name,
             'n_loops': self.topo.n_loops,
             'overall_numerator': self.overall_numerator,
             'n_incoming_momenta': len(self.incoming_momenta),
-        
+            'external_momenta': [self.external_momenta["q%d"%n] for n in sorted([int(qi.replace("q","")) for qi in self.external_momenta.keys()])],
             'topo': self.loop_topo.to_flat_format(),
             'topo_edges' : [ list(e)+[ (self.topo.powers[e[0]] if i not in self.topo.ext else 0), ]
                                 for i, e in enumerate(self.topo.edge_map_lin) ],

@@ -1,4 +1,4 @@
-use crate::dashboard::{StatusUpdate, StatusUpdateSender};
+use crate::{dashboard::{StatusUpdate, StatusUpdateSender}, topologies};
 use crate::integrand::{IntegrandImplementation, IntegrandSample};
 use crate::observables::EventManager;
 use crate::topologies::FixedDeformationLimit;
@@ -19,7 +19,7 @@ use lorentz_vector::{LorentzVector, RealNumberLike};
 use num::Complex;
 use num_traits::{Float, FloatConst, FromPrimitive, Inv, NumCast, One, ToPrimitive, Zero};
 use rand::{thread_rng, Rng};
-use serde::Deserialize;
+use serde::{Deserialize, __private::de};
 use std::collections::HashMap;
 use std::fs::File;
 use std::mem;
@@ -407,7 +407,7 @@ impl Clone for FORMIntegrand {
 pub struct MultiChannelingBasis {
     pub defining_propagators: Vec<(usize, usize)>,
 }
-
+// MODIFY FOR AMPLITUDES -> copy dict in form of structs: remember clone and desirialize #derive()  : One SG
 #[derive(Clone, Deserialize)]
 pub struct SquaredTopology {
     pub name: String,
@@ -422,7 +422,7 @@ pub struct SquaredTopology {
     #[serde(skip_deserializing)]
     pub rotation_matrix: [[float; 3]; 3],
     pub topo: Topology,
-    pub default_fixed_cut_momenta: (Vec<LorentzVector<f64>>, Vec<LorentzVector<f64>>),
+    pub default_fixed_cut_momenta: (Vec<LorentzVector<f64>>, Vec<LorentzVector<f64>>), // If amplitude: overwrite with info from external data: (incoming, outgoing), nfinal-1 indpendent fixed
     #[serde(default)]
     pub multi_channeling_bases: Vec<MultiChannelingBasis>,
     #[serde(skip_deserializing)]
@@ -433,8 +433,15 @@ pub struct SquaredTopology {
     pub form_integrand: FORMIntegrand,
     #[serde(skip_deserializing)]
     pub is_stability_check_topo: bool,
+    pub pol: Option<Vec<LorentzVector<f64>>>,
+    pub cpol: Option<Vec<LorentzVector<f64>>>,
+    pub spinor_u: Option<Vec<LorentzVector<f64>>>,
+    pub spinor_ubar: Option<Vec<LorentzVector<f64>>>,
+    pub spinor_v: Option<Vec<LorentzVector<f64>>>,
+    pub spinor_vbar: Option<Vec<LorentzVector<f64>>>,
 }
 
+// accomodate <- external data from here: read in set -> feed to squared topology (set up struc in squaredtopology as well)
 #[derive(Clone)]
 pub struct SquaredTopologySet {
     pub name: String,
@@ -448,6 +455,7 @@ pub struct SquaredTopologySet {
     pub stability_check_topologies: Vec<Vec<SquaredTopology>>,
     pub is_stability_check_topo: bool,
 }
+
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct SquaredTopologySetAdditionalTopology {
@@ -465,11 +473,55 @@ pub struct SquaredTopologySetTopology {
     pub stability_check_topologies: Vec<String>,
 }
 
+
+// FOR amplitudes
+#[derive(Debug, Deserialize,Clone)]
+pub struct ExternalData {
+    pub in_momenta: Vec<LorentzVector<f64>>,
+    pub out_momenta: Vec<LorentzVector<f64>>,
+    pub pol: Vec<LorentzVector<f64>>,
+    pub cpol: Vec<LorentzVector<f64>>,
+    pub spinor_u: Vec<LorentzVector<f64>>,
+    pub spinor_ubar: Vec<LorentzVector<f64>>,
+    pub spinor_v: Vec<LorentzVector<f64>>,
+    pub spinor_vbar: Vec<LorentzVector<f64>>,
+    pub  n_in : u32,
+    pub n_out : u32,
+}
+impl Default for ExternalData {
+    fn default() -> ExternalData {
+        ExternalData {
+            in_momenta: vec![],
+            out_momenta: vec![],
+            pol: vec![],
+            cpol: vec![],
+            spinor_u: vec![],
+            spinor_ubar: vec![],
+            spinor_v: vec![],
+            spinor_vbar: vec![],
+            n_in: 0,
+            n_out:0
+        }
+    }
+}
+
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct SquaredTopologySetInput {
     pub name: String,
     topologies: Vec<SquaredTopologySetTopology>,
+    pub external_data: Option<ExternalData>,
 }
+impl Default for SquaredTopologySetInput {
+    fn default() -> SquaredTopologySetInput {
+        SquaredTopologySetInput {
+            name : Default::default(),
+            external_data: Default::default(),
+            topologies: vec![],
+        }
+    }
+}
+
 
 impl SquaredTopologySet {
     pub fn from_one(mut squared_topology: SquaredTopology) -> SquaredTopologySet {
@@ -493,23 +545,34 @@ impl SquaredTopologySet {
         let f = File::open(filename)
             .wrap_err_with(|| format!("Could not open squared topology set file {}", filename))
             .suggestion("Does the path exist?")?;
-
-        let squared_topology_set_input: SquaredTopologySetInput = serde_yaml::from_reader(f)
+        // Q: Is that enough for having ExternalStructure set, even if it does not exist?
+    
+        
+        let squared_topology_set_input:SquaredTopologySetInput = serde_yaml::from_reader(f)
             .wrap_err("Could not parse squared topology set file")
             .suggestion("Is it a correct yaml file")?;
+
 
         let mut topologies: Vec<SquaredTopology> = vec![];
         let mut additional_topologies: Vec<Vec<(SquaredTopology, Vec<(Vec<i8>, Vec<i8>)>)>> =
             vec![];
         let mut multiplicity: Vec<f64> = vec![];
         let mut stability_topologies = vec![];
+        let amp_input = squared_topology_set_input.clone();
+        
 
         for topo in squared_topology_set_input.topologies {
             let filename = std::path::Path::new(&filename)
                 .with_file_name(topo.name)
                 .with_extension("yaml");
-            let squared_topology = SquaredTopology::from_file(filename.to_str().unwrap(), settings)
+            
+            let mut squared_topology = SquaredTopology::from_file(filename.to_str().unwrap(), settings)
                 .wrap_err("Could not load subtopology file")?;
+            // we overwrite here for amplitudes
+            squared_topology.set_external_data(& amp_input);
+            squared_topology.overwrite_momenta(& amp_input);
+            
+
 
             let mut additional_topologies_for_topo = vec![];
             for t in topo.additional_lmbs {
@@ -648,6 +711,17 @@ impl SquaredTopologySet {
             multi_channeling_channels: c,
             stability_check_topologies: vec![vec![]; self.topologies.len()],
             is_stability_check_topo: true,
+            // // For amplitudes
+            // cpol: self.cpol.clone(),
+            // pol: self.pol.clone(),
+            // spinor_u: self.spinor_u.clone(),
+            // spinor_ubar: self.spinor_ubar.clone(),
+            // spinor_v: self.spinor_v.clone(),
+            // spinor_vbar: self.spinor_vbar.clone(),
+            // in_momenta:self.in_momenta.clone(),
+            // out_momenta:self.out_momenta.clone(),
+            
+
         }
     }
 
@@ -824,7 +898,7 @@ impl SquaredTopologySet {
         };
 
         // paramaterize and consider the result in a channel basis
-        let n_fixed = self.settings.cross_section.fixed_cut_momenta.len();
+        let n_fixed = self.settings.cross_section.fixed_cut_momenta.len(); // <- means nfinal-1 is assumed
         let n_loops = x.len() / 3 + n_fixed;
         let mut k_channel = [LorentzVector::default(); MAX_SG_LOOP];
         for i in 0..n_loops {
@@ -841,7 +915,7 @@ impl SquaredTopologySet {
                     *xi = xi.max(0.).min(1.0);
                 }
             }
-
+            // parametrize
             let (l_energy, l_space) = if i < n_loops - n_fixed {
                 // set the loop index to i + 1 so that we can also shift k
                 (
@@ -854,7 +928,7 @@ impl SquaredTopologySet {
                     )
                     .0,
                 )
-            } else {
+            } else { // FIXED CUT MOMENTA ARE USED HERE nfinal -1
                 let m = self.settings.cross_section.fixed_cut_momenta[i + n_fixed - n_loops].cast();
                 (m.t, [m.x, m.y, m.z])
             };
@@ -1277,6 +1351,63 @@ impl CachePrecisionSelector<f128> for SquaredTopologyCacheCollection {
 }
 
 impl SquaredTopology {
+    // 
+    // FOR AMPLITUDES: extensions start
+    // 
+    pub fn set_external_data(&mut self,input:& SquaredTopologySetInput) {
+        
+        let mut e_data: ExternalData = Default::default();
+        if input.external_data.is_some() {
+            e_data= input.external_data.clone().unwrap();
+        }
+        self.pol.get_or_insert_with(||e_data.pol.clone());
+        self.cpol.get_or_insert_with(||e_data.cpol.clone());
+        self.spinor_u.get_or_insert_with(||e_data.spinor_u.clone());
+        self.spinor_ubar.get_or_insert_with(||e_data.spinor_ubar.clone());
+        self.spinor_v.get_or_insert_with(||e_data.spinor_v.clone());
+        self.spinor_vbar.get_or_insert_with(||e_data.spinor_vbar.clone());
+
+    }
+
+    pub fn overwrite_momenta(&mut self,input:& SquaredTopologySetInput) {
+        
+        if input.external_data.is_some() {
+            let e_data= input.external_data.clone().unwrap();
+            let in_momenta = &(e_data.in_momenta.clone());
+            let out_momenta = &(e_data.out_momenta.clone());
+            // overwrite incoming and e_cm
+            self.external_momenta = in_momenta.clone();
+            self.external_momenta.extend(in_momenta);
+            let mut sum_incoming: lorentz_vector::LorentzVector<f64> = LorentzVector::default();
+            for m in in_momenta {
+                sum_incoming += *m;
+            }
+            self.e_cm_squared = sum_incoming.square().abs();
+            
+            // I get some problem if I try it otherwise: regarding slicing on vectors -> need to ask ben.
+            let c_mom = (*out_momenta).clone();
+            let mut c_mom_fix = vec![];
+            let mut count = 0;
+            for cc in c_mom {
+                if count < e_data.n_out - 1 {
+                    c_mom_fix.push(cc);
+                    count +=1;
+                }
+                
+            }
+            self.settings.cross_section.incoming_momenta = (*in_momenta).clone();
+            self.settings.cross_section.fixed_cut_momenta= c_mom_fix.clone();
+            self.default_fixed_cut_momenta = ((*in_momenta).clone(),c_mom_fix);
+
+            
+
+        }
+        
+
+    }
+    // 
+    // FOR AMPLITUDES: extensions end
+    // 
     pub fn from_file(filename: &str, settings: &Settings) -> Result<SquaredTopology, Report> {
         let f = File::open(filename)
             .wrap_err_with(|| format!("Could not open squared topology file {}", filename))
@@ -1374,8 +1505,9 @@ impl SquaredTopology {
         for m in incoming_momenta {
             sum_incoming += *m;
         }
+        
         squared_topo.e_cm_squared = sum_incoming.square().abs();
-
+        
         debug_assert_eq!(
             squared_topo.external_momenta.len(),
             squared_topo.n_incoming_momenta * 2,
@@ -1867,6 +1999,7 @@ impl SquaredTopology {
         result
     }
 
+    // MODIFICATION: Topo level
     pub fn evaluate_cut<
         T: form_integrand::GetIntegrand + form_numerator::GetNumerator + FloatLike,
     >(
@@ -2075,7 +2208,7 @@ impl SquaredTopology {
         {
             *kd = cut_mom.to_complex(true);
         }
-
+        // PARAMS are read in here. (hyperparams): adjacent reals in memory build complex numbers
         let params = [
             Into::<T>::into(self.settings.cross_section.m_uv_sq.sqrt()),
             T::zero(),
@@ -2333,6 +2466,7 @@ impl SquaredTopology {
                                 .extend_from_slice(&[d.re, d.im, ds.re, ds.im]);
                         }
                     }
+                    // TODO: add additional dot products (unravel form)
                 }
 
                 if self.settings.cross_section.numerator_source == NumeratorSource::Form {
@@ -2766,7 +2900,7 @@ impl IntegrandImplementation for SquaredTopologySet {
                     rotation_matrix: self.rotation_matrix.clone(),
                     multi_channeling_channels: vec![],
                     stability_check_topologies: vec![vec![]; self.topologies.len()],
-                    is_stability_check_topo: true,
+                    is_stability_check_topo: true,    
                 };
                 sts.create_multi_channeling_channels();
                 stability_topologies.push(sts);
