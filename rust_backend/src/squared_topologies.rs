@@ -1,9 +1,12 @@
-use crate::{dashboard::{StatusUpdate, StatusUpdateSender}, topologies};
 use crate::integrand::{IntegrandImplementation, IntegrandSample};
 use crate::observables::EventManager;
 use crate::topologies::FixedDeformationLimit;
 use crate::topologies::{Cut, LTDCache, LTDNumerator, Topology};
 use crate::utils;
+use crate::{
+    dashboard::{StatusUpdate, StatusUpdateSender},
+    topologies,
+};
 use crate::{
     float, DeformationStrategy, FloatLike, IRHandling, IntegrandType, NormalisingFunction,
     NumeratorSource, Settings,
@@ -463,7 +466,6 @@ pub struct SquaredTopologySet {
     pub is_stability_check_topo: bool,
 }
 
-
 #[derive(Debug, Clone, Deserialize)]
 pub struct SquaredTopologySetAdditionalTopology {
     pub name: String,
@@ -480,20 +482,19 @@ pub struct SquaredTopologySetTopology {
     pub stability_check_topologies: Vec<String>,
 }
 
-
 // FOR amplitudes
-#[derive(Debug, Deserialize,Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct ExternalData {
     pub in_momenta: Vec<LorentzVector<f64>>,
     pub out_momenta: Vec<LorentzVector<f64>>,
-    pub pol: Vec<Vec<Vec<f64>>> ,
+    pub pol: Vec<Vec<Vec<f64>>>,
     pub cpol: Vec<Vec<Vec<f64>>>,
-    pub spinor_u: Vec<Vec<Vec<f64>>> ,
-    pub spinor_ubar: Vec<Vec<Vec<f64>>> ,
-    pub spinor_v: Vec<Vec<Vec<f64>>>  ,
-    pub spinor_vbar: Vec<Vec<Vec<f64>>>  ,
-    pub  n_in : u32,
-    pub n_out : u32,
+    pub spinor_u: Vec<Vec<Vec<f64>>>,
+    pub spinor_ubar: Vec<Vec<Vec<f64>>>,
+    pub spinor_v: Vec<Vec<Vec<f64>>>,
+    pub spinor_vbar: Vec<Vec<Vec<f64>>>,
+    pub n_in: u32,
+    pub n_out: u32,
 }
 impl Default for ExternalData {
     fn default() -> ExternalData {
@@ -507,38 +508,37 @@ impl Default for ExternalData {
             spinor_v: vec![],
             spinor_vbar: vec![],
             n_in: 0,
-            n_out:0
+            n_out: 0,
         }
     }
 }
 // HELPER FUNCTIONS FOR INPUT CONVERSION
-pub fn from_vec_vec_to_cmplx_lv(input:Vec<Vec<f64>>) -> LorentzVector<Complex<f64>>  {
+pub fn from_vec_vec_to_cmplx_lv(input: Vec<Vec<f64>>) -> LorentzVector<Complex<f64>> {
     let v = input.clone();
     let (t_re, x_re, y_re, z_re) = (v[0][0], v[1][0], v[2][0], v[3][0]);
     let (t_im, x_im, y_im, z_im) = (v[0][1], v[1][1], v[2][1], v[3][1]);
-    
+
     let l_vec = LorentzVector {
-            t: Complex::new(t_re, t_im),
-            x: Complex::new(x_re, x_im),
-            y: Complex::new(y_re, y_im),
-            z: Complex::new(z_re, z_im),
-        };
+        t: Complex::new(t_re, t_im),
+        x: Complex::new(x_re, x_im),
+        y: Complex::new(y_re, y_im),
+        z: Complex::new(z_re, z_im),
+    };
     l_vec
-    
-    }
-pub fn from_vec_vec_to_cmplx_v(input:Vec<Vec<f64>>) -> Vec<Complex<f64>>  {
-        let v = input.clone();
-        let (t_re, x_re, y_re, z_re) = (v[0][0], v[1][0], v[2][0], v[3][0]);
-        let (t_im, x_im, y_im, z_im) = (v[0][1], v[1][1], v[2][1], v[3][1]);
-        
-        let vec = vec![ 
-                Complex::new(t_re, t_im),
-                Complex::new(x_re, x_im),
-                Complex::new(y_re, y_im),
-                Complex::new(z_re, z_im)];
-        vec
-        
-        }
+}
+pub fn from_vec_vec_to_cmplx_v(input: Vec<Vec<f64>>) -> Vec<Complex<f64>> {
+    let v = input.clone();
+    let (t_re, x_re, y_re, z_re) = (v[0][0], v[1][0], v[2][0], v[3][0]);
+    let (t_im, x_im, y_im, z_im) = (v[0][1], v[1][1], v[2][1], v[3][1]);
+
+    let vec = vec![
+        Complex::new(t_re, t_im),
+        Complex::new(x_re, x_im),
+        Complex::new(y_re, y_im),
+        Complex::new(z_re, z_im),
+    ];
+    vec
+}
 // HELPER FUNCTIONS FOR INPUT CONVERSION: END
 
 #[derive(Debug, Clone, Deserialize)]
@@ -550,13 +550,12 @@ pub struct SquaredTopologySetInput {
 impl Default for SquaredTopologySetInput {
     fn default() -> SquaredTopologySetInput {
         SquaredTopologySetInput {
-            name : Default::default(),
+            name: Default::default(),
             external_data: Default::default(),
             topologies: vec![],
         }
     }
 }
-
 
 impl SquaredTopologySet {
     pub fn from_one(mut squared_topology: SquaredTopology) -> SquaredTopologySet {
@@ -581,12 +580,10 @@ impl SquaredTopologySet {
             .wrap_err_with(|| format!("Could not open squared topology set file {}", filename))
             .suggestion("Does the path exist?")?;
         // Q: Is that enough for having ExternalStructure set, even if it does not exist?
-    
-        
-        let squared_topology_set_input:SquaredTopologySetInput = serde_yaml::from_reader(f)
+
+        let squared_topology_set_input: SquaredTopologySetInput = serde_yaml::from_reader(f)
             .wrap_err("Could not parse squared topology set file")
             .suggestion("Is it a correct yaml file")?;
-
 
         let mut topologies: Vec<SquaredTopology> = vec![];
         let mut additional_topologies: Vec<Vec<(SquaredTopology, Vec<(Vec<i8>, Vec<i8>)>)>> =
@@ -594,20 +591,18 @@ impl SquaredTopologySet {
         let mut multiplicity: Vec<f64> = vec![];
         let mut stability_topologies = vec![];
         let amp_input = squared_topology_set_input.clone();
-        
 
         for topo in squared_topology_set_input.topologies {
             let filename = std::path::Path::new(&filename)
                 .with_file_name(topo.name)
                 .with_extension("yaml");
-            
-            let mut squared_topology = SquaredTopology::from_file(filename.to_str().unwrap(), settings)
-                .wrap_err("Could not load subtopology file")?;
-            // we overwrite here for amplitudes
-            squared_topology.set_external_data(& amp_input);
-            squared_topology.overwrite_momenta(& amp_input);
-            
 
+            let mut squared_topology =
+                SquaredTopology::from_file(filename.to_str().unwrap(), settings)
+                    .wrap_err("Could not load subtopology file")?;
+            // we overwrite here for amplitudes
+            squared_topology.set_external_data(&amp_input);
+            squared_topology.overwrite_momenta(&amp_input);
 
             let mut additional_topologies_for_topo = vec![];
             for t in topo.additional_lmbs {
@@ -746,16 +741,6 @@ impl SquaredTopologySet {
             multi_channeling_channels: c,
             stability_check_topologies: vec![vec![]; self.topologies.len()],
             is_stability_check_topo: true,
-            // // For amplitudes
-            // cpol: self.cpol.clone(),
-            // pol: self.pol.clone(),
-            // spinor_u: self.spinor_u.clone(),
-            // spinor_ubar: self.spinor_ubar.clone(),
-            // spinor_v: self.spinor_v.clone(),
-            // spinor_vbar: self.spinor_vbar.clone(),
-            // in_momenta:self.in_momenta.clone(),
-            // out_momenta:self.out_momenta.clone(),
-            
 
         }
     }
@@ -934,6 +919,7 @@ impl SquaredTopologySet {
 
         // paramaterize and consider the result in a channel basis
         let n_fixed = self.settings.cross_section.fixed_cut_momenta.len(); // <- means nfinal-1 is assumed
+
         let n_loops = x.len() / 3 + n_fixed;
         let mut k_channel = [LorentzVector::default(); MAX_SG_LOOP];
         for i in 0..n_loops {
@@ -963,7 +949,8 @@ impl SquaredTopologySet {
                     )
                     .0,
                 )
-            } else { // FIXED CUT MOMENTA ARE USED HERE nfinal -1
+            } else {
+                // FIXED CUT MOMENTA ARE USED HERE nfinal -1
                 let m = self.settings.cross_section.fixed_cut_momenta[i + n_fixed - n_loops].cast();
                 (m.t, [m.x, m.y, m.z])
             };
@@ -1264,7 +1251,18 @@ impl SquaredTopologySet {
             cache.current_supergraph = current_supergraph;
 
             if self.settings.general.debug > 0 {
+                println!("*********************************");
                 println!("Evaluating supergraph {}", t.name);
+                println!("With is_amplitude supergraph {:?}", t.is_amplitude.unwrap());
+                println!(
+                    "With default fixed cut momenta {:?}",
+                    t.default_fixed_cut_momenta
+                );
+                println!(
+                    "With cross-section fixed momenta: {:?}",
+                    t.settings.cross_section.fixed_cut_momenta
+                );
+                println!("*********************************");
             }
 
             // a squared topology may not use all loop variables, so we set the unused jacobians to 1
@@ -1386,60 +1384,55 @@ impl CachePrecisionSelector<f128> for SquaredTopologyCacheCollection {
 }
 
 impl SquaredTopology {
-    // 
+    //
     // FOR AMPLITUDES: extensions start
-    // 
-    pub fn set_external_data(&mut self,input:& SquaredTopologySetInput) {
-        
-
+    //
+    pub fn set_external_data(&mut self, input: &SquaredTopologySetInput) {
         if input.external_data.is_some() {
-            let e_data= input.external_data.clone().unwrap();
+            let e_data = input.external_data.clone().unwrap();
             let mut vv = Vec::new();
             for elem in e_data.pol {
                 vv.push(from_vec_vec_to_cmplx_lv(elem))
             }
-            self.pol.get_or_insert_with(||vv);
+            self.pol.get_or_insert_with(|| vv);
 
             let mut vv = Vec::new();
             for elem in e_data.cpol {
                 vv.push(from_vec_vec_to_cmplx_lv(elem))
             }
-            self.cpol.get_or_insert_with(||vv);
+            self.cpol.get_or_insert_with(|| vv);
 
             let mut vv = Vec::new();
             for elem in e_data.spinor_u {
                 vv.push(from_vec_vec_to_cmplx_v(elem))
             }
-            self.spinor_u.get_or_insert_with(||vv);
+            self.spinor_u.get_or_insert_with(|| vv);
 
             let mut vv = Vec::new();
             for elem in e_data.spinor_ubar {
                 vv.push(from_vec_vec_to_cmplx_v(elem))
-            }            
-            self.spinor_ubar.get_or_insert_with(||vv);
+            }
+            self.spinor_ubar.get_or_insert_with(|| vv);
 
             let mut vv = Vec::new();
             for elem in e_data.spinor_v {
                 vv.push(from_vec_vec_to_cmplx_v(elem))
-            }            
-            self.spinor_v.get_or_insert_with(||vv);
-            
+            }
+            self.spinor_v.get_or_insert_with(|| vv);
 
             let mut vv = Vec::new();
             for elem in e_data.spinor_vbar {
                 vv.push(from_vec_vec_to_cmplx_v(elem))
-            }            
-            self.spinor_vbar.get_or_insert_with(||vv);
+            }
+            self.spinor_vbar.get_or_insert_with(|| vv);
 
-            self.is_amplitude.get_or_insert_with(||true);
+            self.is_amplitude.get_or_insert_with(|| true);
         }
-
     }
 
-    pub fn overwrite_momenta(&mut self,input:& SquaredTopologySetInput) {
-        
+    pub fn overwrite_momenta(&mut self, input: &SquaredTopologySetInput) {
         if input.external_data.is_some() {
-            let e_data= input.external_data.clone().unwrap();
+            let e_data = input.external_data.clone().unwrap();
             let in_momenta = &(e_data.in_momenta.clone());
             let out_momenta = &(e_data.out_momenta.clone());
             // overwrite incoming and e_cm
@@ -1450,32 +1443,26 @@ impl SquaredTopology {
                 sum_incoming += *m;
             }
             self.e_cm_squared = sum_incoming.square().abs();
-            
+
             // I get some problem if I try it otherwise: regarding slicing on vectors -> need to ask ben.
             let c_mom = (*out_momenta).clone();
             let mut c_mom_fix = vec![];
             let mut count = 0;
             for cc in c_mom {
-                if count < e_data.n_out - 1 {
+                if count < e_data.n_out -1 {
                     c_mom_fix.push(cc);
-                    count +=1;
+                    count += 1;
                 }
-                
             }
             self.settings.cross_section.incoming_momenta = (*in_momenta).clone();
-            self.settings.cross_section.fixed_cut_momenta= c_mom_fix.clone();
-            self.default_fixed_cut_momenta = ((*in_momenta).clone(),c_mom_fix);
-            self.is_amplitude.get_or_insert_with(||true);
-
-            
-
+            self.settings.cross_section.fixed_cut_momenta = c_mom_fix.clone();
+            self.default_fixed_cut_momenta = ((*in_momenta).clone(), c_mom_fix);
+            self.is_amplitude.get_or_insert_with(|| true);
         }
-        
-
     }
-    // 
+    //
     // FOR AMPLITUDES: extensions end
-    // 
+    //
     pub fn from_file(filename: &str, settings: &Settings) -> Result<SquaredTopology, Report> {
         let f = File::open(filename)
             .wrap_err_with(|| format!("Could not open squared topology file {}", filename))
@@ -1573,9 +1560,9 @@ impl SquaredTopology {
         for m in incoming_momenta {
             sum_incoming += *m;
         }
-        
+
         squared_topo.e_cm_squared = sum_incoming.square().abs();
-        
+
         debug_assert_eq!(
             squared_topo.external_momenta.len(),
             squared_topo.n_incoming_momenta * 2,
@@ -2091,6 +2078,7 @@ impl SquaredTopology {
         let mut scaling_result = Complex::one();
 
         // evaluate the cuts with the proper scaling
+        
         for (cut_mom, cut) in cut_momenta[..cutkosky_cuts.cuts.len()]
             .iter_mut()
             .zip_eq(cutkosky_cuts.cuts.iter())
@@ -2112,7 +2100,8 @@ impl SquaredTopology {
                 cut_energies_summed += energy;
             }
         }
-
+        // Ask ben why they are not overwritten?
+        println!("The cut momenta are: {:?}",cut_momenta);
         if self.settings.general.debug >= 1 {
             println!("  | 1/Es = {}", scaling_result);
             println!("  | q0 = {}", cut_energies_summed);
@@ -2517,6 +2506,17 @@ impl SquaredTopology {
                                 .extend_from_slice(&[d, T::zero(), ds, T::zero()]);
                         }
                     }
+                    if self.settings.general.debug >= 8 {
+                        // println!("lm after only externals");
+                        for (i, lm) in cache.scalar_products.iter().enumerate() {
+                            if i % 2 == 0 {
+                                print!("lm[{}]:", i/2);
+                                print!(" {:?}", lm);
+                            } else {
+                                println!("+ ({:?})*i", lm);
+                            }
+                        }
+                        }
 
                     for (i1, m1) in k_def[..self.n_loops].iter().enumerate() {
                         cache.scalar_products.extend_from_slice(&[m1.t.re, m1.t.im]);
@@ -2534,12 +2534,216 @@ impl SquaredTopology {
                                 .extend_from_slice(&[d.re, d.im, ds.re, ds.im]);
                         }
                     }
-                    // ADDITIONAL ENTRIES FROM AMPLITUDES                                            
+                    // ADDITIONAL ENTRIES FROM AMPLITUDES
                     if self.is_amplitude.is_some() {
-                        println!("I arrived but dont know what to do :(")
+                        // add lm's for spatial components for external momenta
+                        for e1 in external_momenta[..self.n_incoming_momenta].iter() {
+                            cache.scalar_products.extend_from_slice(&[
+                                e1.x,
+                                T::zero(),
+                                e1.y,
+                                T::zero(),
+                                e1.z,
+                                T::zero(),
+                            ]);
+                        }
+                        // add lm's for spatial components for loop momenta
+                        for m1 in k_def[..self.n_loops].iter() {
+                            cache.scalar_products.extend_from_slice(&[
+                                m1.x.re, m1.x.im, m1.y.re, m1.y.im, m1.z.re, m1.z.im,
+                            ]);
+                        }
+                        //  add lm's with polarizations
+                        if self.pol.is_some() {
+                            for (i1, pol1) in (self.pol.clone().unwrap()).iter().enumerate() {
+                                // Type conversion
+                                let pol_vec1 = &LorentzVector {
+                                    t: Complex::new(
+                                        Into::<T>::into(pol1.t.re),
+                                        Into::<T>::into(pol1.t.im),
+                                    ),
+                                    x: Complex::new(
+                                        Into::<T>::into(pol1.x.re),
+                                        Into::<T>::into(pol1.x.im),
+                                    ),
+                                    y: Complex::new(
+                                        Into::<T>::into(pol1.y.re),
+                                        Into::<T>::into(pol1.y.im),
+                                    ),
+                                    z: Complex::new(
+                                        Into::<T>::into(pol1.z.re),
+                                        Into::<T>::into(pol1.z.im),
+                                    ),
+                                };
 
+                                cache.scalar_products.extend_from_slice(&[
+                                    pol_vec1.t.re,
+                                    pol_vec1.t.im,
+                                    pol_vec1.x.re,
+                                    pol_vec1.x.im,
+                                    pol_vec1.y.re,
+                                    pol_vec1.y.im,
+                                    pol_vec1.z.re,
+                                    pol_vec1.z.im,
+                                ]);
+                                // sp with other pol
+                                for pol2 in &(self.pol.clone().unwrap())[i1..] {
+                                    let d = pol1.dot(pol2);
+                                    cache.scalar_products.extend_from_slice(&[
+                                        Into::<T>::into(d.re),
+                                        Into::<T>::into(d.im),
+                                    ]);
+                                }
+                                // with loop momenta
+                                for m1 in k_def[..self.n_loops].iter() {
+                                    let (d, ds) = pol_vec1.dot_spatial_dot(m1);
+                                    cache
+                                        .scalar_products
+                                        .extend_from_slice(&[d.re, d.im, ds.re, ds.im]);
+                                }
+                                //with external momenta
+                                for p1 in external_momenta[..self.n_incoming_momenta].iter() {
+                                    let d = pol_vec1.dot(&p1.cast());
+                                    cache.scalar_products.extend_from_slice(&[d.re, d.im]);
+                                }
+                                // with conjugated polarization
+                                if self.cpol.is_some() {
+                                    for cpol1 in &(self.cpol.clone().unwrap()) {
+                                        let d = pol1.dot(cpol1);
+                                        cache.scalar_products.extend_from_slice(&[
+                                            Into::<T>::into(d.re),
+                                            Into::<T>::into(d.im),
+                                        ]);
+                                    }
+                                }
+                            }
+                        }
+                        // conjugated polarization
+                        if self.cpol.is_some() {
+                            for (i1, cpol1) in (self.cpol.clone().unwrap()).iter().enumerate() {
+                                // Type conversion
+                                let cpol_vec1 = &LorentzVector {
+                                    t: Complex::new(
+                                        Into::<T>::into(cpol1.t.re),
+                                        Into::<T>::into(cpol1.t.im),
+                                    ),
+                                    x: Complex::new(
+                                        Into::<T>::into(cpol1.x.re),
+                                        Into::<T>::into(cpol1.x.im),
+                                    ),
+                                    y: Complex::new(
+                                        Into::<T>::into(cpol1.y.re),
+                                        Into::<T>::into(cpol1.y.im),
+                                    ),
+                                    z: Complex::new(
+                                        Into::<T>::into(cpol1.z.re),
+                                        Into::<T>::into(cpol1.z.im),
+                                    ),
+                                };
+
+                                cache.scalar_products.extend_from_slice(&[
+                                    cpol_vec1.t.re,
+                                    cpol_vec1.t.im,
+                                    cpol_vec1.x.re,
+                                    cpol_vec1.x.im,
+                                    cpol_vec1.y.re,
+                                    cpol_vec1.y.im,
+                                    cpol_vec1.z.re,
+                                    cpol_vec1.z.im,
+                                ]);
+                                // sp with other cpol
+                                for cpol2 in &(self.cpol.clone().unwrap())[i1..] {
+                                    let d = cpol1.dot(cpol2);
+                                    cache.scalar_products.extend_from_slice(&[
+                                        Into::<T>::into(d.re),
+                                        Into::<T>::into(d.im),
+                                    ]);
+                                }
+                                // with loop momenta
+                                for m1 in k_def[..self.n_loops].iter() {
+                                    let (d, ds) = cpol_vec1.dot_spatial_dot(m1);
+                                    cache
+                                        .scalar_products
+                                        .extend_from_slice(&[d.re, d.im, ds.re, ds.im]);
+                                }
+                                //with external momenta
+                                for p1 in external_momenta[..self.n_incoming_momenta].iter() {
+                                    let d = cpol_vec1.dot(&p1.cast());
+                                    cache.scalar_products.extend_from_slice(&[d.re, d.im]);
+                                }
+                            }
+                        }
+                        // add spinor_v
+                        if self.spinor_v.is_some() {
+                            for sv in self.spinor_v.clone().unwrap() {
+                                cache.scalar_products.extend_from_slice(&[
+                                    Into::<T>::into(sv[0].re),
+                                    Into::<T>::into(sv[0].im),
+                                    Into::<T>::into(sv[1].re),
+                                    Into::<T>::into(sv[1].im),
+                                    Into::<T>::into(sv[2].re),
+                                    Into::<T>::into(sv[2].im),
+                                    Into::<T>::into(sv[3].re),
+                                    Into::<T>::into(sv[3].im),
+                                ]);
+                            }
+                        }
+                        // add spinor_vbar
+                        if self.spinor_vbar.is_some() {
+                            for svb in self.spinor_vbar.clone().unwrap() {
+                                cache.scalar_products.extend_from_slice(&[
+                                    Into::<T>::into(svb[0].re),
+                                    Into::<T>::into(svb[0].im),
+                                    Into::<T>::into(svb[1].re),
+                                    Into::<T>::into(svb[1].im),
+                                    Into::<T>::into(svb[2].re),
+                                    Into::<T>::into(svb[2].im),
+                                    Into::<T>::into(svb[3].re),
+                                    Into::<T>::into(svb[3].im),
+                                ]);
+                            }
+                        }
+                        // add spinor_u
+                        if self.spinor_u.is_some() {
+                            for su in self.spinor_u.clone().unwrap() {
+                                cache.scalar_products.extend_from_slice(&[
+                                    Into::<T>::into(su[0].im),
+                                    Into::<T>::into(su[0].re),
+                                    Into::<T>::into(su[1].re),
+                                    Into::<T>::into(su[1].im),
+                                    Into::<T>::into(su[2].re),
+                                    Into::<T>::into(su[2].im),
+                                    Into::<T>::into(su[3].re),
+                                    Into::<T>::into(su[3].im),
+                                ]);
+                            }
+                        }
+                        // add spinor_vbar
+                        if self.spinor_ubar.is_some() {
+                            for sub in self.spinor_ubar.clone().unwrap() {
+                                cache.scalar_products.extend_from_slice(&[
+                                    Into::<T>::into(sub[0].re),
+                                    Into::<T>::into(sub[0].im),
+                                    Into::<T>::into(sub[1].re),
+                                    Into::<T>::into(sub[1].im),
+                                    Into::<T>::into(sub[2].re),
+                                    Into::<T>::into(sub[2].im),
+                                    Into::<T>::into(sub[3].re),
+                                    Into::<T>::into(sub[3].im),
+                                ]);
+                            }
+                        }
                     }
-
+                    if self.settings.general.debug >= 8 {
+                    for (i, lm) in cache.scalar_products.iter().enumerate() {
+                        if i % 2 == 0 {
+                            print!("lm[{}]:", i/2);
+                            print!(" {:?}", lm);
+                        } else {
+                            println!("+ ({:?})*i", lm);
+                        }
+                    }
+                    }
                 }
 
                 if self.settings.cross_section.numerator_source == NumeratorSource::Form {
@@ -2973,7 +3177,7 @@ impl IntegrandImplementation for SquaredTopologySet {
                     rotation_matrix: self.rotation_matrix.clone(),
                     multi_channeling_channels: vec![],
                     stability_check_topologies: vec![vec![]; self.topologies.len()],
-                    is_stability_check_topo: true,    
+                    is_stability_check_topo: true,
                 };
                 sts.create_multi_channeling_channels();
                 stability_topologies.push(sts);

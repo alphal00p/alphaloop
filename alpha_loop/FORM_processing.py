@@ -1722,7 +1722,7 @@ class FORMSuperGraphIsomorphicList(list):
             n_spin_u_bar = len(self.external_data.get('spinor_ubar',[]))
             FORM_vars['NSPINUBAR'] = n_spin_u_bar
         if self.is_amplitude:
-            FORM_vars['NFINALMOMENTA'] = self.external_data.get('n_out')
+            FORM_vars['NFINALMOMENTA'] = self.external_data.get('n_out') -1
         if self.is_amplitude:
             FORM_vars['NINITIALMOMENTA'] = self.external_data.get('n_in')
 
