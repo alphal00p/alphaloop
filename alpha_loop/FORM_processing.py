@@ -59,8 +59,8 @@ plugin_path = os.path.dirname(os.path.realpath( __file__ ))
 
 
 FORM_processing_options = {
-    'FORM_path': 'form', 
-    'tFORM_path': 'tform', 
+    'FORM_path': plugin_path + '/../libraries/form/sources/form',
+    'tFORM_path': plugin_path + '/../libraries/form/sources/tform',
     # Define the extra aguments for the compilation
     'compilation-options': [],
     'cores': 2, #multiprocessing.cpu_count(),
