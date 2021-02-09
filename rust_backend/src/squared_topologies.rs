@@ -558,6 +558,38 @@ impl Default for SquaredTopologySetInput {
 }
 
 impl SquaredTopologySet {
+    pub fn overwrite_momenta(&mut self, input: &SquaredTopologySetInput) {
+        if input.external_data.is_some() {
+            let e_data = input.external_data.clone().unwrap();
+            let in_momenta = &(e_data.in_momenta.clone());
+            let out_momenta = &(e_data.out_momenta.clone());
+            // overwrite incoming and e_cm
+
+            let mut sum_incoming: lorentz_vector::LorentzVector<f64> = LorentzVector::default();
+            for m in in_momenta {
+                sum_incoming += *m;
+            }
+            self.e_cm_squared = sum_incoming.square().abs();
+            println!("E_cm: {:?}", self.e_cm_squared);
+
+            // I get some problem if I try it otherwise: regarding slicing on vectors -> need to ask ben.
+            let c_mom = (*out_momenta).clone();
+            let mut c_mom_fix = vec![];
+            let mut count = 0;
+            for cc in c_mom {
+                if count < e_data.n_out - 1 {
+                    c_mom_fix.push(cc);
+                    count += 1;
+                }
+            }
+            self.settings.cross_section.incoming_momenta = (*in_momenta).clone();
+            self.settings.cross_section.fixed_cut_momenta = c_mom_fix.clone();
+        }
+    }
+    //
+    // FOR AMPLITUDES: extensions end
+    //
+
     pub fn from_one(mut squared_topology: SquaredTopology) -> SquaredTopologySet {
         squared_topology.generate_multi_channeling_channels();
 
@@ -579,7 +611,6 @@ impl SquaredTopologySet {
         let f = File::open(filename)
             .wrap_err_with(|| format!("Could not open squared topology set file {}", filename))
             .suggestion("Does the path exist?")?;
-        // Q: Is that enough for having ExternalStructure set, even if it does not exist?
 
         let squared_topology_set_input: SquaredTopologySetInput = serde_yaml::from_reader(f)
             .wrap_err("Could not parse squared topology set file")
@@ -625,6 +656,9 @@ impl SquaredTopologySet {
                 let mut additional_squared_topology =
                     SquaredTopology::from_file(filename.to_str().unwrap(), settings)
                         .wrap_err("Could not load subtopology file")?;
+                // For amplitudes only
+                additional_squared_topology.set_external_data(&amp_input);
+                additional_squared_topology.overwrite_momenta(&amp_input);
                 additional_squared_topology.is_stability_check_topo = true;
                 stability_topologies_for_topo.push(additional_squared_topology);
             }
@@ -642,16 +676,20 @@ impl SquaredTopologySet {
 
         let mut sts = SquaredTopologySet {
             name: squared_topology_set_input.name,
+            settings: settings.clone(),
             e_cm_squared: topologies[0].e_cm_squared,
             topologies,
             additional_topologies,
             rotation_matrix,
-            settings: settings.clone(),
             multiplicity,
             multi_channeling_channels: vec![],
             stability_check_topologies: stability_topologies,
             is_stability_check_topo: false,
         };
+        // we overwrite here for amplitudes
+
+        sts.overwrite_momenta(&amp_input);
+
         sts.create_multi_channeling_channels();
         Ok(sts)
     }
@@ -741,7 +779,6 @@ impl SquaredTopologySet {
             multi_channeling_channels: c,
             stability_check_topologies: vec![vec![]; self.topologies.len()],
             is_stability_check_topo: true,
-
         }
     }
 
@@ -1133,7 +1170,7 @@ impl SquaredTopologySet {
         cache: &mut SquaredTopologyCache<T>,
         mut event_manager: Option<&mut EventManager>,
     ) -> Complex<T> {
-        if self.settings.general.debug > 0 {
+        if self.settings.general.debug > 1 {
             println!("x-space point: {:?}", sample);
         }
 
@@ -1205,6 +1242,10 @@ impl SquaredTopologySet {
                 )
             } else {
                 let m = self.settings.cross_section.fixed_cut_momenta[i + n_fixed - n_loops].cast();
+                if self.settings.general.debug > 8 {
+                    println!("un-rotated momentum : {:?}", m);
+                }
+                
                 (
                     m.t,
                     (
@@ -1231,6 +1272,9 @@ impl SquaredTopologySet {
 
             jac_para *= jac;
             para_jacs[i] = jac_para;
+            if self.settings.general.debug > 8 {
+                println!("rotated momentum : {:?}", k[i]);
+            }
         }
 
         let mut result = Complex::zero();
@@ -1250,20 +1294,20 @@ impl SquaredTopologySet {
 
             cache.current_supergraph = current_supergraph;
 
-            if self.settings.general.debug > 0 {
-                println!("*********************************");
-                println!("Evaluating supergraph {}", t.name);
-                println!("With is_amplitude supergraph {:?}", t.is_amplitude.unwrap());
-                println!(
-                    "With default fixed cut momenta {:?}",
-                    t.default_fixed_cut_momenta
-                );
-                println!(
-                    "With cross-section fixed momenta: {:?}",
-                    t.settings.cross_section.fixed_cut_momenta
-                );
-                println!("*********************************");
-            }
+            // if self.settings.general.debug > 0 {
+            //     println!("*********************************");
+            //     println!("Evaluating supergraph {}", t.name);
+            //     println!("With is_amplitude supergraph {:?}", t.is_amplitude.unwrap());
+            //     println!(
+            //         "With default fixed cut momenta {:?}",
+            //         t.default_fixed_cut_momenta
+            //     );
+            //     println!(
+            //         "With cross-section fixed momenta: {:?}",
+            //         t.settings.cross_section.fixed_cut_momenta
+            //     );
+            //     println!("*********************************");
+            // }
 
             // a squared topology may not use all loop variables, so we set the unused jacobians to 1
             let r = t.evaluate_mom(&k[..t.n_loops], cache, &mut event_manager)
@@ -1449,14 +1493,14 @@ impl SquaredTopology {
             let mut c_mom_fix = vec![];
             let mut count = 0;
             for cc in c_mom {
-                if count < e_data.n_out -1 {
+                if count < e_data.n_out - 1 {
                     c_mom_fix.push(cc);
                     count += 1;
                 }
             }
             self.settings.cross_section.incoming_momenta = (*in_momenta).clone();
             self.settings.cross_section.fixed_cut_momenta = c_mom_fix.clone();
-            self.default_fixed_cut_momenta = ((*in_momenta).clone(), c_mom_fix);
+            self.default_fixed_cut_momenta = ((*in_momenta).clone(), c_mom_fix); // Never used
             self.is_amplitude.get_or_insert_with(|| true);
         }
     }
@@ -2078,7 +2122,7 @@ impl SquaredTopology {
         let mut scaling_result = Complex::one();
 
         // evaluate the cuts with the proper scaling
-        
+
         for (cut_mom, cut) in cut_momenta[..cutkosky_cuts.cuts.len()]
             .iter_mut()
             .zip_eq(cutkosky_cuts.cuts.iter())
@@ -2101,8 +2145,9 @@ impl SquaredTopology {
             }
         }
         // Ask ben why they are not overwritten?
-        println!("The cut momenta are: {:?}",cut_momenta);
-        if self.settings.general.debug >= 1 {
+        //println!("The cut momenta are: {:?}", cut_momenta);
+
+        if self.settings.general.debug > 1 {
             println!("  | 1/Es = {}", scaling_result);
             println!("  | q0 = {}", cut_energies_summed);
             println!("  | scaling = {}", scaling);
@@ -2506,17 +2551,17 @@ impl SquaredTopology {
                                 .extend_from_slice(&[d, T::zero(), ds, T::zero()]);
                         }
                     }
-                    if self.settings.general.debug >= 8 {
-                        // println!("lm after only externals");
-                        for (i, lm) in cache.scalar_products.iter().enumerate() {
-                            if i % 2 == 0 {
-                                print!("lm[{}]:", i/2);
-                                print!(" {:?}", lm);
-                            } else {
-                                println!("+ ({:?})*i", lm);
-                            }
-                        }
-                        }
+                    // if self.settings.general.debug >= 8 {
+                    //     // println!("lm after only externals");
+                    //     for (i, lm) in cache.scalar_products.iter().enumerate() {
+                    //         if i % 2 == 0 {
+                    //             print!("lm[{}]:", i / 2);
+                    //             print!(" {:?}", lm);
+                    //         } else {
+                    //             println!("+ ({:?})*i", lm);
+                    //         }
+                    //     }
+                    // }
 
                     for (i1, m1) in k_def[..self.n_loops].iter().enumerate() {
                         cache.scalar_products.extend_from_slice(&[m1.t.re, m1.t.im]);
@@ -2735,14 +2780,14 @@ impl SquaredTopology {
                         }
                     }
                     if self.settings.general.debug >= 8 {
-                    for (i, lm) in cache.scalar_products.iter().enumerate() {
-                        if i % 2 == 0 {
-                            print!("lm[{}]:", i/2);
-                            print!(" {:?}", lm);
-                        } else {
-                            println!("+ ({:?})*i", lm);
+                        for (i, lm) in cache.scalar_products.iter().enumerate() {
+                            if i % 2 == 0 {
+                                print!("lm[{}]:", i / 2);
+                                print!(" {:?}", lm);
+                            } else {
+                                println!("+ ({:?})*i", lm);
+                            }
                         }
-                    }
                     }
                 }
 
@@ -2845,7 +2890,7 @@ impl SquaredTopology {
 
                     res *= def_jacobian;
 
-                    if self.settings.general.debug >= 1 {
+                    if self.settings.general.debug > 1 {
                         println!("  | res diagram set {}: = {:e}", diagram_set.id, res);
                     }
 
@@ -3094,7 +3139,7 @@ impl SquaredTopology {
             }
         }
 
-        if self.settings.general.debug >= 1 {
+        if self.settings.general.debug > 1 {
             println!("  | scaling res = {:e}", scaling_result);
         }
 
@@ -3159,7 +3204,7 @@ impl IntegrandImplementation for SquaredTopologySet {
 
     fn create_stability_check(&self, num_checks: usize) -> Vec<SquaredTopologySet> {
         let mut stability_topologies = vec![];
-
+        println!("Here");
         let mut rng = rand::thread_rng();
         for i in 0..num_checks {
             if self.stability_check_topologies.iter().all(|x| i < x.len()) {
