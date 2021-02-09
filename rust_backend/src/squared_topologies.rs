@@ -2091,6 +2091,11 @@ impl SquaredTopology {
         let mut diag_and_num_contributions = Complex::zero();
         let mut def_jacobian = Complex::one();
 
+        // diagrams sets in the same cut can only inherit information if the cmb is the same
+        let can_inherit_momenta = cutkosky_cuts.diagram_sets[1..]
+            .iter()
+            .all(|ds| ds.cb_to_lmb == cutkosky_cuts.diagram_sets[0].cb_to_lmb);
+
         // regenerate the evaluation of the exponent map of the numerator since the loop momenta have changed
         let mut regenerate_momenta = true;
         for (diag_set_index, diagram_set) in cutkosky_cuts.diagram_sets.iter_mut().enumerate() {
@@ -2110,6 +2115,7 @@ impl SquaredTopology {
             let do_deformation = self.settings.general.deformation_strategy
                 == DeformationStrategy::Fixed
                 && (diag_set_index == 0
+                    || !can_inherit_momenta
                     || !self
                         .settings
                         .cross_section
@@ -2206,6 +2212,7 @@ impl SquaredTopology {
                 .settings
                 .cross_section
                 .inherit_deformation_for_uv_counterterm
+                || !can_inherit_momenta
                 || diag_set_index == 0
             {
                 def_jacobian = Complex::one();
@@ -2221,6 +2228,7 @@ impl SquaredTopology {
                     .settings
                     .cross_section
                     .inherit_deformation_for_uv_counterterm
+                    || !can_inherit_momenta
                     || diag_set_index == 0
                 {
                     // do the loop momentum map, which is expressed in the loop momentum basis
@@ -2300,6 +2308,7 @@ impl SquaredTopology {
                     .settings
                     .cross_section
                     .inherit_deformation_for_uv_counterterm
+                    || !can_inherit_momenta
                     || diag_set_index == 0
                 {
                     cache.scalar_products.clear();

@@ -107,9 +107,9 @@ class RunHyperparameters(HyperParameters):
             'CrossSection.m_uv_sq'                          : 155.0**2,
             'CrossSection.mu_r_sq'                          : 155.0**2,
             'CrossSection.gs'                               : 1.2177157847767195,
-            'CrossSection.NormalisingFunction.name'         : 'left_right_polynomial',
+            'CrossSection.NormalisingFunction.name'         : 'left_right_exponential',
             'CrossSection.NormalisingFunction.center'       : 1.0,
-            'CrossSection.NormalisingFunction.spread'       : 3,
+            'CrossSection.NormalisingFunction.spread'       : 1.0,
             'General.stability_checks'                      : [
                 {
                     # number of samples to take for the numerical stability check
@@ -135,11 +135,12 @@ class RunHyperparameters(HyperParameters):
             'CrossSection.numerator_source'                      :   'FORM_integrand',
             # Can be LTD, PF
             'CrossSection.integrand_type'                        :   'PF',
+            'CrossSection.picobarns'                             :   False,
             # evaluate the C expression for the sum of diagrams
             'CrossSection.sum_diagram_sets'                      :   False,
             # compare locally against the same topology written in another loop momentum basis
             'CrossSection.compare_with_additional_topologies'    :   False,
-            'CrossSection.inherit_deformation_for_uv_counterterm':   True
+            'CrossSection.inherit_deformation_for_uv_counterterm':   True,
         }
 
         for param, value in alphaloop_run_interface_specific_params.items():
@@ -891,9 +892,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     @wrap_in_process()
     @with_tmp_hyperparameters({
         'Integrator.dashboard': False,
-        'General.minimal_precision_for_returning_result': 3,
-        'CrossSection.NormalisingFunction.name'         : 'left_right_polynomial',
+        'General.minimal_precision_for_returning_result': 1.0,
+        'CrossSection.NormalisingFunction.name'         : 'left_right_exponential',
         'CrossSection.NormalisingFunction.center'       : 1.0,
+        'CrossSection.NormalisingFunction.spread'       : 1.0,
         'General.multi_channeling'                      : False
     })
     def do_uv_profile(self, line):
@@ -911,7 +913,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         else:
             selected_SGs = [args.SG_name,]
 
-        self.hyperparameters['CrossSection']['NormalisingFunction']['spread'] = args.h_power
+        #self.hyperparameters['CrossSection']['NormalisingFunction']['spread'] = 1. # args.h_power
         if args.required_precision is None:
             self.hyperparameters['General']['stability_checks'][-1]['relative_precision']=1.0e-99
         else:
@@ -1137,19 +1139,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                     res_re, res_im = rust_worker_f128.evaluate_integrand(xs_in_defining_LMB)
                                 else:
                                     res_re, res_im = rust_worker.evaluate_integrand(xs_in_defining_LMB)
-                            # We must multiply by the overall jac to get a convergence UV scaling for dod = 0 as defined including line A).
-                            #overall_jac = 1.0
                             results.append( (scaling, complex(res_re, res_im)*overall_jac ) )
 
 #                        misc.sprint(results)
                         # Here we are in x-space, so the dod read is already the one we want.
                         dod, standard_error, number_of_points_considered, successful_fit = utils.compute_dod(results)
+                        dod += 3*float(len(UV_edge_indices))
 
-                        # A) The jacobian is not included in the evaluate_cut functions, so we must now account for it here for each UV edge
-                        dod += 4*float(len(UV_edge_indices))
-                        # Subtract one to the dod so that it's interpretation matches the power counting in the original Minkowski graph,
-                        # i.e. -> dod=0 is a log divergence
-                        dod -= 1
 
                         # We expect dod of at most five sigma above 0.0 for the integral to be convergent.
                         test_passed = (dod < float(args.target_scaling)+min(max(5.0*abs(standard_error),0.005),0.1) )
@@ -1253,19 +1249,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 res_re, res_im = rust_worker.evaluate_cut_f128(rescaled_momenta_in_defining_LMB,cut_ID,LU_scaling,LU_scaling_jacobian)                            
                             else:
                                 res_re, res_im = rust_worker.evaluate_cut(rescaled_momenta_in_defining_LMB,cut_ID,LU_scaling,LU_scaling_jacobian)
-                            # Also divide the result by the UV scaling otherwise line A) below is incorrect
-                            # when the scaling is not a constant.
-                            #additional_t_scaling = LU_scaling**(-len(LMB))
-                            additional_t_scaling = 1.0
-                            results.append( (scaling, complex(res_re, res_im)*additional_t_scaling ) )
-                        
-                        dod, standard_error, number_of_points_considered, successful_fit = utils.compute_dod(results)
+                            results.append( (scaling, complex(res_re, res_im) ) )
 
-                        # A) The jacobian is not included in the evaluate_cut functions, so we must now account for it here for each UV edge
-                        dod += 4*float(len(UV_edge_indices))
-                        # Subtract one to the dod so that it's interpretation matches the power counting in the original Minkowski graph,
-                        # i.e. -> dod=0 is a log divergence
-                        dod -= 1
+                        dod, standard_error, number_of_points_considered, successful_fit = utils.compute_dod(results)
+                        dod += 3*float(len(UV_edge_indices))
 
                         # We expect dod of at most five sigma above 0.0 for the integral to be convergent.
                         test_passed = (dod < float(args.target_scaling)+min(max(5.0*abs(standard_error),0.005),0.1) )

@@ -1,19 +1,10 @@
-extern crate arrayvec;
-extern crate color_eyre;
-extern crate eyre;
-extern crate f128;
-extern crate ltd;
-extern crate num;
-extern crate num_traits;
-extern crate vector;
-
 use arrayvec::ArrayVec;
+use lorentz_vector::LorentzVector;
 use ltd::topologies::{LTDCache, Topology};
 use ltd::utils::test_utils::{get_test_topology, numeriacal_eq};
 use ltd::MAX_LOOP;
 use num::Complex;
 use num_traits::{NumCast, One, ToPrimitive, Zero};
-use lorentz_vector::LorentzVector;
 
 fn cross_check(
     topo: &mut Topology,
