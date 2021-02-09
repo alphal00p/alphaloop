@@ -59,8 +59,8 @@ plugin_path = os.path.dirname(os.path.realpath( __file__ ))
 
 
 FORM_processing_options = {
-    'FORM_path': plugin_path + '/../libraries/form/sources/form',
-    'tFORM_path': plugin_path + '/../libraries/form/sources/tform',
+    'FORM_path': str(Path(plugin_path).parent.joinpath('libraries', 'form', 'sources', 'form').resolve()),
+    'tFORM_path': str(Path(plugin_path).parent.joinpath('libraries', 'form', 'sources', 'tform').resolve()),
     # Define the extra aguments for the compilation
     'compilation-options': [],
     'cores': 2, #multiprocessing.cpu_count(),
@@ -1464,7 +1464,8 @@ CTable pfmap(0:{},0:{});
                 if last_cmb == '':
                     last_cmb = cmb_map
                 if last_cmb != cmb_map:
-                    logger.warning("WARNING: cmbs differ between diagram sets. inherit_deformation_for_uv_counterterm should be set to FALSE.")
+                    pass
+                    #logger.warning("WARNING: cmbs differ between diagram sets. inherit_deformation_for_uv_counterterm should be set to FALSE.")
                     #raise AssertionError("Diagram sets do not have the same cmb")
 
                 # store which momenta are LTD momenta
