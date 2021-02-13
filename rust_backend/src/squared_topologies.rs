@@ -1245,7 +1245,7 @@ impl SquaredTopologySet {
                 if self.settings.general.debug > 8 {
                     println!("un-rotated momentum : {:?}", m);
                 }
-                
+
                 (
                     m.t,
                     (
@@ -1431,6 +1431,7 @@ impl SquaredTopology {
     //
     // FOR AMPLITUDES: extensions start
     //
+
     pub fn set_external_data(&mut self, input: &SquaredTopologySetInput) {
         if input.external_data.is_some() {
             let e_data = input.external_data.clone().unwrap();
@@ -2527,7 +2528,7 @@ impl SquaredTopology {
 
                 subgraph_cache.cached_topology_integrand.clear();
             }
-            // Setup for evaluation of FORM code
+            // Setup for evaluation of FORM code: define the lms
             if self.settings.cross_section.numerator_source == NumeratorSource::Form
                 || self.settings.cross_section.numerator_source == NumeratorSource::FormIntegrand
             {
@@ -2551,17 +2552,6 @@ impl SquaredTopology {
                                 .extend_from_slice(&[d, T::zero(), ds, T::zero()]);
                         }
                     }
-                    // if self.settings.general.debug >= 8 {
-                    //     // println!("lm after only externals");
-                    //     for (i, lm) in cache.scalar_products.iter().enumerate() {
-                    //         if i % 2 == 0 {
-                    //             print!("lm[{}]:", i / 2);
-                    //             print!(" {:?}", lm);
-                    //         } else {
-                    //             println!("+ ({:?})*i", lm);
-                    //         }
-                    //     }
-                    // }
 
                     for (i1, m1) in k_def[..self.n_loops].iter().enumerate() {
                         cache.scalar_products.extend_from_slice(&[m1.t.re, m1.t.im]);
@@ -2579,10 +2569,63 @@ impl SquaredTopology {
                                 .extend_from_slice(&[d.re, d.im, ds.re, ds.im]);
                         }
                     }
+                    //
                     // ADDITIONAL ENTRIES FROM AMPLITUDES
+                    //
+
                     if self.is_amplitude.is_some() {
+                        // undo the rotation
+                        let rot = &self.rotation_matrix;
+                        let mut k_unrotated = vec![];
+                        let mut ext_momenta_unrotated = vec![];
+
+                        for l in k_def.iter() {
+                            let (l_energy, l_space) = (l.t, [l.x, l.y, l.z]);
+                            k_unrotated.push(LorentzVector::from_args(
+                                l_energy,
+                                <Complex<T> as NumCast>::from(rot[0][0]).unwrap() * l_space[0]
+                                    + <Complex<T> as NumCast>::from(rot[1][0]).unwrap()
+                                        * l_space[1]
+                                    + <Complex<T> as NumCast>::from(rot[2][0]).unwrap()
+                                        * l_space[2],
+                                <Complex<T> as NumCast>::from(rot[0][1]).unwrap() * l_space[0]
+                                    + <Complex<T> as NumCast>::from(rot[1][1]).unwrap()
+                                        * l_space[1]
+                                    + <Complex<T> as NumCast>::from(rot[2][1]).unwrap()
+                                        * l_space[2],
+                                <Complex<T> as NumCast>::from(rot[0][2]).unwrap() * l_space[0]
+                                    + <Complex<T> as NumCast>::from(rot[1][2]).unwrap()
+                                        * l_space[1]
+                                    + <Complex<T> as NumCast>::from(rot[2][2]).unwrap()
+                                        * l_space[2],
+                            ));
+                        }
+
+                        for ee in external_momenta.iter() {
+                            let (l_energy, l_space) = (ee.t, [ee.x, ee.y, ee.z]);
+                            ext_momenta_unrotated.push(LorentzVector::from_args(
+                                l_energy,
+                                <T as NumCast>::from(rot[0][0]).unwrap() * l_space[0]
+                                    + <T as NumCast>::from(rot[1][0]).unwrap()
+                                        * l_space[1]
+                                    + <T as NumCast>::from(rot[2][0]).unwrap()
+                                        * l_space[2],
+                                <T as NumCast>::from(rot[0][1]).unwrap() * l_space[0]
+                                    + <T as NumCast>::from(rot[1][1]).unwrap()
+                                        * l_space[1]
+                                    + <T as NumCast>::from(rot[2][1]).unwrap()
+                                        * l_space[2],
+                                <T as NumCast>::from(rot[0][2]).unwrap() * l_space[0]
+                                    + <T as NumCast>::from(rot[1][2]).unwrap()
+                                        * l_space[1]
+                                    + <T as NumCast>::from(rot[2][2]).unwrap()
+                                        * l_space[2],
+                            ));
+                        }
+
+
                         // add lm's for spatial components for external momenta
-                        for e1 in external_momenta[..self.n_incoming_momenta].iter() {
+                        for e1 in ext_momenta_unrotated[..self.n_incoming_momenta].iter() {
                             cache.scalar_products.extend_from_slice(&[
                                 e1.x,
                                 T::zero(),
@@ -2593,11 +2636,22 @@ impl SquaredTopology {
                             ]);
                         }
                         // add lm's for spatial components for loop momenta
-                        for m1 in k_def[..self.n_loops].iter() {
+                        for m1 in k_unrotated[..self.n_loops].iter() {
                             cache.scalar_products.extend_from_slice(&[
                                 m1.x.re, m1.x.im, m1.y.re, m1.y.im, m1.z.re, m1.z.im,
                             ]);
                         }
+                        // if self.settings.general.debug > 0 {
+                        //     println!("lm after only externals");
+                        //     for (i, lm) in cache.scalar_products.iter().enumerate() {
+                        //         if i % 2 == 0 {
+                        //             print!("lm[{}]:", i / 2);
+                        //             print!(" {:?}", lm);
+                        //         } else {
+                        //             println!("+ ({:?})*i", lm);
+                        //         }
+                        //     }
+                        // }
                         //  add lm's with polarizations
                         if self.pol.is_some() {
                             for (i1, pol1) in (self.pol.clone().unwrap()).iter().enumerate() {
@@ -2640,14 +2694,14 @@ impl SquaredTopology {
                                     ]);
                                 }
                                 // with loop momenta
-                                for m1 in k_def[..self.n_loops].iter() {
+                                for m1 in k_unrotated[..self.n_loops].iter() {
                                     let (d, ds) = pol_vec1.dot_spatial_dot(m1);
                                     cache
                                         .scalar_products
                                         .extend_from_slice(&[d.re, d.im, ds.re, ds.im]);
                                 }
                                 //with external momenta
-                                for p1 in external_momenta[..self.n_incoming_momenta].iter() {
+                                for p1 in ext_momenta_unrotated[..self.n_incoming_momenta].iter() {
                                     let d = pol_vec1.dot(&p1.cast());
                                     cache.scalar_products.extend_from_slice(&[d.re, d.im]);
                                 }
@@ -2705,14 +2759,14 @@ impl SquaredTopology {
                                     ]);
                                 }
                                 // with loop momenta
-                                for m1 in k_def[..self.n_loops].iter() {
+                                for m1 in k_unrotated[..self.n_loops].iter() {
                                     let (d, ds) = cpol_vec1.dot_spatial_dot(m1);
                                     cache
                                         .scalar_products
                                         .extend_from_slice(&[d.re, d.im, ds.re, ds.im]);
                                 }
                                 //with external momenta
-                                for p1 in external_momenta[..self.n_incoming_momenta].iter() {
+                                for p1 in ext_momenta_unrotated[..self.n_incoming_momenta].iter() {
                                     let d = cpol_vec1.dot(&p1.cast());
                                     cache.scalar_products.extend_from_slice(&[d.re, d.im]);
                                 }
