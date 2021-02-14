@@ -167,11 +167,11 @@ class FORMSuperGraph(object):
         (1,1,1,3,3,3): (0,1,2,3,4,5)
     }
 
-    _include_momentum_routing_in_rendering=False
+    _include_momentum_routing_in_rendering=True
     _include_edge_name_in_rendering=True
     _rendering_size = (1.0*(11.0*60),1.0*(8.5*60)) # 1.0 prefactor should be about 1 landscape A4 format per graph
     # Choose graph layout strategy. Interesting options are in comment.
-    _graph_layout_strategy = '{"PackingLayout"->"ClosestPacking"}' 
+    _graph_layout_strategy = '{"SpringEmbedding"}' 
     #_graph_layout_strategy = 'GraphLayout -> "SpringElectricalEmbedding"' 
     #_graph_layout_strategy = 'GraphLayout -> "SpringEmbedding"' 
     #_graph_layout_strategy = 'GraphLayout -> {"LayeredEmbedding", "Orientation" -> Left, "RootVertex" -> "I1"}' 
@@ -352,8 +352,8 @@ class FORMSuperGraph(object):
         """ Generate mathematica expression for drawing this graph."""
 
         repl_dict = {
-            'edge_font_size'     : 10,
-            'vetex_font_size'    : 10,
+            'edge_font_size'     : 8,
+            'vetex_font_size'    : 8,
             'width'              : self._rendering_size[0],
             'height'             : self._rendering_size[1],
             'graph_layout_strategy' : self._graph_layout_strategy
@@ -457,9 +457,9 @@ class FORMSuperGraph(object):
 EdgeShapeFunction -> {
 %(edge_shape_definitions)s
 },
-EdgeLabelStyle -> Directive[FontFamily -> "CMU Typewriter Text", FontSize -> %(edge_font_size)d, Bold],
-VertexLabelStyle -> Directive[FontFamily -> "CMU Typewriter Text", FontSize -> %(vetex_font_size)d, Bold],
-VertexSize -> Large,
+EdgeLabelStyle -> Directive[FontFamily -> "CMU Typewriter Text", FontSize -> %(edge_font_size)d,Small],
+VertexLabelStyle -> Directive[FontFamily -> "CMU Typewriter Text", FontSize -> %(vetex_font_size)d, Small],
+VertexSize -> small,
 VertexLabels -> Placed[Automatic,Center],
 GraphLayout -> %(graph_layout_strategy)s,
 ImageSize -> {%(width)f, %(height)f}
@@ -1255,6 +1255,7 @@ CTable pfmap(0:{},0:{});
 
         loop_momenta = []
         n_loops = len(self.edges) - len(self.nodes) + 1
+
         for loop_var in range(n_loops):
             lm = next((ee['name'], ee['signature'][0][loop_var]) for ee in self.edges.values() if all(s == 0 for s in ee['signature'][1]) and \
                 sum(abs(s) for s in ee['signature'][0]) == 1 and ee['signature'][0][loop_var] == 1)
@@ -1721,8 +1722,6 @@ class FORMSuperGraphIsomorphicList(list):
         if self.is_amplitude and 'NSPINUBAR' not in FORM_vars:
             n_spin_u_bar = len(self.external_data.get('spinor_ubar',[]))
             FORM_vars['NSPINUBAR'] = n_spin_u_bar
-        if self.is_amplitude:
-            FORM_vars['NFINALMOMENTA'] = self.external_data.get('n_out') -1
         if self.is_amplitude:
             FORM_vars['NINITIALMOMENTA'] = self.external_data.get('n_in')
 
@@ -2562,7 +2561,58 @@ class FORMSuperGraphList(list):
             form_graph = FORMSuperGraph(name=graph_name, edges = g['edges'], nodes=g['nodes'], 
                         overall_factor=g['overall_factor'], multiplicity = g.get('multiplicity',1),is_amplitude = True, color_struc=g.get('color_struc',None) , effective_vertex_id = g.get('effective_vertex_id',None), numerator = g.get('analytic_num'),external_data = external_data )
             form_graph.derive_signatures()
+            # flip signature if neccesary
+
             full_graph_list.append(form_graph)
+
+                # Adjust edge orientation of all repeated edges so that they have identical signatures
+        for g in full_graph_list:
+
+            # First detect edges that need flipping
+            all_signatures = {}
+            for e_key, e in g.edges.items():
+                pos_signature = tuple(tuple(s for s in sp) for sp in e['signature'])
+                neg_signature = tuple(tuple(-s for s in sp) for sp in e['signature'])
+                if pos_signature in all_signatures:
+                    all_signatures[pos_signature].append((e_key,+1))
+                elif neg_signature in all_signatures:
+                    all_signatures[neg_signature].append((e_key,-1))
+                else:
+                    if pos_signature[0].count(0) == len(pos_signature[0]) - 1 and\
+                        pos_signature[1].count(0) == len(pos_signature[1]):
+                        if next(s for s in pos_signature[0] if s != 0) < 0:
+                            all_signatures[neg_signature] = [(e_key, -1)]
+                            break
+                        else:
+                            all_signatures[pos_signature] = [(e_key,+1)]
+                    else:
+                        all_signatures[pos_signature] = [(e_key,+1)]
+
+            for sig, edges in all_signatures.items():
+                for edge_key, sign in edges:
+                    if sign==+1:
+                        continue
+                    # For now we only allow to flip particles that are not fermionic otherwise 
+                    # special care must be taken when flipping an edge and normally fermionic lines
+                    # should already have been aligned at this stage.
+                    flipped_part = model.get_particle(g.edges[edge_key]['PDG'])
+                    # if flipped_part.is_fermion():
+                    #     raise FormProcessingError("A *fermionic* repeated edge with opposite signatures was found. This should happen for bosons only.")
+
+                    g.edges[edge_key]['PDG'] = flipped_part.get_anti_pdg_code()
+                    g.edges[edge_key]['signature'] = [[-s for s in sp] for sp in g.edges[edge_key]['signature']]
+                    g.edges[edge_key]['indices'] = tuple([
+                        g.edges[edge_key]['indices'][1],
+                        g.edges[edge_key]['indices'][0],
+                    ])
+                    g.edges[edge_key]['vertices'] = tuple([
+                        g.edges[edge_key]['vertices'][1],
+                        g.edges[edge_key]['vertices'][0],
+                    ])
+
+            # Now adust the string momenta of edges and nodes accordingly.            
+            g.impose_signatures()
+            
         
 
 

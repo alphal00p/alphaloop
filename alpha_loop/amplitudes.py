@@ -8,12 +8,11 @@ import sys
 import os
 import subprocess
 from pathlib import Path
-import importlib.util 
-
+import importlib.util
 
 
 ###############################################################
-# 
+#
 # Define functions amplitude preparation (inteferences)
 #
 #############################################################
@@ -119,16 +118,16 @@ def to_right_diag(left_diag, to_effective_vertex=False):
                 del right_diag['nodes'][nn]
             else:
                 nc += 1
-        # relabel edge id's        
+        # relabel edge id's
         new_edge_ids = list(str(x) for x in sorted(
             list(range(1, len(right_diag['edges'])+1))))
         old_edge_ids = sorted(list((right_diag['edges']).keys()))
-        
+
         for i, ne in enumerate(new_edge_ids):
             for nn in (right_diag['nodes']).values():
                 nn['edge_ids'] = tuple(
                     map(lambda x: ne if x == old_edge_ids[i] else x, nn['edge_ids']))
-        
+
         for i, ee in enumerate(list(right_diag['edges'])):
             right_diag['edges'][new_edge_ids[i]
                                 ] = right_diag['edges'].pop(old_edge_ids[i])
@@ -136,12 +135,12 @@ def to_right_diag(left_diag, to_effective_vertex=False):
             nn['edge_ids'] = tuple(int(x) for x in nn['edge_ids'])
         for ee in list((right_diag['edges']).keys()):
             right_diag['edges'][int(ee)] = right_diag['edges'].pop(ee)
-        
+
         # add internal vertex (fake vertex)
-        right_diag['nodes'][nc+1] = {'edge_ids': tuple(x for x in list((right_diag['edges']).keys())), 
+        right_diag['nodes'][nc+1] = {'edge_ids': tuple(x for x in list((right_diag['edges']).keys())),
             'vertex_id': 0,
             'momenta': tuple(map(lambda x: right_diag['edges'][x]['momentum'] if right_diag['edges'][x]['type'] == 'in' else '-'+str(right_diag['edges'][x]['momentum']), list((right_diag['edges']).keys()))),
-            'indices':(), 'fake_vertex': True}
+            'indices': (), 'fake_vertex': True}
 
         for ee in (right_diag['edges']).values():
             ee['vertices'] = tuple(
@@ -281,9 +280,8 @@ def sew_amp_diags(ld, rd):
                     ec['vertices'] = (
                         left_diag['edges'][el]['vertices'][0], right_diag['edges'][er]['vertices'][1])
                     ec['PDG'] = copy.copy(left_diag['edges'][el]['PDG'])
-                    ec['indices'] = copy.copy(
-                        left_diag['edges'][el]['indices'])
-                    full_edge = copy.deepcopy({key: copy.deepcopy(ec)})
+                    ec['indices'] = copy.copy((left_diag['edges'][el]).get('indices', []))
+                    full_edge=copy.deepcopy({key: copy.deepcopy(ec)})
                     sewed_graph['edges'].update(full_edge)
                     # relabel the edge_ids
                     for nn in sewed_graph['nodes'].values():
@@ -292,108 +290,104 @@ def sew_amp_diags(ld, rd):
                         #     test =True
                         # if test:
                         #     print((nn['edge_ids'],er,el))
-                        nn['edge_ids'] = tuple(
+                        nn['edge_ids']=tuple(
                             map(lambda x: el if x == er else x, nn['edge_ids']))
                         # if test:
                         #     print((nn['edge_ids'],er,el))
                         #     print("************")
-                    sewed = True
+                    sewed=True
                     break
             if sewed == False:
                 sys.exit("Could not sew graphs! Abort")
 
-    sewed_graph['analytic_num'] = "(" + \
+    sewed_graph['analytic_num']="(" + \
         left_diag['analytic_num']+")*("+right_diag['analytic_num']+")"
-    sewed_graph['overall_factor'] = '1'
+    sewed_graph['overall_factor']='1'
     # declare formally external momenta to now beeing loop-momenta
     for n, mom in enumerate(left_diag['out_momenta'][:-1]):
-        rhs = 'k'+str(full_offset+n+1)
+        rhs='k'+str(full_offset+n+1)
         for ee in sewed_graph['edges'].values():
-            ee['momentum'] = ee['momentum'].replace(mom, rhs)
+            ee['momentum']=ee['momentum'].replace(mom, rhs)
         for nn in sewed_graph['nodes'].values():
             if isinstance(nn['momenta'], str):
-                nn['momenta'] = nn['momenta'].replace(mom, rhs)
+                nn['momenta']=nn['momenta'].replace(mom, rhs)
             else:
-                nn['momenta'] = tuple(x.replace(mom, rhs)
+                nn['momenta']=tuple(x.replace(mom, rhs)
                                       for x in nn['momenta'])
-        sewed_graph['analytic_num'] = sewed_graph['analytic_num'].replace(
+        sewed_graph['analytic_num']=sewed_graph['analytic_num'].replace(
             mom, rhs)
 
     # we need continous vertex labels for igraph
-    new_vert = sorted(list(range(1, len(sewed_graph['nodes'])+1)))
+    new_vert=sorted(list(range(1, len(sewed_graph['nodes'])+1)))
     # old keys will always be larger than new keys
-    old_vert = sorted(list(sewed_graph['nodes'].keys()))
+    old_vert=sorted(list(sewed_graph['nodes'].keys()))
     for i, vnew in enumerate(new_vert):
         for ee in sewed_graph['edges'].values():
-            ee['vertices'] = tuple(
+            ee['vertices']=tuple(
                 map(lambda x: vnew if x == old_vert[i] else x, ee['vertices']))
     for i, nn in enumerate(list(sewed_graph['nodes'])):
         sewed_graph['nodes'][new_vert[i]
-                             ] = sewed_graph['nodes'].pop(old_vert[i])
+                             ]=sewed_graph['nodes'].pop(old_vert[i])
 
     # rename edges (ask ben why)
     # look at edge-map-lin
     # look at edge-name-map
-    propCount = 1
-    extCount = 1
+    propCount=1
+    extCount=1
     for ee in sewed_graph['edges'].values():
         if ee['type'] == 'virtual':
-            ee['name'] = 'q' + str(propCount)
+            ee['name']='q' + str(propCount)
             propCount += 1
         elif ee['type'] == 'in':
-            ee['name'] = 'p'+str(extCount)
+            ee['name']='p'+str(extCount)
             extCount += 1
     for ee in sewed_graph['edges'].values():
         if ee['type'] == 'out':
-            ee['name'] = 'p'+str(extCount)
+            ee['name']='p'+str(extCount)
             extCount += 1
-    
+
     # SET INDICES
     # assign indices (edges): this is needed in FORMPROCESSING.py in classmethod from_dict
-    cc = 1
+    cc=1
     for eedict in sewed_graph['edges'].values():
-        # vv = eedict['vertices']
-        for key in list(eedict):
-            if key == 'indices': 
-                del eedict[key]
-        # pdg = eedict['PDG']
-        # if eedict['type'] == 'virtual':
-        #     eedict['indices'] = (cc,cc+1)
-        #     cc+=2
-        # else:
-        #     eedict['indices'] = (cc,)
-        #     cc+=1
+        if eedict['type'] == 'virtual':
+            eedict['indices'] = (cc,cc+1)
+            cc+=2
+        else:
+            eedict['indices'] = (cc,)
+            cc+=1
 
-        #(nodes): assign indices and PDGs
-        # delete indices in nodes
-        for knn, nn in sewed_graph['nodes'].items():
-            for key in list(nn):
-                if key == 'indices' or key == 'PDGs': 
-                    del nn[key]
-                if key == 'fake_vertex':
-                    sewed_graph['effective_vertex_id'] = knn
-                    del nn[key]
-                
-        # # assign new indices
-        # for nn , valdic in sewed_graph['nodes'].items():
-        #     for eid in valdic['edge_ids']:
-        #         vv = sewed_graph['edges'][eid]['vertices']
-        #         idxs = sewed_graph['edges'][eid]['indices']
-        #         if nn in vv:
-        #             if vv[0] == nn:
-        #                 valdic['indices'] = valdic['indices'] + (idxs[0],)
-        #             else:
-        #                 valdic['indices'] = valdic['indices'] + (idxs[-1],)
+    # (nodes): assign indices and PDGs
+    # delete indices in nodes
+    for knn, nn in sewed_graph['nodes'].items():
+        for key in list(nn):
+            if key == 'indices' or key == 'PDGs':
+                del nn[key]
+            if key == 'fake_vertex':
+                sewed_graph['effective_vertex_id']=knn
+                del nn[key]
+
+    # # assign new indices
+    for nn , valdic in sewed_graph['nodes'].items():
+        for eid in valdic['edge_ids']:
+            vv = sewed_graph['edges'][eid]['vertices']
+            idxs = sewed_graph['edges'][eid]['indices']
+            
+            if nn in vv:
+                if vv[0] == nn:
+                    valdic['indices'] = valdic.get('indices',()) + (idxs[0],)
+                else:
+                    valdic['indices'] = valdic.get('indices',())+ (idxs[-1],)
 
 
     return copy.deepcopy(sewed_graph)
 
 
 def save_sg_dict_to_file(dictList, fileName='dict_dump'):
-    pjoin = os.path.join
-    root_path = os.path.dirname(os.path.realpath(__file__))
+    pjoin=os.path.join
+    root_path=os.path.dirname(os.path.realpath(__file__))
 
-    f = open(pjoin(root_path, fileName+'.py'), 'w')
+    f=open(pjoin(root_path, fileName+'.py'), 'w')
     f.write('graphs=[]\n')
     f.write('graph_names=[]\n')
     for cc, dic in enumerate(dictList):
@@ -408,36 +402,38 @@ class amplitude():
     """ import and manipulation of amplitudes
     """
     def __init__(self, runcard, output, src_dir):
-        self.runcard = runcard
-        self.output_dir = output
-        self.dirs = ['FORM','TEMPDIR','SGS_LIST','FORM/workspace']
-        self.initialized = False
+        self.runcard=runcard
+        self.output_dir=output
+        self.dirs=['FORM', 'TEMPDIR', 'SGS_LIST', 'FORM/workspace']
+        self.initialized=False
         self.root_dir=''
-        self.super_graphs = intefered_sgs_list()
-        self.form_files = ["ChisholmIdentities.prc",  "coltracebased.h", "amp_numerator.frm", "color_basis.frm"]
-        self.src_dir = src_dir
-        self.name = ""
-        self.from_math = True
-        self.interfence_type = None
-        self.math_sg = "./"
-        self.perform_color= True
-        self.color_per_graph = False
-        self.external_data ={}
+        self.super_graphs=intefered_sgs_list()
+        self.form_files=["ChisholmIdentities.prc",
+            "coltracebased.h", "amp_numerator.frm", "color_basis.frm"]
+        self.src_dir=src_dir
+        self.name=""
+        self.from_math=True
+        self.interfence_type=None
+        self.math_sg="./"
+        self.perform_color=True
+        self.color_per_graph=False
+        self.external_data={}
 
-    def create_dir(self,path):
+    def create_dir(self, path):
         try:
                 os.mkdir(path)
         except OSError:
-                print ("Creation of the directory %s failed" % path)
+                print("Creation of the directory %s failed" % path)
         else:
-                print ("Successfully created the directory %s " % path)
+                print("Successfully created the directory %s " % path)
 
 
     def set_up_working_dir(self, abs_path_do_working_dir, clean_up=False):
-        self.root_dir = abs_path_do_working_dir
+        self.root_dir=abs_path_do_working_dir
         Path(self.root_dir).mkdir(parents=True, exist_ok=True)
-        
-        Path(os.path.join(self.root_dir,'Cards')).mkdir(parents=True, exist_ok=True)
+
+        Path(os.path.join(self.root_dir, 'Cards')).mkdir(
+            parents=True, exist_ok=True)
         # TODO add param_card in Source
 
         if not os.path.exists(self.root_dir):
@@ -447,116 +443,135 @@ class amplitude():
         for dir in self.dirs:
             if clean_up is True and os.path.exists(os.path.join(self.root_dir, dir)):
                 shutil.rmtree(os.path.join(self.root_dir, dir))
-            Path(os.path.join(self.root_dir, dir)).mkdir(parents=True, exist_ok=True)
-        # copy form files  
-        self.form_workspace = os.path.join(self.root_dir,'FORM','workspace')
+            Path(os.path.join(self.root_dir, dir)).mkdir(
+                parents=True, exist_ok=True)
+        # copy form files
+        self.form_workspace=os.path.join(self.root_dir, 'FORM', 'workspace')
         for ff in self.form_files:
-            if not os.path.exists(os.path.join(self.form_workspace,ff)):                    
-                shutil.copy(os.path.join(self.src_dir,ff),os.path.join(self.form_workspace,ff))
+            if not os.path.exists(os.path.join(self.form_workspace, ff)):
+                shutil.copy(os.path.join(self.src_dir, ff),
+                            os.path.join(self.form_workspace, ff))
 
-                
-            
-            
 
-            
-        
-    
+
+
+
+
+
+
     def create_intefered_amp(self):
-        # here we need to include the python qgraf-output             
+        # here we need to include the python qgraf-output
         if self.from_math:
-            mod_name = 'math_supergraph'
-            
-            spec = importlib.util.spec_from_file_location(mod_name, self.math_sg)
-            math_supergraph =importlib.util.module_from_spec(spec)
+            mod_name='math_supergraph'
+
+            spec=importlib.util.spec_from_file_location(mod_name, self.math_sg)
+            math_supergraph=importlib.util.module_from_spec(spec)
             spec.loader.exec_module(math_supergraph)
-            ## BUILD SUPEGRPAPHS
-            left_diags = math_supergraph.graphs
-            right_diags = []
+            # BUILD SUPEGRPAPHS
+            left_diags=math_supergraph.graphs
+            right_diags=[]
             for g in left_diags:
                 if 'analytic_num' not in g.keys():
-                    g['analytic_num'] = "1"
+                    g['analytic_num']="1"
                 if self.interfence_type == "effective_vertex":
-                    right_diags+=[to_right_diag(g,to_effective_vertex=True)]
+                    right_diags += [to_right_diag(g, to_effective_vertex=True)]
                 else:
-                    right_diags+=[to_right_diag(g,to_effective_vertex=False)]
+                    right_diags += [to_right_diag(g,
+                                                  to_effective_vertex=False)]
 
 
-            super_graphs =[]
+            super_graphs=[]
             if self.interfence_type == "effective_vertex":
-                for cc,ld in enumerate(left_diags):
-                    super_graphs+=[sew_amp_diags(ld,right_diags[cc])]
+                for cc, ld in enumerate(left_diags):
+                    super_graphs += [sew_amp_diags(ld, right_diags[cc])]
             else:
                 for ld in left_diags:
                     for rd in right_diags:
-                        super_graphs+=[sew_amp_diags(ld,rd)]
+                        super_graphs += [sew_amp_diags(ld, rd)]
 
-            
-            self.math_sg = super_graphs      
-    
+
+            self.math_sg=super_graphs
+
     def def_process(self, proc_dict):
-            if isinstance(proc_dict,dict):
-                
-                self.name = (proc_dict['process_specification']).pop('name','new_amplitude')
-                self.from_math = (proc_dict['process_specification']).pop('generate_from_math',True)
-                self.interfence_type = (proc_dict['process_specification']).pop('interference_type',"effective_vertex")
-                self.math_sg = (proc_dict['process_specification']).pop('math_sg','./')
-                self.perform_color= (proc_dict['process_specification']).pop('perform_color',True)
-                self.color_per_graph = (proc_dict['process_specification']).pop('color_per_graph',False)
-                self.external_data = (proc_dict['process_specification']).get('external_data',{})
-              
+            if isinstance(proc_dict, dict):
+
+                self.name=(proc_dict['process_specification']).pop(
+                    'name', 'new_amplitude')
+                self.from_math=(proc_dict['process_specification']).pop(
+                    'generate_from_math', True)
+                self.interfence_type=(proc_dict['process_specification']).pop(
+                    'interference_type', "effective_vertex")
+                self.math_sg=(proc_dict['process_specification']).pop(
+                    'math_sg', './')
+                self.perform_color=(proc_dict['process_specification']).pop(
+                    'perform_color', True)
+                self.color_per_graph=(proc_dict['process_specification']).pop(
+                    'color_per_graph', False)
+                self.external_data=(proc_dict['process_specification']).get(
+                    'external_data', {})
+
             else:
-                sys.exit("type has to be a dictionary") 
+                sys.exit("type has to be a dictionary")
             if self.interfence_type != "effective_vertex":
-                sys.exit("So far only the interference type `effective_vertex` is supported within the LTD-code")
+                sys.exit(
+                    "So far only the interference type `effective_vertex` is supported within the LTD-code")
 
-    
-        
-        
 
-    def initialize_process(self ,clean_up=True):
-        path_to_runcard = self.runcard
-        abs_path_do_working_dir = os.path.abspath(self.output_dir)
-        if not self.initialized:            
+
+
+
+    def initialize_process(self, clean_up=True):
+        path_to_runcard=self.runcard
+        abs_path_do_working_dir=os.path.abspath(self.output_dir)
+        if not self.initialized:
             if abs_path_do_working_dir == '' and self.root_dir == '':
-                
-                dir_yaml = os.path.dirname(path_to_runcard)
-                self.set_up_working_dir(os.path.join(dir_yaml, "process_dir"),clean_up=clean_up)
+
+                dir_yaml=os.path.dirname(path_to_runcard)
+                self.set_up_working_dir(os.path.join(
+                    dir_yaml, "process_dir"), clean_up=clean_up)
                 with open(path_to_runcard) as f:
-                    self.def_process(yaml.load(f,Loader=yaml.FullLoader))            
-            elif abs_path_do_working_dir != '' and self.root_dir == '':                
-                self.set_up_working_dir(os.path.join(abs_path_do_working_dir, "process_dir"),clean_up=clean_up)
+                    self.def_process(yaml.load(f, Loader=yaml.FullLoader))
+            elif abs_path_do_working_dir != '' and self.root_dir == '':
+                self.set_up_working_dir(os.path.join(
+                    abs_path_do_working_dir, "process_dir"), clean_up=clean_up)
                 with open(path_to_runcard) as f:
-                    self.def_process(yaml.load(f,Loader=yaml.FullLoader))
+                    self.def_process(yaml.load(f, Loader=yaml.FullLoader))
 
             self.create_intefered_amp()
-            self.initialized = True
-            save_sg_dict_to_file(self.math_sg,os.path.join(self.root_dir,'TEMPDIR',self.name+'_sgs_intefered'))
-            out_dicts = []
-            
-            _MANDATORY_EXTERNAL_DATA = ['in_momenta' , 'out_momenta', 'spinor_v', 'spinor_vbar', 'spinor_u', 'spinor_ubar', 'pol',  'cpol',  'n_in', 'n_out']
+            self.initialized=True
+            save_sg_dict_to_file(self.math_sg, os.path.join(
+                self.root_dir, 'TEMPDIR', self.name+'_sgs_intefered'))
+            out_dicts=[]
+
+            _MANDATORY_EXTERNAL_DATA=['in_momenta', 'out_momenta', 'spinor_v',
+                'spinor_vbar', 'spinor_u', 'spinor_ubar', 'pol',  'cpol',  'n_in', 'n_out']
             for entry in _MANDATORY_EXTERNAL_DATA:
                 if entry not in self.external_data.keys():
-                    print("Missing entry in external_data:",entry)
+                    print("Missing entry in external_data:", entry)
                     sys.exit("Extend the run-card.yaml")
             for entry in _MANDATORY_EXTERNAL_DATA[2:-2]:
                 if len(self.external_data.get(entry)) > 0:
                     for elem in self.external_data.get(entry):
                         for el in elem:
-                            if len(el)<2:
-                                print(entry, "is supposed to be complex. Its components are of the form [Re, Im] ")
+                            if len(el) < 2:
+                                print(
+                                    entry, "is supposed to be complex. Its components are of the form [Re, Im] ")
                                 sys.exit("Extend the run-card.yaml")
 
 
 
             # perform color decomposition
             if self.perform_color:
-                self.super_graphs = intefered_sgs_list(self.math_sg)
-                self.super_graphs.perform_color_decomp(self.form_workspace,CPERGRAPH=self.color_per_graph)
+                self.super_graphs=intefered_sgs_list(self.math_sg)
+                self.super_graphs.perform_color_decomp(
+                    self.form_workspace, CPERGRAPH=self.color_per_graph)
                 # dump to dict
-                
-                for i,gs in enumerate(self.super_graphs.sgs_list):
-                    save_sg_dict_to_file(gs,os.path.join(self.root_dir,'SGS_LIST',self.name+'_color_struc'+str(i+1)))
-                    out_dicts += [os.path.join(self.root_dir,'SGS_LIST',self.name+'_color_struc'+str(i+1))]
+
+                for i, gs in enumerate(self.super_graphs.sgs_list):
+                    save_sg_dict_to_file(gs, os.path.join(
+                        self.root_dir, 'SGS_LIST', self.name+'_color_struc'+str(i+1)))
+                    out_dicts += [os.path.join(self.root_dir,
+                                               'SGS_LIST', self.name+'_color_struc'+str(i+1))]
         return out_dicts
 ############################################################################################################
 
@@ -564,39 +579,39 @@ class intefered_sgs_list():
     """ Inteferred supergraphs
     """
     def __init__(self, sgs_list=[{}]):
-        self.sgs_list = sgs_list
-        self.color_decomp = False
-        
-    def generate_numerator_functions(self,workspace, graph_dict, SIGID,colpergraph):
+        self.sgs_list=sgs_list
+        self.color_decomp=False
+
+    def generate_numerator_functions(self, workspace, graph_dict, SIGID, colpergraph):
         """ Use form to perform the color separations"""
-        
-        FORM_vars = {}
-        pjoin = os.path.join
-        n_incoming = sum(
+
+        FORM_vars={}
+        pjoin=os.path.join
+        n_incoming=sum(
             [1 for edge in (graph_dict['edges']).values() if edge['type'] == 'in'])
-        FORM_vars['NINITIALMOMENTA'] = n_incoming
-        n_loops = len((graph_dict['edges']).keys()) - \
+        FORM_vars['NINITIALMOMENTA']=n_incoming
+        n_loops=len((graph_dict['edges']).keys()) - \
             len((graph_dict['nodes']).keys()) + 1
-        FORM_vars['NFINALMOMENTA'] = n_loops
-        FORM_vars['SGID'] = SIGID
-        FORM_vars['CPERGRAPH'] = colpergraph
-        i_graph = int(FORM_vars['SGID'])
+        FORM_vars['NFINALMOMENTA']=n_loops
+        FORM_vars['SGID']=SIGID
+        FORM_vars['CPERGRAPH']=colpergraph
+        i_graph=int(FORM_vars['SGID'])
 
-        form_input = graph_dict['analytic_num']
+        form_input=graph_dict['analytic_num']
 
-        selected_workspace = workspace
-        FORM_source = pjoin(selected_workspace, 'color_basis.frm')
+        selected_workspace=workspace
+        FORM_source=pjoin(selected_workspace, 'color_basis.frm')
 
         with open(pjoin(selected_workspace, 'input_%d.h' % i_graph), 'w') as f:
             f.write('L F = {};'.format(form_input))
-        # print(' '.join([
-        #     'form',
-        # ] +
-        #     ['-D %s=%s' % (k, v) for k, v in FORM_vars.items()] +
-        #     [FORM_source, ]
-        # ))
+        print(' '.join([
+            'form',
+        ] +
+            ['-D %s=%s' % (k, v) for k, v in FORM_vars.items()] +
+            [FORM_source, ]
+        ))
 
-        r = subprocess.run(' '.join([
+        r=subprocess.run(' '.join([
             'form',
         ] +
             ['-D %s=%s' % (k, v) for k, v in FORM_vars.items()] +
@@ -610,46 +625,33 @@ class intefered_sgs_list():
                 r.stdout.decode('UTF-8'))
 
 
-    def perform_color_decomp(self,FORM_WS,CPERGRAPH=0):
+    def perform_color_decomp(self, FORM_WS, CPERGRAPH=0):
         from pathlib import Path
-        pjoin = os.path.join
-        all_color =[]
-        
+        pjoin=os.path.join
+        all_color=[]
+
         for i, g in enumerate(self.sgs_list):
             if CPERGRAPH:
-                self.generate_numerator_functions(FORM_WS, g, i,colpergraph=1)
-            else: 
-                self.generate_numerator_functions(FORM_WS, g, i,colpergraph=0)
-            f = open(pjoin(FORM_WS, 'SG_'+str(i)+'_color_decomp.txt'), 'r')
-            color = copy.deepcopy(eval((f.read()).replace('\n', '')))
+                self.generate_numerator_functions(FORM_WS, g, i, colpergraph=1)
+            else:
+                self.generate_numerator_functions(FORM_WS, g, i, colpergraph=0)
+            f=open(pjoin(FORM_WS, 'SG_'+str(i)+'_color_decomp.txt'), 'r')
+            color=copy.deepcopy(eval((f.read()).replace('\n', '')))
             all_color += list(color.keys())
             f.close()
-            g['color_structures'] = color        
-        all_color = list(dict.fromkeys(all_color))
-        
-        graphs_color_sep = []
+            g['color_structures']=color
+        all_color=list(dict.fromkeys(all_color))
+
+        graphs_color_sep=[]
         for c in all_color:
-            struc = []
+            struc=[]
             for g in self.sgs_list:
                 if c in (g['color_structures']).keys():
-                    tmp_g = copy.deepcopy(g)
-                    tmp_g['analytic_num'] = copy.copy(g['color_structures'][c])
+                    tmp_g=copy.deepcopy(g)
+                    tmp_g['analytic_num']=copy.copy(g['color_structures'][c])
                     del tmp_g['color_structures']
-                    tmp_g['color_struc'] = c
+                    tmp_g['color_struc']=c
                     struc += [tmp_g]
             graphs_color_sep += [struc]
-        self.sgs_list = graphs_color_sep
-        self.color_decomp = True
-
-    
-
-
-        
-        
-
-
-
-        
-
-
-
+        self.sgs_list=graphs_color_sep
+        self.color_decomp=True

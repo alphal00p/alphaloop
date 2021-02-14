@@ -18,8 +18,13 @@ Off statistics;
 #define LBAR "-11,-12,-13"
 #define HELSUM "false"
 
+S vev, pi;
+
 Auto S mass;
-CTable masses(-30:30);
+Auto S yukawa;
+CTable masses(-99:1338);
+CTable gyq(-30:30);
+CTable logmasses(-30:30);
 CTable charges(-30:30);
 
 #ifndef `OPTIMITERATIONS'
@@ -81,6 +86,24 @@ Fill charges(-5) = 1/3; * b
 Fill charges(-6) = -2/3; * t
 Fill charges(-11) = 1; * e
 
+Fill gyq(1) = yukawa_d; * d
+Fill gyq(2) = yukawa_u; * u
+Fill gyq(3) = yukawa_s; * s
+Fill gyq(4) = yukawa_c; * c
+Fill gyq(5) = yukawa_b; * b
+Fill gyq(6) = yukawa_t; * t
+Fill gyq(11) = 0; * e-
+Fill gyq(12) = 0; * mu-
+Fill gyq(13) = 0; * ta-
+Fill gyq(-1) = yukawa_d; * d
+Fill gyq(-2) = yukawa_u; * u
+Fill gyq(-3) = yukawa_s; * s
+Fill gyq(-4) = yukawa_c; * c
+Fill gyq(-5) = yukawa_b; * b
+Fill gyq(-6) = yukawa_t; * t
+Fill gyq(-11) = 0; * e+
+Fill gyq(-12) = 0; * mu+
+Fill gyq(-13) = 0; * ta+
 
 Symbol D, ep;
 Symbol ge, gs, gy, ghhh, type, in, out, virtual;

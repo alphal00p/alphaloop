@@ -3258,7 +3258,6 @@ impl IntegrandImplementation for SquaredTopologySet {
 
     fn create_stability_check(&self, num_checks: usize) -> Vec<SquaredTopologySet> {
         let mut stability_topologies = vec![];
-        println!("Here");
         let mut rng = rand::thread_rng();
         for i in 0..num_checks {
             if self.stability_check_topologies.iter().all(|x| i < x.len()) {
