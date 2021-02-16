@@ -1,12 +1,12 @@
+use std::fs::OpenOptions;
+use std::io::prelude::*;
+
+use crate::dashboard::{StatusUpdate, StatusUpdateSender};
 use crate::integrand::{IntegrandImplementation, IntegrandSample};
 use crate::observables::EventManager;
 use crate::topologies::FixedDeformationLimit;
 use crate::topologies::{Cut, LTDCache, LTDNumerator, Topology};
 use crate::utils;
-use crate::{
-    dashboard::{StatusUpdate, StatusUpdateSender},
-    topologies,
-};
 use crate::{
     float, DeformationStrategy, FloatLike, IRHandling, IntegrandType, NormalisingFunction,
     NumeratorSource, Settings,
@@ -22,7 +22,7 @@ use lorentz_vector::{LorentzVector, RealNumberLike};
 use num::Complex;
 use num_traits::{Float, FloatConst, FromPrimitive, Inv, NumCast, One, ToPrimitive, Zero};
 use rand::{thread_rng, Rng};
-use serde::{Deserialize, __private::de};
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::File;
 use std::mem;
@@ -2018,7 +2018,7 @@ impl SquaredTopology {
         for cut_index in 0..self.cutkosky_cuts.len() {
             let cutkosky_cuts = &mut self.cutkosky_cuts[cut_index];
 
-            if self.settings.general.debug >= 1 {
+            if self.settings.general.debug >= 2 {
                 println!(
                     "Cut {}:",
                     cutkosky_cuts.cuts.iter().map(|c| &c.name).format(", ")
@@ -2094,6 +2094,16 @@ impl SquaredTopology {
 
         if self.settings.general.debug >= 1 {
             println!("Final result = {:e}", result);
+            let mut file = OpenOptions::new()
+                .write(true)
+                .append(true)
+                .create(true)
+                .open("results.dat")
+                .unwrap();
+
+            if let Err(e) = writeln!(file, "{:e} {:e}", result.re, result.im) {
+                eprintln!("Couldn't write to file: {}", e);
+            }
         }
 
         result
@@ -2606,23 +2616,16 @@ impl SquaredTopology {
                             ext_momenta_unrotated.push(LorentzVector::from_args(
                                 l_energy,
                                 <T as NumCast>::from(rot[0][0]).unwrap() * l_space[0]
-                                    + <T as NumCast>::from(rot[1][0]).unwrap()
-                                        * l_space[1]
-                                    + <T as NumCast>::from(rot[2][0]).unwrap()
-                                        * l_space[2],
+                                    + <T as NumCast>::from(rot[1][0]).unwrap() * l_space[1]
+                                    + <T as NumCast>::from(rot[2][0]).unwrap() * l_space[2],
                                 <T as NumCast>::from(rot[0][1]).unwrap() * l_space[0]
-                                    + <T as NumCast>::from(rot[1][1]).unwrap()
-                                        * l_space[1]
-                                    + <T as NumCast>::from(rot[2][1]).unwrap()
-                                        * l_space[2],
+                                    + <T as NumCast>::from(rot[1][1]).unwrap() * l_space[1]
+                                    + <T as NumCast>::from(rot[2][1]).unwrap() * l_space[2],
                                 <T as NumCast>::from(rot[0][2]).unwrap() * l_space[0]
-                                    + <T as NumCast>::from(rot[1][2]).unwrap()
-                                        * l_space[1]
-                                    + <T as NumCast>::from(rot[2][2]).unwrap()
-                                        * l_space[2],
+                                    + <T as NumCast>::from(rot[1][2]).unwrap() * l_space[1]
+                                    + <T as NumCast>::from(rot[2][2]).unwrap() * l_space[2],
                             ));
                         }
-
 
                         // add lm's for spatial components for external momenta
                         for e1 in ext_momenta_unrotated[..self.n_incoming_momenta].iter() {

@@ -346,8 +346,7 @@ def sew_amp_diags(ld, rd):
             ee['name']='p'+str(extCount)
             extCount += 1
 
-    # SET INDICES
-    # assign indices (edges): this is needed in FORMPROCESSING.py in classmethod from_dict
+    #SET INDICES
     cc=1
     for eedict in sewed_graph['edges'].values():
         if eedict['type'] == 'virtual':
@@ -366,10 +365,10 @@ def sew_amp_diags(ld, rd):
             if key == 'fake_vertex':
                 sewed_graph['effective_vertex_id']=knn
                 del nn[key]
-
     # # assign new indices
     for nn , valdic in sewed_graph['nodes'].items():
         for eid in valdic['edge_ids']:
+            
             vv = sewed_graph['edges'][eid]['vertices']
             idxs = sewed_graph['edges'][eid]['indices']
             
@@ -428,7 +427,7 @@ class amplitude():
                 print("Successfully created the directory %s " % path)
 
 
-    def set_up_working_dir(self, abs_path_do_working_dir, clean_up=False):
+    def set_up_working_dir(self, abs_path_do_working_dir, clean_up=True):
         self.root_dir=abs_path_do_working_dir
         Path(self.root_dir).mkdir(parents=True, exist_ok=True)
 
@@ -440,10 +439,10 @@ class amplitude():
             print("create root directory and add templates")
             self.create_dir(self.root_dir)
         # create directory tree
-        for dir in self.dirs:
-            if clean_up is True and os.path.exists(os.path.join(self.root_dir, dir)):
-                shutil.rmtree(os.path.join(self.root_dir, dir))
-            Path(os.path.join(self.root_dir, dir)).mkdir(
+        for ddir in self.dirs:
+            if clean_up is True and os.path.exists(os.path.join(self.root_dir, ddir)):
+                shutil.rmtree(os.path.join(self.root_dir, ddir))
+            Path(os.path.join(self.root_dir, ddir)).mkdir(
                 parents=True, exist_ok=True)
         # copy form files
         self.form_workspace=os.path.join(self.root_dir, 'FORM', 'workspace')

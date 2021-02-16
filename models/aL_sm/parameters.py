@@ -9,7 +9,23 @@ from .object_library import all_parameters, Parameter
 
 from .function_library import complexconjugate, re, im, csc, sec, acsc, asec
 
-
+# scalar particle mass
+MpsiS = Parameter(name = 'MpsiS',
+                 nature = 'external',
+                 type = 'real',
+                 value = '1.0',
+                 texname = '\\text{MpsiS}',
+                 lhablock = 'MASS',
+                 lhacode=[666]                 
+                 )
+MpsiUV = Parameter(name = 'MpsiUV',
+                 nature = 'external',
+                 type = 'real',
+                 value = '10.0',
+                 texname = '\\text{MpsiUV}',
+                 lhablock = 'MASS',
+                 lhacode=[667]                 
+                 )
 
 # This is a default parameter object representing 0.
 ZERO = Parameter(name = 'ZERO',

@@ -198,7 +198,11 @@ id vec(p?,mu?) = p(mu);
 repeat id gamma(s1?,?a,s2?)*gamma(s2?,?b,s3?) = gamma(s1,?a,?b,s3);
 * treat gamma(p1+p2)
 repeat id p(mu1?)*gamma(s1?,?a,mu1?,?b,s2?)= gamma(s1,?a,p1,?b,s2);
-repeat id sp(p1?,p2?) = p1.p2;
+repeat; 
+    id once sp(p?!vector_,x?) = p(mu)*sp(mu,x);
+    id p?(mu?)*sp(mu?,x?) = sp(p,x);
+endrepeat;
+id sp(p1?,p2?) = p1.p2;
 .sort
 
 Multiply counter(1);

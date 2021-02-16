@@ -7,8 +7,9 @@ use havana::{Grid, Sample};
 use num::Complex;
 use num_traits::{Float, FromPrimitive, NumCast, ToPrimitive, Zero};
 use serde::{Deserialize, Serialize};
-use std::time::Instant;
+use std::{fs::OpenOptions, time::Instant};
 
+use std::io::prelude::*;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum OwnedIntegrandSample {
     Flat(f64, Vec<f64>),
@@ -581,6 +582,18 @@ impl<I: IntegrandImplementation> Integrand<I> {
 
         self.integrand_statistics.total_sample_time +=
             Instant::now().duration_since(start_time).as_secs_f64() * 1e6;
+        if self.settings.general.debug >= 1 {
+            let mut file = OpenOptions::new()
+                .write(true)
+                .append(true)
+                .create(true)
+                .open("results_integrand.dat")
+                .unwrap();
+
+            if let Err(e) = writeln!(file, "{:e} {:e}", weight*result.re, weight*result.im) {
+                eprintln!("Couldn't write to file: {}", e);
+            }
+        }
 
         result
     }

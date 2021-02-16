@@ -8,6 +8,37 @@ from __future__ import absolute_import
 from .object_library import all_particles, Particle
 from . import parameters as Param
 
+
+psiUV = Particle(pdg_code = 667,
+             name = 'psiUV',
+             antiname = 'psiUV',
+             spin = 0,
+             color = 1,
+             mass = Param.MpsiUV,
+             width = Param.ZERO,
+             texname = 'psi_{UV}',
+             antitexname = 'psi_{UV}',
+             charge = 0,
+             LeptonNumber = 0,
+             line='dashed',
+             GhostNumber = 0)
+
+
+psiS = Particle(pdg_code = 666,
+             name = 'psiS',
+             antiname = 'psiS',
+             spin = 0,
+             color = 1,
+             mass = Param.MpsiS,
+             width = Param.ZERO,
+             texname = 'psi_{S}',
+             antitexname = 'psi_{S}',
+             charge = 0,
+             LeptonNumber = 0,
+             line='dashed',
+             GhostNumber = 0)
+
+
 gh = Particle(pdg_code = 82,
              name = 'gh',
              antiname = 'gh~',

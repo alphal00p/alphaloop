@@ -1232,14 +1232,66 @@ class HardCodedAmpExporter():
         self.final_states = [leg.get('ids') for leg in process_definition.get('legs') if leg.get('state')]
 
         
+    def generate_topos_from_amp_runcard(self, topo_list):
+        computed_model = model_reader.ModelReader(self.model)
+        topos = []
+        in_moms =[]
+        out_moms =[]
+        # get form-supergraphs
+        for top in topo_list:
+            for toponame, topo in top.items():
+                if not len(topo["pdgs"]) == len(topo["definition"]) or len(topo["pdgs"])==0:
+                        raise alphaLoopExporterError("Not enough PDGs for all edges")
 
+                topos += [FORM_processing.FORMSuperGraph.from_topology(
+                    [tuple(ee) for ee in topo["definition"]], 
+                    toponame, 
+                    tuple(topo["externals"][0]),tuple(topo["externals"][1]), computed_model, loop_momenta_names=topo["lmb"],
+                    pdgs = topo["pdgs"],
+                    numerator = topo['numerator']
+                    )]
+                in_moms += [tuple("p"+str(i+1) for i in range(len(topo["externals"][0])))]
+                out_moms += [tuple("p"+str(i+1 +len(topo["externals"][0]) ) for i in range(len(topo["externals"][1])))]
+        # create output for mathematica
+        math_topos = [ 
+            {
+                "edges": top.edges,
+                "nodes": top.nodes,
+                "analytic_num": top.numerator,
+                "overall_factor":1,
+                "in_momenta": in_moms[i],
+                "out_momenta": out_moms[i]
+            }                   
+            for i, top in enumerate(topos)
+        ]
+        
+        return math_topos
+
+            
     def output(self, output_path):
         
         #############################################
         # Create amplitude with fake interference 
         #############################################
-        self.amp_input = self.alphaLoop_options['AMPLITUDE_runcard_path']
         outpath = os.path.abspath(output_path)
+        with open(self.alphaLoop_options['AMPLITUDE_runcard_path']) as f:
+            runcard = yaml.load(f, Loader=yaml.FullLoader)
+        
+        input_path = os.path.join(outpath, runcard["process_specification"]["name"]+"_input")
+        Path(input_path).mkdir(
+                parents=True, exist_ok=True)
+        if runcard["process_specification"].get("generate_from_topo_list",False):
+            export_name = pjoin(input_path, runcard["process_specification"]["name"] + '.py')
+            tops = self.generate_topos_from_amp_runcard(runcard["process_specification"]["topologies"])
+            logger.info('Write standalone amplitude to: {}'.format(export_name))
+            with open(export_name, 'w') as f:
+                f.write("graphs="+str(tops)+";")
+            runcard["process_specification"]["math_sg"]=str(export_name)            
+
+        open(pjoin(input_path, runcard["process_specification"]["name"] + '.yaml'), 'w').write(yaml.dump(runcard, Dumper=Dumper,default_flow_style=None))
+        
+        self.amp_input = pjoin(input_path, runcard["process_specification"]["name"] + '.yaml')
+
         amp = AMP_TOOLS.amplitude(runcard=self.amp_input, output=os.path.abspath(output_path),src_dir=plugin_path)
         # The left diagram amplitude has outgoing (dependent) momenta: p_(Nintial+1),...,p_(Ninitial+Nfinal) and k1,...,kL loop-momenta
         # The translation to the LMB is

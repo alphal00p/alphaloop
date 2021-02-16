@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
 
+import LTD.partial_fractioning
+import LTD.ltd_utils
+import LTD.squared_topologies
+import multiprocessing
+import models.model_reader as model_reader
+from madgraph import MadGraph5Error, InvalidCmd, MG5DIR
+import madgraph.iolibs.file_writers as writers
+import madgraph.various.misc as misc
+import madgraph.core.base_objects as base_objects
+import re
+import alpha_loop.utils as utils
 import copy
 import logging
 import os
@@ -20,33 +31,22 @@ import subprocess
 import argparse
 import shutil
 import py_compile
-
+import sympy as sp
+from sympy.simplify.simplify import simplify
 pjoin = os.path.join
 
 if __name__ == "__main__":
-    root_path = os.path.dirname(os.path.realpath( __file__ ))
-    sys.path.insert(0, pjoin(root_path,os.path.pardir))
-    sys.path.insert(0, pjoin(root_path,os.path.pardir,os.path.pardir,os.path.pardir))
+    root_path = os.path.dirname(os.path.realpath(__file__))
+    sys.path.insert(0, pjoin(root_path, os.path.pardir))
+    sys.path.insert(0, pjoin(root_path, os.path.pardir,
+                    os.path.pardir, os.path.pardir))
     if 'MG5DIR' in os.environ:
         sys.path.insert(0, os.environ['MG5DIR'])
     else:
-        print("\033[91mYou are using ./FORM_processing.py in standalone, it is recommended then "+
+        print("\033[91mYou are using ./FORM_processing.py in standalone, it is recommended then " +
               "that you define the environment variable 'MG5DIR' pointing to the root directory of MG5aMC in your system.\033[0m")
         sys.exit(1)
 
-import alpha_loop.utils as utils
-import re
-
-import madgraph.core.base_objects as base_objects
-import madgraph.various.misc as misc
-import madgraph.iolibs.file_writers as writers
-from madgraph import MadGraph5Error, InvalidCmd, MG5DIR
-import models.model_reader as model_reader
-import multiprocessing
-
-import LTD.squared_topologies
-import LTD.ltd_utils
-import LTD.partial_fractioning
 
 logger = logging.getLogger('alphaLoop.FORM_processing')
 
@@ -54,34 +54,34 @@ if __name__ == "__main__":
     logging.basicConfig()
     logger.setLevel(logging.INFO)
 
-plugin_path = os.path.dirname(os.path.realpath( __file__ ))
+plugin_path = os.path.dirname(os.path.realpath(__file__))
 
 
 FORM_processing_options = {
-    'FORM_path': 'form', 
-    'tFORM_path': 'tform', 
+    'FORM_path': 'form',
+    'tFORM_path': 'tform',
     # Define the extra aguments for the compilation
     'compilation-options': [],
-    'cores': 2, #multiprocessing.cpu_count(),
+    'cores': 2,  # multiprocessing.cpu_count(),
     'extra-options': {'OPTIMITERATIONS': 1000, 'NUMERATOR': 0, 'SUMDIAGRAMSETS': 'nosum'},
     # If None, only consider the LMB originally chosen.
     # If positive and equal to N, consider the first N LMB from the list of LMB automatically generated
     # If negative consider all possible LMBs.
-    'number_of_lmbs' : None,
+    'number_of_lmbs': None,
     # If None, the reference LMB will be the one originally chosen.
     # If positive and equal to N, the Nth LMB will be used for the reference implementation of the supergraph.
-    'reference_lmb' : None,
-    'FORM_call_sig_id_offset_for_additional_lmb' : 1000000,
-    'generate_integrated_UV_CTs' : True,
-    'generate_renormalisation_graphs' : True,
-    'UV_min_dod_to_subtract' : 0,
-    'selected_epsilon_UV_order' : 0,
+    'reference_lmb': None,
+    'FORM_call_sig_id_offset_for_additional_lmb': 1000000,
+    'generate_integrated_UV_CTs': True,
+    'generate_renormalisation_graphs': True,
+    'UV_min_dod_to_subtract': 0,
+    'selected_epsilon_UV_order': 0,
     # Select how to include the finite part of the renormalisation. Possible values are:
     # a) 'together' : all contributions are ketp.
     # b) 'only' : only the contribution from the finite part of the renormalisation is kept.
-    # c) 'removed' : the finitie part of the renormalisation is removed. 
-    'renormalisation_finite_terms' : 'together',
-    'optimisation_strategy' : 'CSEgreedy',
+    # c) 'removed' : the finitie part of the renormalisation is removed.
+    'renormalisation_finite_terms': 'together',
+    'optimisation_strategy': 'CSEgreedy',
     'FORM_setup': {
     #   'MaxTermSize':'100K',
     #   'Workspace':'1G'
@@ -89,21 +89,23 @@ FORM_processing_options = {
 }
 
 # Can switch to tmpdir() if necessary at some point
-FORM_workspace = pjoin(plugin_path,'FORM_workspace')
+FORM_workspace = pjoin(plugin_path, 'FORM_workspace')
 Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
 resources_to_link = ['diacolor.h']
 for resource in resources_to_link:
-    if not os.path.exists(pjoin(FORM_workspace,resource)):
-        utils.ln(pjoin(plugin_path,resource),starting_dir=FORM_workspace)
+    if not os.path.exists(pjoin(FORM_workspace, resource)):
+        utils.ln(pjoin(plugin_path, resource), starting_dir=FORM_workspace)
 
-#TODO Remove once FORM will have fixed its C output bug
+# TODO Remove once FORM will have fixed its C output bug
+
+
 def temporary_fix_FORM_output(FORM_output):
 
     new_output = []
     previous_line = None
     for line in FORM_output.split('\n'):
         if line.startswith('      _ +=  '):
-            line = '      %s'%line[12:]
+            line = '      %s' % line[12:]
             if previous_line is not None:
                 new_output.append(previous_line[:-1])
             previous_line = line
@@ -113,70 +115,73 @@ def temporary_fix_FORM_output(FORM_output):
             previous_line = line
     if previous_line is not None:
         new_output.append(previous_line)
-    
+
     return '\n'.join(new_output)
+
 
 class FormProcessingError(MadGraph5Error):
     """ Error for the FORM processing phase."""
     pass
+
 
 class FORMSuperGraph(object):
     """ Simplified SuperGraph object with only the necessary information to have it processed by FORM."""
 
     _FORM_Feynman_rules_conventions = {
         # SSS
-        ( 1, 1, 1 ): (0, 1, 2),
+        (1, 1, 1): (0, 1, 2),
         # SSSS
-        ( 1, 1, 1 ): (0, 1, 2),
+        (1, 1, 1): (0, 1, 2),
         # GGG
-        ( 3, 3, 3 ): (0, 1, 2),
+        (3, 3, 3): (0, 1, 2),
         # GGGG
-        ( 3, 3, 3, 3 ): (0, 1, 2, 3),
+        (3, 3, 3, 3): (0, 1, 2, 3),
         # FxFV
-        ( -2, 2, 3 ): (0, 2, 1),
+        (-2, 2, 3): (0, 2, 1),
         # GHxGHV
-        ( -1, 1, 3 ): (0, 2, 1),
+        (-1, 1, 3): (0, 2, 1),
         # FxFS
-        ( -2, 1, 2 ): (0, 1, 2),
+        (-2, 1, 2): (0, 1, 2),
         # SSS
-        ( 1, 1, 1 ): (0, 1, 2),
+        (1, 1, 1): (0, 1, 2),
         # SSSS
-        ( 1, 1, 1, 1 ): (0, 1, 2),
+        (1, 1, 1, 1): (0, 1, 2),
         # VxVV (e.g. W+ W- a )
-        ( -3, 3, 3 ): (1, 0, 2),
+        (-3, 3, 3): (1, 0, 2),
         # Fx F
         (-2, 2): (0, 1),
         # V V
-        (-3,3): (0,1),
-        (3,3): (0,1),
+        (-3, 3): (0, 1),
+        (3, 3): (0, 1),
         # S S
-        (1,1): (0,1),
+        (1, 1): (0, 1),
         # S V V
-        (1,3,3): (0,1,2),
+        (1, 3, 3): (0, 1, 2),
         # S V V V
-        (1,3,3,3): (0,1,2,3),
+        (1, 3, 3, 3): (0, 1, 2, 3),
         # S V V V V
-        (1,3,3,3,3): (0,1,2,3,4),
+        (1, 3, 3, 3, 3): (0, 1, 2, 3, 4),
         # S S V V
-        (1,1,3,3): (0,1,2,3),
+        (1, 1, 3, 3): (0, 1, 2, 3),
         # S S V V V
-        (1,1,3,3,3): (0,1,2,3,4),
+        (1, 1, 3, 3, 3): (0, 1, 2, 3, 4),
         # S S S V V
-        (1,1,1,3,3): (0,1,2,3,4),
+        (1, 1, 1, 3, 3): (0, 1, 2, 3, 4),
         # S S S V V V
-        (1,1,1,3,3,3): (0,1,2,3,4,5)
+        (1, 1, 1, 3, 3, 3): (0, 1, 2, 3, 4, 5)
     }
 
-    _include_momentum_routing_in_rendering=True
-    _include_edge_name_in_rendering=True
-    _rendering_size = (1.0*(11.0*60),1.0*(8.5*60)) # 1.0 prefactor should be about 1 landscape A4 format per graph
+    _include_momentum_routing_in_rendering = True
+    _include_edge_name_in_rendering = True
+    # 1.0 prefactor should be about 1 landscape A4 format per graph
+    _rendering_size = (1.0*(11.0*60), 1.0*(8.5*60))
     # Choose graph layout strategy. Interesting options are in comment.
-    _graph_layout_strategy = '{"SpringEmbedding"}' 
-    #_graph_layout_strategy = 'GraphLayout -> "SpringElectricalEmbedding"' 
-    #_graph_layout_strategy = 'GraphLayout -> "SpringEmbedding"' 
-    #_graph_layout_strategy = 'GraphLayout -> {"LayeredEmbedding", "Orientation" -> Left, "RootVertex" -> "I1"}' 
-    #_graph_layout_strategy = 'GraphLayout -> {"LayeredDigraphEmbedding", "Orientation" -> Left}'
-    
+    _graph_layout_strategy = '{"SpringEmbedding"}'
+    # _graph_layout_strategy = 'GraphLayout -> "SpringElectricalEmbedding"'
+    # _graph_layout_strategy = 'GraphLayout -> "SpringEmbedding"'
+    # _graph_layout_strategy = 'GraphLayout -> {"LayeredEmbedding", "Orientation" -> Left, "RootVertex" -> "I1"}'
+    # _graph_layout_strategy = 'GraphLayout -> {"LayeredDigraphEmbedding", "Orientation" -> Left}'
+
     # '{"SpringEmbedding"}' gives interesting results too.
 
     def __init__(self, *args,
@@ -189,10 +194,10 @@ class FORMSuperGraph(object):
         benchmark_result=0.0,
         default_kinematics=None,
         effective_vertex_id=None,
-        is_amplitude = False,
-        color_struc = None,
-        numerator = None,
-        external_data = {}
+        is_amplitude=False,
+        color_struc=None,
+        numerator=None,
+        external_data={}
     ):
         """ initialize a FORM SuperGraph from several options."""
 
@@ -230,11 +235,11 @@ class FORMSuperGraph(object):
         self.external_data = external_data
 
     def filter_valid_cuts(self, cuts):
-        """ 
+        """
         filter graph base on a list of allowed cuts whose entires are defined as:
-            ([allowd pdg], n) : to ensure to cut "n" times particles contained 
+            ([allowd pdg], n) : to ensure to cut "n" times particles contained
                                 in the pdg list
-            ('any', n)        : cut "n" edges that could be anything 
+            ('any', n)        : cut "n" edges that could be anything
                                 (useful for extra real radiations)
         example: e+e- > ggh @NLO => [([21],2), ([25],1), ('any',1)]
         """
@@ -248,7 +253,8 @@ class FORMSuperGraph(object):
         cut_edges = [[] for _ in range(len(cuts))]
         incoming_vertices = []
         outgoing_vertices = []
-        edge_colors = {tuple(sorted([x - 1 for x in ue])) : [] for ue in undirected_edges}
+        edge_colors = {tuple(sorted([x - 1 for x in ue])): []
+                             for ue in undirected_edges}
         for ue in undirected_edges:
             multiple = 0
             for e in self.edges.values():
@@ -260,8 +266,10 @@ class FORMSuperGraph(object):
                                 cut_edges[ci] += [tuple(sorted([x - 1 for x in ue]))]
                             else:
                                 if abs(e['PDG']) in c[0]:
-                                    cut_edges[ci] += [tuple(sorted([x - 1 for x in ue]))]
-                        edge_colors[tuple(sorted([x - 1 for x in ue]))] += [abs(e['PDG'])]
+                                    cut_edges[ci] += [
+                                        tuple(sorted([x - 1 for x in ue]))]
+                        edge_colors[tuple(
+                            sorted([x - 1 for x in ue]))] += [abs(e['PDG'])]
                     elif e['type'] == 'in':
                         incoming_vertices += [min(e['vertices'])-1]
                     elif e['type'] == 'out':
@@ -279,26 +287,26 @@ class FORMSuperGraph(object):
                 take_cuts += [cut_edges[ci]+[None]] * cut[1]
             else:
                 take_cuts += [cut_edges[ci]] * cut[1]
-        #print(take_cuts)
-        #print(cut_colors)
-        #print(incoming_vertices)
-        #print(outgoing_vertices)
+        # print(take_cuts)
+        # print(cut_colors)
+        # print(incoming_vertices)
+        # print(outgoing_vertices)
         invalid_cuts = []
         count_checks = 0
-        #print(cuts)
+        # print(cuts)
         for cut_edges in product(*take_cuts):
             # When a valid is cut we know we need to keep this graph
             if valid_cut:
                 break
-            
+
             # Check if cut has to be dropped based on previous failed attempts
             if any(all(cut_edges.count(c) >= veto_c.count(c) for c in set(veto_c)) for veto_c in invalid_cuts):
                 continue
             count_checks += 1
-            
+
             # Check valid color cuts
             ec = copy.deepcopy(edge_colors)
-            for ce, cc in zip(cut_edges,cut_colors):
+            for ce, cc in zip(cut_edges, cut_colors):
                 if cc == 'any' or ce == None:
                     continue
                 for color in cc:
@@ -321,7 +329,8 @@ class FORMSuperGraph(object):
                     if not gtmp.are_connected(*cut_edges[ci]):
                         # update invalid cuts
                         new_veto = cut_edges[:ci+1]
-                        invalid_cuts = list(filter(lambda veto_c: not all(veto_c.count(c) >= new_veto.count(c) for c in set(new_veto)),invalid_cuts))
+                        invalid_cuts = list(filter(lambda veto_c: not all(veto_c.count(
+                            c) >= new_veto.count(c) for c in set(new_veto)), invalid_cuts))
                         invalid_cuts += [new_veto]
                         break
                     gtmp.delete_edges(gtmp.get_eid(*cut_edges[ci]))
@@ -330,69 +339,172 @@ class FORMSuperGraph(object):
                             if ci+1 < len(cut_edges) - n_optional + virtual_loops:
                                 # update invalid cuts
                                 new_veto = cut_edges[:ci+1]
-                                invalid_cuts = list(filter(lambda veto_c: not all(veto_c.count(c) >= new_veto.count(c) for c in set(new_veto)),invalid_cuts))
+                                invalid_cuts = list(filter(lambda veto_c: not all(veto_c.count(
+                                    c) >= new_veto.count(c) for c in set(new_veto)), invalid_cuts))
                                 invalid_cuts += [new_veto]
                             break
                         else:
-                            # check that the vertices are correctly connected 
+                            # check that the vertices are correctly connected
                             # to the left and right paths
                             # Meaning two vertices involved in a cut should belong do
                             # the opposite disconnected graphs
-                            if any(len(gtmp.get_shortest_paths(c[0],to=c[1])[0])>0 for c in cut_edges):
+                            if any(len(gtmp.get_shortest_paths(c[0], to=c[1])[0]) > 0 for c in cut_edges):
                                 break
                             # check that incoming and outgoing are on separate disconnected graphs
-                            if any(len(gtmp.get_shortest_paths(incoming_vertices[0],to=c)[0])==0 for c in incoming_vertices[1:]) or\
-                               any(len(gtmp.get_shortest_paths(incoming_vertices[0],to=c)[0])>0 for c in outgoing_vertices):
+                            if any(len(gtmp.get_shortest_paths(incoming_vertices[0], to=c)[0]) == 0 for c in incoming_vertices[1:]) or\
+                               any(len(gtmp.get_shortest_paths(incoming_vertices[0], to=c)[0]) > 0 for c in outgoing_vertices):
                                 break
                             valid_cut = True
         return valid_cut
+    
+    @classmethod
+    def from_topology(cls, edge_map_lin, name, incoming_momentum_names, outgoing_momentum_names, model, pdgs=[], loop_momenta_names=None, numerator=1):
+        vertices = [v for e in edge_map_lin for v in e[1:]]
+
+        topo_generator = LTD.ltd_utils.TopologyGenerator(edge_map_lin, {})
+        topo_generator.generate_momentum_flow(loop_momenta_names)
+        sig = topo_generator.get_signature_map()
+        print(sig)
+        edges = {i: {
+            'PDG': 1337 if pdgs == [] else pdgs[i] ,
+            'indices': (1 + i * 2,) if vertices.count(e[1]) == 1 or vertices.count(e[2]) == 1 else (1 + i * 2, 1 + i * 2 + 1),
+            'signature': sig[e[0]],
+            'momentum': FORMSuperGraph.momenta_decomposition_to_string(sig[e[0]], set_outgoing_equal_to_incoming=False),
+            'name': e[0],
+            'type': 'in' if e[0] in incoming_momentum_names else ('out' if e[0] in outgoing_momentum_names else 'virtual'),
+            'vertices': tuple(e[1: ]),
+            } for i, e in enumerate(edge_map_lin)
+        }
+
+        nodes = {v: {
+            'PDGs': tuple(e['PDG'] if v == e['vertices'][1] or e['PDG'] == 1337 else model.get_particle(e['PDG']).get_anti_pdg_code() for e in edges.values() if v in e['vertices']),
+            'edge_ids': tuple(ei for ei, e in edges.items() if v in e['vertices']),
+            'indices': tuple(e['indices'][0] if v == e['indices'][0] or len(e['indices']) == 1 else e['indices'][1] for e in edges.values() if v in e['vertices']),
+            'momenta': tuple('DUMMY' for e in edges.values() if v in e['vertices']),
+            # I need the correct id 0  the amplitude sewing
+            'vertex_id': -1 if (vertices.count(v) == 1 and set(tuple(e['name'] for ei, e in edges.items() if v in e['vertices'])).issubset(incoming_momentum_names))  else ( -2 if (vertices.count(v) == 1 and set(tuple(e['name'] for ei, e in edges.items() if v in e['vertices'])).issubset(outgoing_momentum_names)) else 0) ,
+            } for v in set(vertices)
+        }
+
+        for eid, e in edges.items():
+            for i, vi in enumerate(e['vertices']):
+                e_index = nodes[vi]['edge_ids'].index(eid)
+                mom = list(nodes[vi]['momenta'])
+                mom[e_index] = e['momentum']
+                nodes[vi]['momenta'] = mom
+
+        # set the correct particle ordering for all the edges
+        for n in nodes.values():
+            if len(n['PDGs']) > 1 and all(nn != 1337 and nn != 666 and nn !=667 for nn in n['PDGs']):
+                edge_order = FORMSuperGraph.sort_edges(
+                    model, [{'PDG': pdg, 'index': i} for i, pdg in enumerate(n['PDGs'])])
+                for g in ('PDGs', 'indices', 'momenta', 'edge_ids'):
+                    n[g]=tuple(n[g][eo['index']] for eo in edge_order)
+        # MOMENTUM RELABELING
+        replace_in=False
+        replace_out=False
+        for i, e_label in enumerate(incoming_momentum_names):
+            mom=next( em['momentum'] for em in edges.values() if em['name'] == e_label  )
+            expected_mom=str("p")+str(i+1)
+            repl_mom=str("in")+str(i+1)
+            if not mom == expected_mom:
+                replace_in=True
+                for ee in edges.values():
+                    ee['momentum']=ee['momentum'].replace(mom, repl_mom)
+                for nn in nodes.values():
+                    nn['momenta']=tuple(mm.replace(mom, repl_mom)
+                                        for mm in nn['momenta'])
+
+        for i, e_label in enumerate(outgoing_momentum_names):
+            mom=next( em['momentum'] for em in edges.values() if em['name'] == e_label  )
+            expected_mom=str("p")+str(len(incoming_momentum_names) + i+1)
+            repl_mom=str("out")+str(i+1)
+            if not mom == expected_mom:
+                replace_out=True
+                for ee in edges.values():
+                    ee['momentum']=ee['momentum'].replace(mom, repl_mom)
+                for nn in nodes.values():
+                    nn['momenta']=tuple(mm.replace(mom, repl_mom)
+                                        for mm in nn['momenta'])
+        if replace_in:
+            for i, ext in enumerate(incoming_momentum_names):
+                replace_mom=str("p")+str(i+1)
+                mom=str("in")+str(i+1)
+                for ee in edges.values():
+                    ee['momentum']=ee['momentum'].replace(mom, repl_mom)
+                for nn in nodes.values():
+                    nn['momenta']=tuple(mm.replace(mom, repl_mom)
+                                        for mm in nn['momenta'])
+        if replace_out:
+            for i, ext in enumerate(outgoing_momentum_names):
+                replace_mom=str("p")+str(i+1)
+                mom=str("p")+str(len(incoming_momentum_names) + i+1)
+                for ee in edges.values():
+                    ee['momentum']=ee['momentum'].replace(mom, repl_mom)
+                for nn in nodes.values():
+                    nn['momenta']=tuple(mm.replace(mom, repl_mom)
+                                        for mm in nn['momenta'])
+
+
+
+
+
+
+        return FORMSuperGraph(
+            name = name, edges = edges, nodes = nodes,
+            overall_factor = '1',
+            multiplicity = 1,
+            numerator = numerator
+        )
 
 
     def get_mathematica_rendering_code(self, model, FORM_id=None, lmb_id=None):
         """ Generate mathematica expression for drawing this graph."""
 
         repl_dict = {
-            'edge_font_size'     : 8,
-            'vetex_font_size'    : 8,
-            'width'              : self._rendering_size[0],
-            'height'             : self._rendering_size[1],
-            'graph_layout_strategy' : self._graph_layout_strategy
+            'edge_font_size': 8,
+            'vetex_font_size': 8,
+            'width': self._rendering_size[0],
+            'height': self._rendering_size[1],
+            'graph_layout_strategy': self._graph_layout_strategy
         }
-        if self.call_identifier and all(k in self.call_identifier for k in ['proc_id','left_diagram_id','right_diagram_id']):
-            graph_name='MG: %s'%('P%(proc_id)dL%(left_diagram_id)dR%(right_diagram_id)d'%self.call_identifier)
+        if self.call_identifier and all(k in self.call_identifier for k in ['proc_id', 'left_diagram_id', 'right_diagram_id']):
+            graph_name = 'MG: %s' % (
+                'P%(proc_id)dL%(left_diagram_id)dR%(right_diagram_id)d' % self.call_identifier)
         else:
-            graph_name='MG: %s'%self.name
+            graph_name = 'MG: %s' % self.name
         if FORM_id is not None:
-            graph_name +=' | FORM: #%d'%FORM_id
+            graph_name += ' | FORM: #%d' % FORM_id
         if lmb_id is not None:
-            graph_name +=' | LMB: #%d'%lmb_id
+            graph_name += ' | LMB: #%d' % lmb_id
         repl_dict['graph_name'] = graph_name
 
         # Special name rendering rules
         def get_part_name(pdg):
-            quark_names = {1:"d",2:"u",3:"s",4:"c",5:"b",6:"t"}
-            if pdg==11:
+            quark_names = {1: "d", 2: "u", 3: "s", 4: "c", 5: "b", 6: "t"}
+            if pdg == 11:
                 return r"\!\(\*SuperscriptBox[\(e\), \(+\)]\)"
-            elif pdg==-11:
+            elif pdg == -11:
                 return r"\!\(\*SuperscriptBox[\(e\), \(-\)]\)"
-            elif pdg==22:
+            elif pdg == 22:
                 return r"\[Gamma]"
-            elif pdg in [-1,-2,-3,-4,-5,-6]:
-                return r"\!\(\*OverscriptBox[\(%s\), \(_\)]\)"%quark_names[abs(pdg)]
+            elif pdg in [-1, -2, -3, -4, -5, -6]:
+                return r"\!\(\*OverscriptBox[\(%s\), \(_\)]\)" % quark_names[abs(pdg)]
             else:
                 return model.get_particle(pdg).get_name()
 
         node_key_to_node_name = {}
+
         def get_node_label(node_key):
             if node_key in node_key_to_node_name:
                 return node_key_to_node_name[node_key]
             node = self.nodes[node_key]
             if 'renormalisation_vertex_n_loops' in node:
-                label = 'UV%dL'%node['renormalisation_vertex_n_loops']
-                label += '%dP'%node['renormalisation_vertex_n_shrunk_edges']
+                label = 'UV%dL' % node['renormalisation_vertex_n_loops']
+                label += '%dP' % node['renormalisation_vertex_n_shrunk_edges']
                 # If that label is not unique, then prefix it the actual key.
                 if label in node_key_to_node_name.values():
-                    label = '%s_%s'%(str(node_key),label)
+                    label = '%s_%s' % (str(node_key), label)
             else:
                 label = str(node_key)
 
@@ -408,7 +520,8 @@ class FORMSuperGraph(object):
                 edge_key = (*edge_data['vertices'], edge_key)
             edge_repl_dict = {}
             # is_LMB = ('name' in edge_data and 'LMB' in str(edge_data['name']).upper())
-            abs_sig = ( [abs(s) for s in edge_data['signature'][0]], [abs(s) for s in edge_data['signature'][1]])
+            abs_sig = ([abs(s) for s in edge_data['signature'][0]],
+                       [abs(s) for s in edge_data['signature'][1]])
             is_LMB = (sum(abs_sig[0]) == 1 and sum(abs_sig[1]) == 0)
             if is_LMB:
                 edge_repl_dict['thickness'] = 0.005
@@ -420,36 +533,38 @@ class FORMSuperGraph(object):
             edge_repl_dict['arrow_style'] = 'Arrow' if not is_LMB else 'HalfFilledDoubleArrow'
             edge_repl_dict['arrow_size'] = 0.015 if not is_LMB else 0.025
             all_edge_shape_functions.append(
-                'CreateEdge["%(in_node)s","%(out_node)s",%(edge_key)d]->GraphElementData["%(arrow_style)s", "ArrowSize" -> %(arrow_size)f]'%edge_repl_dict
+                'CreateEdge["%(in_node)s","%(out_node)s",%(edge_key)d]->GraphElementData["%(arrow_style)s", "ArrowSize" -> %(arrow_size)f]' % edge_repl_dict
             )
             if 'name' in edge_data and 'CUT' in str(edge_data['name']).upper():
                 edge_repl_dict['edge_style'] = ",Dashed"
             else:
                 edge_repl_dict['edge_style'] = ""
-            if edge_data['PDG'] in [-1,-2,-3,-4,-5,1,2,3,4,5]:
+            if edge_data['PDG'] in [-1, -2, -3, -4, -5, 1, 2, 3, 4, 5]:
                 color = "Cyan"
-            elif edge_data['PDG'] in [-6,6]:
+            elif edge_data['PDG'] in [-6, 6]:
                 color = "Blue"
-            elif edge_data['PDG'] in [21,]:
+            elif edge_data['PDG'] in [21, ]:
                 color = "Red"
-            elif edge_data['PDG'] in [82,-82]:
+            elif edge_data['PDG'] in [82, -82]:
                 color = "Pink"
-            elif edge_data['PDG'] in [25,]:
+            elif edge_data['PDG'] in [25, ]:
                 color = "Green"
             else:
                 color = "Gray"
             edge_repl_dict['edge_color'] = color
-            edge_label_pieces = ['psi' if edge_data['PDG'] == 1337 else get_part_name(edge_data['PDG']),]
+            edge_label_pieces = ['psi' if edge_data['PDG']
+                == 1337 else get_part_name(edge_data['PDG']), ]
             if 'name' in edge_data and self._include_edge_name_in_rendering:
                 edge_label_pieces.append(edge_data['name'])
             if self._include_momentum_routing_in_rendering:
                 edge_label_pieces.append(edge_data['momentum'])
             edge_label = "|".join(edge_label_pieces)
             edge_repl_dict['edge_label'] = edge_label
-            all_edge_definitions.append(edge_template%edge_repl_dict)
+            all_edge_definitions.append(edge_template % edge_repl_dict)
 
         repl_dict['edge_lists'] = ',\n'.join(all_edge_definitions)
-        repl_dict['edge_shape_definitions'] = ',\n'.join(all_edge_shape_functions)
+        repl_dict['edge_shape_definitions'] = ',\n'.join(
+            all_edge_shape_functions)
         return \
 """Labeled[GraphClass[{
 %(edge_lists)s
@@ -463,29 +578,29 @@ VertexSize -> small,
 VertexLabels -> Placed[Automatic,Center],
 GraphLayout -> %(graph_layout_strategy)s,
 ImageSize -> {%(width)f, %(height)f}
-],"%(graph_name)s"]"""%repl_dict
-    
-    def draw(self, model, output_dir,FORM_id=None, lmb_id=None):
+],"%(graph_name)s"]""" % repl_dict
+
+    def draw(self, model, output_dir, FORM_id=None, lmb_id=None):
         """ Outputs the mathematica code for rendering this FORMSuperGraph."""
-        
+
         if FORM_id is not None:
-            file_name = 'Graph_%04d'%FORM_id
+            file_name = 'Graph_%04d' % FORM_id
         else:
-            file_name = 'Graph_%s'%self.name
-        
+            file_name = 'Graph_%s' % self.name
+
         if lmb_id is not None:
-            file_name += '_LMB_%04d'%lmb_id
+            file_name += '_LMB_%04d' % lmb_id
 
         MM_code = \
 """GraphClass = If[$VersionNumber > 12, EdgeTaggedGraph, Graph];
 CreateEdge[u_,v_,t_]:=If[$VersionNumber > 12, DirectedEdge[u, v, t], DirectedEdge[u, v]];
 aGraph=%s;
-"""%self.get_mathematica_rendering_code(model,FORM_id=FORM_id, lmb_id=lmb_id)
+""" % self.get_mathematica_rendering_code(model, FORM_id=FORM_id, lmb_id=lmb_id)
         # Export to PDF in landscape format. One graph per page for now.
         # The 1.2 multiplier accounts for margins
-        MM_code += 'Export["%s.pdf", GraphicsGrid[{{aGraph}}], ImageSize -> {%f, %f}];'%(
-                    file_name,1.25*self._rendering_size[0],1.25*self._rendering_size[1])
-        open(pjoin(output_dir,'%s.m'%file_name),'w').write(MM_code)
+        MM_code += 'Export["%s.pdf", GraphicsGrid[{{aGraph}}], ImageSize -> {%f, %f}];' % (
+                    file_name, 1.25*self._rendering_size[0], 1.25*self._rendering_size[1])
+        open(pjoin(output_dir, '%s.m' % file_name), 'w').write(MM_code)
 
     def generate_numerator_form_input(self, additional_overall_factor='', only_algebra=False):
         # create the input file for FORM
@@ -494,7 +609,7 @@ aGraph=%s;
             for node in self.nodes.values():
                 if node['vertex_id'] < 0:
                     continue
-            
+
                 form_diag += '*\n vx({},{},{})'.format(
                     ','.join(str(p) for p in node['PDGs']),
                     ','.join(node['momenta']),
@@ -509,13 +624,14 @@ aGraph=%s;
                     ','.join(str(i) for i in edge['indices']),
                 )
         else:
-            form_diag += '*'+self.numerator
+            form_diag += '*(' + self.numerator + ')'
 
         if only_algebra:
             return form_diag
 
         if self.replacement_rules is None:
-            raise AssertionError("No energy configurations specified for numerator: run the denominator generation first")
+            raise AssertionError(
+                "No energy configurations specified for numerator: run the denominator generation first")
 
         # now add all the replacement rules
         form_diag += self.replacement_rules
@@ -535,106 +651,122 @@ aGraph=%s;
         for edge_key, edge_data in topo_edges.items():
             # Fix for QGRAF pipeline
             if not isinstance(edge_key, tuple):
-                edge_key = (*edge_data['vertices'], edge_key) 
-          
+                edge_key = (*edge_data['vertices'], edge_key)
+
             if edge_data['type'] == 'virtual':
                 if not edge_data['name'].startswith('p'):
-                    edge_data['name'] = 'p%s'%edge_data['name']
-                other_edges.append((edge_data['name'],edge_key[0],edge_key[1]))
+                    edge_data['name'] = 'p%s' % edge_data['name']
+                other_edges.append(
+                    (edge_data['name'], edge_key[0], edge_key[1]))
             else:
                 if not edge_data['name'].startswith('q'):
-                    edge_data['name'] = 'q%s'%edge_data['name'][1:]
-                external_edges.append((edge_data['name'],edge_data['vertices'][0],edge_data['vertices'][1]))
-            edge_name_to_key[edge_data['name']]=edge_key
+                    edge_data['name'] = 'q%s' % edge_data['name'][1:]
+                external_edges.append(
+                    (edge_data['name'], edge_data['vertices'][0], edge_data['vertices'][1]))
+            edge_name_to_key[edge_data['name']] = edge_key
 
             # Test if it is a defining edge of the lmb
-            abs_sig = ( [abs(s) for s in edge_data['signature'][0]], [abs(s) for s in edge_data['signature'][1]])
+            abs_sig = ([abs(s) for s in edge_data['signature'][0]],
+                       [abs(s) for s in edge_data['signature'][1]])
             if sum(abs_sig[0]) == 1 and sum(abs_sig[1]) == 0:
-                original_LMB[abs_sig[0].index(1)]=edge_data['name']
+                original_LMB[abs_sig[0].index(1)] = edge_data['name']
 
         topo_edges = external_edges+other_edges
 
         # Set the LMB to a sorted one
-        original_LMB = sorted(list(original_LMB.items()),key=lambda e: e[0])
-        assert(all(oLMBe[0]==i for i,oLMBe in enumerate(original_LMB)))
+        original_LMB = sorted(list(original_LMB.items()), key=lambda e: e[0])
+        assert(all(oLMBe[0] == i for i, oLMBe in enumerate(original_LMB)))
         original_LMB = [oLMBe[1] for oLMBe in original_LMB]
 
         topo_generator = LTD.ltd_utils.TopologyGenerator(topo_edges)
-        topo_generator.generate_momentum_flow( loop_momenta = (original_LMB if specified_LMB is None else specified_LMB) )
+        topo_generator.generate_momentum_flow(loop_momenta=(
+            original_LMB if specified_LMB is None else specified_LMB))
         original_LMB = [edge_name_to_key[oLMBe] for oLMBe in original_LMB]
 
         return topo_generator, edge_name_to_key, original_LMB
 
     def generate_additional_LMBs(self):
-        """ Depending on the FORM options 'number_of_lmbs' and 'reference_lmb', this function fills in the attribute 
+        """ Depending on the FORM options 'number_of_lmbs' and 'reference_lmb', this function fills in the attribute
         additional_lmbs of this class."""
 
         if FORM_processing_options['number_of_lmbs'] is None:
             return
-    
+
         topo_generator, edge_name_to_key, original_LMB = self.get_topo_generator()
-        edge_key_to_name = {v:k for k,v in edge_name_to_key.items()}
+        edge_key_to_name = {v: k for k, v in edge_name_to_key.items()}
 
         all_lmbs = topo_generator.loop_momentum_bases()
-        all_lmbs= [ tuple([edge_name_to_key[topo_generator.edge_map_lin[e][0]] for e in lmb]) for lmb in all_lmbs]
-        
+        all_lmbs = [tuple([edge_name_to_key[topo_generator.edge_map_lin[e][0]]
+                          for e in lmb]) for lmb in all_lmbs]
+
         # Then overwrite the reference LMB if the user requested it
         if FORM_processing_options['reference_lmb'] is not None:
-            original_LMB = all_lmbs[(FORM_processing_options['reference_lmb']-1)%len(all_lmbs)]
+            original_LMB = all_lmbs[(
+                FORM_processing_options['reference_lmb']-1) % len(all_lmbs)]
             # Regenerate the topology with this new overwritten LMB
-            topo_generator, _, _ = self.get_topo_generator(specified_LMB=[ edge_key_to_name[e_key] for e_key in original_LMB ] )
+            topo_generator, _, _ = self.get_topo_generator(
+                specified_LMB=[edge_key_to_name[e_key] for e_key in original_LMB])
             # And adjust all signatures (incl. the string momenta assignment accordingly)
             signatures = topo_generator.get_signature_map()
-            signatures = { edge_name_to_key[edge_name]: [sig[0],
-                    [ i+o for i,o in zip(sig[1][:len(sig[1])//2],sig[1][len(sig[1])//2:]) ]
-                ] for edge_name, sig in signatures.items() }
+            signatures = {edge_name_to_key[edge_name]: [sig[0],
+                    [i+o for i, o in zip(sig[1][:len(sig[1])//2],
+                                         sig[1][len(sig[1])//2:])]
+                ] for edge_name, sig in signatures.items()}
             for edge_key, edge_data in self.edges.items():
                 # Fix for QGRAF pipeline
                 if not isinstance(edge_key, tuple):
-                    edge_key = (*edge_data['vertices'], edge_key) 
-          
+                    edge_key = (*edge_data['vertices'], edge_key)
+
                 edge_data['signature'] = signatures[edge_key]
-                edge_data['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(edge_data['signature'], set_outgoing_equal_to_incoming=False)
+                edge_data['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(
+                    edge_data['signature'], set_outgoing_equal_to_incoming=False)
             for node_key, node_data in self.nodes.items():
-                node_data['momenta'] = tuple([                    
+                node_data['momenta'] = tuple([
                         FORMSuperGraph.momenta_decomposition_to_string(
-                            [ 
-                                [ s*(1 if self.edges[e_key]['vertices'][1]==node_key else -1) for s in self.edges[e_key]['signature'][0] ],
-                                [ s*(1 if self.edges[e_key]['vertices'][1]==node_key else -1) for s in self.edges[e_key]['signature'][1] ],
+                            [
+                                [s*(1 if self.edges[e_key]['vertices'][1] == node_key else -1)
+                                    for s in self.edges[e_key]['signature'][0]],
+                                [s*(1 if self.edges[e_key]['vertices'][1] == node_key else -1)
+                                    for s in self.edges[e_key]['signature'][1]],
                             ],
                             set_outgoing_equal_to_incoming=False)
                     for e_key in node_data['edge_ids']])
 
         original_lmb_signatures = topo_generator.get_signature_map()
-        original_lmb_signatures = { edge_name_to_key[edge_name]: [sig[0],
-                    [ i+o for i,o in zip(sig[1][:len(sig[1])//2],sig[1][len(sig[1])//2:]) ]
-                ] for edge_name, sig in original_lmb_signatures.items() }
+        original_lmb_signatures = {edge_name_to_key[edge_name]: [sig[0],
+                    [i+o for i, o in zip(sig[1][:len(sig[1])//2],
+                                         sig[1][len(sig[1])//2:])]
+                ] for edge_name, sig in original_lmb_signatures.items()}
 
         # Now generate copies of this supergraph with different LMBs
         additional_lmbs_SGs = []
         for i_lmb, lmb in enumerate(all_lmbs):
-            if lmb==original_LMB:
+            if lmb == original_LMB:
                 continue
-            if FORM_processing_options['number_of_lmbs']>=0 and len(additional_lmbs_SGs)==FORM_processing_options['number_of_lmbs']:
+            if FORM_processing_options['number_of_lmbs'] >= 0 and len(additional_lmbs_SGs) == FORM_processing_options['number_of_lmbs']:
                 break
 
             # Generate the topology with this additional LMB
-            other_lmb_topo_generator, _, _ = self.get_topo_generator(specified_LMB=[ edge_key_to_name[e_key] for e_key in lmb ])
+            other_lmb_topo_generator, _, _ = self.get_topo_generator(
+                specified_LMB=[edge_key_to_name[e_key] for e_key in lmb])
             # And adjust all signatures (incl. the string momenta assignment accordingly)
             other_lmb_signatures = other_lmb_topo_generator.get_signature_map()
-            other_lmb_signatures = { edge_name_to_key[edge_name]: [sig[0],
-                    [ i+o for i,o in zip(sig[1][:len(sig[1])//2],sig[1][len(sig[1])//2:]) ]
-                ] for edge_name, sig in other_lmb_signatures.items() }
+            other_lmb_signatures = {edge_name_to_key[edge_name]: [sig[0],
+                    [i+o for i, o in zip(sig[1][:len(sig[1])//2],
+                                         sig[1][len(sig[1])//2:])]
+                ] for edge_name, sig in other_lmb_signatures.items()}
 
             # Compute the affine transformation to go from the original LMB to this additional LMB
             affine_transfo_other_lmb_to_original = []
             for defining_edge_key in lmb:
                 other_sig = original_lmb_signatures[defining_edge_key]
-                affine_transfo_other_lmb_to_original.append( [ list(other_sig[0]), list(other_sig[1]) ]  )
+                affine_transfo_other_lmb_to_original.append(
+                    [list(other_sig[0]), list(other_sig[1])])
             affine_transfo_original_lmb_to_other_lmb = []
             for defining_edge_key in original_LMB:
                 other_sig = other_lmb_signatures[defining_edge_key]
-                affine_transfo_original_lmb_to_other_lmb.append( [ list(other_sig[0]), list(other_sig[1]) ]  )
+                affine_transfo_original_lmb_to_other_lmb.append(
+                    [list(other_sig[0]), list(other_sig[1])])
 
             other_LMB_super_graph = copy.deepcopy(self)
             # Flag these additional supergraphs as *NOT* original representative by setting their 'additional_lmbs' to an integer instead
@@ -643,46 +775,56 @@ aGraph=%s;
             for edge_key, edge_data in other_LMB_super_graph.edges.items():
                 # Fix for QGRAF pipeline
                 if not isinstance(edge_key, tuple):
-                    edge_key = (*edge_data['vertices'], edge_key) 
-          
+                    edge_key = (*edge_data['vertices'], edge_key)
+
                 edge_data['signature'] = other_lmb_signatures[edge_key]
-                edge_data['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(edge_data['signature'], set_outgoing_equal_to_incoming=False)
+                edge_data['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(
+                    edge_data['signature'], set_outgoing_equal_to_incoming=False)
             for node_key, node_data in other_LMB_super_graph.nodes.items():
                 node_data['momenta'] = tuple([
                     FORMSuperGraph.momenta_decomposition_to_string(
-                        [ 
-                            [ s*(1 if other_LMB_super_graph.edges[e_key]['vertices'][1]==node_key else -1) for s in other_LMB_super_graph.edges[e_key]['signature'][0] ],
-                            [ s*(1 if other_LMB_super_graph.edges[e_key]['vertices'][1]==node_key else -1) for s in other_LMB_super_graph.edges[e_key]['signature'][1] ],
+                        [
+                            [s*(1 if other_LMB_super_graph.edges[e_key]['vertices'][1] == node_key else -1)
+                                for s in other_LMB_super_graph.edges[e_key]['signature'][0]],
+                            [s*(1 if other_LMB_super_graph.edges[e_key]['vertices'][1] == node_key else -1)
+                                for s in other_LMB_super_graph.edges[e_key]['signature'][1]],
                         ],
                         set_outgoing_equal_to_incoming=False)
                      for e_key in node_data['edge_ids']])
 
-            additional_lmbs_SGs.append( (i_lmb+1, affine_transfo_other_lmb_to_original, affine_transfo_original_lmb_to_other_lmb, other_LMB_super_graph ) )
+            additional_lmbs_SGs.append((i_lmb+1, affine_transfo_other_lmb_to_original,
+                                       affine_transfo_original_lmb_to_other_lmb, other_LMB_super_graph))
 
         self.additional_lmbs = additional_lmbs_SGs
 
     def derive_signatures(self):
-        n_incoming = sum([1 for edge in self.edges.values() if edge['type'] == 'in'])
+        n_incoming = sum(
+            [1 for edge in self.edges.values() if edge['type'] == 'in'])
         n_loops = len(self.edges) - len(self.nodes) + 1
 
         # parse momentum
         p = re.compile(r'(^|\+|-)(k|p)(\d*)')
         for edge in self.edges.values():
             parsed = [e.groups() for e in p.finditer(edge['momentum'])]
-            signature = ([0 for _ in range(n_loops)], [0 for _ in range(n_incoming)])
+            signature = ([0 for _ in range(n_loops)], [
+                         0 for _ in range(n_incoming)])
             for pa in parsed:
                 if pa[1] == 'p':
-                    signature[1][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
+                    signature[1][int(
+                        pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
                 else:
-                    signature[0][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
+                    signature[0][int(
+                        pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
 
             edge['signature'] = signature
 
     def impose_signatures(self):
 
         for eid, e in self.edges.items():
-            e['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(e['signature'], set_outgoing_equal_to_incoming=False)
-            neg_mom =  FORMSuperGraph.momenta_decomposition_to_string([[-s for s in sp] for sp in e['signature']], set_outgoing_equal_to_incoming=False)
+            e['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(
+                e['signature'], set_outgoing_equal_to_incoming=False)
+            neg_mom = FORMSuperGraph.momenta_decomposition_to_string(
+                [[-s for s in sp] for sp in e['signature']], set_outgoing_equal_to_incoming=False)
             for i, vi in enumerate(e['vertices']):
                 e_index = self.nodes[vi]['edge_ids'].index(eid)
                 mom = list(self.nodes[vi]['momenta'])
@@ -697,51 +839,55 @@ aGraph=%s;
         # The only relevant properties are the spin and wether an edge
         # is a particle or antiparticle.
         edge_particles = [model.get_particle(e['PDG']) for e in edges_to_sort]
-        identities = [ ( p.get('spin') * (1 if p.get('is_part') else -1) , position ) for position, p in enumerate(edge_particles) ]
+        identities = [(p.get('spin') * (1 if p.get('is_part') else -1), position)
+                       for position, p in enumerate(edge_particles)]
         identities.sort(key=lambda el: el[0])
-        canonical_identifier = tuple([identity for identity, position in identities])
-        
+        canonical_identifier = tuple(
+            [identity for identity, position in identities])
+
         # Always put in the trivial rules for multiscalar n-point vertex
-        if all(i==1 for i in canonical_identifier):
+        if all(i == 1 for i in canonical_identifier):
             new_position = list(range(len(canonical_identifier)))
         elif canonical_identifier not in cls._FORM_Feynman_rules_conventions:
-            raise FormProcessingError("Conventions for FORM Feynman rules of signature {} not specifed.".format(canonical_identifier))
+            raise FormProcessingError(
+                "Conventions for FORM Feynman rules of signature {} not specifed.".format(canonical_identifier))
         else:
             new_position = cls._FORM_Feynman_rules_conventions[canonical_identifier]
 
-        return [ edges_to_sort[identities[position][1]] for position in new_position ]
+        return [edges_to_sort[identities[position][1]] for position in new_position]
 
     @classmethod
     def momenta_decomposition_to_string(cls, momenta_decomposition, set_outgoing_equal_to_incoming=True):
         """ Turns ((1,0,0,-1),(1,1)) into 'k1-k4+p1+p2'"""
 
         res = ""
-        first=True
+        first = True
         # The outgoing momenta are set element-wise equal to the incoming ones.
         if set_outgoing_equal_to_incoming:
             momenta_decomposition = [
                 momenta_decomposition[0],
                 [inp+outp for inp, outp in zip(
-                    momenta_decomposition[1][:len(momenta_decomposition[1])//2],
+                    momenta_decomposition[1][:len(
+                        momenta_decomposition[1])//2],
                     momenta_decomposition[1][len(momenta_decomposition[1])//2:]
                 )]
             ]
         # Fuse outgoing and incoming
-        for symbol, mom_decomposition in zip(('k','p'),momenta_decomposition):
+        for symbol, mom_decomposition in zip(('k', 'p'), momenta_decomposition):
             for i_k, wgt in enumerate(mom_decomposition):
-                if wgt!=0:
+                if wgt != 0:
                     if first:
-                        if wgt<0:
-                            res+="-"
-                        first=False
+                        if wgt < 0:
+                            res += "-"
+                        first = False
                     else:
-                        if wgt<0:
-                            res+="-"
+                        if wgt < 0:
+                            res += "-"
                         else:
-                            res+="+"
-                    if abs(wgt)!=1:
-                        res+="%d*"%abs(wgt)
-                    res+="%s%d"%(symbol,(i_k+1))
+                            res += "+"
+                    if abs(wgt) != 1:
+                        res += "%d*" % abs(wgt)
+                    res += "%s%d" % (symbol, (i_k+1))
 
         return res
 
@@ -761,27 +907,30 @@ aGraph=%s;
             multiplicity = 1
 
         # Let us just match the overall phase picked for the MG num:
-        overall_phase = complex(-1.0,0.0)**len(LTD2_super_graph.cuts)
+        overall_phase = complex(-1.0, 0.0)**len(LTD2_super_graph.cuts)
         if overall_phase.imag != 0:
-            raise FormProcessingError("No support for overall complex phase yet (Ben: how do we put a complex number in FORM? ^^)")
+            raise FormProcessingError(
+                "No support for overall complex phase yet (Ben: how do we put a complex number in FORM? ^^)")
         else:
-            overall_factor += '*%d'%int(overall_phase.real)
+            overall_factor += '*%d' % int(overall_phase.real)
 
-        fermion_factor = LTD2_super_graph.diag_left_of_cut.fermion_factor*LTD2_super_graph.diag_right_of_cut.fermion_factor
-        overall_factor += '*%d'%fermion_factor
+        fermion_factor = LTD2_super_graph.diag_left_of_cut.fermion_factor * \
+            LTD2_super_graph.diag_right_of_cut.fermion_factor
+        overall_factor += '*%d' % fermion_factor
 
         model = LTD2_super_graph.model
 
         # Let us also include a factor -1 for each closed ghost loop.
         # This is automatically done in MadGraph already by considering the "wavefunction" of external scalar ghosts to be sqrt(i).
         # Said differently, we want a factor -1 for each pair of two ghosts in the final state
-        n_ghosts = len([ 1 for c in LTD2_super_graph.cuts if model.get_particle(LTD2_super_graph.graph.edges[c[1]]['pdg']).get('ghost') ])
-        assert(n_ghosts%2==0)
+        n_ghosts = len([1 for c in LTD2_super_graph.cuts if model.get_particle(
+            LTD2_super_graph.graph.edges[c[1]]['pdg']).get('ghost')])
+        assert(n_ghosts % 2 == 0)
         if n_ghosts > 0:
-            overall_factor += '*%d'%(-1**(n_ghosts//2))
+            overall_factor += '*%d' % (-1**(n_ghosts//2))
 
         local_graph = copy.deepcopy(LTD2_super_graph.graph)
-        
+
         # Collect the outer-most nodes
         outer_in_nodes = []
         outer_out_nodes = []
@@ -789,40 +938,43 @@ aGraph=%s;
             # Assign the corresponding edge
             if node_key.startswith('I') or node_key.startswith('O'):
                 for edge_key, edge_data in local_graph.edges.items():
-                    if edge_key[0]==node_key or edge_key[1]==node_key:
-                        node_data['edge_ids'] = tuple([edge_key,])
+                    if edge_key[0] == node_key or edge_key[1] == node_key:
+                        node_data['edge_ids'] = tuple([edge_key, ])
                         break
                 if 'edge_ids' not in node_data:
                     node_data['edge_ids'] = tuple([])
             if node_key.startswith('I'):
                 outer_in_nodes.append(node_key)
-                node_data['momenta'] = ('p%d'%int(node_key[1:]),)
-                node_data['vertex_id'] = -1 # Incoming node at assigned vertex ID = -1
+                node_data['momenta'] = ('p%d' % int(node_key[1:]),)
+                # Incoming node at assigned vertex ID = -1
+                node_data['vertex_id'] = -1
             if node_key.startswith('O'):
                 outer_out_nodes.append(node_key)
-                node_data['momenta'] = ('p%d'%int(node_key[1:]),)
-                node_data['vertex_id'] = -2 # Incoming node at assigned vertex ID = -2
+                node_data['momenta'] = ('p%d' % int(node_key[1:]),)
+                # Incoming node at assigned vertex ID = -2
+                node_data['vertex_id'] = -2
 
         curr_index = 0
         # Assign indices to the outermost nodes
         for node_key in outer_in_nodes:
             this_index = int(node_key[1:])
-            curr_index = max(curr_index,this_index)
+            curr_index = max(curr_index, this_index)
             local_graph.nodes[node_key]['indices'] = (this_index,)
 
-        n_incoming=int(curr_index)
+        n_incoming = int(curr_index)
         for node_key in outer_out_nodes:
             this_index = n_incoming+int(node_key[1:])
-            curr_index = max(curr_index,this_index)
+            curr_index = max(curr_index, this_index)
             local_graph.nodes[node_key]['indices'] = (this_index,)
 
         # assign indices to all edges now
         for edge_key, edge_data in local_graph.edges.items():
             edge_indices = []
             found_external_node = False
-            for node_key in [edge_key[0],edge_key[1]]:
+            for node_key in [edge_key[0], edge_key[1]]:
                 if node_key in outer_in_nodes+outer_out_nodes:
-                    edge_indices = [ local_graph.nodes[node_key]['indices'][0], ]
+                    edge_indices = [
+                        local_graph.nodes[node_key]['indices'][0], ]
                     found_external_node = True
                     local_graph.nodes[node_key]['PDGs'] = (edge_data['pdg'],)
                 else:
@@ -862,66 +1014,72 @@ aGraph=%s;
                 continue
             # First collect all adjacent edges:
             adjacent_in_edges = [
-                dict(list(in_edge_data.items())+[('key',(u,v,c))]) for u,v,c,in_edge_data in 
-                local_graph.in_edges(node_key,data=True,keys=True)
+                dict(list(in_edge_data.items())+[('key', (u, v, c))]) for u, v, c, in_edge_data in
+                local_graph.in_edges(node_key, data=True, keys=True)
             ]
             adjacent_out_edges = [
-                dict(list(out_edge_data.items())+[('key',(u,v,c))]) for u,v,c,out_edge_data in 
-                local_graph.out_edges(node_key,data=True,keys=True)
+                dict(list(out_edge_data.items())+[('key', (u, v, c))]) for u, v, c, out_edge_data in
+                local_graph.out_edges(node_key, data=True, keys=True)
             ]
             # The direction only matters in so far as we must flip the
             # momentum carried by edges that are outgoing as well as
             # change their PDG from particle to antiparticle
             for data in adjacent_in_edges:
-                if len(data['indices'])==2:
-                    data['index_for_this_node'] =  data['indices'][1]
+                if len(data['indices']) == 2:
+                    data['index_for_this_node'] = data['indices'][1]
                 else:
                     # This is an external edge with a single index.
-                    data['index_for_this_node'] =  data['indices'][0]
+                    data['index_for_this_node'] = data['indices'][0]
             for data in adjacent_out_edges:
-                data['index_for_this_node'] =  data['indices'][0]
+                data['index_for_this_node'] = data['indices'][0]
                 data['momentum'] = (
                     tuple([-p for p in data['momentum'][0]]),
                     tuple([-p for p in data['momentum'][1]])
                 )
-                data['PDG'] = model.get_particle(data['PDG']).get_anti_pdg_code()
+                data['PDG'] = model.get_particle(
+                    data['PDG']).get_anti_pdg_code()
 
             # We must now sort the edges according to the special rules for the vertex Feynman rules
-            all_adjacent_edges = cls.sort_edges(model,adjacent_in_edges+adjacent_out_edges)
+            all_adjacent_edges = cls.sort_edges(
+                model, adjacent_in_edges+adjacent_out_edges)
             node_data['PDGs'] = tuple([e['PDG'] for e in all_adjacent_edges])
-            node_data['indices'] = tuple([e['index_for_this_node'] for e in all_adjacent_edges])
-            node_data['momenta'] = tuple([cls.momenta_decomposition_to_string(e['momentum']) for e in all_adjacent_edges])
-            node_data['edge_ids'] = tuple([e['key'] for e in all_adjacent_edges])
+            node_data['indices'] = tuple(
+                [e['index_for_this_node'] for e in all_adjacent_edges])
+            node_data['momenta'] = tuple([cls.momenta_decomposition_to_string(
+                e['momentum']) for e in all_adjacent_edges])
+            node_data['edge_ids'] = tuple(
+                [e['key'] for e in all_adjacent_edges])
 
             # Example printout information about the vertex
-            #misc.sprint("Vertex of node %s:\n%s"%(
+            # misc.sprint("Vertex of node %s:\n%s"%(
             #        str(node_key),pformat(model.get_interaction(node_data['vertex_id']))))
 
         # Finally overwrite the edge momentum so as to be a string
         for edge_key, edge_data in local_graph.edges.items():
-            edge_data['momentum'] =cls.momenta_decomposition_to_string(edge_data['momentum'])
-            edge_data['vertices'] =(edge_key[0],edge_key[1])
+            edge_data['momentum'] = cls.momenta_decomposition_to_string(
+                edge_data['momentum'])
+            edge_data['vertices'] = (edge_key[0], edge_key[1])
             # In FORM conventions the fermion are going together with their flow, so we need
             # to flip the order of their fundamental/antifundamental indices so that FORM
-            # builds the correct propagator. 
+            # builds the correct propagator.
             # NO LONGER NEEDED: This now directly done right in FORM.
 #            particle = model.get_particle(edge_data['PDG'])
 #            if len(edge_data['indices'])>1 and (particle.get('spin')%2==0 or particle.get('ghost')):
 #                if not particle.get('is_part'):
 #                    edge_data['indices'] = tuple([edge_data['indices'][1],edge_data['indices'][0]])
 
-        graph_name = 'P%(proc_id)dL%(left_diagram_id)dR%(right_diagram_id)d'%LTD2_super_graph.call_signature
-        form_super_graph =  cls(
-            name = graph_name,
+        graph_name = 'P%(proc_id)dL%(left_diagram_id)dR%(right_diagram_id)d' % LTD2_super_graph.call_signature
+        form_super_graph = cls(
+            name=graph_name,
             call_identifier=LTD2_super_graph.call_signature,
-            edges = dict(local_graph.edges),
-            nodes = dict(local_graph.nodes),
-            overall_factor = overall_factor,
-            multiplicity = multiplicity
+            edges=dict(local_graph.edges),
+            nodes=dict(local_graph.nodes),
+            overall_factor=overall_factor,
+            multiplicity=multiplicity
         )
-        #misc.sprint(graph_name)
-        #misc.sprint(pformat(dict(LTD2_super_graph.graph.edges.items())))
-        #misc.sprint(pformat(dict(local_graph.edges.items())))
+        # misc.sprint(graph_name)
+        # misc.sprint(pformat(dict(LTD2_super_graph.graph.edges.items())))
+        # misc.sprint(pformat(dict(local_graph.edges.items())))
 
         return form_super_graph
 
@@ -936,13 +1094,13 @@ aGraph=%s;
         """ Outputs the FORMSuperGraph self to a Python dict file path."""
 
         dict_to_dump = {
-            'edges' : self.edges,
-            'nodes' : self.nodes,
-            'overall_factor' : self.overall_factor,
-            'multiplicity' : self.multiplicity
+            'edges': self.edges,
+            'nodes': self.nodes,
+            'overall_factor': self.overall_factor,
+            'multiplicity': self.multiplicity
         }
         if file_path:
-            open(file_path,'w').write(pformat(dict_to_dump))
+            open(file_path, 'w').write(pformat(dict_to_dump))
         else:
             return dict_to_dump
 
@@ -956,7 +1114,7 @@ aGraph=%s;
                 energy_map, energies, constants, shift_map = [], [], [], []
                 prop_mom_in_lmb = []
                 signature_offset = 0
-                loops = 0 # LTD loop count
+                loops = 0  # LTD loop count
 
                 prop_id = {}
                 counter = 0
@@ -970,13 +1128,13 @@ aGraph=%s;
 
                 res = []
                 propagators = []
-                #ltd_signatures = {}
+                # ltd_signatures = {}
                 propcount = 1
                 for di, diag_info in enumerate(loop_diag_set['diagram_info']):
                     for li, l in enumerate(diag_info['graph'].loop_lines):
                         is_constant = all(s == 0 for s in l.signature)
 
-                        #ltd_signatures[(di, li)] = [0]* l.signature
+                        # ltd_signatures[(di, li)] = [0]* l.signature
 
                         for p in l.propagators:
                             # contruct the momentum in the LMB, using that LTD
@@ -991,47 +1149,57 @@ aGraph=%s;
                                 shift += s * np.array(c['signature'][0])
                                 extshift += s * np.array(c['signature'][1])
                             extshift = np.array(list(extshift[:len(extshift)//2]) + [0]*(len(extshift)//2)) +\
-                                np.array(list(extshift[len(extshift)//2:]) + [0]*(len(extshift)//2))
+                                np.array(
+                                    list(extshift[len(extshift)//2:]) + [0]*(len(extshift)//2))
 
-                            totalmom = self.momenta_decomposition_to_string((lmp + shift, extshift), True)
+                            totalmom = self.momenta_decomposition_to_string(
+                                (lmp + shift, extshift), True)
 
                             # TODO: recycle energy computations since Es will appear more than once
                             if not is_constant:
                                 prop_mom_in_lmb.append((lmp, shift, extshift))
-                                energy_map.append((p.m_squared if not p.uv else 'mUV*mUV', 1))
+                                energy_map.append(
+                                    (p.m_squared if not p.uv else 'mUV*mUV', 1))
                                 energies.append(totalmom)
                                 shift_map.append(list(shift) + list(extshift))
 
                             if is_constant:
-                                constants.append((totalmom, p.m_squared if not p.uv else 'mUV*mUV', p.power))
+                                constants.append(
+                                    (totalmom, p.m_squared if not p.uv else 'mUV*mUV', p.power))
 
                     diagres = []
                     # enumerate all cut options
-                    for co in [x for css in diag_info['graph'].ltd_cut_structure for x in 
+                    for co in [x for css in diag_info['graph'].ltd_cut_structure for x in
                             product(*[[(cs, (li, i)) for i in range(len(l.propagators))] for li, (cs, l) in enumerate(zip(css, diag_info['graph'].loop_lines)) if cs != 0])]:
                         ltd_closure_factor = int(np.prod([s for (s, _) in co]))
-                        
+
                         # construct the cut basis to LTD loop momentum basis mapping, used to substitute the numerator
-                        mat = [diag_info['graph'].loop_lines[li].signature for (_, (li, _)) in co]
+                        mat = [diag_info['graph'].loop_lines[li].signature for (
+                            _, (li, _)) in co]
                         if mat == []:
                             nmi = []
                             cb_to_lmb = []
                         else:
-                            nmi = np.linalg.inv(np.array(mat).transpose()) # the tranpose matrix is used for signatures
+                            # the tranpose matrix is used for signatures
+                            nmi = np.linalg.inv(np.array(mat).transpose())
                             cb_to_lmb = np.linalg.inv(np.array(mat))
 
                         m = []
-                        ltdenergy = ['ltd{0},{1}E{0}'.format(prop_id[(di, li, pi)], '+' if cut_sign == 1 else '-') for (cut_sign, (li, pi)) in co]
+                        ltdenergy = ['ltd{0},{1}E{0}'.format(prop_id[(
+                            di, li, pi)], '+' if cut_sign == 1 else '-') for (cut_sign, (li, pi)) in co]
                         for i, r in enumerate(cb_to_lmb):
                             mm = []
                             for (c, (_, (li, pi))) in zip(r, co):
                                 if c != 0:
-                                    ext = self.momenta_decomposition_to_string((prop_mom_in_lmb[prop_id[(di,li, pi)]][1], prop_mom_in_lmb[prop_id[(di, li, pi)]][2]), True)
+                                    ext = self.momenta_decomposition_to_string((prop_mom_in_lmb[prop_id[(
+                                        di, li, pi)]][1], prop_mom_in_lmb[prop_id[(di, li, pi)]][2]), True)
                                     if ext == '':
                                         ext = '0'
-                                    
-                                    mm.append('{}ltd{}{}energies({})'.format('' if c == 1 else '-', prop_id[(di, li, pi)], '-' if c == 1 else '+', ext))
-                            m += ['c{}'.format(i + len(cut['cuts']) + signature_offset), '+'.join(mm)]
+
+                                    mm.append('{}ltd{}{}energies({})'.format(
+                                        '' if c == 1 else '-', prop_id[(di, li, pi)], '-' if c == 1 else '+', ext))
+                            m += ['c{}'.format(i + len(cut['cuts']) +
+                                               signature_offset), '+'.join(mm)]
 
                         r = []
                         der = []
@@ -1044,43 +1212,57 @@ aGraph=%s;
                             sig_map = nmi.dot(l.signature)
                             for (sig_sign, (cut_sign, (lci, pci))) in zip(sig_map, co):
                                 if sig_sign != 0:
-                                    momp = self.momenta_decomposition_to_string((prop_mom_in_lmb[prop_id[(di, lci, pci)]][1], prop_mom_in_lmb[prop_id[(di, lci, pci)]][2]), True)
-                                    energy.append('{},ltd{},{}energies({})'.format(int(sig_sign), prop_id[(di, lci, pci)], 
-                                        '+' if -sig_sign == 1 else '-', 
+                                    momp = self.momenta_decomposition_to_string((prop_mom_in_lmb[prop_id[(
+                                        di, lci, pci)]][1], prop_mom_in_lmb[prop_id[(di, lci, pci)]][2]), True)
+                                    energy.append('{},ltd{},{}energies({})'.format(int(sig_sign), prop_id[(di, lci, pci)],
+                                        '+' if -sig_sign == 1 else '-',
                                         '0' if momp == '' else momp))
                                     # the full energy including the cut sign
-                                    energy_full += '{}E{}{}energies({})'.format('+' if int(cut_sign * sig_sign) == 1 else '-', prop_id[(di, lci, pci)], 
-                                        '+' if -int(sig_sign) == 1 else '-', 
+                                    energy_full += '{}E{}{}energies({})'.format('+' if int(cut_sign * sig_sign) == 1 else '-', prop_id[(di, lci, pci)],
+                                        '+' if -int(sig_sign) == 1 else '-',
                                         '0' if momp == '' else momp)
 
                             for pi, p in enumerate(l.propagators):
                                 # TODO: recycle propagator ids if the functional form is the same!
-                                powmod = '' if p.power == 1 else '^' +  str(p.power)
+                                powmod = '' if p.power == 1 else '^' + \
+                                    str(p.power)
                                 if (1, (li, pi)) in co:
-                                    propagators.append('2*E{0}'.format(prop_id[(di, li, pi)]))
-                                    r.append('prop({0},1,ltd{1},0,E{1}){2}'.format(propcount, prop_id[(di, li, pi)], powmod))
+                                    propagators.append(
+                                        '2*E{0}'.format(prop_id[(di, li, pi)]))
+                                    r.append('prop({0},1,ltd{1},0,E{1}){2}'.format(
+                                        propcount, prop_id[(di, li, pi)], powmod))
                                     if p.power > 1:
                                         # add derivative prescription
-                                        der.append('ltd{},{}'.format(prop_id[(di,li, pi)], p.power - 1))
+                                        der.append('ltd{},{}'.format(
+                                            prop_id[(di, li, pi)], p.power - 1))
                                 elif (-1, (li, pi)) in co:
-                                    propagators.append('-2*E{0}'.format(prop_id[(di, li, pi)]))
-                                    r.append('prop({0},-1,ltd{1},0,-E{1}){2}'.format(propcount, prop_id[(di, li, pi)], powmod))
+                                    propagators.append(
+                                        '-2*E{0}'.format(prop_id[(di, li, pi)]))
+                                    r.append(
+                                        'prop({0},-1,ltd{1},0,-E{1}){2}'.format(propcount, prop_id[(di, li, pi)], powmod))
                                     if p.power > 1:
-                                        der.append('ltd{},{}'.format(prop_id[(di, li, pi)], p.power - 1))
+                                        der.append('ltd{},{}'.format(
+                                            prop_id[(di, li, pi)], p.power - 1))
                                 else:
-                                    momp = self.momenta_decomposition_to_string((prop_mom_in_lmb[prop_id[(di, li, pi)]][1], prop_mom_in_lmb[prop_id[(di, li, pi)]][2]), True)
+                                    momp = self.momenta_decomposition_to_string((prop_mom_in_lmb[prop_id[(
+                                        di, li, pi)]][1], prop_mom_in_lmb[prop_id[(di, li, pi)]][2]), True)
                                     r.append('prop({0},{1},E{2}+energies({3})){4}*prop({5},{1},-E{2}+energies({3})){4}'.format(propcount, ','.join(energy), prop_id[(di, li, pi)],
                                         '0' if momp == '' else momp, powmod, propcount + 1))
 
-                                    propagators.append('{}+E{}+energies({})'.format(energy_full, prop_id[(di, li, pi)], '0' if momp == '' else momp))
-                                    propagators.append('{}-E{}+energies({})'.format(energy_full, prop_id[(di, li, pi)], '0' if momp == '' else momp))
+                                    propagators.append(
+                                        '{}+E{}+energies({})'.format(energy_full, prop_id[(di, li, pi)], '0' if momp == '' else momp))
+                                    propagators.append(
+                                        '{}-E{}+energies({})'.format(energy_full, prop_id[(di, li, pi)], '0' if momp == '' else momp))
                                     propcount += 1
                                 propcount += 1
                         diagres.append('{}*{}{}{}({})'.format(
                             ltd_closure_factor,
-                            'ltdcbtolmb({})*'.format(','.join(m)) if len(m) > 0 else '',
-                            'ltdenergy({})*'.format(','.join(ltdenergy)) if len(ltdenergy) > 0 else '',
-                            'der({})*'.format(','.join(der))  if len(der) > 0 else '',
+                            'ltdcbtolmb({})*'.format(','.join(m)
+                                        ) if len(m) > 0 else '',
+                            'ltdenergy({})*'.format(','.join(ltdenergy)
+                                       ) if len(ltdenergy) > 0 else '',
+                            'der({})*'.format(','.join(der)
+                                 ) if len(der) > 0 else '',
                             '*'.join(r) if len(r) > 0 else '1'))
 
                     res.append('\n\t\t\t+'.join(diagres))
@@ -1089,7 +1271,8 @@ aGraph=%s;
 
                 res = '\n\t\t*'.join(['({})'.format(l) for l in res])
 
-                self.integrand_info['LTD'][(numerator_call, diag_set['id'])] = (energy_map, constants, loops, diag_set['id'])
+                self.integrand_info['LTD'][(numerator_call, diag_set['id'])] = (
+                    energy_map, constants, loops, diag_set['id'])
                 max_diag_id = max(max_diag_id, diag_set['id'])
                 integrand_body += 'Fill ltdtopo({}) = (-1)^{}*constants({})*\n\tellipsoids({})*\n\tallenergies({})*(\n\t\t{}\n);\n'.format(diag_set['id'],
                     loops, ','.join(c[0] for c in constants), ','.join(propagators), ','.join(energies), res)
@@ -1125,7 +1308,8 @@ CTable ltdtopo(0:{});
                         is_constant = all(s == 0 for s in l.signature)
                         if not is_constant:
                             signatures.append(list(l.signature))
-                            n_props.append(sum(p.power for p in (l.propagators)))
+                            n_props.append(
+                                sum(p.power for p in (l.propagators)))
                         for p in l.propagators:
                             # contruct the momentum in the LMB, using that LTD
                             lmp = np.array([0]*topo.topo.n_loops)
@@ -1139,33 +1323,39 @@ CTable ltdtopo(0:{});
                                 shift += s * np.array(c['signature'][0])
                                 extshift += s * np.array(c['signature'][1])
                             extshift = np.array(list(extshift[:len(extshift)//2]) + [0]*(len(extshift)//2)) +\
-                                np.array(list(extshift[len(extshift)//2:]) + [0]*(len(extshift)//2))
+                                np.array(
+                                    list(extshift[len(extshift)//2:]) + [0]*(len(extshift)//2))
 
-                            totalmom = self.momenta_decomposition_to_string((lmp + shift, extshift), True)
+                            totalmom = self.momenta_decomposition_to_string(
+                                (lmp + shift, extshift), True)
 
                             # recycle energy computations when there are duplicate edges
                             if not is_constant:
-                                energy_map.append(((p.m_squared if p.m_squared != 0 else 'small_mass_sq') if not p.uv else 'mUV*mUV', p.power))
+                                energy_map.append(
+                                    ((p.m_squared if p.m_squared != 0 else 'small_mass_sq') if not p.uv else 'mUV*mUV', p.power))
 
                                 for _ in range(p.power):
                                     energies.append(totalmom)
-                                    shift_map.append(list(shift) + list(extshift))
+                                    shift_map.append(
+                                        list(shift) + list(extshift))
                             else:
-                                constants.append((totalmom, (p.m_squared if p.m_squared != 0 else 'small_mass_sq') if not p.uv else 'mUV*mUV', p.power))
+                                constants.append(
+                                    (totalmom, (p.m_squared if p.m_squared != 0 else 'small_mass_sq') if not p.uv else 'mUV*mUV', p.power))
 
                     if len(signatures) == 0:
                         # no loop dependence for this cut
                         res = '\t1\n'
                         resden = ''
                     else:
-                        #logger.info("Input to PF generator:\nn_props=%s\nsignatures=%s"%(
+                        # logger.info("Input to PF generator:\nn_props=%s\nsignatures=%s"%(
                         #    pformat(n_props),pformat(signatures)
-                        #))
+                        # ))
                         pf = LTD.partial_fractioning.PartialFractioning(n_props, signatures,
                                                 name=str(diag_set['id']), shift_map=np.array(shift_map).T,
-                                                n_sg_loops=topo.topo.n_loops, ltd_index=len(cut['cuts']) - 1 + signature_offset,
-                                                progress_bar = progress_bar)
-                        pf.shifts_to_externals() #shift_map=np.array(shift_map).T)
+                                                n_sg_loops=topo.topo.n_loops, ltd_index=len(
+                                                    cut['cuts']) - 1 + signature_offset,
+                                                progress_bar=progress_bar)
+                        pf.shifts_to_externals()  # shift_map=np.array(shift_map).T)
                         res = pf.to_FORM()
                         res = '\n'.join(['\t' + l for l in res.split('\n')])
                         resden = ','.join(pf.den_library)
@@ -1184,8 +1374,10 @@ CTable ltdtopo(0:{});
                         integrand_body += 'Fill pftopo({},{}) = constants({})*\nallenergies({})*\nellipsoids({})*(\n{});\n'.format(*global_diag_id,
                             ','.join(c[0] for c in constants), ','.join(energies), resden, res)
 
-                    topo_map += 'Fill pfmap({},{}) = diag({},{});\n'.format(*global_diag_id, *unique_pf[pf_sig])
-                    self.integrand_info['PF'][(numerator_call, *global_diag_id)] = (energy_map, constants, diag_info['graph'].n_loops, unique_pf[pf_sig])
+                    topo_map += 'Fill pfmap({},{}) = diag({},{});\n'.format(
+                        *global_diag_id, *unique_pf[pf_sig])
+                    self.integrand_info['PF'][(numerator_call, *global_diag_id)] = (
+                        energy_map, constants, diag_info['graph'].n_loops, unique_pf[pf_sig])
 
         with open(pjoin(workspace, 'pftable_{}.h'.format(numerator_call)), 'w') as f:
             f.write("""
@@ -1201,10 +1393,10 @@ CTable pfmap(0:{},0:{});
 {}
 """.format(max_diag_set_id, max_diag_id, max_diag_set_id, max_diag_id, topo_map, integrand_body))
 
-
     def get_edge_scaling(self, pdg):
         # all scalings that deviate from -2
-        scalings = {1: -1, 2: -1, 3: -1, 4: -1, 5: -1, 6: -1, 11: -1, 12: -1, 13: -1}
+        scalings = {1: -1, 2: -1, 3: -1, 4: -1,
+            5: -1, 6: -1, 11: -1, 12: -1, 13: -1}
         return scalings[abs(pdg)] if abs(pdg) in scalings else -2
 
     def get_node_scaling(self, pdgs):
@@ -1216,7 +1408,7 @@ CTable pfmap(0:{},0:{});
         else:
             return 0
 
-    def generate_squared_topology_files(self, root_output_path, model, process_definition, n_jets, numerator_call, final_state_particle_ids=(),jet_ids=None, write_yaml=True, bar=None,
+    def generate_squared_topology_files(self, root_output_path, model, process_definition, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None, write_yaml=True, bar=None,
         integrand_type=None, workspace=None):
         if workspace is None:
             workspace = pjoin(root_output_path, os.pardir, 'workspace')
@@ -1226,60 +1418,74 @@ CTable pfmap(0:{},0:{});
             max_lmb = 1
             if isinstance(self.additional_lmbs, list):
                 max_lmb += len(self.additional_lmbs)
-            bar.update(max_lmb='%d'%max_lmb)
+            bar.update(max_lmb='%d' % max_lmb)
 
         if self.is_zero:
             return False
 
         # Relabel edges according to alphaLoop conventions:
         for edge_key, edge_data in self.edges.items():
-            edge_data['name'] = 'p' + edge_data['name'] if edge_data['type'] == 'virtual' else 'q' + edge_data['name'][1:]
+            edge_data['name'] = 'p' + \
+                edge_data['name'] if edge_data['type'] == 'virtual' else 'q' + \
+                    edge_data['name'][1:]
 
         # TODO: sort such that the first 4 entries are external (it seems to happen by chance now every time)
-        edge_map_lin = [(e['name'], e['vertices'][0], e['vertices'][1]) for e in self.edges.values()]
+        edge_map_lin = [(e['name'], e['vertices'][0], e['vertices'][1])
+                         for e in self.edges.values()]
         assert(e[0] != 'q' or int(e[1:]) < 5 for e in edge_map_lin)
 
-        particle_ids = { e['name']: e['PDG'] for e in self.edges.values() }
-        particle_masses = {e['name']: 0. if e['PDG'] == 1337 else model['parameter_dict'][model.get_particle(e['PDG']).get('mass')].real for e in self.edges.values()}
+        particle_ids = {e['name']: e['PDG'] for e in self.edges.values()}
+        particle_masses = {e['name']: 0. if e['PDG'] == 1337 else model['parameter_dict']
+            [model.get_particle(e['PDG']).get('mass')].real for e in self.edges.values()}
 
         num_incoming = sum(1 for e in edge_map_lin if e[0][0] == 'q') // 2
 
         if num_incoming == 1:
-            external_momenta = {'q1': [500., 0., 0., 0.], 'q2': [500., 0., 0., 0.]}
-            #external_momenta = {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]}
+            external_momenta = {
+                'q1': [500., 0., 0., 0.], 'q2': [500., 0., 0., 0.]}
+            # external_momenta = {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]}
             p = np.array(external_momenta['q1'])
         else:
-            external_momenta = {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
-            #external_momenta = {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
-            p = np.array(external_momenta['q1']) + np.array(external_momenta['q2'])
+            external_momenta = {'q1': [500., 0., 0., 500.], 'q2': [
+                500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
+            # external_momenta = {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
+            p = np.array(external_momenta['q1']) + \
+                         np.array(external_momenta['q2'])
 
         loop_momenta = []
         n_loops = len(self.edges) - len(self.nodes) + 1
 
         for loop_var in range(n_loops):
-            lm = next((ee['name'], ee['signature'][0][loop_var]) for ee in self.edges.values() if all(s == 0 for s in ee['signature'][1]) and \
+            lm = next((ee['name'], ee['signature'][0][loop_var]) for ee in self.edges.values() if all(s == 0 for s in ee['signature'][1]) and
                 sum(abs(s) for s in ee['signature'][0]) == 1 and ee['signature'][0][loop_var] == 1)
             loop_momenta.append(lm)
 
         if isinstance(self.additional_lmbs, list):
             call_signature_ID = numerator_call
         else:
-            call_signature_ID = self.additional_lmbs*FORM_processing_options['FORM_call_sig_id_offset_for_additional_lmb']+numerator_call
+            call_signature_ID = self.additional_lmbs * \
+                FORM_processing_options['FORM_call_sig_id_offset_for_additional_lmb']+numerator_call
 
         # If effective_vertex_id is specified, we will only consider the CC cut that cuts all internal edges connecting to that vertex id
         cut_filter = []
         if self.effective_vertex_id is not None:
-            cut_filter.append( tuple( edge_data['name' ] for edge_key, edge_data in self.edges.items() if self.effective_vertex_id in edge_data['vertices'] and edge_data['type']=='virtual' ) )
+            cut_filter.append(tuple(edge_data['name'] for edge_key, edge_data in self.edges.items(
+            ) if self.effective_vertex_id in edge_data['vertices'] and edge_data['type'] == 'virtual'))
+        
 
-        if 'PDGs' in  self.nodes[1].values():
-            vrtx_weights = {nv: self.get_node_scaling(n['PDGs']) for nv, n in self.nodes.items()}
-        else: 
-            vrtx_weights ={}
+        if 'PDGs' in self.nodes[1].values():
+            vrtx_weights = {nv: self.get_node_scaling(
+                n['PDGs']) for nv, n in self.nodes.items()}
+        else:
+            vrtx_weights = {}
+            
         if self.is_amplitude:
+            print("here")
             topo = LTD.squared_topologies.SquaredTopologyGenerator(edge_map_lin,
-                self.name, ['q1', 'q2'][:num_incoming], n_jets, external_momenta,
-                loop_momenta_names=tuple([l for l,s in loop_momenta]),
-                loop_momenta_signs=tuple([s for l,s in loop_momenta]),
+                self.name, [
+                    'q1', 'q2'][:num_incoming], n_jets, external_momenta,
+                loop_momenta_names=tuple([l for l, s in loop_momenta]),
+                loop_momenta_signs=tuple([s for l, s in loop_momenta]),
                 particle_ids=particle_ids,
                 masses=particle_masses,
                 final_state_particle_ids=final_state_particle_ids,
@@ -1288,22 +1494,25 @@ CTable pfmap(0:{},0:{});
                 numerator_structure={},
                 FORM_numerator={'call_signature': {'id': call_signature_ID}},
                 FORM_integrand={'call_signature': {'id': call_signature_ID}},
-                edge_weights={e['name']: self.get_edge_scaling(e['PDG']) for e in self.edges.values()},
+                edge_weights={e['name']: self.get_edge_scaling(
+                    e['PDG']) for e in self.edges.values()},
                 vertex_weights=vrtx_weights,
                 generation_options=FORM_processing_options,
-                analytic_result=(self.benchmark_result if hasattr(self,"benchmark_result") else None),
+                analytic_result=(self.benchmark_result if hasattr(
+                    self, "benchmark_result") else None),
                 default_kinematics=self.default_kinematics,
                 cut_filter=cut_filter,
-                is_amplitude = self.is_amplitude,
-                external_data = self.external_data,
-                color_struc = self.color_struc
+                is_amplitude=self.is_amplitude,
+                external_data=self.external_data,
+                color_struc=self.color_struc
 
             )
         else:
             topo = LTD.squared_topologies.SquaredTopologyGenerator(edge_map_lin,
-                self.name, ['q1', 'q2'][:num_incoming], n_jets, external_momenta,
-                loop_momenta_names=tuple([l for l,s in loop_momenta]),
-                loop_momenta_signs=tuple([s for l,s in loop_momenta]),
+                self.name, [
+                    'q1', 'q2'][:num_incoming], n_jets, external_momenta,
+                loop_momenta_names=tuple([l for l, s in loop_momenta]),
+                loop_momenta_signs=tuple([s for l, s in loop_momenta]),
                 particle_ids=particle_ids,
                 masses=particle_masses,
                 final_state_particle_ids=final_state_particle_ids,
@@ -1312,15 +1521,18 @@ CTable pfmap(0:{},0:{});
                 numerator_structure={},
                 FORM_numerator={'call_signature': {'id': call_signature_ID}},
                 FORM_integrand={'call_signature': {'id': call_signature_ID}},
-                edge_weights={e['name']: self.get_edge_scaling(e['PDG']) for e in self.edges.values()},
+                edge_weights={e['name']: self.get_edge_scaling(
+                    e['PDG']) for e in self.edges.values()},
                 vertex_weights=vrtx_weights,
                 generation_options=FORM_processing_options,
-                analytic_result=(self.benchmark_result if hasattr(self,"benchmark_result") else None),
+                analytic_result=(self.benchmark_result if hasattr(
+                    self, "benchmark_result") else None),
                 default_kinematics=self.default_kinematics,
                 cut_filter=cut_filter
 
             )
         # check if cut is possible
+        print(len(topo.cuts))
         if len(topo.cuts) == 0:
             logger.info("No cuts for graph {}".format(self.name))
             return False
@@ -1330,27 +1542,28 @@ CTable pfmap(0:{},0:{});
 
         # Also generate the squared topology yaml files of all additional LMB topologies used for cross-check
         if isinstance(self.additional_lmbs, list):
-            for i_lmb, (_,_,_,other_lmb_supergraph) in enumerate(self.additional_lmbs):
+            for i_lmb, (_, _, _, other_lmb_supergraph) in enumerate(self.additional_lmbs):
                 if bar:
-                    bar.update(i_lmb='%d'%(i_lmb+2))
-                other_lmb_supergraph.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call, 
-                        final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, write_yaml=write_yaml,workspace=workspace,
+                    bar.update(i_lmb='%d' % (i_lmb+2))
+                other_lmb_supergraph.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call,
+                        final_state_particle_ids=final_state_particle_ids, jet_ids=jet_ids, write_yaml=write_yaml, workspace=workspace,
                         bar=bar, integrand_type=integrand_type)
 
         if integrand_type is not None:
             if integrand_type == "both" or integrand_type == "LTD":
                 self.generate_ltd_integrand(topo, workspace, call_signature_ID)
             if integrand_type == "both" or integrand_type == "PF":
-                self.generate_integrand(topo, workspace, call_signature_ID, progress_bar = bar)
+                self.generate_integrand(
+                    topo, workspace, call_signature_ID, progress_bar=bar)
 
         if write_yaml:
             if isinstance(self.additional_lmbs, int):
-                topo.export(pjoin(root_output_path, "%s_LMB%d.yaml"%(self.name,self.additional_lmbs)))
+                topo.export(pjoin(root_output_path, "%s_LMB%d.yaml" %
+                            (self.name, self.additional_lmbs)))
             else:
-                topo.export(pjoin(root_output_path, "%s.yaml"%self.name))
+                topo.export(pjoin(root_output_path, "%s.yaml" % self.name))
 
         return True
-
 
     def generate_replacement_rules(self, topo):
         # collect the transformations of the bubble
@@ -1366,40 +1579,54 @@ CTable pfmap(0:{},0:{});
                 diag_momenta = []
 
                 for diag_id, (diag_info, loop_diag_info) in enumerate(zip(diag_set['diagram_info'], loop_diag_set['diagram_info'])):
-                    diag_moms = ','.join(self.momenta_decomposition_to_string(lmm, False) for lmm in loop_diag_info['loop_momentum_map'])
+                    diag_moms = ','.join(self.momenta_decomposition_to_string(
+                        lmm, False) for lmm in loop_diag_info['loop_momentum_map'])
                     if diag_moms != '':
-                        diag_momenta.append('diag({},{},{})'.format(diag_set['id'], diag_id, diag_moms))
+                        diag_momenta.append('diag({},{},{})'.format(
+                            diag_set['id'], diag_id, diag_moms))
                     else:
-                        diag_momenta.append('diag({},{})'.format(diag_set['id'], diag_id))
+                        diag_momenta.append(
+                            'diag({},{})'.format(diag_set['id'], diag_id))
 
                     der_edge = None
                     if diag_info['derivative'] is not None:
-                        trans.append('1/2') # add a factor 1/2 since the bubble will appear in two cuts
+                        # add a factor 1/2 since the bubble will appear in two cuts
+                        trans.append('1/2')
 
                         # if the cutkosky cut has a negative sign, we derive in -p^0 instead of p^0.
                         # here we compensate for this sign
-                        trans.append(str(next(c for c in cut['cuts'] if c['edge'] == diag_info['derivative'][0])['sign']))
+                        trans.append(str(
+                            next(c for c in cut['cuts'] if c['edge'] == diag_info['derivative'][0])['sign']))
 
                         der_edge = diag_info['derivative'][1]
-                        ext_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][0])['momentum']
-                        der_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][1])['momentum']
-                        ext_sig = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][0])['signature']
-                        der_sig = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][1])['signature']
+                        ext_mom = next(ee for ee in self.edges.values(
+                        ) if ee['name'] == diag_info['derivative'][0])['momentum']
+                        der_mom = next(ee for ee in self.edges.values(
+                        ) if ee['name'] == diag_info['derivative'][1])['momentum']
+                        ext_sig = next(ee for ee in self.edges.values(
+                        ) if ee['name'] == diag_info['derivative'][0])['signature']
+                        der_sig = next(ee for ee in self.edges.values(
+                        ) if ee['name'] == diag_info['derivative'][1])['signature']
 
                         if diag_info['bubble_momenta'] not in bubble_to_cut:
-                            bubble_to_cut[diag_info['bubble_momenta']] = (diag_info['derivative'][0], set())
+                            bubble_to_cut[diag_info['bubble_momenta']] = (
+                                diag_info['derivative'][0], set())
 
                         if diag_info['derivative'][0] == diag_info['derivative'][1]:
                             # numerator derivative
-                            index = next(i for i, bub in enumerate(bubble_to_cut.keys()) if bub == diag_info['bubble_momenta'])
+                            index = next(i for i, bub in enumerate(
+                                bubble_to_cut.keys()) if bub == diag_info['bubble_momenta'])
                             trans.append('der(pbubble' + str(index) + ')')
                         else:
                             # check if we pick up a sign change due to the external momentum flowing in the opposite direction
-                            signs = [se * sc for se, sc in zip(der_sig[0] + der_sig[1], ext_sig[0] + ext_sig[1]) if se * sc != 0]
+                            signs = [
+                                se * sc for se, sc in zip(der_sig[0] + der_sig[1], ext_sig[0] + ext_sig[1]) if se * sc != 0]
                             assert(len(set(signs)) == 1)
-                            trans.append('-2*{}({})'.format('1*' if signs[0] == 1 else '-1*', der_mom))
+                            trans.append(
+                                '-2*{}({})'.format('1*' if signs[0] == 1 else '-1*', der_mom))
                             bubble_info = bubble_to_cut[diag_info['bubble_momenta']]
-                            bubble_to_cut[diag_info['bubble_momenta']] = (bubble_info[0], bubble_info[1] | {der_edge})
+                            bubble_to_cut[diag_info['bubble_momenta']] = (
+                                bubble_info[0], bubble_info[1] | {der_edge})
 
                     # translate the UV forest
                     uv_subgraphs = []
@@ -1409,18 +1636,20 @@ CTable pfmap(0:{},0:{});
 
                     uv_info = diag_info['uv_info']
 
-                    uv_sig = '*'.join(['t{}^{}'.format(x, uv_info['derived_loop_lines'].count(x)) for x in range(len(uv_info['loop_lines']))])
+                    uv_sig = '*'.join(['t{}^{}'.format(x, uv_info['derived_loop_lines'].count(x))
+                                      for x in range(len(uv_info['loop_lines']))])
 
                     # get the external momenta without sign
                     # note: the signatures are unaffected by the bubble treatment from before
-                    external_momenta = set(m for e in uv_info['external_edges'] 
+                    external_momenta = set(m for e in uv_info['external_edges']
                         for m in self.momenta_decomposition_to_string(next(ee for ee in self.edges.values() if ee['name'] == e)['signature'], False)
                                 .replace('-', '+').split('+') if m != '')
 
                     # construct the vertex structure of the UV subgraph
                     # TODO: are the LTD vertices reliable?
                     vertex_structure = []
-                    subgraph_vertices = set(v for ll in loop_diag_info['graph'].loop_lines for v in (ll.start_node, ll.end_node))
+                    subgraph_vertices = set(v for ll in loop_diag_info['graph'].loop_lines for v in (
+                        ll.start_node, ll.end_node))
                     for v in subgraph_vertices:
                         vertex = []
                         for ll in loop_diag_info['graph'].loop_lines:
@@ -1430,9 +1659,11 @@ CTable pfmap(0:{},0:{});
                                 loop_mom_sig = ''
                                 for s, lmm in zip(ll.signature, loop_diag_info['loop_momentum_map']):
                                     if s != 0:
-                                        loop_mom_sig += '{}({})'.format('+' if s * outgoing == 1 else '-', self.momenta_decomposition_to_string(lmm, False))
+                                        loop_mom_sig += '{}({})'.format(
+                                            '+' if s * outgoing == 1 else '-', self.momenta_decomposition_to_string(lmm, False))
                                 vertex.append(loop_mom_sig)
-                        vertex_structure.append('vxs({})'.format(','.join(vertex)))
+                        vertex_structure.append(
+                            'vxs({})'.format(','.join(vertex)))
 
                     uv_props = []
                     for i, (ll_sig, propagators) in enumerate(loop_diag_info['uv_loop_lines']):
@@ -1441,27 +1672,32 @@ CTable pfmap(0:{},0:{});
                         loop_mom_sig = ''
                         for s, lmm in zip(ll_sig, loop_diag_info['loop_momentum_map']):
                             if s != 0:
-                                loop_mom_sig += '{}({})'.format('+' if s == 1 else '-', self.momenta_decomposition_to_string(lmm, False))
+                                loop_mom_sig += '{}({})'.format(
+                                    '+' if s == 1 else '-', self.momenta_decomposition_to_string(lmm, False))
 
                         for (edge_name, param_shift) in propagators:
                             ext_mom_sig = ''
-                            edge_mass = 'masses({})'.format(next(ee for ee in self.edges.values() if ee['name'] == edge_name)['PDG'])
+                            edge_mass = 'masses({})'.format(
+                                next(ee for ee in self.edges.values() if ee['name'] == edge_name)['PDG'])
 
                             if all(s == 0 for s in param_shift[1]):
-                                uv_props.append('uvprop({},t{},0,{})'.format(loop_mom_sig, i, edge_mass))
+                                uv_props.append('uvprop({},t{},0,{})'.format(
+                                    loop_mom_sig, i, edge_mass))
                                 continue
 
                             for (ext_index, s) in enumerate(param_shift[1]):
                                 if s != 0:
                                     ext_mom = diag_info['graph'].edge_map_lin[diag_info['graph'].ext[ext_index]][0]
-                                    ext_edge = next(ee for ee in self.edges.values() if ee['name'] == ext_mom)
+                                    ext_edge = next(
+                                        ee for ee in self.edges.values() if ee['name'] == ext_mom)
                                     ext_mom_sig += '{}({})'.format('+' if s == 1 else '-',
                                         self.momenta_decomposition_to_string(ext_edge['signature'], False))
 
                             # the edge may have a raised power due to the bubble derivative
                             power = 2 if edge_name == diag_info['derivative_edge'] else 1
                             for _ in range(power):
-                                uv_props.append('uvprop({},t{},{},{})'.format(loop_mom_sig, i, ext_mom_sig, edge_mass))
+                                uv_props.append('uvprop({},t{},{},{})'.format(
+                                    loop_mom_sig, i, ext_mom_sig, edge_mass))
                     # it could be that there are no propagators with external momentum dependence when pinching duplicate edges
                     if uv_props == []:
                         uv_sig = 't0^0'
@@ -1470,13 +1706,17 @@ CTable pfmap(0:{},0:{});
                     if diag_info['integrated_ct']:
                         uv_sig += '*ICT'
 
-                    uv_conf_diag = 'uvconf({},{}*{})'.format(','.join(external_momenta), '*'.join(uv_props),'*'.join(vertex_structure))
+                    uv_conf_diag = 'uvconf({},{}*{})'.format(
+                        ','.join(external_momenta), '*'.join(uv_props), '*'.join(vertex_structure))
                     if uv_conf_diag not in uv_diagrams:
                         uv_diagrams.append(uv_conf_diag)
 
-                    uv_conf = 'uvconf({},{},{},{})'.format(uv_sig, uv_info['taylor_order'], ','.join(external_momenta), uv_diagrams.index(uv_conf_diag))
-                    uv_subgraphs.append('subgraph({}{},{})'.format(uv_info['graph_index'], 
-                        (',' if len(uv_info['subgraph_indices']) > 0 else '') + ','.join(str(si) for si in uv_info['subgraph_indices']),
+                    uv_conf = 'uvconf({},{},{},{})'.format(uv_sig, uv_info['taylor_order'], ','.join(
+                        external_momenta), uv_diagrams.index(uv_conf_diag))
+                    uv_subgraphs.append('subgraph({}{},{})'.format(uv_info['graph_index'],
+                        (',' if len(uv_info['subgraph_indices']) > 0 else '') +
+                         ','.join(str(si)
+                                  for si in uv_info['subgraph_indices']),
                         uv_conf))
 
                     if uv_subgraphs != []:
@@ -1489,57 +1729,71 @@ CTable pfmap(0:{},0:{});
                     s = ''
                     for cc, cs in enumerate(loop_diag_set['cb_to_lmb'][i * n_loops:i * n_loops+n_loops]):
                         if cs != 0:
-                            s += '{}c{}'.format('+' if cs == 1 else '-', cc + 1)
+                            s += '{}c{}'.format('+' if cs ==
+                                                1 else '-', cc + 1)
                             if cc < len(cut['cuts'][:-1]):
-                                d = self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][cc]['signature'][1]), False)
+                                d = self.momenta_decomposition_to_string(
+                                    ([0] * n_loops, cut['cuts'][cc]['signature'][1]), False)
                                 if d != '':
                                     # note the sign inversion
-                                    s += '{}({})'.format('-' if cs == 1 else '+', d)
+                                    s += '{}({})'.format('-' if cs ==
+                                             1 else '+', d)
                     cmb_map.append(('k' + str(i + 1), s))
 
-                cmb_map = 'cmb({})'.format(','.join(d for c in cmb_map for d in c))
+                cmb_map = 'cmb({})'.format(
+                    ','.join(d for c in cmb_map for d in c))
 
                 if last_cmb == '':
                     last_cmb = cmb_map
                 if last_cmb != cmb_map:
-                    logger.warning("WARNING: cmbs differ between diagram sets. inherit_deformation_for_uv_counterterm should be set to FALSE.")
-                    #raise AssertionError("Diagram sets do not have the same cmb")
+                    logger.warning(
+                        "WARNING: cmbs differ between diagram sets. inherit_deformation_for_uv_counterterm should be set to FALSE.")
+                    # raise AssertionError("Diagram sets do not have the same cmb")
 
                 # store which momenta are LTD momenta
-                conf = 'c0' if n_loops == len(cut['cuts'][:-1]) else ','.join('c' + str(i + 1) for i in range(len(cut['cuts'][:-1]), n_loops) )
+                conf = 'c0' if n_loops == len(cut['cuts'][:-1]) else ','.join(
+                    'c' + str(i + 1) for i in range(len(cut['cuts'][:-1]), n_loops))
 
                 if diag_momenta == []:
                     diag_momenta = ['1']
 
-                conf = 'conf({},{},{},{},{})*{}'.format(diag_set['id'], cut_index, cmb_map, conf, '*'.join(trans), '*'.join(diag_momenta))
+                conf = 'conf({},{},{},{},{})*{}'.format(
+                    diag_set['id'], cut_index, cmb_map, conf, '*'.join(trans), '*'.join(diag_momenta))
                 if diag_set_uv_conf != []:
                     conf += '*\n    uv({})'.format('*'.join(diag_set_uv_conf))
 
                 configurations.append(conf)
             configurations[-1] += '\n'
-        
+
         # replace external momentum in all bubble vertices and edges with a dummy momentum
         # TODO: there is an awful lot of string manipulation here...
         mommap = []
         for i, ((bubble_edges, bubble_ext_edges), (cut_edge, bubble_derivative_edges)) in enumerate(bubble_to_cut.items()):
-            ce = next(ee for ee in self.edges.values() if ee['name'] == cut_edge)
+            ce = next(ee for ee in self.edges.values()
+                      if ee['name'] == cut_edge)
 
             if len(bubble_derivative_edges) == 0:
                 # the bubble is a single vertex: update it
-                bubble_v = next(v for v in self.nodes.values() if set(self.edges[eid]['name'] for eid in v['edge_ids']) == set(bubble_ext_edges))
+                bubble_v = next(v for v in self.nodes.values() if set(
+                    self.edges[eid]['name'] for eid in v['edge_ids']) == set(bubble_ext_edges))
                 bubble_v['momenta'] = ('pbubble' + str(i) if bubble_v['momenta'][0] == ce['momentum'] else '-pbubble' + str(i),
                     'pbubble' + str(i) if bubble_v['momenta'][1] == ce['momentum'] else '-pbubble' + str(i))
 
             for edge in bubble_derivative_edges:
-                e = next(ee for ee in self.edges.values() if ee['name'] == edge)
+                e = next(ee for ee in self.edges.values()
+                         if ee['name'] == edge)
 
-                signs = [se * sc for se, sc in zip(e['signature'][0] + e['signature'][1], ce['signature'][0] + ce['signature'][1]) if se * sc != 0]
+                signs = [se * sc for se, sc in zip(e['signature'][0] + e['signature']
+                                                   [1], ce['signature'][0] + ce['signature'][1]) if se * sc != 0]
                 assert(len(set(signs)) == 1)
-                e['momentum'] += '{}(pbubble{}-({}))'.format('+' if signs[0] == 1 else '-', i, ce['momentum'])
+                e['momentum'] += '{}(pbubble{}-({}))'.format('+' if signs[0]
+                                     == 1 else '-', i, ce['momentum'])
 
                 # update the vertices attached to this edge
-                ext_mom_vars = [emp for emp in ce['momentum'].replace('-', '+').split('+') if emp != '']
-                ext_mom_signs = ['-' if ('-' + emp) in ce['momentum'] else '+' for emp in ext_mom_vars]
+                ext_mom_vars = [emp for emp in ce['momentum'].replace(
+                    '-', '+').split('+') if emp != '']
+                ext_mom_signs = [
+                    '-' if ('-' + emp) in ce['momentum'] else '+' for emp in ext_mom_vars]
                 for vi in e['vertices']:
                     v = self.nodes[vi]
                     momenta = list(v['momenta'])
@@ -1547,9 +1801,12 @@ CTable pfmap(0:{},0:{});
                         # only update the momentum of the external (cut) edge or the current edge
                         if self.edges[eid]['name'] == edge or self.edges[eid]['name'] not in bubble_edges:
                             # find a momentum that is shared between the external momentum and the edge to determine the sign
-                            (ext_var_in_mom, ext_sign_in_mom) = next((emp, ems) for emp, ems in zip(ext_mom_vars, ext_mom_signs) if emp in m)
-                            sign = ('-' if ext_sign_in_mom == '+' else '+') if ('-' + ext_var_in_mom) in m else ('+' if ext_sign_in_mom == '+' else '-')
-                            momenta[mi] += '{}(pbubble{}-({}))'.format(sign, i, ce['momentum'])
+                            (ext_var_in_mom, ext_sign_in_mom) = next((emp, ems)
+                             for emp, ems in zip(ext_mom_vars, ext_mom_signs) if emp in m)
+                            sign = ('-' if ext_sign_in_mom == '+' else '+') if (
+                                '-' + ext_var_in_mom) in m else ('+' if ext_sign_in_mom == '+' else '-')
+                            momenta[mi] += '{}(pbubble{}-({}))'.format(sign,
+                                               i, ce['momentum'])
                     v['momenta'] = tuple(momenta)
 
             mommap.append('subs(pbubble{},{})'.format(i, ce['momentum']))
@@ -1563,13 +1820,13 @@ CTable pfmap(0:{},0:{});
 
 class FORMSuperGraphIsomorphicList(list):
     """ Container class for a list of FROMSuperGraph with the same denominator structure"""
-    
+
     def __init__(self, graph_list):
         """ Instantiates a list of FORMSuperGraphs from a list of either
         FORMSuperGraph instances or LTD2SuperGraph instances."""
-        
+
         for g in graph_list:
-            if isinstance(g,FORMSuperGraph):
+            if isinstance(g, FORMSuperGraph):
                 self.append(g)
                 self.is_amplitude = g.is_amplitude
                 self.color_struc = g.color_struc
@@ -1588,23 +1845,27 @@ class FORMSuperGraphIsomorphicList(list):
 
         code_generation_statistics = {}
 
-        original_op_count_re = re.compile("^\*\*\* STATS: original\s*(?P<npower>\d+)P\s*(?P<nmult>\d+)M\s*(?P<nadd>\d+)A.*$")
-        optimized_op_count_re = re.compile("^\*\*\* STATS: optimized\s*(?P<npower>\d+)P\s*(?P<nmult>\d+)M\s*(?P<nadd>\d+)A.*$")
+        original_op_count_re = re.compile(
+            "^\*\*\* STATS: original\s*(?P<npower>\d+)P\s*(?P<nmult>\d+)M\s*(?P<nadd>\d+)A.*$")
+        optimized_op_count_re = re.compile(
+            "^\*\*\* STATS: optimized\s*(?P<npower>\d+)P\s*(?P<nmult>\d+)M\s*(?P<nadd>\d+)A.*$")
 
         accumulation_mode = None
         current_optimized = None
         for line in FORM_stdout.split('\n'):
             if 'START integrand' in line:
-                accumulation_mode = 'integrand_%s'%FORM_vars['INTEGRAND']
+                accumulation_mode = 'integrand_%s' % FORM_vars['INTEGRAND']
                 continue
             if 'END integrand' in line:
                 # register last displayed optimized count
                 if current_optimized is not None:
-                    if '%s_optimized_op_count'%accumulation_mode not in code_generation_statistics:
-                        code_generation_statistics['%s_optimized_op_count'%accumulation_mode] = current_optimized
+                    if '%s_optimized_op_count' % accumulation_mode not in code_generation_statistics:
+                        code_generation_statistics['%s_optimized_op_count' %
+                            accumulation_mode] = current_optimized
                     else:
                         for k, v in current_optimized.items():
-                            code_generation_statistics['%s_optimized_op_count'%accumulation_mode][k] += v
+                            code_generation_statistics['%s_optimized_op_count' %
+                                accumulation_mode][k] += v
                 # Reset curent_optimized
                 current_optimized = None
                 accumulation_mode = None
@@ -1615,11 +1876,13 @@ class FORMSuperGraphIsomorphicList(list):
             if 'END numerator' in line:
                 # register last displayed optimized count
                 if current_optimized is not None:
-                    if '%s_optimized_op_count'%accumulation_mode not in code_generation_statistics:
-                        code_generation_statistics['%s_optimized_op_count'%accumulation_mode] = current_optimized
+                    if '%s_optimized_op_count' % accumulation_mode not in code_generation_statistics:
+                        code_generation_statistics['%s_optimized_op_count' %
+                            accumulation_mode] = current_optimized
                     else:
                         for k, v in current_optimized.items():
-                            code_generation_statistics['%s_optimized_op_count'%accumulation_mode][k] += v
+                            code_generation_statistics['%s_optimized_op_count' %
+                                accumulation_mode][k] += v
                 # Reset curent_optimized
                 current_optimized = None
                 accumulation_mode = None
@@ -1631,27 +1894,31 @@ class FORMSuperGraphIsomorphicList(list):
             if original_op_count_match is not None:
                 # register last displayed optimized count
                 if current_optimized is not None:
-                    if '%s_optimized_op_count'%accumulation_mode not in code_generation_statistics:
-                        code_generation_statistics['%s_optimized_op_count'%accumulation_mode] = current_optimized
+                    if '%s_optimized_op_count' % accumulation_mode not in code_generation_statistics:
+                        code_generation_statistics['%s_optimized_op_count' %
+                            accumulation_mode] = current_optimized
                     else:
                         for k, v in current_optimized.items():
-                            code_generation_statistics['%s_optimized_op_count'%accumulation_mode][k] += v
+                            code_generation_statistics['%s_optimized_op_count' %
+                                accumulation_mode][k] += v
                 # Then register new original op count
                 orig_op_count = {
                     'additions': int(original_op_count_match.group('nadd')),
                     'multiplications': int(original_op_count_match.group('nmult')),
                     'powers': int(original_op_count_match.group('npower'))
                 }
-                if '%s_original_op_count'%accumulation_mode not in code_generation_statistics:
-                    code_generation_statistics['%s_original_op_count'%accumulation_mode] = orig_op_count
+                if '%s_original_op_count' % accumulation_mode not in code_generation_statistics:
+                    code_generation_statistics['%s_original_op_count' %
+                        accumulation_mode] = orig_op_count
                 else:
                     for k, v in orig_op_count.items():
-                        code_generation_statistics['%s_original_op_count'%accumulation_mode][k] += v
+                        code_generation_statistics['%s_original_op_count' %
+                            accumulation_mode][k] += v
                 # Reset curent_optimized
                 current_optimized = None
                 continue
 
-            optimized_op_count_match = optimized_op_count_re.match(line)            
+            optimized_op_count_match = optimized_op_count_re.match(line)
             if optimized_op_count_match is not None:
                 # Overwrite the new value from the current optimized nop
                 current_optimized = {
@@ -1660,34 +1927,39 @@ class FORMSuperGraphIsomorphicList(list):
                     'powers': int(optimized_op_count_match.group('npower'))
                 }
 
-        #print(FORM_stdout)
-        #print(code_generation_statistics)
+        # print(FORM_stdout)
+        # print(code_generation_statistics)
 
         # Add the compression level metric if the necessary info is present.
-        for info in ['numerator','integand_LTD','integand_PF']:
-            if ('%s_original_op_count'%info in code_generation_statistics) and ('%s_optimized_op_count'%info in code_generation_statistics):
-                for op_type in ['additions','multiplications','powers']:
+        for info in ['numerator', 'integand_LTD', 'integand_PF']:
+            if ('%s_original_op_count' % info in code_generation_statistics) and ('%s_optimized_op_count' % info in code_generation_statistics):
+                for op_type in ['additions', 'multiplications', 'powers']:
                     compression = 0.
-                    if code_generation_statistics['%s_original_op_count'%info][op_type]!=0:
-                        compression = 100.0*(1.-(float(code_generation_statistics['%s_optimized_op_count'%info][op_type])/float(code_generation_statistics['%s_original_op_count'%info][op_type])))
-                    if '%s_compression_percentage'%info not in code_generation_statistics:
-                        code_generation_statistics['%s_compression_percentage'%info] = {}
-                    code_generation_statistics['%s_compression_percentage'%info][op_type]=float('%.2f'%compression)
+                    if code_generation_statistics['%s_original_op_count' % info][op_type] != 0:
+                        compression = 100.0*(1.-(float(code_generation_statistics['%s_optimized_op_count' % info][op_type])/float(
+                            code_generation_statistics['%s_original_op_count' % info][op_type])))
+                    if '%s_compression_percentage' % info not in code_generation_statistics:
+                        code_generation_statistics['%s_compression_percentage' % info] = {
+                            }
+                    code_generation_statistics['%s_compression_percentage' % info][op_type] = float(
+                        '%.2f' % compression)
 
         return code_generation_statistics
 
-    def generate_numerator_functions(self, additional_overall_factor='', output_format='c', workspace=None, FORM_vars=None, active_graph=None,process_definition=None):
+    def generate_numerator_functions(self, additional_overall_factor='', output_format='c', workspace=None, FORM_vars=None, active_graph=None, process_definition=None):
         """ Use form to plugin Feynman Rules and process the numerator algebra so as
         to generate a low-level routine in file_path that encodes the numerator of this supergraph."""
 
-        
-        _MANDATORY_FORM_VARIABLES = ['SGID','NINITIALMOMENTA','NFINALMOMENTA','SELECTEDEPSILONORDER','UVRENORMFINITEPOWERTODISCARD','OPTIMISATIONSTRATEGY']
+        _MANDATORY_FORM_VARIABLES = ['SGID', 'NINITIALMOMENTA', 'NFINALMOMENTA',
+            'SELECTEDEPSILONORDER', 'UVRENORMFINITEPOWERTODISCARD', 'OPTIMISATIONSTRATEGY']
         # external data needed for amplitude
         if self.is_amplitude:
-            _MANDATORY_FORM_VARIABLES += ['NPOL','NCPOL','NSPINV','NSPINVBAR','NSPINU','NSPINUBAR'] 
+            _MANDATORY_FORM_VARIABLES += ['NPOL', 'NCPOL',
+                'NSPINV', 'NSPINVBAR', 'NSPINU', 'NSPINUBAR']
 
         if FORM_vars is None:
-            raise FormProcessingError("FORM_vars must be supplied when calling generate_numerator_functions.")
+            raise FormProcessingError(
+                "FORM_vars must be supplied when calling generate_numerator_functions.")
         FORM_vars = dict(FORM_vars)
 
         if active_graph is None:
@@ -1696,40 +1968,39 @@ class FORMSuperGraphIsomorphicList(list):
             characteristic_super_graph = active_graph
 
         if 'NINITIALMOMENTA' not in FORM_vars:
-            n_incoming = sum([1 for edge in characteristic_super_graph.edges.values() if edge['type'] == 'in'])
+            n_incoming = sum(
+                [1 for edge in characteristic_super_graph.edges.values() if edge['type'] == 'in'])
             FORM_vars['NINITIALMOMENTA'] = n_incoming
         if 'NFINALMOMENTA' not in FORM_vars:
-            n_loops = len(characteristic_super_graph.edges) - len(characteristic_super_graph.nodes) + 1
+            n_loops = len(characteristic_super_graph.edges) - \
+                          len(characteristic_super_graph.nodes) + 1
             FORM_vars['NFINALMOMENTA'] = n_loops
-
 
         # for amplitudes
         if self.is_amplitude and 'NPOL' not in FORM_vars:
-            n_pol = len(self.external_data.get('pol',[]))
+            n_pol = len(self.external_data.get('pol', []))
             FORM_vars['NPOL'] = n_pol
         if self.is_amplitude and 'NCPOL' not in FORM_vars:
-            n_cpol = len(self.external_data.get('cpol',[]))
+            n_cpol = len(self.external_data.get('cpol', []))
             FORM_vars['NCPOL'] = n_cpol
         if self.is_amplitude and 'NSPINV' not in FORM_vars:
-            n_spin_v = len(self.external_data.get('spinor_v',[]))
+            n_spin_v = len(self.external_data.get('spinor_v', []))
             FORM_vars['NSPINV'] = n_spin_v
         if self.is_amplitude and 'NSPINU' not in FORM_vars:
-            n_spin_u = len(self.external_data.get('spinor_u',[]))
+            n_spin_u = len(self.external_data.get('spinor_u', []))
             FORM_vars['NSPINU'] = n_spin_u
         if self.is_amplitude and 'NSPINVBAR' not in FORM_vars:
-            n_spin_v_bar = len(self.external_data.get('spinor_vbar',[]))
+            n_spin_v_bar = len(self.external_data.get('spinor_vbar', []))
             FORM_vars['NSPINVBAR'] = n_spin_v_bar
         if self.is_amplitude and 'NSPINUBAR' not in FORM_vars:
-            n_spin_u_bar = len(self.external_data.get('spinor_ubar',[]))
+            n_spin_u_bar = len(self.external_data.get('spinor_ubar', []))
             FORM_vars['NSPINUBAR'] = n_spin_u_bar
         if self.is_amplitude:
             FORM_vars['NINITIALMOMENTA'] = self.external_data.get('n_in')
 
-        
-
         if FORM_vars is None or not all(opt in FORM_vars for opt in _MANDATORY_FORM_VARIABLES):
-            raise FormProcessingError("The following variables must be supplied to FORM: %s"%str(_MANDATORY_FORM_VARIABLES))
-
+            raise FormProcessingError(
+                "The following variables must be supplied to FORM: %s" % str(_MANDATORY_FORM_VARIABLES))
 
         FORM_vars.update(FORM_processing_options['extra-options'])
 
@@ -1737,44 +2008,47 @@ class FORMSuperGraphIsomorphicList(list):
 
         # write the form input to a file
         if active_graph is None:
-            form_input = self.generate_numerator_form_input(additional_overall_factor)
+            form_input = self.generate_numerator_form_input(
+                additional_overall_factor)
         else:
-            form_input = characteristic_super_graph.generate_numerator_form_input(additional_overall_factor)
+            form_input = characteristic_super_graph.generate_numerator_form_input(
+                additional_overall_factor)
 
         if workspace is None and self.is_amplitude == False:
             selected_workspace = FORM_workspace
-            FORM_source = pjoin(plugin_path,"numerator.frm")
+            FORM_source = pjoin(plugin_path, "numerator.frm")
         elif workspace is None and self.is_amplitude == True:
             selected_workspace = FORM_workspace
-            FORM_source = pjoin(plugin_path,"amp_numerator.frm")
+            FORM_source = pjoin(plugin_path, "amp_numerator.frm")
         elif workspace is not None and self.is_amplitude == False:
             selected_workspace = workspace
-            FORM_source = pjoin(selected_workspace,'numerator.frm')
+            FORM_source = pjoin(selected_workspace, 'numerator.frm')
         elif workspace is not None and self.is_amplitude == True:
             selected_workspace = workspace
-            FORM_source = pjoin(selected_workspace,'amp_numerator.frm')
+            FORM_source = pjoin(selected_workspace, 'amp_numerator.frm')
 
-
-        with open(pjoin(selected_workspace,'input_%d.h'%i_graph), 'w') as f:
+        with open(pjoin(selected_workspace, 'input_%d.h' % i_graph), 'w') as f:
             (uv_conf, conf) = characteristic_super_graph.configurations
             f.write('CTable uvdiag(0:{});\n'.format(len(uv_conf)))
-            f.write('{}\n\n'.format('\n'.join('Fill uvdiag({}) = {};'.format(i, uv) for i,uv in enumerate(uv_conf))))
+            f.write('{}\n\n'.format('\n'.join('Fill uvdiag({}) = {};'.format(
+                i, uv) for i, uv in enumerate(uv_conf))))
             f.write('L CONF =\n +{};\n\n'.format(conf))
             f.write('L F = {}\n;'.format(form_input))
 
-        with open(pjoin(selected_workspace,'form.set'), 'w') as f:
-            content = [ '%s %s'%(k,str(v)) for k,v in FORM_processing_options["FORM_setup"].items() ]
+        with open(pjoin(selected_workspace, 'form.set'), 'w') as f:
+            content = ['%s %s' % (k, str(v))
+                                  for k, v in FORM_processing_options["FORM_setup"].items()]
             f.write('\n'.join(content))
- 
+
         FORM_cmd = ' '.join([
                 FORM_processing_options["FORM_path"],
-                ]+
-                [ '-D %s=%s'%(k,v) for k,v in FORM_vars.items() ] +
-                [ '-M', '-l', '-C', 'numerator_%s.log'%i_graph] +
-                [ FORM_source, ]
+                ] +
+                ['-D %s=%s' % (k, v) for k, v in FORM_vars.items()] +
+                ['-M', '-l', '-C', 'numerator_%s.log' % i_graph] +
+                [FORM_source, ]
         )
 
-        with open(pjoin(selected_workspace,'FORM_run_cmd_%d.exe'%i_graph), 'w') as f:
+        with open(pjoin(selected_workspace, 'FORM_run_cmd_%d.exe' % i_graph), 'w') as f:
             f.write(FORM_cmd)
 
         r = subprocess.run(FORM_cmd,
@@ -1783,23 +2057,25 @@ class FORMSuperGraphIsomorphicList(list):
             capture_output=True)
 
         # TODO understand why FORM sometimes returns return_code 1 event though it apparently ran through fine
-        characteristic_super_graph.code_generation_statistics = self.analyze_FORM_output(r.stdout.decode("utf-8"), FORM_vars)
+        characteristic_super_graph.code_generation_statistics = self.analyze_FORM_output(
+            r.stdout.decode("utf-8"), FORM_vars)
 
-        if r.returncode != 0 or not os.path.isfile(pjoin(selected_workspace,'out_%d.proto_c'%i_graph)):
-            raise FormProcessingError("FORM processing failed with error:\n%s\nFORM command to reproduce:\ncd %s; %s"%(
+        if r.returncode != 0 or not os.path.isfile(pjoin(selected_workspace, 'out_%d.proto_c' % i_graph)):
+            raise FormProcessingError("FORM processing failed with error:\n%s\nFORM command to reproduce:\ncd %s; %s" % (
                     r.stdout.decode('UTF-8'),
                     selected_workspace, FORM_cmd
             ))
 
         # return the code for the numerators
-        if not os.path.isfile(pjoin(selected_workspace,'out_%d.proto_c'%i_graph)):
+        if not os.path.isfile(pjoin(selected_workspace, 'out_%d.proto_c' % i_graph)):
             raise FormProcessingError(
-                    ( "FORM failed to produce an output for super graph ID=%d. Output file not found at '%s'."%
-                                                                    (i_graph,pjoin(selected_workspace,'out_%d.proto_c'%i_graph)))+
-                "\nFORM command to reproduce:\ncd %s; %s"%(selected_workspace,FORM_cmd)
+                    ("FORM failed to produce an output for super graph ID=%d. Output file not found at '%s'." %
+                                                                    (i_graph, pjoin(selected_workspace, 'out_%d.proto_c' % i_graph))) +
+                "\nFORM command to reproduce:\ncd %s; %s" % (
+                    selected_workspace, FORM_cmd)
             )
 
-        with open(pjoin(selected_workspace,'out_%d.proto_c'%i_graph), 'r') as f:
+        with open(pjoin(selected_workspace, 'out_%d.proto_c' % i_graph), 'r') as f:
             num_code = f.read()
 
         # TODO Remove when FORM will have fixed its C output bug
@@ -1811,45 +2087,49 @@ class FORMSuperGraphIsomorphicList(list):
         """ Store that into a dict."""
         to_dump = [g.to_dict() for g in self]
         if file_path:
-            open(file_path,'w').write(pformat(to_dump))
+            open(file_path, 'w').write(pformat(to_dump))
         else:
             return to_dump
-    
+
     def multiplicity_factor(self, iso_id, workspace, form_source):
         if len(self) == 1:
             return (self, 1)
 
         output_match = re.compile(r'isoF=(.*?);')
-        reference = self[0].generate_numerator_form_input('', only_algebra=True)
+        reference = self[0].generate_numerator_form_input(
+            '', only_algebra=True)
         FORM_vars = {}
         FORM_vars['SGID'] = iso_id
         FORM_vars['NUMD'] = len(self)
         FORM_vars['FOURDIM'] = 1
 
-        with open(pjoin(workspace,'iso_check_{}.frm'.format(iso_id)), 'w') as f:
+        with open(pjoin(workspace, 'iso_check_{}.frm'.format(iso_id)), 'w') as f:
             for i_graph, g in enumerate(self):
                 mapped = g.generate_numerator_form_input('', only_algebra=True)
                 f.write("L F{} = {};\n".format(i_graph + 1, mapped))
-            
+
         cmd = ' '.join([
             FORM_processing_options["FORM_path"],
-            ]+
-            [ '-D %s=%s'%(k,v) for k,v in FORM_vars.items() ]+
-            [ form_source, ]
+            ] +
+            ['-D %s=%s' % (k, v) for k, v in FORM_vars.items()] +
+            [form_source, ]
         )
 
         r = subprocess.run(cmd, shell=True, cwd=workspace, capture_output=True)
         if r.returncode != 0:
-            raise FormProcessingError("FORM processing failed with error:\n%s"%(r.stdout.decode('UTF-8')))
+            raise FormProcessingError(
+                "FORM processing failed with error:\n%s" % (r.stdout.decode('UTF-8')))
 
-        output = r.stdout.decode('UTF-8').replace(' ','').replace('\n','')
-        factor = re.sub(r'rat\(([-0-9]+),([-0-9]+)\)', r'(\1)/(\2)', output_match.findall(output)[0])
+        output = r.stdout.decode('UTF-8').replace(' ', '').replace('\n', '')
+        factor = re.sub(r'rat\(([-0-9]+),([-0-9]+)\)',
+                        r'(\1)/(\2)', output_match.findall(output)[0])
         if "rat" in factor:
-            raise FormProcessingError("Multiplicity not found: {} / {} is not rational (iso_check_%(SGID)d)".format(self[0].name,g.name )%FORM_vars)
+            raise FormProcessingError(
+                "Multiplicity not found: {} / {} is not rational (iso_check_%(SGID)d)".format(self[0].name, g.name) % FORM_vars)
 
         multiplicity = 1 + eval(factor)
 
-        #logger.info("{} = {} * {}".format(self[0].name, factor, g.name ))
+        # logger.info("{} = {} * {}".format(self[0].name, factor, g.name ))
         return (self, multiplicity)
 
     def multiplicity_factor_helper(args):
@@ -1860,47 +2140,49 @@ class FORMSuperGraphIsomorphicList(list):
         for i, g in enumerate(self):
             # Now we generate the squared topology only for the first isomorphic graph
             # to obtain the replacement rules for the bubble.
-            # The other elements of the isomorphic set are going to contribute only at the 
-            # numerator 
-            if i==0:
-                r = g.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call, 
-                                final_state_particle_ids, jet_ids=jet_ids, write_yaml=i==0, workspace=workspace, bar=bar, integrand_type=integrand_type)
+            # The other elements of the isomorphic set are going to contribute only at the
+            # numerator
+            if i == 0:
+                r = g.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call,
+                                final_state_particle_ids, jet_ids=jet_ids, write_yaml=i == 0, workspace=workspace, bar=bar, integrand_type=integrand_type)
             else:
                 g.replacement_rules = self[0].replacement_rules
-        #print(r)
+        # print(r)
         return r
     # ADD option for additional parameters here (only when needed. rust needs extension then as well :( ))!
+
     def generate_numerator_file(self, i_graph, root_output_path, additional_overall_factor, workspace, integrand_type,  process_definition, header_map):
         timing = time.time()
         self.is_zero = True
 
         # add all numerators in one file and write the headers
         numerator_header = """#include <tgmath.h>
-#include <quadmath.h>
-#include <signal.h>
-#include "{}numerator.h"
+# include <quadmath.h>
+# include <signal.h>
+# include "{}numerator.h"
 """.format(header_map['header'])
 
-        FORM_vars={
-            'SELECTEDEPSILONORDER':'%d'%FORM_processing_options['selected_epsilon_UV_order'],
-            'OPTIMISATIONSTRATEGY':FORM_processing_options['optimisation_strategy']
+        FORM_vars = {
+            'SELECTEDEPSILONORDER': '%d' % FORM_processing_options['selected_epsilon_UV_order'],
+            'OPTIMISATIONSTRATEGY': FORM_processing_options['optimisation_strategy']
         }
 
-        if FORM_processing_options['renormalisation_finite_terms']=='together':
+        if FORM_processing_options['renormalisation_finite_terms'] == 'together':
             # Keep all terms, so set the discared power to 0
             FORM_vars['UVRENORMFINITEPOWERTODISCARD'] = 0
-        elif FORM_processing_options['renormalisation_finite_terms']=='only':
+        elif FORM_processing_options['renormalisation_finite_terms'] == 'only':
             # Discard all terms not prefixed with UVRenormFinite, so set discarded power to -1
             FORM_vars['UVRENORMFINITEPOWERTODISCARD'] = -1
-        elif FORM_processing_options['renormalisation_finite_terms']=='removed':
+        elif FORM_processing_options['renormalisation_finite_terms'] == 'removed':
             # Discard all terms prefixed with UVRenormFinite, so set discarded power to 1
             FORM_vars['UVRENORMFINITEPOWERTODISCARD'] = 1
         else:
-            raise FormProcessingError("The FORM processing option 'renormalisation_finite_terms' "+
-                                      "can only take the following value: 'together', 'only' or 'removed', but not '%s'."%FORM_processing_options['renormalisation_finite_terms'])
+            raise FormProcessingError("The FORM processing option 'renormalisation_finite_terms' " +
+                                      "can only take the following value: 'together', 'only' or 'removed', but not '%s'." % FORM_processing_options['renormalisation_finite_terms'])
 
-        _MANDATORY_FORM_VARIABLES = ['SGID','NINITIALMOMENTA','NFINALMOMENTA','SELECTEDEPSILONORDER','UVRENORMFINITEPOWERTODISCARD','OPTIMISATIONSTRATEGY']
-    
+        _MANDATORY_FORM_VARIABLES = ['SGID', 'NINITIALMOMENTA', 'NFINALMOMENTA',
+            'SELECTEDEPSILONORDER', 'UVRENORMFINITEPOWERTODISCARD', 'OPTIMISATIONSTRATEGY']
+
         if integrand_type is not None:
             FORM_vars['INTEGRAND'] = integrand_type
 
@@ -1912,26 +2194,28 @@ class FORMSuperGraphIsomorphicList(list):
         float_pattern = re.compile(r'((\d+\.\d*)|(\.\d+))')
 
         graphs_to_process = []
-        if isinstance(self[0].additional_lmbs,list) and self[0].additional_lmbs != []:
-            graphs_to_process.append( (0,i_graph, self[0]) )
-            graphs_to_process.extend([(g.additional_lmbs,i_graph,g) for _,_,_,g in self[0].additional_lmbs])
+        if isinstance(self[0].additional_lmbs, list) and self[0].additional_lmbs != []:
+            graphs_to_process.append((0, i_graph, self[0]))
+            graphs_to_process.extend(
+                [(g.additional_lmbs, i_graph, g) for _, _, _, g in self[0].additional_lmbs])
         else:
             # By setting the active graph to None we will then sum overall members of the iso set.
-            graphs_to_process.append( (0,i_graph, None) )
+            graphs_to_process.append((0, i_graph, None))
 
         max_buffer_size = 0
         all_ids = []
         for i_lmb, i_g, active_graph in graphs_to_process:
-            i = i_lmb*FORM_processing_options['FORM_call_sig_id_offset_for_additional_lmb']+i_g
+            i = i_lmb * \
+                FORM_processing_options['FORM_call_sig_id_offset_for_additional_lmb']+i_g
             all_ids.append(i)
-            FORM_vars['SGID']='%d'%i
+            FORM_vars['SGID'] = '%d' % i
             time_before = time.time()
             num = self.generate_numerator_functions(additional_overall_factor,
-                            workspace=workspace, FORM_vars=FORM_vars, active_graph=active_graph,process_definition=process_definition)
-            #total_time += time.time()-time_before
+                            workspace=workspace, FORM_vars=FORM_vars, active_graph=active_graph, process_definition=process_definition)
+            # total_time += time.time()-time_before
             num = num.replace('i_', 'I')
             num = input_pattern.sub(r'lm[\1]', num)
-            num = num.replace('\nZ', '\n\tZ') # nicer indentation
+            num = num.replace('\nZ', '\n\tZ')  # nicer indentation
 
             confs = []
             numerator_main_code = ''
@@ -1944,18 +2228,21 @@ class FORMSuperGraphIsomorphicList(list):
                 temp_vars = list(sorted(set(var_pattern.findall(conf_sec))))
 
                 # parse the configuration id
-                conf = list(energy_exp.finditer(conf_sec))[0].groups()[0].split(',')
+                conf = list(energy_exp.finditer(conf_sec))[
+                            0].groups()[0].split(',')
                 conf_id = conf[0]
-                
+
                 ltd_vars = [v for v in conf[1:] if v != 'c0']
-                max_rank = 8 # FIXME: determine somehow
+                max_rank = 8  # FIXME: determine somehow
                 # create the dense polynomial in the LTD energies
-                numerator_pows = [j for i in range(max_rank + 1) for j in combinations_with_replacement(range(len(ltd_vars)), i)]
+                numerator_pows = [j for i in range(
+                    max_rank + 1) for j in combinations_with_replacement(range(len(ltd_vars)), i)]
 
                 mono_secs = conf_sec.split('#NEWMONOMIAL')
 
-                num_body = energy_exp.sub('', '\n'.join(mono_secs[0].split('\n')[2:]))
-                
+                num_body = energy_exp.sub(
+                    '', '\n'.join(mono_secs[0].split('\n')[2:]))
+
                 rank = 0
                 max_index = 0
                 return_statements = []
@@ -1963,35 +2250,45 @@ class FORMSuperGraphIsomorphicList(list):
                     mono_sec = mono_sec.replace('#NEWMONOMIAL\n', '')
                     mono_sec = split_number.sub('', mono_sec)
                     # parse monomial powers and get the index in the polynomial in the LTD basis
-                    pows = list(energy_exp.finditer(mono_sec))[0].groups()[0].split(',')
-                    pows = tuple(sorted(ltd_vars.index(r) for r in pows if r != 'c0'))
+                    pows = list(energy_exp.finditer(mono_sec))[
+                                0].groups()[0].split(',')
+                    pows = tuple(sorted(ltd_vars.index(r)
+                                 for r in pows if r != 'c0'))
                     rank = max(rank, len(pows))
                     index = numerator_pows.index(pows)
                     max_index = max(index, max_index)
                     max_buffer_size = max(index, max_buffer_size)
                     mono_sec = energy_exp.sub('', mono_sec)
-                    returnval = list(return_exp.finditer(mono_sec))[0].groups()[0]
-                    return_statements.append((index, return_exp.sub('\tout[{}] = {};'.format(index, returnval), mono_sec)))
+                    returnval = list(return_exp.finditer(mono_sec))[
+                                     0].groups()[0]
+                    return_statements.append((index, return_exp.sub(
+                        '\tout[{}] = {};'.format(index, returnval), mono_sec)))
 
                 for r in sorted(return_statements, key=lambda x: x[0]):
                     num_body += r[1]
 
-                num_body = num_body.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
+                num_body = num_body.replace('logmUV', 'log(mUV*mUV)').replace(
+                    'logmu', 'log(mu*mu)').replace('logmt', 'log(mass_t*mass_t)')
 
                 confs.append((conf_id, rank))
 
                 if len(temp_vars) > 0:
                     self.is_zero = False
 
-                numerator_main_code += '\n// polynomial in {}'.format(','.join(conf[1:]))
+                numerator_main_code += '\n// polynomial in {}'.format(
+                    ','.join(conf[1:]))
                 numerator_main_code += '\nstatic inline int %(header)sevaluate_{}_{}(double complex lm[], double complex params[], double complex* out) {{\n\t{}'.format(i, conf_id,
-                    'double complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else ''
+                    'double complex {};'.format(
+                        ','.join(temp_vars)) if len(temp_vars) > 0 else ''
                 ) + num_body + '\n\treturn {}; \n}}\n'.format(max_index + 1)
 
-                numerator_code_f128 = num_body.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
-                numerator_code_f128 = float_pattern.sub(r'\1q', numerator_code_f128)
+                numerator_code_f128 = num_body.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace(
+                    'log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
+                numerator_code_f128 = float_pattern.sub(
+                    r'\1q', numerator_code_f128)
                 numerator_main_code_f128 += '\n' + '\nstatic inline int %(header)sevaluate_{}_{}_f128(__complex128 lm[], __complex128 params[], __complex128* out) {{\n\t{}\n{}\n\treturn {};\n}}\n'.format(i, conf_id,
-                    '__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', numerator_code_f128, max_index + 1
+                    '__complex128 {};'.format(','.join(temp_vars)) if len(
+                        temp_vars) > 0 else '', numerator_code_f128, max_index + 1
                 )
 
             numerator_main_code += \
@@ -2010,15 +2307,18 @@ int %(header)sget_rank_{}(int conf) {{
 """.format(i,
         '\n'.join(
         ['\t\tcase {}: return %(header)sevaluate_{}_{}(lm, params, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
-        (['\t\tdefault: out[0] = 0.; return 1;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
+        # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else
+        (['\t\tdefault: out[0] = 0.; return 1;'])
         ),
         i,
         '\n'.join(
         ['\t\tcase {}: return {};'.format(conf, rank) for conf, rank in sorted(confs)] +
-        (['\t\tdefault: return 0;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
+        # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else
+        (['\t\tdefault: return 0;'])
         ))
 
-            writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator{}_f64.c'%header_map).format(i)).write((numerator_header + numerator_main_code)%header_map)
+            writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator{}_f64.c' % header_map).format(
+                i)).write((numerator_header + numerator_main_code) % header_map)
 
             numerator_main_code_f128 += \
 """
@@ -2031,14 +2331,17 @@ int %(header)sevaluate_{}_f128(__complex128 lm[], __complex128 params[], int con
 """.format(i,
         '\n'.join(
         ['\t\tcase {}: return %(header)sevaluate_{}_{}_f128(lm, params, out);'.format(conf, i, conf) for conf, _ in sorted(confs)] +
-        (['\t\tdefault: out[0] = 0.; return 1;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
+        # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else
+        (['\t\tdefault: out[0] = 0.; return 1;'])
         ))
 
-            writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator{}_f128.c'%header_map).format(i)).write((numerator_header + numerator_main_code_f128)%header_map)
+            writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator{}_f128.c' % header_map).format(
+                i)).write((numerator_header + numerator_main_code_f128) % header_map)
         return (i_graph, all_ids, max_buffer_size, self.is_zero, time.time() - timing, self[0].code_generation_statistics)
 
     def generate_numerator_file_helper(args):
         return args[0].generate_numerator_file(*args[1:])
+
 
 class FORMSuperGraphList(list):
     """ Container class for a list of FORMSuperGraphIsomorphicList."""
@@ -2050,7 +2353,7 @@ class FORMSuperGraphList(list):
         FORMSuperGraphIsomorphicList instances, FORMSuperGraph, or LTD2SuperGraph instances."""
 
         self.name = name
-        
+
         for g in graph_list:
             if isinstance(g, FORMSuperGraph):
                 self.append(FORMSuperGraphIsomorphicList([g]))
@@ -2063,7 +2366,8 @@ class FORMSuperGraphList(list):
                 self.color_struc = g.color_struc
                 self.external_data = g.external_data
             else:
-                self.append(FORMSuperGraphIsomorphicList([FORMSuperGraph.from_LTD2SuperGraph(g)]))
+                self.append(FORMSuperGraphIsomorphicList(
+                    [FORMSuperGraph.from_LTD2SuperGraph(g)]))
                 self.is_amplitude = False
                 self.color_struc = None
                 self.external_data = None
@@ -2072,7 +2376,7 @@ class FORMSuperGraphList(list):
 
     def aggregate_code_generation_statistics(self):
         """ Combine the FORM code generation statistics from all SG in this list."""
-        
+
         for sg in self:
             for iso_sg in sg:
                 for k, v in iso_sg.code_generation_statistics.items():
@@ -2088,18 +2392,21 @@ class FORMSuperGraphList(list):
                         self.code_generation_statistics[k] = v
 
         # Add the compression level metric if the necessary info is present.
-        for info in ['numerator','integrand_LTD','integrand_PF']:
-            if ('%s_original_op_count'%info in self.code_generation_statistics) and ('%s_optimized_op_count'%info in self.code_generation_statistics):
-                for op_type in ['additions','multiplications','powers']:
+        for info in ['numerator', 'integrand_LTD', 'integrand_PF']:
+            if ('%s_original_op_count' % info in self.code_generation_statistics) and ('%s_optimized_op_count' % info in self.code_generation_statistics):
+                for op_type in ['additions', 'multiplications', 'powers']:
                     compression = 0.
-                    if self.code_generation_statistics['%s_original_op_count'%info][op_type]!=0:
-                        compression = 100.0*(1.-(float(self.code_generation_statistics['%s_optimized_op_count'%info][op_type])/float(self.code_generation_statistics['%s_original_op_count'%info][op_type])))
-                    if '%s_compression_percentage'%info not in self.code_generation_statistics:
-                        self.code_generation_statistics['%s_compression_percentage'%info] = {}
-                    self.code_generation_statistics['%s_compression_percentage'%info][op_type]=float('%.2f'%compression)
+                    if self.code_generation_statistics['%s_original_op_count' % info][op_type] != 0:
+                        compression = 100.0*(1.-(float(self.code_generation_statistics['%s_optimized_op_count' % info][op_type])/float(
+                            self.code_generation_statistics['%s_original_op_count' % info][op_type])))
+                    if '%s_compression_percentage' % info not in self.code_generation_statistics:
+                        self.code_generation_statistics['%s_compression_percentage' % info] = {
+                            }
+                    self.code_generation_statistics['%s_compression_percentage' % info][op_type] = float(
+                        '%.2f' % compression)
 
     @classmethod
-    def from_squared_topology(cls, edge_map_lin, name, incoming_momentum_names, model, loop_momenta_names=None, particle_ids={},benchmark_result=0.0, 
+    def from_squared_topology(cls, edge_map_lin, name, incoming_momentum_names, model, loop_momenta_names=None, particle_ids={}, benchmark_result=0.0,
                                 default_kinematics=None, effective_vertex_id=None):
         vertices = [v for e in edge_map_lin for v in e[1:]]
 
@@ -2111,7 +2418,7 @@ class FORMSuperGraphList(list):
             'PDG': 1337 if e[0] not in particle_ids else particle_ids[e[0]],
             'indices': (1 + i * 2,) if vertices.count(e[1]) == 1 or vertices.count(e[2]) == 1 else (1 + i * 2, 1 + i * 2 + 1),
             'signature': [sig[e[0]][0],
-                    [ i+o for i,o in zip(sig[e[0]] [1][:len(sig[e[0]] [1])//2], sig[e[0]] [1][len(sig[e[0]] [1])//2:])]],
+                    [i+o for i, o in zip(sig[e[0]][1][:len(sig[e[0]][1])//2], sig[e[0]][1][len(sig[e[0]][1])//2:])]],
             'name': e[0],
             'type': 'in' if e[0] in incoming_momentum_names else ('out' if vertices.count(e[1]) == 1 or vertices.count(e[2]) == 1 else 'virtual'),
             'vertices': tuple(e[1:]),
@@ -2128,11 +2435,13 @@ class FORMSuperGraphList(list):
         }
 
         for eid, e in edges.items():
-            e['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(e['signature'], set_outgoing_equal_to_incoming=False)
-            neg_mom =  FORMSuperGraph.momenta_decomposition_to_string([[-s for s in sp] for sp in e['signature']], set_outgoing_equal_to_incoming=False)
+            e['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(
+                e['signature'], set_outgoing_equal_to_incoming=False)
+            neg_mom = FORMSuperGraph.momenta_decomposition_to_string(
+                [[-s for s in sp] for sp in e['signature']], set_outgoing_equal_to_incoming=False)
 
             # TODO: why was this here?
-            #if len(e['vertices']) == 1:
+            # if len(e['vertices']) == 1:
             #    continue
 
             for i, vi in enumerate(e['vertices']):
@@ -2144,14 +2453,15 @@ class FORMSuperGraphList(list):
         # set the correct particle ordering for all the edges
         for n in nodes.values():
             if len(n['PDGs']) > 1 and all(nn != 1337 for nn in n['PDGs']):
-                edge_order = FORMSuperGraph.sort_edges(model, [{'PDG': pdg, 'index': i} for i, pdg in enumerate(n['PDGs'])])
+                edge_order = FORMSuperGraph.sort_edges(
+                    model, [{'PDG': pdg, 'index': i} for i, pdg in enumerate(n['PDGs'])])
                 for g in ('PDGs', 'indices', 'momenta', 'edge_ids'):
                     n[g] = tuple(n[g][eo['index']] for eo in edge_order)
 
         form_graph = FORMSuperGraph(
             name=name, edges=edges, nodes=nodes,
             overall_factor='1',
-            multiplicity = 1,
+            multiplicity=1,
             benchmark_result=benchmark_result,
             default_kinematics=default_kinematics,
             effective_vertex_id=effective_vertex_id
@@ -2160,11 +2470,12 @@ class FORMSuperGraphList(list):
         return FORMSuperGraphList([FORMSuperGraphIsomorphicList([form_graph])], name=name + '_set')
 
 
-    @classmethod
-    def from_dict(cls, dict_file_path, first=None, merge_isomorphic_graphs=False, verbose=False, model = None, workspace=None, cuts=None):
+
+    @ classmethod
+    def from_dict(cls, dict_file_path, first = None, merge_isomorphic_graphs = False, verbose = False, model = None, workspace = None, cuts = None):
         """ Creates a FORMSuperGraph list from a dict file path."""
         from pathlib import Path
-        p = Path(dict_file_path)
+        p=Path(dict_file_path)
         sys.path.insert(0, str(p.parent))
 
         # compile the file first before importing it
@@ -2172,74 +2483,79 @@ class FORMSuperGraphList(list):
         # this avoids that memory isn't freed after compiling
         # when using the __import__ directly
         logger.info("Compiling imported supergraphs.")
-        subprocess.run([sys.executable, '-O', '-m', p.stem], cwd=p.parent)
-        m = __import__(p.stem)
+        subprocess.run([sys.executable, '-O', '-m', p.stem], cwd = p.parent)
+        m=__import__(p.stem)
         logger.info("Imported {} supergraphs.".format(len(m.graphs)))
 
-        # Filter specific graphs by name 
-        #filter_graphs = ['SG_QG3','SG_QG4']
-        #m.graphs = [ g for (g,name) in zip(m.graphs, m.graph_names) if name in filter_graphs]
-        #m.graph_names = ['SG_MG3','SG_QG4']
-        #m.graph_names = [name for name in m.graph_names if name in filter_graphs ]
+        # Filter specific graphs by name
+        # filter_graphs = ['SG_QG3','SG_QG4']
+        # m.graphs = [ g for (g,name) in zip(m.graphs, m.graph_names) if name in filter_graphs]
+        # m.graph_names = ['SG_MG3','SG_QG4']
+        # m.graph_names = [name for name in m.graph_names if name in filter_graphs ]
 
         # Now convert the vertex names to be integers according to QGRAF format:
         for i, g in enumerate(m.graphs):
             if isinstance(list(g['nodes'].keys())[0], str):
-                new_nodes ={}
+                new_nodes={}
                 node_names={}
                 for i_node, (n_key, n) in enumerate(g['nodes'].items()):
                     node_names[n_key]=i_node+1
-                    new_nodes[i_node+1] = n
+                    new_nodes[i_node+1]=n
                 for n in g['nodes'].values():
-                    n['edge_ids'] = tuple([ (node_names[edge_key[0]],node_names[edge_key[1]],edge_key[2]) for edge_key in n['edge_ids'] ])
-                new_edges = {}
+                    n['edge_ids']=tuple(
+                        [(node_names[edge_key[0]], node_names[edge_key[1]], edge_key[2]) for edge_key in n['edge_ids']])
+                new_edges={}
                 for edge_key, edge in g['edges'].items():
-                    edge['vertices']=(node_names[edge_key[0]],node_names[edge_key[1]])
-                    new_edges[(node_names[edge_key[0]],node_names[edge_key[1]],edge_key[2])]=edge
-                g['nodes'] = new_nodes
-                g['edges'] = new_edges
+                    edge['vertices']=(node_names[edge_key[0]],
+                                      node_names[edge_key[1]])
+                    new_edges[(node_names[edge_key[0]],
+                               node_names[edge_key[1]], edge_key[2])]=edge
+                g['nodes']=new_nodes
+                g['edges']=new_edges
             else:
-                # if the diagram comes from QGRAF then we want to rectify the flow of the loop momenta such 
+                # if the diagram comes from QGRAF then we want to rectify the flow of the loop momenta such
                 # that there is consistency within the same loop line
-                topo_generator = LTD.ltd_utils.TopologyGenerator([(e['name'], e['vertices'][0], e['vertices'][1]) for e in g['edges'].values()])
+                topo_generator=LTD.ltd_utils.TopologyGenerator(
+                    [(e['name'], e['vertices'][0], e['vertices'][1]) for e in g['edges'].values()])
                 topo_generator.generate_momentum_flow()
-                smap = topo_generator.get_signature_map()
+                smap=topo_generator.get_signature_map()
                 for e_key, e in g['edges'].items():
-                    #print("\t",e['momentum'], " -> ", FORMSuperGraph.momenta_decomposition_to_string(smap[e['name']], set_outgoing_equal_to_incoming=True))
-                    e['momentum'] = FORMSuperGraph.momenta_decomposition_to_string(smap[e['name']], set_outgoing_equal_to_incoming=True)
-                    #print(m.graphs[i]['edges'][e_key])
+                    # print("\t",e['momentum'], " -> ", FORMSuperGraph.momenta_decomposition_to_string(smap[e['name']], set_outgoing_equal_to_incoming=True))
+                    e['momentum']= FORMSuperGraph.momenta_decomposition_to_string(smap[e['name']], set_outgoing_equal_to_incoming = True)
+                    # print(m.graphs[i]['edges'][e_key])
                 for n_key, n in g['nodes'].items():
                     if n['vertex_id'] < 0:
                         continue
-                    new_moms = []
+                    new_moms=[]
                     for idx, eid in zip(n['indices'], n['edge_ids']):
                         if g['edges'][eid]['type'] == 'in':
-                            sgn = 1
+                            sgn=1
                         elif g['edges'][eid]['type'] == 'out':
-                            sgn = -1
+                            sgn=-1
                         else:
-                            sgn = 2*g['edges'][eid]['indices'].index(idx)-1
-                    
+                            sgn=2*g['edges'][eid]['indices'].index(idx)-1
+
                         if not sgn in [1, -1]:
                             raise ValueError
-                        
-                        signature = [sgn * x for x in smap[g['edges'][eid]['name']][0]]
-                        shifts = [sgn * x for x in smap[g['edges'][eid]['name']][1]]
-                        new_moms += [FORMSuperGraph.momenta_decomposition_to_string([signature, shifts], set_outgoing_equal_to_incoming=True)]
-                    #print("\t\t",n['momenta'])
-                    #print("\t\t",tuple(new_moms))
-                    n['momenta'] = tuple(new_moms)
-                    #print("\t\t",m.graphs[i]['nodes'][n_key]['momenta'])
 
-        full_graph_list = []
+                        signature=[
+                            sgn * x for x in smap[g['edges'][eid]['name']][0]]
+                        shifts=[sgn * x for x in smap[g['edges'][eid]['name']][1]]
+                        new_moms += [FORMSuperGraph.momenta_decomposition_to_string([signature, shifts], set_outgoing_equal_to_incoming= True)]
+                    # print("\t\t",n['momenta'])
+                    # print("\t\t",tuple(new_moms))
+                    n['momenta']=tuple(new_moms)
+                    # print("\t\t",m.graphs[i]['nodes'][n_key]['momenta'])
+
+        full_graph_list=[]
         for i, g in enumerate(m.graphs):
-            if hasattr(m,'graph_names'):
+            if hasattr(m, 'graph_names'):
                 graph_name=m.graph_names[i]
             else:
                 graph_name=p.stem + '_' + str(i)
             # convert to FORM supergraph
-            form_graph = FORMSuperGraph(name=graph_name, edges = g['edges'], nodes=g['nodes'], 
-                        overall_factor=g['overall_factor'], multiplicity = g.get('multiplicity',1) )
+            form_graph = FORMSuperGraph(name = graph_name, edges = g['edges'], nodes =g['nodes'], 
+                        overall_factor = g['overall_factor'], multiplicity = g.get('multiplicity',1) )
             form_graph.derive_signatures()
             full_graph_list.append(form_graph)
 
@@ -2247,80 +2563,81 @@ class FORMSuperGraphList(list):
         for g in full_graph_list:
 
             # First detect edges that need flipping
-            all_signatures = {}
+            all_signatures={}
             for e_key, e in g.edges.items():
-                pos_signature = tuple(tuple(s for s in sp) for sp in e['signature'])
-                neg_signature = tuple(tuple(-s for s in sp) for sp in e['signature'])
+                pos_signature=tuple(tuple(s for s in sp) for sp in e['signature'])
+                neg_signature=tuple(tuple(-s for s in sp) for sp in e['signature'])
                 if pos_signature in all_signatures:
-                    all_signatures[pos_signature].append((e_key,+1))
+                    all_signatures[pos_signature].append((e_key, +1))
                 elif neg_signature in all_signatures:
-                    all_signatures[neg_signature].append((e_key,-1))
+                    all_signatures[neg_signature].append((e_key, -1))
                 else:
                     if pos_signature[0].count(0) == len(pos_signature[0]) - 1 and\
                         pos_signature[1].count(0) == len(pos_signature[1]):
                         if next(s for s in pos_signature[0] if s != 0) < 0:
-                            all_signatures[neg_signature] = [(e_key, -1)]
+                            all_signatures[neg_signature]=[(e_key, -1)]
                             break
                         else:
-                            all_signatures[pos_signature] = [(e_key,+1)]
+                            all_signatures[pos_signature]= [(e_key, +1)]
                     else:
-                        all_signatures[pos_signature] = [(e_key,+1)]
+                        all_signatures[pos_signature]= [(e_key, +1)]
 
             for sig, edges in all_signatures.items():
                 for edge_key, sign in edges:
-                    if sign==+1:
+                    if sign == +1:
                         continue
-                    # For now we only allow to flip particles that are not fermionic otherwise 
+                    # For now we only allow to flip particles that are not fermionic otherwise
                     # special care must be taken when flipping an edge and normally fermionic lines
                     # should already have been aligned at this stage.
-                    flipped_part = model.get_particle(g.edges[edge_key]['PDG'])
+                    flipped_part=model.get_particle(g.edges[edge_key]['PDG'])
                     if flipped_part.is_fermion():
-                        raise FormProcessingError("A *fermionic* repeated edge with opposite signatures was found. This should happen for bosons only.")
+                        raise FormProcessingError(
+                            "A *fermionic* repeated edge with opposite signatures was found. This should happen for bosons only.")
 
-                    g.edges[edge_key]['PDG'] = flipped_part.get_anti_pdg_code()
-                    g.edges[edge_key]['signature'] = [[-s for s in sp] for sp in g.edges[edge_key]['signature']]
-                    g.edges[edge_key]['indices'] = tuple([
+                    g.edges[edge_key]['PDG']=flipped_part.get_anti_pdg_code()
+                    g.edges[edge_key]['signature']=[[-s for s in sp] for sp in g.edges[edge_key]['signature']]
+                    g.edges[edge_key]['indices']=tuple([
                         g.edges[edge_key]['indices'][1],
                         g.edges[edge_key]['indices'][0],
                     ])
-                    g.edges[edge_key]['vertices'] = tuple([
+                    g.edges[edge_key]['vertices']=tuple([
                         g.edges[edge_key]['vertices'][1],
                         g.edges[edge_key]['vertices'][0],
                     ])
 
-            # Now adust the string momenta of edges and nodes accordingly.            
+            # Now adust the string momenta of edges and nodes accordingly.
             g.impose_signatures()
 
         if first is not None:
             logger.info("Taking first {} supergraphs.".format(first))
-            full_graph_list = full_graph_list[:first]
+            full_graph_list=full_graph_list[:first]
 
         import sympy as sp
         # group all isomorphic graphs
-        iso_groups = []
-        n_externals = max(len([1 for e in graph.edges.values() if e['type']=='in' or e['type']=='out']) for graph in full_graph_list)
+        iso_groups=[]
+        n_externals = max(len([1 for e in graph.edges.values() if e['type'] == 'in' or e['type'] == 'out']) for graph in full_graph_list)
         if model is None:
-            pdg_primes = {pdg : sp.prime(i + n_externals + 1) for i, pdg in enumerate([1,2,3,4,5,6,11,12,13,21,22,25,82])}
+            pdg_primes = {pdg : sp.prime(i + n_externals + 1) for i, pdg in enumerate([1, 2, 3,4,5,6,11,12,13,21,22,25,82])}
         else:
-            pdg_primes = {pdg : sp.prime(i + n_externals + 1) for i, pdg in enumerate([p['pdg_code'] for p in model['particles']])}
-        
-        with progressbar.ProgressBar(prefix='Group ISO graphs: {variables.graph_nr} -> {variables.iso_size} : ', max_value=len(full_graph_list),variables={'graph_nr':'0', 'iso_size':'0'}) as bar:
+            pdg_primes= {pdg: sp.prime(i + n_externals + 1) for i, pdg in enumerate([p['pdg_code'] for p in model['particles']])}
+
+        with progressbar.ProgressBar(prefix = 'Group ISO graphs: {variables.graph_nr} -> {variables.iso_size} : ', max_value=len(full_graph_list),variables={'graph_nr':'0', 'iso_size':'0'}) as bar:
             for g_id, graph in enumerate(full_graph_list):
-                g = igraph.Graph()
+                g=igraph.Graph()
                 g.add_vertices(len(graph.nodes))
-                undirected_edges = set()
+                undirected_edges=set()
 
                 for e in graph.edges.values():
                     undirected_edges.add(tuple(sorted(e['vertices'])))
 
-                edge_colors = []
-                ext_id = 0
+                edge_colors=[]
+                ext_id=0
                 for ue in undirected_edges:
-                    e_color = 1
+                    e_color=1
                     for e in graph.edges.values():
                         if tuple(sorted(e['vertices'])) == ue:
-                            #TODO: Reserve the first #externals primes for external edges
-                            # with the current implementation it still allows swap 
+                            # TODO: Reserve the first #externals primes for external edges
+                            # with the current implementation it still allows swap
                             # of final/initial state edges
                             if e['type'] == 'in':
                                 ext_id += 1
@@ -2331,36 +2648,37 @@ class FORMSuperGraphList(list):
                     g.add_edges([tuple(sorted([x - 1 for x in ue]))])
 
                 for (ref_graph, ref_colors), graph_list in iso_groups:
-                    v_maps = ref_graph.get_isomorphisms_vf2(g, edge_color1=ref_colors, edge_color2=edge_colors)
+                    v_maps = ref_graph.get_isomorphisms_vf2(g, edge_color1 = ref_colors, edge_color2=edge_colors)
                     if v_maps != [] and merge_isomorphic_graphs:
-                        v_map = v_maps[0]
-                        if verbose: 
-                            logger.info("\033[1m{} <- {}\033[0m".format(graph_list[0].name,graph.name))
+                        v_map=v_maps[0]
+                        if verbose:
+                            logger.info(
+                                "\033[1m{} <- {}\033[0m".format(graph_list[0].name, graph.name))
 
                         # map the signature from the new graph to the reference graph using the vertex map
-                        edge_map = [next(re.index for re in ref_graph.es if (re.source, re.target) == (v_map[e.source], v_map[e.target]) or \
+                        edge_map=[next(re.index for re in ref_graph.es if (re.source, re.target) == (v_map[e.source], v_map[e.target]) or \
                             (re.source, re.target) == (v_map[e.target], v_map[e.source])) for e in g.es]
 
                         # go through all loop momenta and make the matrix
                         # and the shifts
-                        mat = []
-                        shifts = []
-                        selected_edges = []
-                        n_loops = len(graph_list[0].edges) - len(graph_list[0].nodes) + 1
+                        mat=[]
+                        shifts=[]
+                        selected_edges=[]
+                        n_loops=len(graph_list[0].edges) - len(graph_list[0].nodes) + 1
                         for loop_var in range(n_loops):
                             # find the edge that has (+-)k`loop_var`
                             # TODO: Fix for higher degeneracy
-                            orig_edge = next(ee for ee in graph_list[0].edges.values() if all(s == 0 for s in ee['signature'][1]) and \
+                            orig_edge=next(ee for ee in graph_list[0].edges.values() if all(s == 0 for s in ee['signature'][1]) and \
                                 sum(abs(s) for s in ee['signature'][0]) == 1 and ee['signature'][0][loop_var] != 0)
-                            orig_edge_in_ref = next(ee for ee in ref_graph.es if tuple(sorted(orig_edge['vertices'])) == (ee.source + 1, ee.target + 1))
+                            orig_edge_in_ref=next(ee for ee in ref_graph.es if tuple(sorted(orig_edge['vertices'])) == (ee.source + 1, ee.target + 1))
 
                             # now get the corresponding edge(s) in the new graph
-                            en = g.es[edge_map.index(orig_edge_in_ref.index)]
-                            new_edges = [ee for ee in graph.edges.values() \
-                                if (ee['vertices'] == (en.source + 1, en.target + 1) or ee['vertices'] == (en.target + 1, en.source + 1)) and abs(ee['PDG'])== abs(orig_edge['PDG']) and ee not in selected_edges]
+                            en=g.es[edge_map.index(orig_edge_in_ref.index)]
+                            new_edges=[ee for ee in graph.edges.values() \
+                                if (ee['vertices'] == (en.source + 1, en.target + 1) or ee['vertices'] == (en.target + 1, en.source + 1)) and abs(ee['PDG']) == abs(orig_edge['PDG']) and ee not in selected_edges]
 
                             # in the case of a multi-edge, we simply take the one with the shortest momentum string
-                            new_edge = sorted(new_edges, key=lambda x: len(x['momentum']))[0]
+                            new_edge = sorted(new_edges, key = lambda x: len(x['momentum']))[0]
                             selected_edges.append(new_edge)
                             new_edge['name'] += 'LMB'
 
@@ -2371,11 +2689,13 @@ class FORMSuperGraphList(list):
                             else:
                                 match_direction = v_map[new_edge['vertices'][0]-1]+1 == orig_edge['vertices'][0]
                                 match_particle = new_edge['PDG'] == orig_edge['PDG']
-                                if not match_direction:# != match_particle:
+                                if not match_direction:  # != match_particle:
                                     orientation_factor = -1
 
-                            shifts.append([-orientation_factor * s * orig_edge['signature'][0][loop_var] for s in new_edge['signature'][1]])
-                            mat.append([orientation_factor * s * orig_edge['signature'][0][loop_var] for s in new_edge['signature'][0]])
+                            shifts.append([-orientation_factor * s * orig_edge['signature']
+                                          [0][loop_var] for s in new_edge['signature'][1]])
+                            mat.append([orientation_factor * s * orig_edge['signature']
+                                       [0][loop_var] for s in new_edge['signature'][0]])
 
                         # Map all signatures and momentum labels of the new graph
                         shifts = np.array(shifts).T
@@ -2395,8 +2715,8 @@ class FORMSuperGraphList(list):
                             parser = re.compile(r'(^|\+|-)(k|p)(\d*)')
                             n_incoming = sum([1 for edge in graph.edges.values() if edge['type'] == 'in'])
                             n_loops = len(graph.edges) - len(graph.nodes) + 1
-                            old_momenta =['k%d'%(i+1) for i in range(n_loops)] 
-                            new_momenta =[] 
+                            old_momenta = ['k%d'%(i+1) for i in range(n_loops)]
+                            new_momenta = []
                             for momentum in old_momenta:
                                 parsed = [e.groups() for e in parser.finditer(momentum)]
                                 signature = ([0 for _ in range(n_loops)], [0 for _ in range(n_incoming)])
@@ -2407,75 +2727,80 @@ class FORMSuperGraphList(list):
                                         signature[0][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
                                 new_sig = mat.dot(np.array(signature[0]))
                                 new_shift = signature[1]+shifts.dot(new_sig)
-                                new_momenta.append(graph.momenta_decomposition_to_string((list(new_sig), list(new_shift)), set_outgoing_equal_to_incoming=False))
-                            logger.info("Map: {} -> {}".format(tuple(old_momenta), tuple(new_momenta)))
+                                new_momenta.append(graph.momenta_decomposition_to_string(
+                                    (list(new_sig), list(new_shift)), set_outgoing_equal_to_incoming=False))
+                            logger.info(
+                                "Map: {} -> {}".format(tuple(old_momenta), tuple(new_momenta)))
 
 
                         # Map vertices
                         for v in graph.nodes.values():
-                            if v['vertex_id']<0:
+                            if v['vertex_id'] < 0:
                                 continue
-                            # skip external edge        
-                            n_incoming = sum([1 for edge in graph.edges.values() if edge['type'] == 'in'])
-                            n_loops = len(graph.edges) - len(graph.nodes) + 1
+                            # skip external edge
+                            n_incoming=sum([1 for edge in graph.edges.values() if edge['type'] == 'in'])
+                            n_loops=len(graph.edges) - len(graph.nodes) + 1
 
                             # parse momentum
-                            parser = re.compile(r'(^|\+|-)(k|p)(\d*)')
-                            new_momenta = []
+                            parser=re.compile(r'(^|\+|-)(k|p)(\d*)')
+                            new_momenta=[]
                             for momentum in v['momenta']:
-                                parsed = [e.groups() for e in parser.finditer(momentum)]
-                                signature = ([0 for _ in range(n_loops)], [0 for _ in range(n_incoming)])
+                                parsed=[e.groups() for e in parser.finditer(momentum)]
+                                signature=([0 for _ in range(n_loops)], [0 for _ in range(n_incoming)])
                                 for pa in parsed:
                                     if pa[1] == 'p':
-                                        signature[1][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
+                                        signature[1][int(pa[2]) - 1]=1 if pa[0] == '' or pa[0] == '+' else -1
                                     else:
-                                        signature[0][int(pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
-                                new_sig = mat.dot(np.array(signature[0]))
-                                new_shift = signature[1]+shifts.dot(new_sig)
-                                new_momenta.append(graph.momenta_decomposition_to_string((list(new_sig), list(new_shift)), set_outgoing_equal_to_incoming=False))
-                            v['momenta'] = tuple(new_momenta)
+                                        signature[0][int(pa[2]) - 1]=1 if pa[0] == '' or pa[0] == '+' else -1
+                                new_sig=mat.dot(np.array(signature[0]))
+                                new_shift=signature[1]+shifts.dot(new_sig)
+                                new_momenta.append(graph.momenta_decomposition_to_string(
+                                    (list(new_sig), list(new_shift)), set_outgoing_equal_to_incoming=False))
+                            v['momenta']=tuple(new_momenta)
                         graph_list.append(graph)
                         break
                 else:
                     iso_groups.append(((g, edge_colors), [graph]))
-                
-                bar.update(g_id+1)
-                bar.update(graph_nr=g_id+1)
-                bar.update(iso_size=len(iso_groups))
 
-        logger.info("\033[1m{} unique supergraphs\033[m".format(len(iso_groups)))
+                bar.update(g_id+1)
+                bar.update(graph_nr =g_id+1)
+                bar.update(iso_size =len(iso_groups))
+
+        logger.info(
+            "\033[1m{} unique supergraphs\033[m".format(len(iso_groups)))
         if not cuts is None:
-            graph_filtered = {'DUMP':[], 'KEEP':[]}
-            with progressbar.ProgressBar(prefix='Filter SG with valid cuts: {variables.keep}\u2713  {variables.drop}\u2717 : ', max_value=len(iso_groups),variables={'keep': '0', 'drop':'0'}) as bar:
+            graph_filtered = {'DUMP': [], 'KEEP':[]}
+            with progressbar.ProgressBar(prefix='Filter SG with valid cuts: {variables.keep}\u2713  {variables.drop}\u2717 : ', max_value=len(iso_groups), variables={'keep': '0', 'drop':'0'}) as bar:
                 for sgid, (refs, graphs) in enumerate(iso_groups):
                     if graphs[0].filter_valid_cuts(cuts):
-                        graph_filtered["KEEP"] += [(refs,graphs)]
-                    else: 
-                        graph_filtered["DUMP"] += [(refs,graphs)]
+                        graph_filtered["KEEP"] += [(refs, graphs)]
+                    else:
+                        graph_filtered["DUMP"] += [(refs, graphs)]
                     bar.update(sgid+1)
                     bar.update(keep=len(graph_filtered['KEEP']))
                     bar.update(drop=len(graph_filtered['DUMP']))
-            #for k,v in graph_filtered.items():
+            # for k,v in graph_filtered.items():
             #    print(k,":")
             #    print("\t",np.array([g.name for g in v]))
-            #full_graph_list[:] = graph_filtered['KEEP']
-            iso_groups[:] = graph_filtered['KEEP']
-            logger.info("\033[1mRemoved {} graphs with no valid cuts\033[0m".format(len(graph_filtered['DUMP'])))
+            # full_graph_list[:] = graph_filtered['KEEP']
+            iso_groups[:]= graph_filtered['KEEP']
+            logger.info("\033[1mRemoved {} graphs with no valid cuts\033[0m".format(
+                len(graph_filtered['DUMP'])))
 
-        FORM_iso_sg_list = FORMSuperGraphList([FORMSuperGraphIsomorphicList(iso_group) for _, iso_group in iso_groups], name=p.stem)
+        FORM_iso_sg_list= FORMSuperGraphList([FORMSuperGraphIsomorphicList(iso_group) for _, iso_group in iso_groups], name=p.stem)
 
         if workspace is not None:
-            selected_workspace = workspace
-            shutil.copy(pjoin(plugin_path,"multiplicity.frm"),pjoin(selected_workspace,'multiplicity.frm'))
-            shutil.copy(pjoin(plugin_path,"numerator.frm"),pjoin(selected_workspace,'numerator.frm'))
-            shutil.copy(pjoin(plugin_path,"tensorreduce.frm"),pjoin(selected_workspace,'tensorreduce.frm'))
-            shutil.copy(pjoin(plugin_path,"Gstring.prc"),pjoin(selected_workspace,'Gstring.prc'))
-            shutil.copy(pjoin(plugin_path,"integrateduv.frm"),pjoin(selected_workspace,'integrateduv.frm'))
-            shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(selected_workspace,'diacolor.h'))
-            FORM_source = pjoin(selected_workspace,'multiplicity.frm')
+            selected_workspace= workspace
+            shutil.copy(pjoin(plugin_path, "multiplicity.frm"),pjoin(selected_workspace,'multiplicity.frm'))
+            shutil.copy(pjoin(plugin_path, "numerator.frm"),pjoin(selected_workspace,'numerator.frm'))
+            shutil.copy(pjoin(plugin_path, "tensorreduce.frm"),pjoin(selected_workspace,'tensorreduce.frm'))
+            shutil.copy(pjoin(plugin_path, "Gstring.prc"),pjoin(selected_workspace,'Gstring.prc'))
+            shutil.copy(pjoin(plugin_path, "integrateduv.frm"),pjoin(selected_workspace,'integrateduv.frm'))
+            shutil.copy(pjoin(plugin_path, "diacolor.h"),pjoin(selected_workspace,'diacolor.h'))
+            FORM_source = pjoin(selected_workspace, 'multiplicity.frm')
 
             if FORM_processing_options["cores"] == 1:
-                graph_it = map(FORMSuperGraphIsomorphicList.multiplicity_factor_helper, 
+                graph_it = map(FORMSuperGraphIsomorphicList.multiplicity_factor_helper,
                     (list((iso_graphs, iso_id, selected_workspace, FORM_source))
                     for iso_id, iso_graphs in enumerate(FORM_iso_sg_list)))
             else:
@@ -2517,7 +2842,7 @@ class FORMSuperGraphList(list):
             if zero_multiplicity_count > 0 :
                 logger.info("%d isomorphic sets have 0 multiplicity -> they are dropped!"%zero_multiplicity_count)
             
-            #for iso_id, iso_graphs in enumerate(FORM_iso_sg_list):
+            # for iso_id, iso_graphs in enumerate(FORM_iso_sg_list):
             #    g = iso_graphs[0]
             #    print("#{}\t{:10}: {}".format(iso_id, g.name, g.multiplicity))
 
@@ -2545,10 +2870,10 @@ class FORMSuperGraphList(list):
         logger.info("Imported {} supergraphs.".format(len(m.graphs)))
 
         # Filter specific graphs by name 
-        #filter_graphs = ['SG_QG3','SG_QG4']
-        #m.graphs = [ g for (g,name) in zip(m.graphs, m.graph_names) if name in filter_graphs]
-        #m.graph_names = ['SG_MG3','SG_QG4']
-        #m.graph_names = [name for name in m.graph_names if name in filter_graphs ]
+        # filter_graphs = ['SG_QG3','SG_QG4']
+        # m.graphs = [ g for (g,name) in zip(m.graphs, m.graph_names) if name in filter_graphs]
+        # m.graph_names = ['SG_MG3','SG_QG4']
+        # m.graph_names = [name for name in m.graph_names if name in filter_graphs ]
 
         # fill sgs with graphs
         full_graph_list = []
@@ -2565,7 +2890,12 @@ class FORMSuperGraphList(list):
 
             full_graph_list.append(form_graph)
 
-                # Adjust edge orientation of all repeated edges so that they have identical signatures
+
+        
+
+        # for amplitudes the complete particle flow is encoded in the numerator. the propagators are quadratic
+        #  and we can flip withou further complications also for fermions
+        # Adjust edge orientation of all repeated edges so that they have identical signatures
         for g in full_graph_list:
 
             # First detect edges that need flipping
@@ -2592,9 +2922,6 @@ class FORMSuperGraphList(list):
                 for edge_key, sign in edges:
                     if sign==+1:
                         continue
-                    # For now we only allow to flip particles that are not fermionic otherwise 
-                    # special care must be taken when flipping an edge and normally fermionic lines
-                    # should already have been aligned at this stage.
                     flipped_part = model.get_particle(g.edges[edge_key]['PDG'])
                     # if flipped_part.is_fermion():
                     #     raise FormProcessingError("A *fermionic* repeated edge with opposite signatures was found. This should happen for bosons only.")
@@ -2612,7 +2939,8 @@ class FORMSuperGraphList(list):
 
             # Now adust the string momenta of edges and nodes accordingly.            
             g.impose_signatures()
-            
+
+
         
 
 
@@ -2651,9 +2979,9 @@ class FORMSuperGraphList(list):
 
         # add all numerators in one file and write the headers
         numerator_header = """#include <tgmath.h>
-#include <quadmath.h>
-#include <signal.h>
-#include "%(header)snumerator.h"
+# include <quadmath.h>
+# include <signal.h>
+# include "%(header)snumerator.h"
 """
 
         var_pattern = re.compile(r'Z\d*_')
@@ -2855,9 +3183,9 @@ void %(header)sevaluate_{}_{}_f128(__complex128 lm[], __complex128 params[], int
 
         integrand_code = \
 """
-#include <tgmath.h>
-#include <quadmath.h>
-#include <signal.h>
+# include <tgmath.h>
+# include <quadmath.h>
+# include <signal.h>
 
 {}
 {}
@@ -2941,9 +3269,9 @@ void %(header)sevaluate_LTD_f128(__complex128 lm[], __complex128 params[], int d
                 shutil.copy(pjoin(plugin_path,"definition_gamma_explicit.h"),pjoin(workspace,'definition_gamma_explicit.h'))
         # add all numerators in one file and write the headers
         numerator_header = """#include <tgmath.h>
-#include <quadmath.h>
-#include <signal.h>
-#include "%(header)snumerator.h"
+# include <quadmath.h>
+# include <signal.h>
+# include "%(header)snumerator.h"
 """
 
         max_buffer_size = 0
@@ -2984,9 +3312,9 @@ void %(header)sevaluate_LTD_f128(__complex128 lm[], __complex128 params[], int d
 
         numerator_code = \
 """
-#include <tgmath.h>
-#include <quadmath.h>
-#include <signal.h>
+# include <tgmath.h>
+# include <quadmath.h>
+# include <signal.h>
 
 {}
 {}
@@ -3042,12 +3370,12 @@ int %(header)sget_rank(int diag, int conf) {{
 
         header_code = \
 """
-#ifndef NUM_H
-#define NUM_H
+# ifndef NUM_H
+# define NUM_H
 
 {}
 
-#endif
+# endif
 """.format('\n'.join('#define  {} {}'.format(k, v) for k, v in params.items()))
 
         writers.CPPWriter(pjoin(root_output_path, '%(header)snumerator.h'%header_map)).write(header_code%header_map)
@@ -3092,7 +3420,7 @@ int %(header)sget_rank(int diag, int conf) {{
                     topo_collection['topologies'].append({
                         'name': g[0].name,
                         # Let us not put it there but in the topology itself
-                        #'benchmark_result': g[0].benchmark_result,
+                        # 'benchmark_result': g[0].benchmark_result,
                         'multiplicity': g[0].multiplicity
                         ,'additional_LMBs': [
                             {
@@ -3489,16 +3817,16 @@ int %(header)sget_rank(int diag, int conf) {{
                                     has_pure_external_gluon_effective_vertex = set(edge_pdgs)==set([21,])
                                 # END PIECE OF MULTIPLICITY HACK
                                 is_external_bubble = ( (len(edges_on_vertex)==2) and any( (e in bubble_edges) for e in edges_on_vertex) )
-                                #misc.sprint(edge_pdgs)
-                                #misc.sprint(l)
-                                #misc.sprint(process_definition.nice_string())
-                                #misc.sprint(is_external_bubble)
+                                # misc.sprint(edge_pdgs)
+                                # misc.sprint(l)
+                                # misc.sprint(process_definition.nice_string())
+                                # misc.sprint(is_external_bubble)
                                 vertex_contrib = self.get_renormalization_vertex(edge_pdgs, l, model, process_definition, is_external_bubble=is_external_bubble)
-                                #misc.sprint(vertex_contrib)
+                                # misc.sprint(vertex_contrib)
 
                                 if vertex_contrib is None:
                                     logger.warning("WARNING: unknown renormalization vertex {} at {} loops".format(edge_pdgs, l))
-                                    #raise AssertionError("Unknown renormalization vertex {} at {} loops".format(edge_pdgs, l))
+                                    # raise AssertionError("Unknown renormalization vertex {} at {} loops".format(edge_pdgs, l))
                                     # It can often happen, for example for (but not only) Loop-Induced processes, that there must be
                                     # not renormalisation vertex associated to an integrated UV CT. For instance g g H H.
                                     # Ideally one should code those explicitly in the function `get_renormalization_vertex`, but for 
@@ -3615,7 +3943,7 @@ int %(header)sget_rank(int diag, int conf) {{
                             break
                     else:
                         # remove all bubble edges, since they will cancel with the effective vertex
-                        #subgraph_pdgs = self.shrink_edges(edges, nodes, bubble_edges, bubble_external_shrinking_step=True)
+                        # subgraph_pdgs = self.shrink_edges(edges, nodes, bubble_edges, bubble_external_shrinking_step=True)
                         
                         # set the correct particle ordering for all the edges
                         for n in nodes.values():
@@ -3667,7 +3995,7 @@ int %(header)sget_rank(int diag, int conf) {{
         TMP_workspace = pjoin(TMP_OUTPUT, 'FORM', 'workspace')
         Path(TMP_workspace).mkdir(parents=True, exist_ok=True)
         TMP_FORM = pjoin(TMP_OUTPUT, 'FORM')
-        #FORM_processing_options['compilation-options'] += ['-e', "OPTIMIZATION_LVL=2"]
+        # FORM_processing_options['compilation-options'] += ['-e', "OPTIMIZATION_LVL=2"]
         form_processor.generate_squared_topology_files(TMP_OUTPUT, 0,
                     workspace=TMP_workspace,
                     integrand_type='PF')
