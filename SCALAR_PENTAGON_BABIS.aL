@@ -12,7 +12,7 @@ output_scalar_integral SCALAR_PENTAGON_BABIS \
   ('p1', 102, 101), ('p2', 101, 103), ('p3', 103, 104), ('p4', 104, 105), ('p5', 105, 102),\  
 ('pout3', 103, 3), ('pout4', 104, 4), ('pout5', 105, 5)] \
  --name=scalar_pentagon_babis \
- --analytical_result=0.0159245\
+ --analytical_result=0.0159245 \
  --externals=[('q1','q2'),('pout3','pout4','pout5')] \
  --default_kinematics={'q1':[1.,0.,0.,1.],\
                        'q2':[-1.,0.,0.,1.],\
