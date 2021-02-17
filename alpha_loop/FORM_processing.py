@@ -1478,7 +1478,7 @@ CTable pfmap(0:{},0:{});
                 n['PDGs']) for nv, n in self.nodes.items()}
         else:
             vrtx_weights = {}
-            
+
         if self.is_amplitude:
             print("here")
             topo = LTD.squared_topologies.SquaredTopologyGenerator(edge_map_lin,
@@ -4062,7 +4062,7 @@ class FORMProcessor(object):
                 for i_lmb,_,_,sg in super_graphs[0].additional_lmbs:
                     sg.draw(self.model, output_dir, FORM_id=i_graph, lmb_id=i_lmb)
 
-    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None, header="", integrand_type=None, force_overall_factor=None):
+    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None, header="", integrand_type=None, force_overall_factor=None, additional_params = {}):
         assert(header in ['MG', 'QG', ''])
 
         params = {
@@ -4076,6 +4076,8 @@ class FORMProcessor(object):
             'vev': self.model['parameter_dict']['mdl_vev'].real,
             'pi': 'M_PI',
         }
+
+        params.update(additional_params)
 
         if force_overall_factor is None:
             helicity_averaging_factor = 1

@@ -26,7 +26,7 @@ Block MASS
    15 1.777000e+00 # MTA 
    23 9.118800e+01 # MZ 
    25 1.250000e+02 # MH 
-   666 1.0     # MpsiS
+   666 0.0     # MpsiS
    667 1.0e+01 # MpsiUV
 
 

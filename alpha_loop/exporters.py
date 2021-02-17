@@ -1289,6 +1289,8 @@ class HardCodedAmpExporter():
             runcard["process_specification"]["math_sg"]=str(export_name)            
 
         open(pjoin(input_path, runcard["process_specification"]["name"] + '.yaml'), 'w').write(yaml.dump(runcard, Dumper=Dumper,default_flow_style=None))
+
+        additional_params = runcard["process_specification"]["constants"]
         
         self.amp_input = pjoin(input_path, runcard["process_specification"]["name"] + '.yaml')
 
@@ -1375,7 +1377,8 @@ class HardCodedAmpExporter():
                     output_format=self.alphaLoop_options['FORM_processing_output_format'],
                     workspace=FORM_workspace,
                     integrand_type=self.alphaLoop_options['FORM_integrand_type'],
-                    force_overall_factor=1
+                    force_overall_factor=1,
+                    additional_params = additional_params
                 )
 
             form_processor.compile(pjoin(self.dir_path,'FORM'))

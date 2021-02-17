@@ -109,7 +109,7 @@ Symbol D, ep;
 Symbol ge, gs, gy, ghhh, type, in, out, virtual;
 V p1,...,p40,k1,...,k40,c1,...,c40; * force this internal ordering in FORM
 Auto V p,k,c, eps,ceps, sV,sVbar,sU,sUbar;
-Auto S lm,ext;
+Auto S lm,ext,x;
 Auto I mu=D,s=D;
 
 Set dirac: s1,...,s80;
@@ -121,7 +121,7 @@ CF gamma, spinor ,vector,g(s),delta(s), counter,color, prop;
 CF hermconjugate, pol, cpol, uSpinor, ubarSpinor, vSpinor, vbarSpinor;
 CF  sp(s), sunA, sunF, diracInd, lorentzInd,ffC,sunTF,sunTA,vec,deltaA,deltaF;
 CF deltaS, deltaL;
-S ii,m,n,x,y,z,i;
+S ii,m,n,y,z,i;
 CF d,rat, num, den,numtemp;
 
 Auto I i1, i2, j1, j2;
