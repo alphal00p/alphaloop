@@ -1290,7 +1290,7 @@ class HardCodedAmpExporter():
 
         open(pjoin(input_path, runcard["process_specification"]["name"] + '.yaml'), 'w').write(yaml.dump(runcard, Dumper=Dumper,default_flow_style=None))
 
-        additional_params = runcard["process_specification"]["constants"]
+        additional_params = runcard["process_specification"].get("constants",{})
         
         self.amp_input = pjoin(input_path, runcard["process_specification"]["name"] + '.yaml')
 
