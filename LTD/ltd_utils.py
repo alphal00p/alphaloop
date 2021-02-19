@@ -120,9 +120,11 @@ class TopologyGenerator(object):
     def __init__(self, edge_map_lin, powers=None):
         #if len(set(e[0] for e  in edge_map_lin)) != len(edge_map_lin):
         #    raise AssertionError("Every edge must have a unique name. Input: ", edge_map_lin)
+        
         self.edge_map_lin = edge_map_lin
         self.edge_name_map = {name: i for (
             i, (name, _, _)) in enumerate(edge_map_lin)}
+        
         self.edges = [(v1, v2) for (name, v1, v2) in edge_map_lin]
         vertices = [y for x in self.edges for y in x]
 
@@ -203,6 +205,9 @@ class TopologyGenerator(object):
             if len(edges) == 0:
                 # no more new edges, so we are done
                 s = list(sorted(accum))
+                 # no more new edges, so we are done
+                #     tadpole = [i for i, e in enumerate(
+                # self.edges) if e[0] == e[1] ];
                 if s not in result:
                     result.append(s)
         else:
@@ -515,7 +520,7 @@ class TopologyGenerator(object):
                     continue
 
                 cut_momenta_options.add(tuple(sorted(set(spanning_tree) - {edge_index})))
-
+        
         for cut_momenta in cut_momenta_options:
             cut_momenta_set = set(cut_momenta)
             # verify that the graph is correctly split in two, with one of the subgraphs having all incoming particles
@@ -533,7 +538,8 @@ class TopologyGenerator(object):
             if ext_overlap == set(incoming_particles) or ext_overlap == super_external - set(incoming_particles):
                 # identify which of the n+1 cuts are the cuts that separate the original diagram in two
                 cutkosky_cut = tuple(sorted(cutkosky_edge for cutkosky_edge in set(self.edge_map_lin).difference(set(cut_tree.edge_map_lin))
-                        if len(set(sub_tree.vertices) & set([cutkosky_edge[1], cutkosky_edge[2]]))==1))
+                        if len(set(sub_tree.vertices) & set([cutkosky_edge[1], cutkosky_edge[2]]))==1 and cutkosky_edge[1]!= cutkosky_edge[2]))
+                
 
                 # filter cuts with not enough jets and cuts that do not contain all desired final state particles
                 cutkosky_particles = tuple(sorted(abs(particle_ids[e]) if e in particle_ids else 0 for (e, _, _) in cutkosky_cut))
@@ -644,8 +650,7 @@ class TopologyGenerator(object):
                     'diagram_info': [ diag for diag in diag_set ] }
                 for diag_set in graph_prod]
         }
-        from pprint import pprint
-        #pprint(graph_combinations)
+
 
         return graph_combinations
 
@@ -997,7 +1002,7 @@ class TopologyGenerator(object):
         # since edges could be flipped, we create an new shift map
         new_shift_map = copy.deepcopy(shift_map)
         powers = copy.deepcopy(self.powers)
-
+        
         for prop, (edge_name, v1, v2) in zip(self.propagators, self.edge_map_lin):
             if prop == ():
                 # external momentum

@@ -17,8 +17,9 @@ class SquaredTopologyGenerator:
         cut_filter=set(), FORM_numerator={}, FORM_integrand={},
         vertex_weights={}, edge_weights={}, generation_options={},analytic_result=None,
         default_kinematics=None, external_data={}, color_struc = None, is_amplitude = False):
+
         self.name = name
-        self.topo = TopologyGenerator(edges, powers)
+        self.topo = TopologyGenerator(edges, powers=powers)
         self.topo.generate_momentum_flow(loop_momenta_names)
         self.external_momenta = external_momenta
         self.MG_numerator = MG_numerator
@@ -45,6 +46,7 @@ class SquaredTopologyGenerator:
 
 
 
+
         assert(loop_momenta_signs is None or all(lms==1 for lms in loop_momenta_signs))
 
         self.loop_topo = self.topo.create_loop_topology(name,
@@ -59,12 +61,15 @@ class SquaredTopologyGenerator:
 
         cutkosky_cuts = self.topo.find_cutkosky_cuts(n_jets, incoming_momentum_names, final_state_particle_ids, 
                                     particle_ids, PDGs_in_jet=jet_ids)
-
+        
         self.cuts = [self.topo.bubble_cuts(c, incoming_momentum_names) for c in cutkosky_cuts]
-
+        
+        
+        
         if len(cut_filter) > 0:
-            self.cuts = [c for c in self.cuts if tuple(n['edge'] for n in c['cuts']) in cut_filter]
-
+            self.cuts = [c for c in self.cuts if set(n['edge'] for n in c['cuts']) in cut_filter]
+        
+   
         self.masses = copy.deepcopy(masses)
         self.overall_numerator = overall_numerator
         self.incoming_momenta = incoming_momentum_names
@@ -102,7 +107,7 @@ class SquaredTopologyGenerator:
 
                     uv_limits = diag_info['graph'].construct_uv_limits(vw, ew, 
                                 UV_min_dod_to_subtract=self.generation_options.get('UV_min_dod_to_subtract',0) )
-
+                    
                     # give every subdiagram a globally unique id
                     for uv_limit in uv_limits:
                         for uv_lim in uv_limit['uv_subgraphs']:

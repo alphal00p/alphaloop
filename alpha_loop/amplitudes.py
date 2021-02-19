@@ -89,6 +89,7 @@ def to_right_diag(left_diag, to_effective_vertex=False):
     new_edge_ids = list(str(x) for x in sorted(
         list(range(1, len(left_diag['edges'])+1))))
     old_edge_ids = sorted(list((left_diag['edges']).keys()))
+    
     for i, ne in enumerate(new_edge_ids):
         for nn in (left_diag['nodes']).values():
             nn['edge_ids'] = tuple(
@@ -281,6 +282,7 @@ def sew_amp_diags(ld, rd):
                         left_diag['edges'][el]['vertices'][0], right_diag['edges'][er]['vertices'][1])
                     ec['PDG'] = copy.copy(left_diag['edges'][el]['PDG'])
                     ec['indices'] = copy.copy((left_diag['edges'][el]).get('indices', []))
+                    ec['is_cut'] = True
                     full_edge=copy.deepcopy({key: copy.deepcopy(ec)})
                     sewed_graph['edges'].update(full_edge)
                     # relabel the edge_ids
@@ -317,17 +319,27 @@ def sew_amp_diags(ld, rd):
         sewed_graph['analytic_num']=sewed_graph['analytic_num'].replace(
             mom, rhs)
 
+    
     # we need continous vertex labels for igraph
-    new_vert=sorted(list(range(1, len(sewed_graph['nodes'])+1)))
-    # old keys will always be larger than new keys
-    old_vert=sorted(list(sewed_graph['nodes'].keys()))
+    old_vert=list(set(sewed_graph['nodes'].keys()))
+    new_vert=["n"+str(i) for i in range(len(old_vert))]
+    
+    
     for i, vnew in enumerate(new_vert):
         for ee in sewed_graph['edges'].values():
             ee['vertices']=tuple(
                 map(lambda x: vnew if x == old_vert[i] else x, ee['vertices']))
-    for i, nn in enumerate(list(sewed_graph['nodes'])):
+    for i, nn in enumerate(old_vert):
         sewed_graph['nodes'][new_vert[i]
-                             ]=sewed_graph['nodes'].pop(old_vert[i])
+                             ]=sewed_graph['nodes'].pop(nn)
+    
+    for i, vnew in enumerate(new_vert):
+        for ee in sewed_graph['edges'].values():
+            ee['vertices']=tuple(
+                map(lambda x: i+1 if x == vnew else x, ee['vertices']))
+    for i, vnew in enumerate(list(sewed_graph['nodes'])):
+        sewed_graph['nodes'][i+1]=sewed_graph['nodes'].pop(vnew)
+
 
     # rename edges (ask ben why)
     # look at edge-map-lin
@@ -377,7 +389,6 @@ def sew_amp_diags(ld, rd):
                     valdic['indices'] = valdic.get('indices',()) + (idxs[0],)
                 else:
                     valdic['indices'] = valdic.get('indices',())+ (idxs[-1],)
-
 
     return copy.deepcopy(sewed_graph)
 

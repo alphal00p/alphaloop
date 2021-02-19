@@ -582,7 +582,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
 
         self.integrand_statistics.total_sample_time +=
             Instant::now().duration_since(start_time).as_secs_f64() * 1e6;
-        if self.settings.general.debug >= 1 {
+        if self.settings.general.debug >= 10 {
             let mut file = OpenOptions::new()
                 .write(true)
                 .append(true)

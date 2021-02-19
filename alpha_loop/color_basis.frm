@@ -457,7 +457,7 @@ id color(i_) = i_;
 * in case there is no color structure
 Multiply color(1);
 repeat id  color(x?)*color(y?) = color(x*y);
-id p1?.p2? = sp(p1,p2);
+*id p1?.p2? = sp(p1,p2);
 .sort
 * factorize color per graph
 #if `CPERGRAPH';

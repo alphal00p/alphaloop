@@ -233,6 +233,16 @@ class FORMSuperGraph(object):
         self.color_struc = color_struc
         self.numerator = numerator
         self.external_data = external_data
+        # determine powers
+        self.powers = None
+        if self.is_amplitude:
+            self.powers = {}
+            for ee in edges.values():
+                self.powers.update({ee['name']: ee.get('power',1)})
+            
+
+        
+
 
     def filter_valid_cuts(self, cuts):
         """
@@ -358,13 +368,13 @@ class FORMSuperGraph(object):
         return valid_cut
     
     @classmethod
-    def from_topology(cls, edge_map_lin, name, incoming_momentum_names, outgoing_momentum_names, model, pdgs=[], loop_momenta_names=None, numerator=1):
+    def from_topology(cls, edge_map_lin, name, incoming_momentum_names, outgoing_momentum_names, model, pdgs=[], loop_momenta_names=None, numerator=1, powers ={}, is_amplitude = True):
         vertices = [v for e in edge_map_lin for v in e[1:]]
 
         topo_generator = LTD.ltd_utils.TopologyGenerator(edge_map_lin, {})
         topo_generator.generate_momentum_flow(loop_momenta_names)
         sig = topo_generator.get_signature_map()
-        print(sig)
+
         edges = {i: {
             'PDG': 1337 if pdgs == [] else pdgs[i] ,
             'indices': (1 + i * 2,) if vertices.count(e[1]) == 1 or vertices.count(e[2]) == 1 else (1 + i * 2, 1 + i * 2 + 1),
@@ -373,6 +383,7 @@ class FORMSuperGraph(object):
             'name': e[0],
             'type': 'in' if e[0] in incoming_momentum_names else ('out' if e[0] in outgoing_momentum_names else 'virtual'),
             'vertices': tuple(e[1: ]),
+            'power': powers.get(e[0],1)
             } for i, e in enumerate(edge_map_lin)
         }
 
@@ -454,7 +465,8 @@ class FORMSuperGraph(object):
             name = name, edges = edges, nodes = nodes,
             overall_factor = '1',
             multiplicity = 1,
-            numerator = numerator
+            numerator = numerator,
+            is_amplitude = is_amplitude
         )
 
 
@@ -1424,10 +1436,16 @@ CTable pfmap(0:{},0:{});
             return False
 
         # Relabel edges according to alphaLoop conventions:
-        for edge_key, edge_data in self.edges.items():
+        for edge_key, edge_data in self.edges.items():            
             edge_data['name'] = 'p' + \
                 edge_data['name'] if edge_data['type'] == 'virtual' else 'q' + \
                     edge_data['name'][1:]
+        # relabel the powers according to alphaloop conventions
+        if self.is_amplitude:
+            self.powers = {}
+            for edge_data in self.edges.values():
+                self.powers.update({edge_data["name"]: edge_data.get('power',1)})
+        
 
         # TODO: sort such that the first 4 entries are external (it seems to happen by chance now every time)
         edge_map_lin = [(e['name'], e['vertices'][0], e['vertices'][1])
@@ -1468,19 +1486,24 @@ CTable pfmap(0:{},0:{});
 
         # If effective_vertex_id is specified, we will only consider the CC cut that cuts all internal edges connecting to that vertex id
         cut_filter = []
-        if self.effective_vertex_id is not None:
-            cut_filter.append(tuple(edge_data['name'] for edge_key, edge_data in self.edges.items(
+        if (self.effective_vertex_id is not None) and (not self.is_amplitude):
+            cut_filter.append(set(edge_data['name'] for edge_key, edge_data in self.edges.items(
             ) if self.effective_vertex_id in edge_data['vertices'] and edge_data['type'] == 'virtual'))
-        
+
+        if self.is_amplitude:
+            cut_filter.append(set(edge_data['name'] for edge_key, edge_data in self.edges.items(
+            ) if edge_data.get('is_cut',False))) # 'is_cut' is set in sew_amp_diags in amplitudes.py
+
 
         if 'PDGs' in self.nodes[1].values():
             vrtx_weights = {nv: self.get_node_scaling(
                 n['PDGs']) for nv, n in self.nodes.items()}
         else:
             vrtx_weights = {}
+        
 
+        # notice the edge-weight we assign to avoid uv-configs
         if self.is_amplitude:
-            print("here")
             topo = LTD.squared_topologies.SquaredTopologyGenerator(edge_map_lin,
                 self.name, [
                     'q1', 'q2'][:num_incoming], n_jets, external_momenta,
@@ -1494,8 +1517,7 @@ CTable pfmap(0:{},0:{});
                 numerator_structure={},
                 FORM_numerator={'call_signature': {'id': call_signature_ID}},
                 FORM_integrand={'call_signature': {'id': call_signature_ID}},
-                edge_weights={e['name']: self.get_edge_scaling(
-                    e['PDG']) for e in self.edges.values()},
+                edge_weights={e['name']: -20 for e in self.edges.values()},
                 vertex_weights=vrtx_weights,
                 generation_options=FORM_processing_options,
                 analytic_result=(self.benchmark_result if hasattr(
@@ -1504,7 +1526,8 @@ CTable pfmap(0:{},0:{});
                 cut_filter=cut_filter,
                 is_amplitude=self.is_amplitude,
                 external_data=self.external_data,
-                color_struc=self.color_struc
+                color_struc=self.color_struc,
+                powers = self.powers
 
             )
         else:
@@ -2886,8 +2909,6 @@ class FORMSuperGraphList(list):
             form_graph = FORMSuperGraph(name=graph_name, edges = g['edges'], nodes=g['nodes'], 
                         overall_factor=g['overall_factor'], multiplicity = g.get('multiplicity',1),is_amplitude = True, color_struc=g.get('color_struc',None) , effective_vertex_id = g.get('effective_vertex_id',None), numerator = g.get('analytic_num'),external_data = external_data )
             form_graph.derive_signatures()
-            # flip signature if neccesary
-
             full_graph_list.append(form_graph)
 
 
@@ -3442,13 +3463,13 @@ int %(header)sget_rank(int diag, int conf) {{
         
         if filter_non_contributing_graphs:
             self[:] = contributing_supergraphs
-
+        
         if FORM_processing_options['generate_renormalisation_graphs']:
             renormalization_graphs = self.generate_renormalization_graphs(model,process_definition)
         else:
             renormalization_graphs = []
         self.extend([FORMSuperGraphIsomorphicList([g]) for g in renormalization_graphs])
-
+        
         with progressbar.ProgressBar(prefix='Generating renormalization squared topology files (graph #{variables.i_graph}/%d, LMB #{variables.i_lmb}/{variables.max_lmb}, PF #{variables.PF_config}, {variables.timing} ms / supergraph) : '%len(renormalization_graphs), 
                 max_value=len(renormalization_graphs), variables = {'timing' : '0', 'i_graph' : '0', 'i_lmb': '0', 'max_lmb' : '0', 'PF_config': 'N/A'} ) as bar:
             total_time=0.0

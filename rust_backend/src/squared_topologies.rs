@@ -2092,7 +2092,7 @@ impl SquaredTopology {
 
         result *= Into::<T>::into(self.overall_numerator);
 
-        if self.settings.general.debug >= 1 {
+        if self.settings.general.debug >= 10 {
             println!("Final result = {:e}", result);
             let mut file = OpenOptions::new()
                 .write(true)

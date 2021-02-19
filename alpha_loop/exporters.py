@@ -1248,7 +1248,8 @@ class HardCodedAmpExporter():
                     toponame, 
                     tuple(topo["externals"][0]),tuple(topo["externals"][1]), computed_model, loop_momenta_names=topo["lmb"],
                     pdgs = topo["pdgs"],
-                    numerator = topo['numerator']
+                    numerator = topo['numerator'],
+                    powers = topo.get('powers',{})
                     )]
                 in_moms += [tuple("p"+str(i+1) for i in range(len(topo["externals"][0])))]
                 out_moms += [tuple("p"+str(i+1 +len(topo["externals"][0]) ) for i in range(len(topo["externals"][1])))]
@@ -1294,6 +1295,10 @@ class HardCodedAmpExporter():
         
         self.amp_input = pjoin(input_path, runcard["process_specification"]["name"] + '.yaml')
 
+        # Overwrite default option of FORM processor to forbid UV-treatment
+        FORM_processing.FORM_processing_options['generate_integrated_UV_CTs'] = False
+        FORM_processing.FORM_processing_options['generate_renormalisation_graphs'] = False
+
         amp = AMP_TOOLS.amplitude(runcard=self.amp_input, output=os.path.abspath(output_path),src_dir=plugin_path)
         # The left diagram amplitude has outgoing (dependent) momenta: p_(Nintial+1),...,p_(Ninitial+Nfinal) and k1,...,kL loop-momenta
         # The translation to the LMB is
@@ -1302,10 +1307,8 @@ class HardCodedAmpExporter():
         # see in amplitudes.py: impose_mom_conservation() 
         color_dicts = amp.initialize_process(clean_up=True) # is SG-list for indepent color-struct in 
         external_data = amp.external_data
+        
 
-        # Overwrite default option of FORM processor to forbid UV-treatment
-        FORM_processing.FORM_processing_options['generate_integrated_UV_CTs'] = False
-        FORM_processing.FORM_processing_options['generate_renormalisation_graphs'] = False
 
         # loop over color-structures
         for colstruc,dictpath in enumerate(color_dicts):
