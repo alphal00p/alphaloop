@@ -60,13 +60,13 @@ class DiscreteDimension(Dimension):
         self.values = values
     
     def length(self):
-        if normalized:
-            return 1.0/float(len(values))
+        if self.normalized:
+            return 1.0/float(len(self.values))
         else:
             return 1.0
     
     def random_sample(self):
-        return np.int64(random.choice(values))
+        return np.int64(random.choice(self.values))
         
 class ContinuousDimension(Dimension):
     """ A dimension object specifying a specific discrete integration dimension."""
@@ -88,6 +88,9 @@ class DimensionList(list):
 
     def __init__(self, *args, **opts):
         super(DimensionList, self).__init__(*args, **opts)
+        self.name_to_position = {}
+        for pos, d in enumerate(self):
+            self.name_to_position[d] = pos
 
     def volume(self):
         """ Returns the volue of the complete list of dimensions."""
@@ -100,7 +103,23 @@ class DimensionList(list):
         """ Type-checking. """
         assert(isinstance(arg, Dimension))
         super(DimensionList, self).append(arg, **opts)
+        self.name_to_position[arg.name] = len(self)-1
         
+    def extend(self, arg, **opts):
+        """ Type-checking. """
+        for d in arg:
+            self.append(d)
+
+    def get_position(self,dimension_name):
+        return self.name_to_position.get(dimension_name,None)
+
+    def get_dimensions(self,dimension_names):
+        if any(d_name not in self.name_to_position for d_name in dimension_names):
+            raise MadGraph5Error("Not all dimensions specified %s could be found in the collection containing %s."%(
+                str(dimension_names), str(list(self.name_to_position.keys()))
+            ))
+        return DimensionList(self[self.name_to_position[d_name]] for d_name in dimension_names)
+    
     def get_discrete_dimensions(self):
         """ Access all discrete dimensions. """
         return DimensionList(d for d in self if isinstance(d, DiscreteDimension))

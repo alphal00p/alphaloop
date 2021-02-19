@@ -108,7 +108,7 @@ class SimpleMonteCarloIntegrator(VirtualIntegrator):
 
         points_to_write_to_file = []
         while (self.n_iterations is None or iteration_number < self.n_iterations ) and \
-              (self.accuracy_target is None or error_estimate/(1e-99+integral_estimate) > self.accuracy_target):   
+              (self.accuracy_target is None or error_estimate/abs(1e-99+integral_estimate) > self.accuracy_target):   
 
             iteration_number += 1
             n_curr_points = 0
@@ -137,14 +137,14 @@ class SimpleMonteCarloIntegrator(VirtualIntegrator):
                 sum_squared += new_wgt**2
 
             integral_estimate = sum_int / n_points
-            error_estimate =  math.sqrt( ((sum_squared / n_points) - integral_estimate**2)/n_points)
+            error_estimate =  math.sqrt( ((sum_squared / n_points) - integral_estimate**2)/n_points )
             msg = '%s :: iteration # %d / %s :: point #%d :: %.4e +/- %.2e'%(
                 self.__class__.__name__, iteration_number, 
                 '%d'%self.n_iterations if self.n_iterations else 'inf' ,n_points, 
                 integral_estimate, error_estimate)
             if self.verbosity > 0:
                 logger.info(msg)
-        
+
         if out_stream is not None:
             out_stream.write('\n'.join(points_to_write_to_file))
             points_to_write_to_file = []

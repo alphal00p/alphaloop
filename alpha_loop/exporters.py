@@ -1445,7 +1445,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             with open(qgraf_output, 'w') as f:
                 f.write(stream.read() % dict_replace)
 
-            subprocess.run(['rm', 'output.py'], cwd=qgraf_folder)
+            subprocess.run(['rm', '-f', 'output.py'], cwd=qgraf_folder)
             r = subprocess.run([self.QGRAF_path, ],
                                cwd=qgraf_folder,
                                capture_output=True)

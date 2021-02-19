@@ -4,7 +4,7 @@ import sys
 import os
 from multiprocessing import Value 
 import time
-from pprint import pformat
+from pprint import pprint, pformat
 import time
 import random
 
@@ -18,10 +18,12 @@ import alpha_loop.integrator.phase_space_generators as PS
 import madgraph.core.base_objects as base_objects
 import madgraph.various.cluster as cluster
 import madgraph.various.misc as misc
+from madgraph import InvalidCmd, MadGraph5Error, MG5DIR, ReadWrite
 import re
 import math
 
 import LTD.vectors as vectors
+import LTD.ltd_utils as ltd_utils
 from LTD.vectors import LorentzVector, LorentzVectorList
 
 import alpha_loop.integrator.integrands as integrands
@@ -45,6 +47,57 @@ DUMMY=99
 
 logger = logging.getLogger("alpha_loop.sampler")
 
+def transform_spherical_to_cartesian(rtp):
+    cartesian = np.zeros(rtp.shape)
+    jacobians = np.zeros(len(rtp))
+    cartesian[:,0] = rtp[:,0]*np.sin(rtp[:,1])*np.cos(rtp[:,2])
+    cartesian[:,1] = rtp[:,0]*np.sin(rtp[:,1])*np.sin(rtp[:,2])
+    cartesian[:,2] = rtp[:,0]*np.cos(rtp[:,1])
+    jacobians[:] = rtp[:,0]**2*np.sin(rtp[:,1])
+    return cartesian, jacobians 
+
+def transform_cartesian_to_spherical(xyz):
+    spherical = np.zeros(xyz.shape)
+    inv_jacobians = np.zeros(len(xyz))
+    xy = xyz[:,0]**2 + xyz[:,1]**2
+    spherical[:,0] = np.sqrt(xy + xyz[:,2]**2)
+    spherical[:,1] = np.arctan2(np.sqrt(xy), xyz[:,2])
+    spherical[:,2] = np.arctan2(xyz[:,1], xyz[:,0])
+    inv_jacobians[:] = 1./(spherical[:,0]**2*np.sin(spherical[:,1]))
+    return spherical, inv_jacobians 
+
+def lin_conformal(xs, scale):
+    ks = np.zeros(xs.shape)
+    jacobians = np.zeros(xs.shape)
+    ks[:] = scale*(xs[:]/(1.-xs[:]))
+    jacobians[:] = scale*(1./(1.-xs[:])**2)
+    return ks, jacobians
+
+def lin_inverse_conformal(ks, scale):
+    xs = np.zeros(ks.shape)
+    inv_jacobians = np.zeros(xs.shape)
+    xs[:] = ks[:]/(ks[:]+scale)
+    inv_jacobians[:] = 1./(scale*(1./(1.-xs[:])**2))
+    return xs, inv_jacobians
+
+def log_conformal(xs,scale):
+    ks = np.zeros(xs.shape)
+    jacobians = np.zeros(xs.shape)
+    ks[:] = scale*np.log(1./(1.-xs[:]))
+    jacobians[:] = scale/(1.-xs[:])
+    return ks, jacobians
+
+def log_inverse_conformal(ks,scale):
+    xs = np.zeros(ks.shape)
+    inv_jacobians = np.zeros(xs.shape)
+    exponentials = np.exp(ks[:]/scale)
+    xs[:] = (exponentials[:]-1.)/exponentials[:]
+    inv_jacobians[:] = (1.-xs[:])/scale
+    return xs, inv_jacobians
+
+class SamplerError(MadGraph5Error):
+    pass
+
 class HFunction(object):
     r"""
     Implements sampling from the noramlised distibution:
@@ -59,7 +112,7 @@ class HFunction(object):
 
     def __init__(self, sigma, debug=0):
 
-        self.debug = debug
+        self.debug = (debug > 1)
 
         self.sigma = sigma
 
@@ -101,6 +154,13 @@ class HFunction(object):
             )
         else:
             raise BaseException("Currently the H function is only implemented for sigma in [2,3].")
+
+    def inverse_sampling(self, t):
+        """ Inverse sampling, which is trivial in this case given that we do an exact inversion, but it may not always be so.
+        Returns the corresponding sampling x in [0,1] and the inverse of the Jacobian.
+        """
+
+        return self.CDF(t, 0), self.PDF(t)
 
     def __call__(self, x):
 
@@ -182,7 +242,7 @@ class DefaultALIntegrand(integrands.VirtualIntegrand):
 
         self.generator = generator
         self.dimensions = generator.dimensions
-        self.debug = debug
+        self.debug = (debug > 1)
     
         super(DefaultALIntegrand, self).__init__( self.dimensions )
 
@@ -221,6 +281,460 @@ class DefaultALIntegrand(integrands.VirtualIntegrand):
         if self.debug > 2: time.sleep(self.debug/10.0)
 
         return final_res
+
+
+class AdvancedIntegrand(integrands.VirtualIntegrand):
+
+    def __init__(self, rust_worker, SG, model, h_function, hyperparameters, channel_for_generation = None, external_phase_space_generation_type="flat", debug=0, phase='real', **opts):
+        """ Set channel_for_generation to (selected_cut_and_side_index, selected_LMB_index) to disable multichaneling and choose one particular channel for the parameterisation. """
+
+        self.debug = (debug > 1)
+        self.rust_worker = rust_worker
+        self.model = model
+        self.SG = SG
+        self.phase = phase
+        self.hyperparameters = hyperparameters
+        self.h_function = h_function
+        self.conformal_map = lin_conformal
+        self.inverse_conformal_map = lin_inverse_conformal
+        self.channel_for_generation = channel_for_generation
+        
+        self.n_evals = Value('i', 0)
+
+        if external_phase_space_generation_type not in ['flat']:
+            raise InvalidCmd("External phase-space generation mode not supported: %s"%external_phase_space_generation_type)
+        self.external_phase_space_generation_type = external_phase_space_generation_type
+
+        # Built external momenta. Remember that they appear twice.
+        self.n_initial = len(hyperparameters['CrossSection']['incoming_momenta'])
+        self.external_momenta = [ vectors.Vector(v[1:]) for v in self.hyperparameters['CrossSection']['incoming_momenta'] ]
+        self.external_momenta.extend(self.external_momenta)
+
+        self.dimensions = integrands.DimensionList()
+        # The first dimension will always be for the upscaling 't' variable
+        self.dimensions.append(integrands.ContinuousDimension('x_t',lower_bound=0.0, upper_bound=1.0))
+        # Then the remaining ones will first be for the final-state mappings (the number depends on the particular Cutkosky cut)
+        # and of the remaining loop variables
+        self.dimensions.extend([ 
+            integrands.ContinuousDimension('x_%d'%i_dim,lower_bound=0.0, upper_bound=1.0) 
+            for i_dim in range(1,SG['topo']['n_loops']*3) 
+        ])
+        super(AdvancedIntegrand, self).__init__( self.dimensions )
+
+        E_cm = self.SG.get_E_cm(self.hyperparameters)        
+        self.E_cm = E_cm
+        if debug: logger.debug("E_cm detected=%.16e"%self.E_cm)
+
+        # We must now build the reduced topology of the supergraph to obtain channels
+        self.SG.set_integration_channels()
+        #pprint(self.SG['cutkosky_cuts'][0]['multichannel_info'])
+        #pprint(len(self.SG['cutkosky_cuts']))
+        #pprint(self.SG['SG_multichannel_info'])
+        #stop
+
+        # First we must regenerate a TopologyGenerator instance for this supergraph
+        # We actually won't need it!
+        #edges_list = SG['topo_edges']
+        #SG_topo_gen = ltd_utils.TopologyGenerator(
+        #    [e[:-1] for e in edges_list],
+        #    powers = { e[0] : e[-1] for e in edges_list }
+        #)
+
+        # Now assign a tree-level structure generator to each channel 
+        self.multichannel_generators = []
+
+        self.edges_PDG = { e[0] : e [1] for e in self.SG['edge_PDGs'] }
+        self.edge_masses = { edge_name : self.model['parameter_dict'][
+                    self.model.get_particle(self.edges_PDG[edge_name]).get('mass')
+            ].real for edge_name in self.edges_PDG }
+
+        for SG_channel_info in self.SG['SG_multichannel_info']:
+            
+            # When generating the phase-space flat, we always ever only have a single channel per cut.
+            if self.external_phase_space_generation_type == 'flat' and SG_channel_info['side']!='left':
+                continue
+
+            tree_topology_info = self.SG['cutkosky_cuts'][
+                    SG_channel_info['cutkosky_cut_id']
+                ]['multichannel_info']['tree_topologies'][
+                    SG_channel_info['side']
+                ]
+            initial_state_masses = [
+                self.edge_masses[edge_name] for edge_name, direction in tree_topology_info['incoming_edges']
+            ]
+            final_state_masses = [
+                self.edge_masses[edge_name] for edge_name, direction in tree_topology_info['outgoing_edges']
+            ]
+            
+            n_external_state_dofs = len(SG_channel_info['independent_final_states'])*3-1
+
+            if self.external_phase_space_generation_type == 'flat':
+                
+                if self.n_initial==1:
+                    # For 1>N topologies we fake a 2>N massless one:
+                    self.multichannel_generators.append( 
+                        PS.FlatInvertiblePhasespace(
+                            [0.,0.], final_state_masses, 
+                            beam_Es =(initial_state_masses[0]/2.,initial_state_masses[0]/2.), beam_types=(0,0),
+                            dimensions = self.dimensions.get_dimensions(['x_%d'%i_dim for i_dim in range(1,n_external_state_dofs+1)])
+                        )
+                    )
+                else:
+                    self.multichannel_generators.append( 
+                        PS.FlatInvertiblePhasespace(
+                            initial_state_masses, final_state_masses, 
+                            beam_Es =(E_cm/2.,E_cm/2.), beam_types=(0,0),
+                            dimensions = self.dimensions.get_dimensions(['x_%d'%i_dim for i_dim in range(1,n_external_state_dofs+1)])
+                        )
+                    )
+
+    def loop_parameterisation(self, xs):
+
+        loop_jac = 1.0
+        n_loops = len(xs)//3
+        # First the radii
+        radii, radii_jacobians = self.conformal_map(np.array([
+            xs[i] for i in range(0, len(xs), 3)
+        ]), self.E_cm)
+        loop_jac *= np.prod(radii_jacobians)
+        # The theta angles then
+        thetas = [ math.pi*xs[i+1] for i in range(0, len(xs), 3) ]
+        loop_jac *= (math.pi)**n_loops
+        # The phis angles then
+        phis = [ 2.0*math.pi*xs[i+2] for i in range(0, len(xs), 3) ]
+        loop_jac *= (2.0*math.pi)**n_loops
+        
+        ks, jacobians = transform_spherical_to_cartesian(np.array(
+            list(zip( radii, thetas, phis ))
+        ))
+        loop_jac *= np.prod(jacobians)
+
+        ks = [e for k in ks for e in k]
+        return ks, loop_jac
+
+    def loop_inv_parameterisation(self, ks):
+
+        loop_inv_jac = 1.0
+        n_loops = len(ks)//3
+
+        cartesian_inputs = [ks[i:i+3] for i in range(0, len(ks),3)]
+        spherical_coordinates, inv_jacobians = transform_cartesian_to_spherical(
+            np.array(cartesian_inputs)
+        )
+        loop_inv_jac *= np.prod(inv_jacobians)
+
+        # Now remap the spherical coordinates
+
+        # First the radii
+        xs_radii , radii_inv_jacobians = self.inverse_conformal_map(np.array([
+            sph_coords[0] for sph_coords in spherical_coordinates]), self.E_cm)
+        loop_inv_jac *= np.prod(radii_inv_jacobians)
+        # The theta angles then
+        xs_thetas = [ sph_coords[1]/math.pi for sph_coords in spherical_coordinates ]
+        loop_inv_jac /= (math.pi)**n_loops
+        # The phis angles then
+        xs_phis = [ sph_coords[2]/(2.0*math.pi) for sph_coords in spherical_coordinates ]
+        loop_inv_jac /= (2.0*math.pi)**n_loops
+
+        #xs = sum((list(e) for e in list(zip(xs_radii,xs_thetas,xs_phis)),[])
+        xs = [e for x in zip(xs_radii,xs_thetas,xs_phis) for e in x]
+        return xs, loop_inv_jac
+
+    def solve_soper_flow(self, final_state_configurations, external_momenta):
+        """ Numerically solve for the specified final_state_configurations which is a list with entries:
+            'k', 'shift', 'direction' and 'mass'.
+            When all masses and shifts are zero, an anlytic solution can be found, otherwise use optimize.root_scalar
+            to numerically find the solution.
+        """
+        
+        # Make sure we are in the rest frame of the collision
+        if  ( len(external_momenta)==1 and math.sqrt(vectors.Vector(external_momenta[0][1:]).square())/external_momenta[0][0] > 1.0e-10 ) or \
+            ( len(external_momenta)>1 and math.sqrt(sum(vectors.Vector(q[1:]) for q in external_momenta).square()/vectors.Vector(external_momenta[0][1:]).square()) > 1.0e-10 ):
+            raise SamplerError("The Soper flow can currently only be solved for kinematic configuration in the collision rest frame.")
+
+        Q0 = sum(q[0] for q in external_momenta)
+
+        if all( (cfg['mass']==0. and cfg['shift'].square()==0.) for cfg in final_state_configurations):
+            return Q0/sum( math.sqrt(cfg['k'].square()) for cfg in final_state_configurations )
+        else:
+            raise SamplerError("The numerical solution of Soper flow with optimize.root_scalar is not implemented yet.")
+
+    def __call__(self, continuous_inputs, discrete_inputs, selected_cut_and_side=None, selected_LMB=None, **opts):
+
+        self.n_evals.value += 1
+
+        final_res = 0.
+        if self.channel_for_generation is None:
+
+            # Now we loop over channels 
+            for i_channel, channel_info in enumerate(self.SG['SG_multichannel_info']):
+                if selected_cut_and_side is not None and i_channel not in selected_cut_and_side:
+                    continue
+        
+                for i_LMB, LMB_info in enumerate(channel_info['loop_LMBs']):
+                    if selected_LMB is not None and i_LMB not in selected_LMB:
+                        continue
+
+                    final_res += self.evaluate_channel(continuous_inputs, discrete_inputs, i_channel, i_LMB, multi_channeling=True, **opts)
+        else:
+            final_res += self.evaluate_channel(
+                continuous_inputs, discrete_inputs, self.channel_for_generation[0], self.channel_for_generation[1], multi_channeling=False, **opts)
+
+        return final_res
+
+    def evaluate_channel(self, continuous_inputs, discrete_inputs, selected_cut_and_side, selected_LMB, multi_channeling=True, **opts):
+        """ The 'selected_cut_and_side' and 'selected_LMB' give the option of specifying a particle (subset of) all integration channels."""
+
+        random_variables = list(continuous_inputs)
+        
+        if self.debug: logger.debug('>>> Starting new integrand evaluation using CC cut and side #%d and LMB index #%d for sampling and with random variables: %s'%str(
+            selected_cut_and_side, selected_LMB, random_variables
+        ))
+
+        x_t = random_variables[self.dimensions.get_position('x_t')]
+        if self.debug: logger.debug('x_t=%s'%x_t)
+
+        # We must now promote the point to full 3^L using the causal flow, and thus determine the rescaling_t with the right density.
+        rescaling_t, wgt_t = self.h_function(x_t)
+        if self.debug: logger.debug('t, wgt_t=%s, %s'%(rescaling_t, wgt_t))
+
+        normalising_func = self.h_function.PDF(rescaling_t)
+        if self.debug: logger.debug('normalising_func=%s'%str(normalising_func))
+
+        # Note that normalising_func*wgt_t = 1 when the sampling PDF matches exactly the h function, but it won't if approximated.
+
+        final_res = complex(0., 0.)
+
+        i_channel = selected_cut_and_side
+
+        channel_info = self.SG['SG_multichannel_info'][i_channel]
+
+        generator = self.multichannel_generators[i_channel]
+
+        topology_info = self.SG['cutkosky_cuts'][
+                channel_info['cutkosky_cut_id']
+            ]['multichannel_info']['tree_topologies'][
+                channel_info['side']                    
+            ]
+
+        # Get the external phase-space random variables
+        external_phase_space_xs = [ 
+            random_variables[self.dimensions.get_position('x_%d'%i_dim)] 
+            for i_dim in range(1,len(channel_info['independent_final_states'])*3) 
+        ]
+
+        # build the external kinematics 
+        PS_point, PS_jac, _, _ = generator.get_PS_point(external_phase_space_xs)
+
+        inv_aL_jacobian = 1.
+        # Correct for the 1/(2E) of each cut propagator that alphaLoop includes but which is already included in the normal PS parameterisation
+        for v in PS_point[2:]:
+            inv_aL_jacobian *= 2*v[0]
+
+        # We should undo the mock-up 2>N if n_initial is 1
+        PS_point = { edge_name : PS_point[2+i_edge].space()*edge_direction for i_edge, (edge_name, edge_direction) in enumerate(topology_info['outgoing_edges']) } 
+
+        i_LMB = selected_LMB
+        LMB_info = channel_info['loop_LMBs'][i_LMB]
+
+        CMB_edges = list(LMB_info['loop_edges'])
+        CMB_edges.extend([edge_name for edge_name, edge_direction in channel_info['independent_final_states']])
+        
+        loop_phase_space_xs = [ 
+            random_variables[self.dimensions.get_position('x_%d'%i_dim)] 
+            for i_dim in range(
+                len(channel_info['independent_final_states'])*3,
+                self.SG['topo']['n_loops']*3
+            ) 
+        ]
+
+        ks, loop_jac = self.loop_parameterisation(loop_phase_space_xs)
+        PS_point.update( { edge_name : vectors.Vector(ks[i_LMB_entry:i_LMB_entry+3]) for i_LMB_entry, edge_name in enumerate(LMB_info['loop_edges']) } )
+
+        downscaled_input_momenta_in_CMB = [ PS_point[edge_name] for edge_name in CMB_edges ]
+
+        transformation_matrix, parametric_shifts = LMB_info['transformation_to_defining_LMB']
+        shifts = [ sum([self.external_momenta[i_shift]*shift 
+                    for i_shift, shift in enumerate(parametric_shift)]) for parametric_shift in parametric_shifts ]
+        downscaled_input_momenta_in_LMB = [ vectors.Vector(v) for v in transformation_matrix.dot(
+            [list(rm+shift) for rm, shift in zip(downscaled_input_momenta_in_CMB, shifts)] ) ]
+
+        upscaled_input_momenta_in_LMB = [ k*rescaling_t for k in downscaled_input_momenta_in_LMB ]
+
+        # Applying the rescaling to embed the momenta in the full R^(3L) space
+        # and thus effectively compute the inverse of the jacobian that will be included by the full integrand in rust
+
+        # First the delta function jacobian
+        delta_jacobian = 0.
+        inv_rescaling_t = 1./rescaling_t
+        for edge_name, edge_direction in topology_info['outgoing_edges']:
+            
+            k = sum([ upscaled_input_momenta_in_LMB[i_k]*wgt for i_k, wgt in enumerate(self.SG['edge_signatures'][edge_name][0]) ])
+            shift = sum([ self.external_momenta[i_shift]*wgt for i_shift, wgt in enumerate(self.SG['edge_signatures'][edge_name][1]) ])
+
+            delta_jacobian += float(edge_direction)*(
+                ( 2. * inv_rescaling_t * k.square() + k.dot(shift) ) / 
+                ( 2. * math.sqrt( (inv_rescaling_t*k + shift).square() - self.edge_masses[edge_name]**2 ) )
+            )
+        inv_aL_jacobian *= delta_jacobian
+
+        # Then the inverse of the H-function and of the Jacobian of the causal flow change of variables
+        inv_aL_jacobian *=  ( 1. / self.h_function.PDF(1./rescaling_t) ) * (rescaling_t**(len(CMB_edges)*3)) 
+
+        # And finally of alphaLoop parameterisation itself 
+        aL_xs = []
+        for i_v, v in enumerate(upscaled_input_momenta_in_LMB):
+            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, self.E_cm**2)
+            inv_aL_jacobian *= inv_jac
+            aL_xs.extend([kx, ky, kz])
+
+        # The final jacobian must then be our param. jac together with that of t divided by the one from alphaloop.
+        final_jacobian = PS_jac * loop_jac * wgt_t * inv_aL_jacobian
+
+        # Finally actually call alphaLoop full integrand
+        re, im = self.rust_worker.evaluate_integrand( aL_xs )
+        aL_wgt = complex(re, im)
+
+        if self.debug: logger.debug('final jacobian=%s'%final_jacobian)
+
+        # And accumulate it to what will be the final result
+        final_res += final_jacobian * normalising_func * aL_wgt
+
+        if multi_channeling:
+
+            # And accumulate this jacobian into the denominator of the multichanneling factor
+            multichannel_factor_denominator = final_jacobian
+
+            for MC_i_channel, MC_channel_info in enumerate(self.SG['SG_multichannel_info']):
+                # WARNING TODO doing the double for-loop here is not so optimal because a lot of information can be computed independently
+                # of the LMB chosen already. I leave this to future refinements.
+                for MC_i_LMB, MC_LMB_info in enumerate(channel_info['loop_LMBs']):
+                    if (MC_i_channel, MC_i_LMB) == (i_channel, i_LMB):
+                        # This contributions was already accounted for as part of final_jacobian
+                        continue
+                    
+                    MC_final_jacobian = self.get_jacobian_for_channel(MC_i_channel, MC_i_LMB, upscaled_input_momenta_in_LMB)
+
+                    # Aggregate that final jacobian for this channel to the multichanneling denominator
+                    multichannel_factor_denominator += MC_final_jacobian
+        
+            # Include the multichanneling factor
+            if self.debug: logger.debug('Multi-channeling factor=%s'%( final_jacobian / multichannel_factor_denominator ))
+            final_res *= final_jacobian / multichannel_factor_denominator
+
+        if self.debug: logger.debug( 'Final weight returned = %s (phase = %s)'%( final_res, self.phase) )
+
+        if self.phase=='real':
+            return final_res.real
+        else:
+            return final_res.imag
+
+    def get_jacobian_for_channel(self, MC_i_channel, MC_i_LMB, upscaled_input_momenta_in_LMB):
+
+        if self.debug: logger.debug('> Computing jacobian for CC cut and side #%d and LMB index #%d from the follwing upscaled LMB momenta:\n%s'%str(
+                    MC_i_channel, MC_i_LMB, str(upscaled_input_momenta_in_LMB)
+                ))
+
+        MC_channel_info = self.SG['SG_multichannel_info'][MC_i_channel]
+
+        MC_LMB_info = MC_channel_info['loop_LMBs'][MC_i_LMB]
+
+        MC_topology_info = self.SG['cutkosky_cuts'][
+            MC_channel_info['cutkosky_cut_id']
+        ]['multichannel_info']['tree_topologies'][
+            MC_channel_info['side']                    
+        ]
+
+        MC_CMB_edges = list(MC_LMB_info['loop_edges'])
+        MC_CMB_edges.extend([edge_name for edge_name, edge_direction in MC_channel_info['independent_final_states']])
+
+        MC_generator = self.multichannel_generators[MC_i_channel]
+
+        MC_upscaled_input_momenta_in_CMB = {}
+        MC_aL_xs = []
+        MC_inv_aL_jacobian = 1.
+        for i_edge, edge_name in enumerate(MC_CMB_edges):
+            k = sum([ upscaled_input_momenta_in_LMB[i_k]*wgt for i_k, wgt in enumerate(self.SG['edge_signatures'][edge_name][0]) ])
+            shift = sum([ self.external_momenta[i_shift]*wgt for i_shift, wgt in enumerate(self.SG['edge_signatures'][edge_name][1]) ])
+            MC_upscaled_input_momenta_in_CMB[edge_name] = k+shift
+
+            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(
+                list(MC_upscaled_input_momenta_in_CMB[edge_name]), i_edge, self.E_cm**2
+            )
+            MC_aL_xs.extend([kx, ky, kz])
+            MC_inv_aL_jacobian *= inv_jac
+
+        MC_upscaled_final_state_configurations = [ ]
+        MC_upscaled_final_state_momenta = [ ]
+        for edge_name, edge_direction in MC_topology_info['outgoing_edges']:
+            k = sum([ upscaled_input_momenta_in_LMB[i_k]*wgt for i_k, wgt in enumerate(self.SG['edge_signatures'][edge_name][0]) ])
+            shift = sum([ self.external_momenta[i_shift]*wgt for i_shift, wgt in enumerate(self.SG['edge_signatures'][edge_name][1]) ])
+            MC_upscaled_final_state_momenta.append( (k+shift)*edge_direction )
+            MC_upscaled_final_state_configurations.append({
+                'k' : k,
+                'shift' : shift,
+                'direction' : edge_direction,
+                'mass' : self.edge_masses[edge_name]
+            })
+        MC_inv_rescaling_t = self.solve_soper_flow(
+            MC_upscaled_final_state_configurations, self.hyperparameters['CrossSection']['incoming_momenta'] )
+        MC_rescaling_t = 1./MC_inv_rescaling_t
+
+        MC_x_t, MC_inv_wgt_t = self.h_function.inverse_sampling(MC_rescaling_t)
+        MC_wgt_t = 1./MC_inv_wgt_t
+
+        # Note that MC_normalising_func*MC_wgt_t = 1 when the sampling PDF matches exactly the h function, but it won't if approximated.
+        #MC_normalising_func = self.h_function.PDF(MC_rescaling_t)
+
+        MC_downscaled_final_state_momenta = []
+        MC_downscaled_final_state_four_momenta = []
+        for cfg in MC_upscaled_final_state_configurations:
+            MC_downscaled_final_state_momenta.append(
+                (cfg['k']*MC_inv_rescaling_t + cfg['shift'])*cfg['direction']
+            )
+            MC_downscaled_final_state_four_momenta.append(vectors.LorentzVector(
+                [ math.sqrt(MC_downscaled_final_state_momenta[-1].square()+cfg['mass']**2), ]+list(MC_downscaled_final_state_momenta[-1])
+            ))
+
+        # Warning! It is irrelevant for our usecase here, but the inversion below is only valid for the jacobian and the xs that control invariant masses 
+        # when using the SingleChannelPhaseSpaceGenerator (for the FlatInvertiblePhaseSpaceGenerator all inverted xs would be correct)
+        # We need to pad with two dummy initial states
+        MC_xs, MC_inv_PS_jac= MC_generator.invertKinematics( self.E_cm, vectors.LorentzVectorList([None, None]+MC_downscaled_final_state_four_momenta) )
+        
+        MC_PS_jac = 1./MC_inv_PS_jac
+
+        # Correct for the 1/(2E) of each cut propagator that alphaLoop includes but which is already included in the normal PS parameterisation
+        MC_inv_aL_jacobian = 1
+        for v in MC_downscaled_final_state_four_momenta:
+            MC_inv_aL_jacobian *= 2*v[0]
+
+        MC_delta_jacobian = 0.
+        for edge_name, edge_direction in MC_topology_info['outgoing_edges']:
+
+            k = sum([ upscaled_input_momenta_in_LMB[i_k]*wgt for i_k, wgt in enumerate(self.SG['edge_signatures'][edge_name][0]) ])
+            shift = sum([ self.external_momenta[i_shift]*wgt for i_shift, wgt in enumerate(self.SG['edge_signatures'][edge_name][1]) ])
+
+            MC_delta_jacobian += float(edge_direction)*(
+                ( 2. * MC_inv_rescaling_t * k.square() + k.dot(shift) ) / 
+                ( 2. * math.sqrt( (MC_inv_rescaling_t*k + shift).square() - self.edge_masses[edge_name]**2 ) )
+            )
+        MC_inv_aL_jacobian *= MC_delta_jacobian
+
+        # Then the inverse of the H-function and of the Jacobian of the causal flow change of variables
+        MC_inv_aL_jacobian *=  ( 1. / self.h_function.PDF(1./MC_rescaling_t) ) * (MC_rescaling_t**(len(MC_CMB_edges)*3)) 
+
+        loop_phase_space_momenta = []
+        for edge_name in MC_LMB_info['loop_edges']:
+            loop_phase_space_momenta.extend(list(MC_upscaled_input_momenta_in_CMB[edge_name]))
+
+        MC_loop_xs, MC_loop_inv_jac = self.loop_inv_parameterisation(loop_phase_space_momenta)
+        MC_loop_jac = 1./MC_loop_inv_jac
+
+        # Return the final jacobian of the parameterisation
+        MC_final_jacobian = MC_PS_jac * MC_loop_jac * MC_wgt_t * MC_inv_aL_jacobian # * MC_normalising_func
+        if self.debug: logger.debug('Final MC jacobian reconstructed: %s'%str(MC_final_jacobian))
+
+        return MC_final_jacobian
 
 class CustomGenerator(object):
     pass
@@ -318,143 +832,6 @@ class generator_spherical(CustomGenerator):
 
         if self.debug: logger.debug('xs=%s'%aL_xs)
         if self.debug: logger.debug('jacobian=%s'%final_jacobian)
-
-        return aL_xs, final_jacobian
-
-
-class generator_flat(CustomGenerator):
-
-    def __init__(self, dimensions, rust_worker, SG_info, model, h_function, hyperparameters, debug=0, **opts):
-
-        self.debug = debug
-        self.rust_worker = rust_worker
-        self.model = model
-        self.SG_info = SG_info
-        self.hyperparameters = hyperparameters
-        self.dimensions = dimensions
-        self.h_function = h_function
-
-        E_cm = math.sqrt(max(sum(LorentzVector(vec) for vec in hyperparameters['CrossSection']['incoming_momenta']).square(),0.0))
-        self.E_cm = E_cm
-        if debug: logger.debug("E_cm detected=%.16e"%self.E_cm)
-
-        self.generator = PS.FlatInvertiblePhasespace(
-            [0.]*2, [0.]*(SG_info['topo']['n_loops']+1), 
-            beam_Es =(E_cm/2.,E_cm/2.), beam_types=(0,0),
-            dimensions = self.dimensions,
-        )
-
-        # Variables for testing that the inverse jacobian works well.
-        # Set test_inverse_jacobian to True in order to debug the inverse jacobian.
-        self.test_inverse_jacobian = False
-        if self.test_inverse_jacobian:
-            logger.debug("WARNING: Running in debug mode 'test_inverse_jacobian'.")
-            time.sleep(1.0)
-        self.rv = None
-        self.i_count = 0
-
-    def __call__(self, random_variables):
-        """ 
-        Generates a point using a sampling reflecting the topolgy of SG_QG0.
-        It will return the point directly in x-space as well as the final weight to combine
-        the result with.
-        """
-        #random_variables=[4.27617846e-01, 5.55958133e-01, 1.57593910e-01, 1.13340867e-01, 2.74746432e-01, 2.16284116e-01, 1.99368173e-04, 8.08726361e-02, 1.40842072e-01]
-
-        if self.test_inverse_jacobian:
-            if self.i_count==0:
-                self.rv = copy.deepcopy(random_variables)
-            else:
-                random_variables = self.rv
-            self.i_count += 1
-
-        x_t = random_variables[self.generator.dim_name_to_position['t']]
-
-        if self.debug: logger.debug('x_t=%s'%x_t)
-
-        # We must now promote the point to full 3^L using the causal flow.
-        # First transform t in [0,1] to t in [0,\inf]
-        rescaling_t, wgt_t = self.h_function(x_t)
-
-        if self.test_inverse_jacobian:
-            rescaling_t /= float(self.i_count)
-
-        if self.debug: logger.debug('t, wgt_t=%s, %s'%(rescaling_t, wgt_t))
-
-        PS_point, wgt_param, x_1, x_2 = self.generator.get_PS_point(random_variables)
-        if self.debug: logger.debug("orig wgt_param: %s"%wgt_param)
-
-        # Correct for the 1/(2E) of each cut propagator that alphaLoop includes but which is already included in the normal PS parameterisation
-        for v in PS_point[2:]:
-            wgt_param *= 2*v[0]
-        if self.debug: logger.debug("after wgt_param: %s"%wgt_param)
-
-        if self.debug: logger.debug("PS point from param:\n%s"%str(LorentzVectorList(PS_point)))
-
-        # Now rotate this point to the lMB of the topology.
-        # In this case, since we generate flat, we don't care and simply take the first :-1 vectors
-        # (and remove the initial external states)
-        # and strip off the energies
-
-#       START for ./run_ddx_NLO_SG_QG2.sh        
-#        PS_point[2]=-PS_point[2]
-#       END for ./run_ddx_NLO_SG_QG2.sh        
-
-#       START for run_jjj_NLO_SG_QG36.sh
-        PS_point[2]=-PS_point[2]
-#       END for run_jjj_NLO_SG_QG36.sh
-
-        PS_point_LMB = [ list(v[1:]) for v in PS_point[2:-1] ]
-        if self.debug: logger.debug("PS point in LMB:\n%s"%pformat(PS_point_LMB))
-
-        # Apply the rescaling
-        rescaled_PS_point_LMB = [ [ rescaling_t*ki for ki in k ] for k in PS_point_LMB]
-
-        # Exclude normalising func when testing the inverse jacobian.
-        if not self.test_inverse_jacobian:
-            normalising_func = self.h_function.PDF(rescaling_t)
-        else:
-            normalising_func = 1.0
-        if self.debug: logger.debug('normalising_func=%s'%str(normalising_func))
-
-        # Now we inverse parameterise this point using alphaLoop (non-multichanneled internal param)
-        aL_xs = []
-        # The rescaling jacobian comes both the rescaling change of variable and solving the delta function
-        # TODO adjust so as to align with the particular LMB chosen for this topology.
-        # TODO massive case not supported, issue a crash and warning in this case.
-        dependent_momentum = -sum(vectors.Vector(v) for v in PS_point_LMB)
-
-#       START for ./run_ddx_NLO_SG_QG2.sh
-#        dependent_momentum = vectors.Vector(PS_point_LMB[0])-vectors.Vector(PS_point_LMB[1])
-#       END for ./run_ddx_NLO_SG_QG2.sh        
-
-#       START for run_jjj_NLO_SG_QG36.sh
-        dependent_momentum = -vectors.Vector(PS_point_LMB[0])+vectors.Vector(PS_point_LMB[1])+vectors.Vector(PS_point_LMB[2])
-#       END for run_jjj_NLO_SG_QG36.sh
-
-        k_norms = [ math.sqrt(sum([ ki**2 for ki in k ])) for k in (PS_point_LMB+[list(dependent_momentum),]) ]
-
-        if self.debug: logger.debug('h(t)=%s'%str(self.h_function.PDF(rescaling_t)))
-        if self.debug: logger.debug('1/t=%s'%str(1./rescaling_t))
-        if self.debug: logger.debug('h(1/t)=%s'%(self.h_function.PDF(1./rescaling_t)))
-        if self.debug: logger.debug('rescaling_t**(3*len(PS_point_LMB))=%s'%str(rescaling_t**(3*len(PS_point_LMB))))
-        if self.debug: logger.debug('sum(k_norms)=%s'%str(sum(k_norms)))
-        if self.debug: logger.debug('1./(rescaling_t*sum(k_norms))=%s'%str(1./(rescaling_t*sum(k_norms))))
-
-        inv_aL_jac = ( 1.0 / self.h_function.PDF(1./rescaling_t) ) * (rescaling_t**(len(PS_point_LMB)*3)) * ( rescaling_t * sum(k_norms) )
-
-        for i_v, v in enumerate(rescaled_PS_point_LMB):
-            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(v, i_v, self.E_cm**2)
-            inv_aL_jac *= inv_jac
-            aL_xs.extend([kx, ky, kz])
-
-        if self.debug: logger.debug('inv_aL_jac=%s'%str(inv_aL_jac))
-
-        # The final jacobian must then be our param. jac together with that of t divided by the one from alphaloop.
-        final_jacobian = wgt_param * wgt_t * normalising_func * inv_aL_jac
-
-        if self.debug: logger.debug('xs=%s'%str(aL_xs))
-        if self.debug: logger.debug('jacobian=%s'%str(final_jacobian))
 
         return aL_xs, final_jacobian
 

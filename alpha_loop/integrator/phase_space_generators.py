@@ -576,6 +576,11 @@ class SingleChannelPhasespace(VirtualPhaseSpaceGenerator):
         
         return [s_channel_path,t_channel_path]
         
+    def invertKinematics(self, E_cm, momenta, **opts):
+
+        return self.get_PS_point(
+            LorentzVectorList([LorentzVector(v) for v in momenta]), **opts
+        )
 
     def get_PS_point(self, input_variables, path=None, **opts):
         """ Generates a complete PS point, including Bjorken x's, dictating a specific choice

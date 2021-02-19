@@ -1233,7 +1233,7 @@ CTable pfmap(0:{},0:{});
         assert(e[0] != 'q' or int(e[1:]) < 5 for e in edge_map_lin)
 
         particle_ids = { e['name']: e['PDG'] for e in self.edges.values() }
-        particle_masses = {e['name']: 0. if e['PDG'] == 1337 else model['parameter_dict'][model.get_particle(e['PDG']).get('mass')].real for e in self.edges.values()}
+        particle_masses = {e['name']: model['parameter_dict'][model.get_particle(e['PDG']).get('mass')].real for e in self.edges.values()}
 
         num_incoming = sum(1 for e in edge_map_lin if e[0][0] == 'q') // 2
 

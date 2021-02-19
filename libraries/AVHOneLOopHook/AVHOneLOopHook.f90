@@ -28,6 +28,8 @@ CF2PY INTENT(IN)  :: p1_in,p2_in,p3_in,p4_in,p12_in,p23_in,m1_in,m2_in,m3_in,m4_
             m3 = DCMPLX(m3_in, 0.0d0)
 
 !           avh_olo_c0c
+!            call avh_olo_mu_set( 1000.0d0 )
+            call olo_scale( 1.0d0 )
             call olo( res, p1,p2,p3, m1,m2,m3 )
 !            write(*,*) 'triangle res=',res(0)
 
@@ -58,6 +60,7 @@ CF2PY INTENT(IN)  :: p1_in,p2_in,p3_in,p4_in,p12_in,p23_in,m1_in,m2_in,m3_in,m4_
 
 !           avh_olo_d0c
             call olo_onshell(1.0d-7)
+            call olo_scale( 1.0d0 )
             call olo( res ,p1,p2,p3,p4,p12,p23 ,m1,m2,m3,m4 )
 !            write(*,*) 'box res=',res(0)
        end subroutine compute_one_loop_box

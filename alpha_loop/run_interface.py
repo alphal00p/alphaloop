@@ -25,6 +25,8 @@ from argparse import ArgumentParser
 from pprint import pprint, pformat
 import progressbar
 import glob
+import threading
+import networkx as nx
 
 #import matplotlib.pyplot as plt
 #from matplotlib.font_manager import FontProperties
@@ -43,6 +45,7 @@ import madgraph.various.misc as misc
 import madgraph.various.cluster as cluster
 import madgraph.core.color_algebra as color
 import madgraph.core.base_objects as base_objects
+import models.model_reader as model_reader
 
 import alpha_loop.utils as utils
 from alpha_loop.ltd_commons import HyperParameters
@@ -64,6 +67,10 @@ logger = logging.getLogger('alphaLoop.Interface')
 pjoin = os.path.join
 template_dir = pjoin(plugin_path, 'Templates')
 
+FINAL=True
+INITIAL=False
+
+DUMMY=99
 
 class alphaLoopRunInterfaceError(MadGraph5Error):
     """ Error for the alphaLoop plugin """
@@ -380,6 +387,442 @@ class SuperGraph(dict):
                 res_str.append('%s%s%s'%(Colours.BLUE,k,Colours.END))
         return '\n'.join(res_str)
 
+    def set_integration_channels(self):
+        """ This function shrinks all loops within each left- and right- amplitude graph of each cutkosky cut and builds the corresponding
+        tree topology associated with it."""
+
+        edge_powers = { e[0] : e[-1] for e in self['topo_edges'] }
+        
+        edges_PDG = { e[0] : e [1] for e in self['edge_PDGs'] }
+
+        for i_cut, cutkosky_cut in enumerate(self['cutkosky_cuts']):
+
+            # Obtain the (non-UV) diagram sets composing the amplitudes to the left and right of this cutkosky cut.
+            left_graph_loop_lines = []
+            right_graph_loop_lines = []
+
+            for diagram_set in cutkosky_cut['diagram_sets']:
+                found_diag_set = False
+                for diag_info in diagram_set['diagram_info']:
+                    # Ignore UV diagram sets
+                    if all(not prop['uv'] for ll in diag_info['graph']['loop_lines'] for prop in ll['propagators']):
+                        found_diag_set = True
+                        # Remove tree propagator loop lines
+                        filtered_loop_lines = [ll for ll in diag_info['graph']['loop_lines'] if not all(lle==0 for lle in ll['signature']) ]
+                        if not diag_info['conjugate_deformation']:
+                            left_graph_loop_lines.extend( filtered_loop_lines )
+                        else:
+                            right_graph_loop_lines.extend( filtered_loop_lines )
+                    else:
+                        break
+                if found_diag_set:
+                    break
+            
+            # We must now build disjoint sets of these propagator to identify which ones need to be shrunk together
+            # First assign an independent ID to each group and merge them when we find common loop lines 
+            left_graph_loop_lines = [[ [loop_line,], i_group] for i_group, loop_line in enumerate(left_graph_loop_lines)]
+            right_graph_loop_lines = [[ [loop_line,], i_group] for i_group, loop_line in enumerate(right_graph_loop_lines)]
+            # Now iteratively group these propagators together whenever they have a loop in common
+            # (using the advanced algo for disjoint set computations using linked lists would be overkill here)
+            for all_loop_lines in [left_graph_loop_lines, right_graph_loop_lines]:
+                while True:
+                    for i_group_A, groupA in enumerate(all_loop_lines):
+                        for groupB in all_loop_lines[i_group_A:]:
+                            if any( any(llA['signature'][i_signature]!=0 for llA in groupA[0]) for 
+                                    llB in groupB[0] for i_signature, signature_int in enumerate(llB['signature']) if signature_int!=0 ):
+                                # These two groups belong to the same loop that needs to be shrunk at once
+                                groupA[1] = min(groupA[1],groupB[1])
+                                groupB[1] = min(groupA[1],groupB[1])
+                    
+                    # Now collect and fuse all identical groups
+                    new_all_loop_lines =[]
+                    for group_ID in sorted(list(set(group[1] for group in all_loop_lines))):
+                        new_all_loop_lines.append(
+                            [ sum([ll_group[0] for ll_group in all_loop_lines if ll_group[1]==group_ID],[]), group_ID]
+                        )
+                    if len(new_all_loop_lines)==len(all_loop_lines):
+                        break
+                    else:
+                        all_loop_lines[:] = new_all_loop_lines                        
+
+            # We know only care about the propagator names that have been grouped together on either side of the cutkosky cut
+            # So let's retain this information only
+            left_graph_loop_propagators = { i_group : 
+                    sum([ [ prop['name'] for prop in loop_line['propagators'] ] for loop_line in loop_lines],[]) 
+                for loop_lines, i_group in left_graph_loop_lines
+            }
+            right_graph_loop_propagators = { i_group : 
+                    sum([ [ prop['name'] for prop in loop_line['propagators'] ] for loop_line in loop_lines],[]) 
+                for loop_lines, i_group in right_graph_loop_lines
+            }
+
+            # We can now use these propagators to shrink the corresponding loops in the supergraph
+            non_shrunk_edges_for_this_CC_cut = {e[0]:tuple(e[1:]) for e in self['topo_edges']}
+            effective_vertices = {}
+            for i_side, loop_propagators_groups in enumerate([left_graph_loop_propagators, right_graph_loop_propagators]):
+                for group_ID, loop_propagators in loop_propagators_groups.items():
+                    non_shrunk_edges_for_this_CC_cut, subgraph_info = self.shrink_edges(non_shrunk_edges_for_this_CC_cut, loop_propagators)
+                    subgraph_info['side_of_cutkosky_cut'] = 'left' if i_side==0 else 'right'
+                    effective_vertices[subgraph_info.pop('effective_node')] = subgraph_info
+            
+            # We must now list all LMBs for the shrunk effective nodes since we will use this information to multichannel over them
+            for effective_node, effective_vertex_info in effective_vertices.items():
+                all_internal_edges = list(effective_vertex_info['internal_edges'].items())
+                SG_topo_gen = ltd_utils.TopologyGenerator(
+                    [ [e_name,]+list(e_info[:-1]) for e_name, e_info in all_internal_edges ],
+                    powers = { e_name : e_info[-1] for e_name, e_info in all_internal_edges }
+                )
+                all_LMBs_for_this_effective_vertex = SG_topo_gen.loop_momentum_bases()
+                effective_vertex_info['loop_momenta_bases'] = [ 
+                    [ all_internal_edges[e_index][0] for e_index in one_lmb] 
+                        for one_lmb in all_LMBs_for_this_effective_vertex 
+                ]
+
+            cut_edge_names = [c['name'] for c in cutkosky_cut['cuts']]
+            external_edges = {'left':[], 'right':[]}
+            for e_name, e_sig in self['edge_signatures'].items():
+                if not all(s==0 for s in e_sig[0]):
+                    continue
+                left_external_e_sig = e_sig[1][:len(e_sig[1])//2] 
+                right_external_e_sig = e_sig[1][len(e_sig[1])//2:] 
+                if all(s==0 for s in right_external_e_sig) and left_external_e_sig.count(1)==1 and left_external_e_sig.count(0)==len(left_external_e_sig)-1:
+                    external_edges['left'].append((e_name, left_external_e_sig.index(1)))
+                if all(s==0 for s in left_external_e_sig) and right_external_e_sig.count(1)==1 and right_external_e_sig.count(0)==len(right_external_e_sig)-1:
+                    external_edges['right'].append((e_name, right_external_e_sig.index(1)))
+            # Now reorder the vertices in the order of the signatures
+            external_edges['left'] = [ edge[0] for edge in sorted(external_edges['left'], key=lambda e: e[1]) ]
+            external_edges['right'] = [ edge[0] for edge in sorted(external_edges['right'], key=lambda e: e[1]) ]
+
+            # Make sure there is at least one in each
+            assert(len(external_edges['left'])>=1)
+            assert(len(external_edges['right'])>=1)
+
+            cut_tree = ltd_utils.TopologyGenerator(
+                [ (e_name, edge[0],edge[1]) for e_name, edge in non_shrunk_edges_for_this_CC_cut.items() if e_name not in cut_edge_names],
+                powers = { e_name: edge_powers[e_name] for e_name in non_shrunk_edges_for_this_CC_cut if e_name not in cut_edge_names }
+            )
+            tree_topologies = { 'left':{}, 'right':{} }
+            for side in ['left', 'right']:
+                sub_tree_indices = []
+                cut_tree.generate_spanning_trees(sub_tree_indices, tree={non_shrunk_edges_for_this_CC_cut[external_edges[side][0]][0]})
+                tree_topologies[side]['edges'] = {
+                    cut_tree.edge_map_lin[i][0] : non_shrunk_edges_for_this_CC_cut[cut_tree.edge_map_lin[i][0]]
+                    for i in sub_tree_indices[0] if cut_tree.edge_map_lin[i][0] not in external_edges[side] }
+                internal_edge_nodes = list(set(sum( [ [edge[0], edge[1]] for e_name, edge in tree_topologies[side]['edges'].items() ],[])))
+                tree_topologies[side]['effective_vertices_contained'] = [node for node in internal_edge_nodes if node in effective_vertices]
+                for edge_name in external_edges[side]:
+                    tree_topologies[side]['edges'][edge_name] = non_shrunk_edges_for_this_CC_cut[edge_name]
+                for edge_name in cut_edge_names:
+                    # Lower the power of the cut propagators as they have been cut
+                    edge_info = list(non_shrunk_edges_for_this_CC_cut[edge_name])
+                    edge_info[-1] -= 1
+                    tree_topologies[side]['edges'][edge_name] = tuple(edge_info)
+
+                tree_topologies[side]['incoming_edges'] = [
+                    (e_name, 1 if non_shrunk_edges_for_this_CC_cut[e_name][1] in internal_edge_nodes else -1) for e_name in external_edges[side]
+                ]
+                tree_topologies[side]['outgoing_edges'] = [
+                    (e_name, 1 if non_shrunk_edges_for_this_CC_cut[e_name][0] in internal_edge_nodes else -1) for e_name in cut_edge_names
+                ]
+
+                # Now create the list of s- and t-channels for this tree structure
+                external_outgoing_nodes = set([ non_shrunk_edges_for_this_CC_cut[e_name][1 if direction==1 else 0] for e_name, direction in tree_topologies[side]['outgoing_edges'] ])
+                external_incoming_nodes = set([ non_shrunk_edges_for_this_CC_cut[e_name][0 if direction==1 else 0] for e_name, direction in tree_topologies[side]['incoming_edges'] ])
+                remaining_internal_nodes = set(internal_edge_nodes)
+                pos_leg_id_counter = 0
+                edge_name_to_leg_number = {}
+                sorted_incoming_edges = sorted(tree_topologies[side]['incoming_edges'],key=lambda e:e[0])
+                for edge_name, edge_direction in sorted_incoming_edges:
+                    pos_leg_id_counter += 1
+                    edge_name_to_leg_number[edge_name] = pos_leg_id_counter
+                for edge_name, edge_direction in sorted(tree_topologies[side]['outgoing_edges'],key=lambda e:e[0]):
+                    pos_leg_id_counter += 1
+                    edge_name_to_leg_number[edge_name] = pos_leg_id_counter
+                neg_leg_id_counter = 0
+                for edge_name in tree_topologies[side]['edges']:
+                    if edge_name not in edge_name_to_leg_number:
+                        neg_leg_id_counter -= 1
+                        edge_name_to_leg_number[edge_name] = neg_leg_id_counter
+                ancestor_legs_for_node = {}
+                for e_name, direction in tree_topologies[side]['outgoing_edges']:
+                    internal_node = non_shrunk_edges_for_this_CC_cut[e_name][1 if direction==1  else 0]
+                    if internal_node in ancestor_legs_for_node:
+                        ancestor_legs_for_node[internal_node].append((e_name,FINAL))
+                    else:
+                        ancestor_legs_for_node[internal_node] = [ (e_name,FINAL), ]
+                for e_name, direction in tree_topologies[side]['incoming_edges']:
+                    internal_node = non_shrunk_edges_for_this_CC_cut[e_name][1 if direction==1 else 0]
+                    if internal_node in ancestor_legs_for_node:
+                        ancestor_legs_for_node[internal_node].append((e_name,INITIAL))
+                    else:
+                        ancestor_legs_for_node[internal_node] = [ (e_name,INITIAL), ]
+                tree_topologies[side]['edge_name_to_leg_number'] = edge_name_to_leg_number
+
+                # Construct the edges necessary for building an nx graph reprepsenting this tree topology
+                tree_topologies[side]['nx_graph_edges'] = []
+                for edge_name, (u_node, v_node, power) in tree_topologies[side]['edges'].items():
+                    nx_nodes = []
+                    # Leg number for the nx graph will be -1 for all internal and a positive one for externals
+                    nx_leg_number = -1
+                    for incoming_edge_name, direction in tree_topologies[side]['incoming_edges']:
+                        if incoming_edge_name==edge_name:
+                            nx_nodes = (edge_name_to_leg_number[edge_name], -v_node) if direction==1 else (-u_node, edge_name_to_leg_number[edge_name])
+                            nx_leg_number = edge_name_to_leg_number[edge_name]
+                            break
+                    else:
+                        for outgoing_edge_name, direction in tree_topologies[side]['outgoing_edges']:
+                            if outgoing_edge_name==edge_name:
+                                nx_nodes = (-u_node, edge_name_to_leg_number[edge_name]) if direction==1 else (edge_name_to_leg_number[edge_name], -v_node)
+                                nx_leg_number = edge_name_to_leg_number[edge_name]
+                                break
+                        else:
+                            nx_nodes = (-u_node, -v_node)
+
+                    tree_topologies[side]['nx_graph_edges'].append(
+                        (nx_nodes[0], nx_nodes[1], {'power':power, 'pdg': edges_PDG[edge_name] , 'leg_number': nx_leg_number})
+                    )
+
+                s_channels = base_objects.VertexList([])
+                t_channels = base_objects.VertexList([])
+                sink_edge = sorted_incoming_edges[-1][0] 
+                sink_internal_node = non_shrunk_edges_for_this_CC_cut[sink_edge][
+                    1 if sorted_incoming_edges[-1][1]==1 else 0
+                ]
+                sink_external_node = non_shrunk_edges_for_this_CC_cut[sink_edge][
+                    0 if sorted_incoming_edges[-1][1]==1 else 1
+                ] 
+
+                while len(remaining_internal_nodes)>0:
+                    # Find one node if all connected nodes being external but one
+                    for node in remaining_internal_nodes:
+                        # We want to force to finish on the sink_internal_node, so we veto probing that one until it is last
+                        if len(remaining_internal_nodes)>1 and node == sink_internal_node:
+                            continue
+                        connected_nodes = [
+                            (e,nodes[0]) if nodes[1]==node else (e,nodes[1]) 
+                            for e, nodes in tree_topologies[side]['edges'].items() if node in nodes
+                        ]
+                        connected_non_explored_edges = [ (e, a_node) for e, a_node in connected_nodes if a_node in remaining_internal_nodes ]
+                        if len(connected_non_explored_edges)>1:
+                            continue
+                        if len(connected_non_explored_edges)==1:
+                            connected_non_explored_edge = connected_non_explored_edges[0][0]
+                            connected_non_explored_node = connected_non_explored_edges[0][1]
+                            # Add an s- or t-channel
+                            connected_external_nodes = set(a_node for e, a_node in connected_nodes if a_node not in remaining_internal_nodes)
+                            ancestors_states = [ancestor_legs_for_node[a_node] for a_node in connected_external_nodes]
+                            final_state_ancestors = []
+                            initial_state_ancestors = []
+                            for ancestors in ancestors_states:
+                                for ancestor_edge_name, ancestor_state in ancestors:
+                                    if ancestor_state == FINAL:
+                                        final_state_ancestors.append( (ancestor_edge_name, ancestor_state) ) 
+                                    else:
+                                        initial_state_ancestors.append( (ancestor_edge_name, ancestor_state) )
+                            
+                            # Add the ancestors to this node:
+                            if connected_non_explored_node in ancestor_legs_for_node:
+                                ancestor_legs_for_node[connected_non_explored_node].extend(final_state_ancestors+initial_state_ancestors)
+                            else:
+                                ancestor_legs_for_node[connected_non_explored_node] = final_state_ancestors+initial_state_ancestors
+                            new_vertex = base_objects.Vertex({
+                                'id': DUMMY, # Irrelevant
+                                'legs': base_objects.LegList(
+                                    [
+                                        base_objects.Leg({
+                                            'id': edges_PDG[edge_name],
+                                            'number': edge_name_to_leg_number[edge_name],
+                                            'state': INITIAL if edge_name in tree_topologies[side]['incoming_edges'] else FINAL,
+                                        }) for edge_name, a_node in connected_nodes if a_node!=connected_non_explored_node
+                                    ] + [
+                                        base_objects.Leg({
+                                            'id': edges_PDG[connected_non_explored_edge],
+                                            'number': edge_name_to_leg_number[connected_non_explored_edge],
+                                            # The state of internal leg is irrelevant and we choose them to be final
+                                            'state': FINAL,
+                                        }),
+                                    ]
+                                )
+                            })
+
+                            if len(initial_state_ancestors)==0 or len(final_state_ancestors)==0:
+                                # s-channel propagator
+                                s_channels.append(new_vertex)
+                            else:
+                                # t-channel propagator
+                                t_channels.append(new_vertex)
+
+                            remaining_internal_nodes.remove(node)
+                            break
+
+                        elif len(connected_non_explored_edges)==0:
+                            # We are done, simply add the connecting fake vertex now
+                            # The algorithm should guarantee that this is the sink_internal_node
+                            assert(node==sink_internal_node)
+
+                            # By convention in these phase-space generators based on t- and s-channel decomposition
+                            # the last leg of the "gluing" last t-channel is the last initial state with an ID given 
+                            # to be the largest available negative number
+                            edge_name_to_leg_number[sink_edge] = neg_leg_id_counter-1
+                            t_channels.append(base_objects.Vertex({
+                                'id': DUMMY, # Irrelevant
+                                'legs': base_objects.LegList(
+                                    [
+                                        base_objects.Leg({
+                                            'id': edges_PDG[edge_name],
+                                            'number': edge_name_to_leg_number[edge_name],
+                                            'state': INITIAL if edge_name in tree_topologies[side]['incoming_edges'] else FINAL,
+                                        }) for edge_name, a_node in connected_nodes if a_node!=sink_external_node
+                                    ] + [
+                                        base_objects.Leg({
+                                            'id': edges_PDG[sink_edge],
+                                            'number': edge_name_to_leg_number[sink_edge], #edge_name_to_leg_number[sink_internal_node],
+                                            # The state of internal leg is irrelevant and we choose them to be final
+                                            'state': INITIAL,
+                                        }),
+                                    ]
+                                )
+                            }))
+
+                            remaining_internal_nodes.remove(node)
+                            break
+                    else:
+                        raise alphaLoopRunInterfaceError("Could not build kinematic topology for side %s of Cutkosky cut #%d of SG %s."%(
+                            side, i_cut, self['name']
+                        ))
+                
+                tree_topologies[side]['s_and_t_propagators'] = ( s_channels, t_channels )
+            
+            multichannel_info = {}
+            multichannel_info['effective_vertices'] = effective_vertices
+            multichannel_info['tree_topologies'] = tree_topologies
+
+            # Finally assign the newly generated information to this cutkosky cut
+            cutkosky_cut['multichannel_info'] = multichannel_info
+
+        # Now analyse all multichaneling topologies and recognize identical ones and group all LMBs.
+        SG_multichannel_info = []
+        for i_cut, cutkosky_cut in enumerate(self['cutkosky_cuts']):
+            
+            nx_graphs = {} 
+            all_effective_vertices = []
+            for side in ['left','right']:
+                all_effective_vertices.extend(cutkosky_cut['multichannel_info']['tree_topologies'][side]['effective_vertices_contained'])
+                nx_graphs[side] = nx.MultiDiGraph()
+                nx_graphs[side].add_edges_from(cutkosky_cut['multichannel_info']['tree_topologies'][side]['nx_graph_edges'])
+
+            are_both_side_isomorphic = self.is_isomorphic_to(nx_graphs['left'],nx_graphs['right'])
+            sides_to_consider_for_SG_multichanneling = ['left',] if are_both_side_isomorphic else ['right',]
+
+            for side in sides_to_consider_for_SG_multichanneling:
+
+                independent_final_states = cutkosky_cut['multichannel_info']['tree_topologies'][side]['outgoing_edges'][:-1]
+
+                SG_multichannel_info.append(
+                    {
+                        'cutkosky_cut_id' : i_cut,
+                        'side': side,
+                        'independent_final_states' : independent_final_states,
+                        'loop_LMBs' : []
+                    }
+                )
+
+                # Build the multichanneling with the cartesian product of all LMBs of all remaining effective vertices.
+                for LMB_combination in itertools.product( *[ 
+                        cutkosky_cut['multichannel_info']['effective_vertices'][effective_vertex]['loop_momenta_bases'] 
+                        for effective_vertex in all_effective_vertices
+                    ] ):
+                    # Flatten the combined LMBs
+                    if len(LMB_combination)>0:
+                        LMB_edges_for_this_channel = sum(LMB_combination,[])
+                    else:
+                        LMB_edges_for_this_channel = []
+
+                    # construct the channel basis to LTD loop momentum basis mapping
+                    mat = [ self['edge_signatures'][edge_name][0] 
+                                for edge_name in LMB_edges_for_this_channel + [e[0] for e in independent_final_states] ]
+                    transformation_matrix = np.linalg.inv(np.array(mat))
+                    parametric_shifts = [ [-p for p in self['edge_signatures'][edge_name][1]] 
+                                for edge_name in LMB_edges_for_this_channel + [e[0] for e in independent_final_states] ]
+                    transformation_to_defining_LMB = (transformation_matrix, parametric_shifts)
+                    # The shifts and transformation matrix can be used to perform the transformation as follows:
+                    # Built external momenta. Remember that they appear twice.
+                    #external_momenta = [ Vector(v[1:]) for v in self.hyperparameters['CrossSection']['incoming_momenta'] ]
+                    #external_momenta.extend(external_momenta)
+                    #shifts = [ sum([external_momenta[i_shift]*shift 
+                    #            for i_shift, shift in enumerate(parametric_shift)]) for parametric_shift in parametric_shifts ]
+                    #transformed_momenta_in_LMB = transfo.dot(
+                    #    [list(rm+shift) for rm, shift in zip(momenta_to_transform, shifts)] )
+                    
+                    SG_multichannel_info[-1]['loop_LMBs'].append(
+                        {
+                            'loop_edges' : LMB_edges_for_this_channel,
+                            'transformation_to_defining_LMB' : transformation_to_defining_LMB
+                        }
+                    )
+
+            self['SG_multichannel_info'] = SG_multichannel_info
+
+    # Make a copy here of the version of this function used for renormalisation as we may want to save/organised different data for it.
+    @classmethod
+    def shrink_edges(cls, edges, edges_to_shrink):
+        subgraph_info = {
+            'internal_edges' : {},
+            'internal_nodes' : [],
+            'in_edges' : {},
+            'out_edges' : {},
+            'effective_node' : None,
+        }
+        # First collect all the subgraph nodes
+        subgraph_info['internal_nodes'] = sorted(list(set(sum([list(edges[edge][:2]) for edge in edges_to_shrink],[]))))
+        # Elect the effective node
+        subgraph_info['effective_node'] = subgraph_info['internal_nodes'][0]
+        subgraph_info['internal_edges'] = { edge_name: edges[edge_name] for edge_name in edges_to_shrink }
+        new_graph_edges = {}
+        for ek, ee in edges.items():
+            if ek in edges_to_shrink:
+                continue
+            new_edge = tuple(ee)
+            if ee[0] in subgraph_info['internal_nodes']:
+                assert(ee[1] not in subgraph_info['internal_nodes'])
+                subgraph_info['out_edges'][ek] = ee
+                new_edge = (subgraph_info['effective_node'],ee[1],ee[2])
+            elif ee[1] in subgraph_info['internal_nodes']:
+                assert(ee[0] not in subgraph_info['internal_nodes'])
+                subgraph_info['in_edges'][ek] = ee
+                new_edge = (ee[0],subgraph_info['effective_node'],ee[2])
+            new_graph_edges[ek] = new_edge
+
+        return new_graph_edges, subgraph_info
+
+    @classmethod
+    def is_isomorphic_to(cls, directed_grah_A, directed_graph_B):
+        """ Uses networkx to decide if the two graphs in argument are isomorphic."""
+
+        def edge_match_function(e1,e2):
+            # This function needs tu support multi-edges
+            # For now all we do is making sure the set of PDGs of 
+            # all edges connecting the two nodes match.
+            # This is however fine since we only aim to compare trees here.
+            # TODO: Fix ambiguity with fermion flow and part / antipart
+            # For now consider two edges equal whenever the *abs* of PDGs matches.
+            return set((abs(e['pdg']),e['power'], e['leg_number']) for e in e1.values()) == \
+                set((abs(e['pdg']),e['power'], e['leg_number']) for e in e2.values())
+
+        # We do not care about edge orientation for comparing tree kinematic topologies
+        graphA, graphB = directed_grah_A.to_undirected(), directed_graph_B.to_undirected()
+
+        # We do not need to consider vertex ID as they do not matter for kinematic topology comparison
+        #def node_match_function(n1,n2):
+        #    return n1['vertex_id']==n2['vertex_id']
+        def node_match_function(n1,n2):
+            return True
+
+        return nx.is_isomorphic(graphA, graphB,
+            edge_match=edge_match_function,
+            node_match=lambda n1,n2: node_match_function
+        )
+
     def export(self, SG_name, dir_path):
         open(pjoin(dir_path,'PROCESSED_%s.yaml'%SG_name),'w').write(
             yaml.dump(dict(self), Dumper=Dumper, default_flow_style=False))
@@ -592,12 +1035,16 @@ def wrap_in_process():
         def fowarad_function_output_to_queue(*args):
             q.put(f(*args[1:],**args[0]))
         def modified_function(*args, **opts):
-            p = multiprocessing.Process(target=fowarad_function_output_to_queue, args=tuple([opts,]+list(args)))
-            p.start()
-            p.join()
+            # Note: using the multiprocessing instead of the threading module breaks on MacOS with python 3.8+ because of
+            # a backward incompatible change in the way processes are spawn by Python on MacOS. 
+            # p = multiprocessing.Process(target=fowarad_function_output_to_queue, args=tuple([opts,]+list(args)))
+            # p.start()
+            # p.join()
+            t = threading.Thread(target=fowarad_function_output_to_queue, args=tuple([opts,]+list(args)))
+            t.start()
             return q.get()
         return modified_function
-    
+
     return wrap_function_in_process
 
 class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
@@ -1464,7 +1911,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
                     help='the name of a supergraph to display')
     integrate_parser.add_argument('-s','--sampling', metavar='sampling', type=str, default='xs', 
-                    choices=('xs','rambo', 'advanced', 'test_h_function'), help='Specify the sampling method (default: %(default)s)')
+                    choices=('xs','flat', 'advanced', 'test_h_function'), help='Specify the sampling method (default: %(default)s)')
     integrate_parser.add_argument('-i','--integrator', metavar='integrator', type=str, default='vegas3', 
                     choices=('naive','vegas', 'vegas3'), help='Specify the integrator (default: %(default)s)')
     integrate_parser.add_argument('-hf','--h_function', metavar='h_function', type=str, default='left_right_polynomial', 
@@ -1553,7 +2000,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             selected_integrator = integrators.SimpleMonteCarloIntegrator
             integrator_options = {
                  'n_iterations' : args.n_iterations_refine,
-                 'n_points_per_iterations' : args.n_points_survey,
+                 'n_points_per_iterations' : args.n_points_refine,
                  'verbosity' : args.verbosity+1
             }
         elif args.integrator == 'vegas':
@@ -1609,34 +2056,60 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             if SG_name not in self.all_supergraphs:
                 raise alphaLoopInvalidRunCmd("Cannot find SG named in '%s' in the collection loaded."%SG_name)
             
-            rust_worker = self.get_rust_worker(SG_name)
             SG_info = self.all_supergraphs[SG_name]
 
             logger.info("Integrating SG '%s' with sampler '%s' and integrator '%s':"%(
                 SG_name, args.sampling, args.integrator
             ))
 
-            if args.sampling == 'xs':
+            if args.sampling in ['xs',]:
 
-                my_sampler = sampler.generator_aL( 
-                    integrands.DimensionList([ 
-                        integrands.ContinuousDimension('x_%d'%i_dim,lower_bound=0.0, upper_bound=1.0) 
-                        for i_dim in range(1,SG_info['topo']['n_loops']*3+1) 
-                    ]),
-                    rust_worker,
-                    SG_info,
-                    self.alphaLoop_interface._curr_model,
-                    selected_h_function,
-                    self.hyperparameters,
-                    debug=args.verbosity,
-                )
+                self.hyperparameters.set_parameter('General.multi_channeling',args.multichanneling)
+                rust_worker = self.get_rust_worker(SG_name)
+                
+                if args.sampling == 'xs':
+                    my_sampler = sampler.generator_aL( 
+                        integrands.DimensionList([ 
+                            integrands.ContinuousDimension('x_%d'%i_dim,lower_bound=0.0, upper_bound=1.0) 
+                            for i_dim in range(1,SG_info['topo']['n_loops']*3+1) 
+                        ]),
+                        rust_worker,
+                        SG_info,
+                        self.alphaLoop_interface._curr_model,
+                        selected_h_function,
+                        self.hyperparameters,
+                        debug=args.verbosity,
+                    )
 
                 my_integrand = sampler.DefaultALIntegrand( rust_worker, my_sampler, 
                     debug=args.verbosity, phase=self.hyperparameters['Integrator']['integrated_phase'] )
 
-                my_integrator = selected_integrator(my_integrand, **integrator_options)
+            elif args.sampling in ['flat',]:
+                
+                # The multichanneling is done in-house by our sampling for these args.sampling options
+                self.hyperparameters.set_parameter('General.multi_channeling',False)
 
-                result = my_integrator.integrate()
+                rust_worker = self.get_rust_worker(SG_name)
+
+                computed_model = model_reader.ModelReader(self.alphaLoop_interface._curr_model)
+                computed_model.set_parameters_and_couplings(
+                                            pjoin(self.dir_path,'Source','MODEL','param_card.dat'))
+
+                my_integrand = sampler.AdvancedIntegrand(
+                    rust_worker,
+                    SG_info,
+                    computed_model,
+                    selected_h_function,
+                    self.hyperparameters,
+                    debug=args.verbosity,
+                    external_phase_space_generation_type = args.sampling,
+                    channel_for_generation = None if args.multichanneling else (0,0),
+                    phase=self.hyperparameters['Integrator']['integrated_phase']
+                )
+
+            my_integrator = selected_integrator(my_integrand, **integrator_options)
+
+            result = my_integrator.integrate()
 
             logger.info('')
             logger.info("Result of the cross-section for %s%s%s of %s%s%s with sampler %s%s%s and integrator %s%s%s, using %s%d%s function calls:\n%s %.6g +/- %.4g%s"%(
