@@ -486,7 +486,7 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         self.set_stopped(False)
         
         # Make sure we can catch all interrupt signals
-        signal.signal(signal.SIGINT, SignalHandler(self.stopped))
+        #signal.signal(signal.SIGINT, SignalHandler(self.stopped))
 
         if self.nb_core > 1:
             logger.warning(

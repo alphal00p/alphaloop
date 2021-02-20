@@ -112,7 +112,7 @@ class HFunction(object):
 
     def __init__(self, sigma, debug=0):
 
-        self.debug = (debug > 1)
+        self.debug = debug
 
         self.sigma = sigma
 
@@ -188,7 +188,7 @@ class HFunction(object):
             maxiter=self.max_iteration)
 
         PDF = self.PDF(root_result.root)
-        if self.debug or not root_result.converged or PDF==0.:
+        if self.debug>2 or not root_result.converged or PDF==0.:
             logger.debug("--------------------------------------------------------------")
             logger.debug("Numerical solver called with x=%.16e"%x)
             logger.debug("CDF(bracket[0]),CDF(bracket[1])=%.16e,%.16e"%(self.CDF(bracket[0],x),self.CDF(bracket[1],x)))
@@ -242,7 +242,7 @@ class DefaultALIntegrand(integrands.VirtualIntegrand):
 
         self.generator = generator
         self.dimensions = generator.dimensions
-        self.debug = (debug > 1)
+        self.debug = debug
     
         super(DefaultALIntegrand, self).__init__( self.dimensions )
 
@@ -288,7 +288,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
     def __init__(self, rust_worker, SG, model, h_function, hyperparameters, channel_for_generation = None, external_phase_space_generation_type="flat", debug=0, phase='real', **opts):
         """ Set channel_for_generation to (selected_cut_and_side_index, selected_LMB_index) to disable multichaneling and choose one particular channel for the parameterisation. """
 
-        self.debug = (debug > 1)
+        self.debug = debug
         self.rust_worker = rust_worker
         self.model = model
         self.SG = SG
@@ -487,8 +487,8 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
         random_variables = list(continuous_inputs)
         
-        if self.debug: logger.debug('>>> Starting new integrand evaluation using CC cut and side #%d and LMB index #%d for sampling and with random variables: %s'%str(
-            selected_cut_and_side, selected_LMB, random_variables
+        if self.debug: logger.debug('>>> Starting new integrand evaluation using CC cut and side #%d and LMB index #%d for sampling and with random variables: %s'%(
+            selected_cut_and_side, selected_LMB, str(random_variables)
         ))
 
         x_t = random_variables[self.dimensions.get_position('x_t')]
@@ -502,8 +502,6 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         if self.debug: logger.debug('normalising_func=%s'%str(normalising_func))
 
         # Note that normalising_func*wgt_t = 1 when the sampling PDF matches exactly the h function, but it won't if approximated.
-
-        final_res = complex(0., 0.)
 
         i_channel = selected_cut_and_side
 
@@ -525,6 +523,8 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
         # build the external kinematics 
         PS_point, PS_jac, _, _ = generator.get_PS_point(external_phase_space_xs)
+        if self.debug: logger.debug('PS xs=%s'%str(external_phase_space_xs))
+        if self.debug: logger.debug('PS_point=%s'%str(PS_point[2:]))
 
         inv_aL_jacobian = 1.
         # Correct for the 1/(2E) of each cut propagator that alphaLoop includes but which is already included in the normal PS parameterisation
@@ -539,7 +539,12 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
         CMB_edges = list(LMB_info['loop_edges'])
         CMB_edges.extend([edge_name for edge_name, edge_direction in channel_info['independent_final_states']])
-        
+
+        if self.debug: logger.debug('independent final states=%s'%str(channel_info['independent_final_states']))
+        if self.debug: logger.debug('dependent final states=%s'%str( [e for (e,d) in topology_info['outgoing_edges'] if (e,d) not in channel_info['independent_final_states']][0] ))
+        if self.debug: logger.debug('loop edges=%s'%str(LMB_info['loop_edges']))
+        if self.debug: logger.debug('all CMB_edges=%s'%str(CMB_edges))
+
         loop_phase_space_xs = [ 
             random_variables[self.dimensions.get_position('x_%d'%i_dim)] 
             for i_dim in range(
@@ -549,9 +554,12 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         ]
 
         ks, loop_jac = self.loop_parameterisation(loop_phase_space_xs)
-        PS_point.update( { edge_name : vectors.Vector(ks[i_LMB_entry:i_LMB_entry+3]) for i_LMB_entry, edge_name in enumerate(LMB_info['loop_edges']) } )
+        PS_point.update( { edge_name : vectors.Vector(ks[3*i_LMB_entry:3*(i_LMB_entry+1)]) for i_LMB_entry, edge_name in enumerate(LMB_info['loop_edges']) } )
+        if self.debug: logger.debug('loop_phase_space_momenta=%s'%str(ks))
+        if self.debug: logger.debug('loop_xs=%s'%str(loop_phase_space_xs))
 
         downscaled_input_momenta_in_CMB = [ PS_point[edge_name] for edge_name in CMB_edges ]
+        if self.debug: logger.debug('downscaled_input_momenta_in_CMB=%s'%str(downscaled_input_momenta_in_CMB))
 
         transformation_matrix, parametric_shifts = LMB_info['transformation_to_defining_LMB']
         shifts = [ sum([self.external_momenta[i_shift]*shift 
@@ -560,6 +568,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             [list(rm+shift) for rm, shift in zip(downscaled_input_momenta_in_CMB, shifts)] ) ]
 
         upscaled_input_momenta_in_LMB = [ k*rescaling_t for k in downscaled_input_momenta_in_LMB ]
+        if self.debug: logger.debug('upscaled_input_momenta_in_LMB=%s'%str(upscaled_input_momenta_in_LMB))
 
         # Applying the rescaling to embed the momenta in the full R^(3L) space
         # and thus effectively compute the inverse of the jacobian that will be included by the full integrand in rust
@@ -576,29 +585,37 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                 ( 2. * inv_rescaling_t * k.square() + k.dot(shift) ) / 
                 ( 2. * math.sqrt( (inv_rescaling_t*k + shift).square() - self.edge_masses[edge_name]**2 ) )
             )
+        if self.debug: logger.debug('delta_jacobian=%s'%str(delta_jacobian))
         inv_aL_jacobian *= delta_jacobian
 
         # Then the inverse of the H-function and of the Jacobian of the causal flow change of variables
         inv_aL_jacobian *=  ( 1. / self.h_function.PDF(1./rescaling_t) ) * (rescaling_t**(len(CMB_edges)*3)) 
 
-        # And finally of alphaLoop parameterisation itself 
-        aL_xs = []
-        for i_v, v in enumerate(upscaled_input_momenta_in_LMB):
-            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, self.E_cm**2)
-            inv_aL_jacobian *= inv_jac
-            aL_xs.extend([kx, ky, kz])
-
         # The final jacobian must then be our param. jac together with that of t divided by the one from alphaloop.
         final_jacobian = PS_jac * loop_jac * wgt_t * inv_aL_jacobian
 
-        # Finally actually call alphaLoop full integrand
-        re, im = self.rust_worker.evaluate_integrand( aL_xs )
-        aL_wgt = complex(re, im)
-
+        if self.debug: logger.debug('PS_jac=%s'%PS_jac)
+        if self.debug: logger.debug('loop_jac=%s'%loop_jac)
+        if self.debug: logger.debug('wgt_t=%s'%wgt_t)
+        if self.debug: logger.debug('inv_aL_jacobian=%s'%inv_aL_jacobian)
         if self.debug: logger.debug('final jacobian=%s'%final_jacobian)
 
+
+        # We must undo aL parameterisation as we must provide the inputs to the aL rust integrand in x-space.
+        aL_xs = []
+        undo_aL_parameterisation = 1.
+        for i_v, v in enumerate(upscaled_input_momenta_in_LMB):
+            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, self.E_cm**2)
+            undo_aL_parameterisation *= inv_jac
+            aL_xs.extend([kx, ky, kz])
+        # Finally actually call alphaLoop full integrand
+        re, im = self.rust_worker.evaluate_integrand( aL_xs )
+        aL_wgt = complex(re, im) * undo_aL_parameterisation
+        if self.debug: logger.debug('aL res=%s'%str(aL_wgt))
+
+        if self.debug: logger.debug('mormalising_func=%s'%normalising_func)
         # And accumulate it to what will be the final result
-        final_res += final_jacobian * normalising_func * aL_wgt
+        final_res = final_jacobian * normalising_func * aL_wgt
 
         if multi_channeling:
 
@@ -609,6 +626,10 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                 # WARNING TODO doing the double for-loop here is not so optimal because a lot of information can be computed independently
                 # of the LMB chosen already. I leave this to future refinements.
                 for MC_i_LMB, MC_LMB_info in enumerate(channel_info['loop_LMBs']):
+                    # Note that for debugging it is useful to uncomment the three lines below and verify explicitly that 
+                    #         MC_final_jacobian = final_jacobian
+                    # for (MC_i_channel, MC_i_LMB) == (i_channel, i_LMB)
+                    # because this is indeed a non-trivial check of all the inversion of the parameterisations used here.
                     if (MC_i_channel, MC_i_LMB) == (i_channel, i_LMB):
                         # This contributions was already accounted for as part of final_jacobian
                         continue
@@ -631,7 +652,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
     def get_jacobian_for_channel(self, MC_i_channel, MC_i_LMB, upscaled_input_momenta_in_LMB):
 
-        if self.debug: logger.debug('> Computing jacobian for CC cut and side #%d and LMB index #%d from the follwing upscaled LMB momenta:\n%s'%str(
+        if self.debug: logger.debug('> Computing jacobian for CC cut and side #%d and LMB index #%d from the follwing upscaled LMB momenta:\n%s'%(
                     MC_i_channel, MC_i_LMB, str(upscaled_input_momenta_in_LMB)
                 ))
 
@@ -650,6 +671,11 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
         MC_generator = self.multichannel_generators[MC_i_channel]
 
+        if self.debug: logger.debug('MC independent final states=%s'%str(MC_channel_info['independent_final_states']))
+        if self.debug: logger.debug('MC dependent final states=%s'%str( [e for (e,d) in MC_topology_info['outgoing_edges'] if (e,d) not in MC_channel_info['independent_final_states']][0] ))
+        if self.debug: logger.debug('MC loop edges=%s'%str(MC_LMB_info['loop_edges']))
+        if self.debug: logger.debug('MC all CMB_edges=%s'%str(MC_CMB_edges))
+
         MC_upscaled_input_momenta_in_CMB = {}
         MC_aL_xs = []
         MC_inv_aL_jacobian = 1.
@@ -663,6 +689,8 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             )
             MC_aL_xs.extend([kx, ky, kz])
             MC_inv_aL_jacobian *= inv_jac
+
+        if self.debug: logger.debug('MC_upscaled_input_momenta_in_CMB=%s'%str(MC_upscaled_input_momenta_in_CMB))
 
         MC_upscaled_final_state_configurations = [ ]
         MC_upscaled_final_state_momenta = [ ]
@@ -680,8 +708,12 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             MC_upscaled_final_state_configurations, self.hyperparameters['CrossSection']['incoming_momenta'] )
         MC_rescaling_t = 1./MC_inv_rescaling_t
 
+        if self.debug: logger.debug('MC_rescaling_t=%s'%str(MC_rescaling_t))
+
         MC_x_t, MC_inv_wgt_t = self.h_function.inverse_sampling(MC_rescaling_t)
         MC_wgt_t = 1./MC_inv_wgt_t
+
+        if self.debug: logger.debug('MC_downscaled_input_momenta_in_CMB=%s'%str({e: v*MC_inv_rescaling_t for e,v in MC_upscaled_input_momenta_in_CMB.items()}))
 
         # Note that MC_normalising_func*MC_wgt_t = 1 when the sampling PDF matches exactly the h function, but it won't if approximated.
         #MC_normalising_func = self.h_function.PDF(MC_rescaling_t)
@@ -699,9 +731,9 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         # Warning! It is irrelevant for our usecase here, but the inversion below is only valid for the jacobian and the xs that control invariant masses 
         # when using the SingleChannelPhaseSpaceGenerator (for the FlatInvertiblePhaseSpaceGenerator all inverted xs would be correct)
         # We need to pad with two dummy initial states
-        MC_xs, MC_inv_PS_jac= MC_generator.invertKinematics( self.E_cm, vectors.LorentzVectorList([None, None]+MC_downscaled_final_state_four_momenta) )
-        
-        MC_PS_jac = 1./MC_inv_PS_jac
+        if self.debug: logger.debug('MC PS_point=%s'%str(MC_downscaled_final_state_four_momenta))
+        MC_xs, MC_PS_jac= MC_generator.invertKinematics( self.E_cm, vectors.LorentzVectorList([None, None]+MC_downscaled_final_state_four_momenta) )
+        if self.debug: logger.debug('MC PS xs=%s'%str(MC_xs))
 
         # Correct for the 1/(2E) of each cut propagator that alphaLoop includes but which is already included in the normal PS parameterisation
         MC_inv_aL_jacobian = 1
@@ -718,6 +750,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                 ( 2. * MC_inv_rescaling_t * k.square() + k.dot(shift) ) / 
                 ( 2. * math.sqrt( (MC_inv_rescaling_t*k + shift).square() - self.edge_masses[edge_name]**2 ) )
             )
+        if self.debug: logger.debug('MC_delta_jacobian=%s'%str(MC_delta_jacobian))
         MC_inv_aL_jacobian *= MC_delta_jacobian
 
         # Then the inverse of the H-function and of the Jacobian of the causal flow change of variables
@@ -725,15 +758,21 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
         loop_phase_space_momenta = []
         for edge_name in MC_LMB_info['loop_edges']:
-            loop_phase_space_momenta.extend(list(MC_upscaled_input_momenta_in_CMB[edge_name]))
+            loop_phase_space_momenta.extend(list(MC_upscaled_input_momenta_in_CMB[edge_name]*MC_inv_rescaling_t))
 
         MC_loop_xs, MC_loop_inv_jac = self.loop_inv_parameterisation(loop_phase_space_momenta)
         MC_loop_jac = 1./MC_loop_inv_jac
+        if self.debug: logger.debug('MC_loop_phase_space_momenta=%s'%str(loop_phase_space_momenta))
+        if self.debug: logger.debug('MC_loop_xs=%s'%str(MC_loop_xs))
 
         # Return the final jacobian of the parameterisation
         MC_final_jacobian = MC_PS_jac * MC_loop_jac * MC_wgt_t * MC_inv_aL_jacobian # * MC_normalising_func
-        if self.debug: logger.debug('Final MC jacobian reconstructed: %s'%str(MC_final_jacobian))
 
+        if self.debug: logger.debug('MC_PS_jac=%s'%MC_PS_jac)
+        if self.debug: logger.debug('MC_loop_jac=%s'%MC_loop_jac)
+        if self.debug: logger.debug('MC_wgt_t=%s'%MC_wgt_t)
+        if self.debug: logger.debug('MC_inv_aL_jacobian=%s'%MC_inv_aL_jacobian)
+        if self.debug: logger.debug('MC_final_jacobian=%s'%MC_final_jacobian)
         return MC_final_jacobian
 
 class CustomGenerator(object):

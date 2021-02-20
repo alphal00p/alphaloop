@@ -72,6 +72,36 @@ INITIAL=False
 
 DUMMY=99
 
+# # The class below is a trick to side-step the difficulty of multiprocessing pools in python 3.9+ to work properly
+# # with attributes that are nested functions or a rust worker instance for example.
+# # The wrapper below will store them in the global dictionary below thus avoiding the issue.
+# _CALLABLE_INSTANCES_POOL = {}
+# class CallableInstanceWrapper(object):
+#     def __init__(self, callable_instance):
+#         if len(_CALLABLE_INSTANCES_POOL)==0:
+#             self.instance_ID = 1
+#         else:
+#             self.instance_ID = max(_CALLABLE_INSTANCES_POOL.keys())+1
+#         _CALLABLE_INSTANCES_POOL[self.instance_ID] = callable_instance
+
+#     def __call__(self, *args, **opts):
+#         return _CALLABLE_INSTANCES_POOL[self.instance_ID](*args, **opts)
+
+#     def __getattr__(self, name):
+#         try:
+#             return getattr(_CALLABLE_INSTANCES_POOL[self.instance_ID],name)
+#         except Exception as e:
+#             return getattr(self,name) 
+#             logger.critical("Faced exception %s when attempting to access attribute '%s' from instance of type '%s'."%(
+#                 str(e), name, type(_CALLABLE_INSTANCES_POOL[self.instance_ID])
+#             ))
+#     def __exit__(self, exc_type, exc_val, exc_tb):
+#         _CALLABLE_INSTANCES_POOL.pop(self.instance_ID)
+
+# Simply trade the version above for the function below in order to remove the above "hack"
+def CallableInstanceWrapper(instance):
+    return instance
+
 class alphaLoopRunInterfaceError(MadGraph5Error):
     """ Error for the alphaLoop plugin """
     pass
@@ -1116,7 +1146,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             os.remove(pjoin(self.dir_path, self._run_workspace_folder, 'tmp_hyperparameters.yaml'))
             raise
 
-        return rust_worker
+        return CallableInstanceWrapper(rust_worker)
 
     def load_supergraphs(self):
         
@@ -1975,7 +2005,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         self.hyperparameters.set_parameter('General.multi_channeling',args.multichanneling)
 
         if args.h_function == 'left_right_polynomial':
-            selected_h_function = sampler.HFunction(args.h_function_sigma, debug=args.verbosity)
+            selected_h_function = CallableInstanceWrapper(sampler.HFunction(args.h_function_sigma, debug=args.verbosity))
         else:
             raise alphaLoopInvalidRunCmd("Unsupported h-function specification: %s'."%args.h_function)
 
