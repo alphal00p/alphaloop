@@ -352,12 +352,39 @@ class LorentzVector(Vector):
 class LorentzVectorList(list):
     """A simple class wrapping lists that store Lorentz vectors."""
 
-    def __str__(self, n_initial=2):
+    def __str__(self, n_initial=2, leg_names=None):
         """Nice printout of the momenta."""
 
-        return LorentzVectorDict(
-            (i + 1, v) for i, v in enumerate(self)
-        ).__str__(n_initial=n_initial)
+        # Use padding for minus signs
+        def special_float_format(fl):
+            return '%s%.16e' % ('' if fl < 0.0 else ' ', fl)
+
+        cols_widths = [4 if leg_names is None else max( len(str(el)) for el in leg_names )+2, 25, 25, 25, 25, 25]
+        template = ' '.join(
+            '%%-%ds' % col_width for col_width in cols_widths
+        )
+        line = '-' * (sum(cols_widths) + len(cols_widths) - 1)
+
+        out_lines = [template % ('#', ' E', ' p_x', ' p_y', ' p_z', ' M',)]
+        out_lines.append(line)
+        running_sum = LorentzVector()
+        for i, v in enumerate(self):
+            mom = LorentzVector(v)
+            if i+1 <= n_initial:
+                running_sum += mom
+            else:
+                running_sum -= mom
+            out_lines.append(template % tuple(
+                (['%d' % i] if leg_names is None else [str(leg_names[i]),]) + [
+           special_float_format(el) for el in (list(mom) + [math.sqrt(abs(mom.square()))])
+                ]
+            ))
+        out_lines.append(line)
+        out_lines.append(template % tuple(
+            ['Sum'] + [special_float_format(el) for el in running_sum] + ['']
+        ))
+
+        return '\n'.join(out_lines)
 
     def to_list(self):
         """Return list copy of self."""
@@ -368,11 +395,6 @@ class LorentzVectorList(list):
         """Return a copy of this LorentzVectorList as an immutable tuple."""
 
         return tuple( tuple(v) for v in self )
-
-    def to_dict(self):
-        """Return a copy of this LorentzVectorList as a LorentzVectorDict."""
-
-        return LorentzVectorDict( (i+1, v) for i, v in enumerate(self) )
         
     def boost_to_com(self, initial_leg_numbers):
         """ Boost this kinematic configuration back to its c.o.m. frame given the

@@ -19,6 +19,7 @@ import logging
 import math
 import shutil
 import numpy as np
+import random
 import sys
 
 if __name__ == '__main__':
@@ -71,6 +72,7 @@ class SimpleMonteCarloIntegrator(VirtualIntegrator):
                  n_points_per_iterations=100,
                  verbosity = 2,
                  save_points_to_file = None,
+                 seed = None,
                  **opts):
         """ Initialize the simplest MC integrator."""
         
@@ -80,7 +82,10 @@ class SimpleMonteCarloIntegrator(VirtualIntegrator):
         self.verbosity = verbosity
         self.save_points_to_file = save_points_to_file
         self.tot_func_evals = 0
-
+        self.seed = seed
+        if self.seed is not None:
+            random.seed(self.seed)
+            np.random.seed(self.seed)
         super(SimpleMonteCarloIntegrator, self).__init__(integrands, **opts)
         #misc.sprint(self.integrands)
         

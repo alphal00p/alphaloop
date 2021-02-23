@@ -301,7 +301,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         
         self.n_evals = Value('i', 0)
 
-        if external_phase_space_generation_type not in ['flat']:
+        if external_phase_space_generation_type not in ['flat','advanced']:
             raise InvalidCmd("External phase-space generation mode not supported: %s"%external_phase_space_generation_type)
         self.external_phase_space_generation_type = external_phase_space_generation_type
 
@@ -330,7 +330,6 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         #pprint(self.SG['cutkosky_cuts'][0]['multichannel_info'])
         #pprint(len(self.SG['cutkosky_cuts']))
         #pprint(self.SG['SG_multichannel_info'])
-        #stop
 
         # First we must regenerate a TopologyGenerator instance for this supergraph
         # We actually won't need it!
@@ -368,30 +367,84 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             
             n_external_state_dofs = len(SG_channel_info['independent_final_states'])*3-1
 
+            if self.n_initial==1:
+                # For 1>N topologies we fake a 2>N massless one:
+                generator_initial_state_masses = [0., 0.]
+                generator_beam_Es = (initial_state_masses[0]/2.,initial_state_masses[0]/2.)
+            else:
+                generator_initial_state_masses = initial_state_masses
+                generator_beam_Es = (E_cm/2.,E_cm/2.)
+            
             if self.external_phase_space_generation_type == 'flat':
                 
+                self.multichannel_generators.append( 
+                    PS.FlatInvertiblePhasespace(
+                        generator_initial_state_masses, final_state_masses, 
+                        beam_Es=generator_beam_Es, beam_types=(0,0),
+                        dimensions = self.dimensions.get_dimensions(['x_%d'%i_dim for i_dim in range(1,n_external_state_dofs+1)])
+                    )
+                )
+
+            elif self.external_phase_space_generation_type == 'advanced':
+        
+                # TODO in complicated cases of Breit-Wigner competition we want to also MC over the different paths of 
+                # building the *same* topology (i.e. think g g > h > w w > 4-leptons).
+                # But for now we can hard-code this to be the first possible path detected, which we get by specifying None below.
+                selected_generator_path = None
+
+                #generator_initial_state_masses = [125.0,]
+                #generator_beam_Es = tuple([125.0,])
                 if self.n_initial==1:
-                    # For 1>N topologies we fake a 2>N massless one:
-                    self.multichannel_generators.append( 
-                        PS.FlatInvertiblePhasespace(
-                            [0.,0.], final_state_masses, 
-                            beam_Es =(initial_state_masses[0]/2.,initial_state_masses[0]/2.), beam_types=(0,0),
-                            dimensions = self.dimensions.get_dimensions(['x_%d'%i_dim for i_dim in range(1,n_external_state_dofs+1)])
-                        )
-                    )
+                    # For emulating a 2>1 in the SingleChannelPhasespace class, we must move the existing "closing t-channel" into an s-channel 
+                    # and add a fake "closing" t-channel from 2 photons for instance going into the one particle decaying 
+                    selected_topology = list(copy.deepcopy(tree_topology_info['s_and_t_propagators']))
+                    initial_state_leg = None
+                    for leg in tree_topology_info['s_and_t_propagators'][1][0].get('legs'):
+                        if leg.get('state') == INITIAL:
+                            initial_state_leg = leg
+                            initial_state_leg.set('state',FINAL)
+                            break
+                    selected_topology[0].append(tree_topology_info['s_and_t_propagators'][1][0])
+                    selected_topology[1] = base_objects.VertexList([base_objects.Vertex({
+                        'id': DUMMY, # Irrelevant
+                        'legs': base_objects.LegList([
+                            base_objects.Leg({
+                                'id': 22,
+                                'number': 1,
+                                'state': INITIAL,
+                            }),
+                            base_objects.Leg({
+                                'id': 22,
+                                'number': initial_state_leg.get('number'),
+                                'state': FINAL,
+                            }),
+                            base_objects.Leg({
+                                'id': 22,
+                                'number': initial_state_leg.get('number')-1,
+                                'state': INITIAL,
+                            })
+                        ])
+                    })])
+                    selected_topology = tuple(selected_topology)
                 else:
-                    self.multichannel_generators.append( 
-                        PS.FlatInvertiblePhasespace(
-                            initial_state_masses, final_state_masses, 
-                            beam_Es =(E_cm/2.,E_cm/2.), beam_types=(0,0),
-                            dimensions = self.dimensions.get_dimensions(['x_%d'%i_dim for i_dim in range(1,n_external_state_dofs+1)])
-                        )
+                    selected_topology = tree_topology_info['s_and_t_propagators']
+
+                self.multichannel_generators.append( 
+                    PS.SingleChannelPhasespace(
+                        generator_initial_state_masses, final_state_masses, 
+                        beam_Es=generator_beam_Es, beam_types=(0,0),
+                        model=model, topology=selected_topology, path = selected_generator_path,
+                        dimensions = self.dimensions.get_dimensions(['x_%d'%i_dim for i_dim in range(1,n_external_state_dofs+1)])
                     )
+                )
 
     def loop_parameterisation(self, xs):
 
         loop_jac = 1.0
         n_loops = len(xs)//3
+        if n_loops == 0:
+            return [], loop_jac
+
         # First the radii
         radii, radii_jacobians = self.conformal_map(np.array([
             xs[i] for i in range(0, len(xs), 3)
@@ -416,6 +469,8 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
         loop_inv_jac = 1.0
         n_loops = len(ks)//3
+        if n_loops == 0:
+            return [], loop_inv_jac
 
         cartesian_inputs = [ks[i:i+3] for i in range(0, len(ks),3)]
         spherical_coordinates, inv_jacobians = transform_cartesian_to_spherical(
@@ -491,12 +546,14 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             selected_cut_and_side, selected_LMB, str(random_variables)
         ))
 
+        if self.debug: logger.debug('Edge masses:\n%s'%pformat(self.edge_masses))
+
         x_t = random_variables[self.dimensions.get_position('x_t')]
         if self.debug: logger.debug('x_t=%s'%x_t)
 
         # We must now promote the point to full 3^L using the causal flow, and thus determine the rescaling_t with the right density.
         rescaling_t, wgt_t = self.h_function(x_t)
-        if self.debug: logger.debug('t, wgt_t=%s, %s'%(rescaling_t, wgt_t))
+        if self.debug: logger.debug('t, 1/t, wgt_t=%s, %s, %s'%(rescaling_t, 1./rescaling_t, wgt_t))
 
         normalising_func = self.h_function.PDF(rescaling_t)
         if self.debug: logger.debug('normalising_func=%s'%str(normalising_func))
@@ -508,6 +565,11 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         channel_info = self.SG['SG_multichannel_info'][i_channel]
 
         generator = self.multichannel_generators[i_channel]
+        if self.debug and self.external_phase_space_generation_type == 'advanced':
+            logger.debug("Considering the following topology:")
+            logger.debug("-"*10)
+            logger.debug(generator.get_topology_string(generator.topology, path_to_print=generator.path))
+            logger.debug("-"*10)
 
         topology_info = self.SG['cutkosky_cuts'][
                 channel_info['cutkosky_cut_id']
@@ -523,13 +585,27 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
         # build the external kinematics 
         PS_point, PS_jac, _, _ = generator.get_PS_point(external_phase_space_xs)
+        if PS_point is None:
+            logger.warning(("\nPhase-space generator failed to generate a kinematic configuration for the following input xs:\n%s"+
+                            "\ncorresponding to the following input random variables of the complete integrand:\n%s\n"+
+                            "Immediately returning zero weight for this point.")%(
+                                external_phase_space_xs, random_variables
+                            ))
+            return 0.0
+
         if self.debug: logger.debug('PS xs=%s'%str(external_phase_space_xs))
-        if self.debug: logger.debug('PS_point=%s'%str(PS_point[2:]))
+        if self.debug: 
+            incoming_edge_names = [e for (e,d) in topology_info['incoming_edges']]
+            if len(incoming_edge_names)==1:
+                incoming_edge_names *= 2
+            outgoing_edge_names = [e for (e,d) in topology_info['outgoing_edges']]
+            logger.debug('PS_point=\n%s'%LorentzVectorList(PS_point).__str__(n_initial=2, leg_names=incoming_edge_names+outgoing_edge_names))
 
         inv_aL_jacobian = 1.
         # Correct for the 1/(2E) of each cut propagator that alphaLoop includes but which is already included in the normal PS parameterisation
         for v in PS_point[2:]:
             inv_aL_jacobian *= 2*v[0]
+        if self.debug: logger.debug('(-2*pi*I)/Es=%s'%str( (complex(0., -2.*math.pi)**len(PS_point[2:]) / inv_aL_jacobian)) )
 
         # We should undo the mock-up 2>N if n_initial is 1
         PS_point = { edge_name : PS_point[2+i_edge].space()*edge_direction for i_edge, (edge_name, edge_direction) in enumerate(topology_info['outgoing_edges']) } 
@@ -581,11 +657,12 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             k = sum([ upscaled_input_momenta_in_LMB[i_k]*wgt for i_k, wgt in enumerate(self.SG['edge_signatures'][edge_name][0]) ])
             shift = sum([ self.external_momenta[i_shift]*wgt for i_shift, wgt in enumerate(self.SG['edge_signatures'][edge_name][1]) ])
 
-            delta_jacobian += float(edge_direction)*(
+            delta_jacobian += (
                 ( 2. * inv_rescaling_t * k.square() + k.dot(shift) ) / 
                 ( 2. * math.sqrt( (inv_rescaling_t*k + shift).square() - self.edge_masses[edge_name]**2 ) )
             )
         if self.debug: logger.debug('delta_jacobian=%s'%str(delta_jacobian))
+        if self.debug: logger.debug('1./delta_jacobian=%s'%str(1./delta_jacobian))
         inv_aL_jacobian *= delta_jacobian
 
         # Then the inverse of the H-function and of the Jacobian of the causal flow change of variables
@@ -608,12 +685,14 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, self.E_cm**2)
             undo_aL_parameterisation *= inv_jac
             aL_xs.extend([kx, ky, kz])
+        if self.debug: logger.debug('aL xs=%s'%str(aL_xs))
+        if self.debug: logger.debug('undo_aL_parameterisation=%s'%str(undo_aL_parameterisation))
         # Finally actually call alphaLoop full integrand
         re, im = self.rust_worker.evaluate_integrand( aL_xs )
         aL_wgt = complex(re, im) * undo_aL_parameterisation
         if self.debug: logger.debug('aL res=%s'%str(aL_wgt))
 
-        if self.debug: logger.debug('mormalising_func=%s'%normalising_func)
+        if self.debug: logger.debug('normalising_func=%s'%normalising_func)
         # And accumulate it to what will be the final result
         final_res = final_jacobian * normalising_func * aL_wgt
 
@@ -670,6 +749,11 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         MC_CMB_edges.extend([edge_name for edge_name, edge_direction in MC_channel_info['independent_final_states']])
 
         MC_generator = self.multichannel_generators[MC_i_channel]
+        if self.debug and self.external_phase_space_generation_type == 'advanced':
+            logger.debug("MC Considering the following topology:")
+            logger.debug("-"*10)
+            logger.debug(MC_generator.get_topology_string(MC_generator.topology, path_to_print=MC_generator.path))
+            logger.debug("-"*10)
 
         if self.debug: logger.debug('MC independent final states=%s'%str(MC_channel_info['independent_final_states']))
         if self.debug: logger.debug('MC dependent final states=%s'%str( [e for (e,d) in MC_topology_info['outgoing_edges'] if (e,d) not in MC_channel_info['independent_final_states']][0] ))
@@ -731,7 +815,19 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         # Warning! It is irrelevant for our usecase here, but the inversion below is only valid for the jacobian and the xs that control invariant masses 
         # when using the SingleChannelPhaseSpaceGenerator (for the FlatInvertiblePhaseSpaceGenerator all inverted xs would be correct)
         # We need to pad with two dummy initial states
-        if self.debug: logger.debug('MC PS_point=%s'%str(MC_downscaled_final_state_four_momenta))
+        if self.debug:
+            MC_incoming_edge_names = [e for (e,d) in MC_topology_info['incoming_edges']]
+            if len(MC_incoming_edge_names)==1:
+                MC_incoming_edge_names *= 2
+            MC_outgoing_edge_names = [e for (e,d) in MC_topology_info['outgoing_edges']]
+            logger.debug('MC PS_point=\n%s'%LorentzVectorList(
+                [ vectors.LorentzVector([self.E_cm/2.0,0.,0.,self.E_cm/2.0]),
+                     vectors.LorentzVector([self.E_cm/2.0,0.,0.,-self.E_cm/2.0]),
+                ]+MC_downscaled_final_state_four_momenta
+            ).__str__(n_initial=2, leg_names=MC_incoming_edge_names+MC_outgoing_edge_names))
+
+
+
         MC_xs, MC_PS_jac= MC_generator.invertKinematics( self.E_cm, vectors.LorentzVectorList([None, None]+MC_downscaled_final_state_four_momenta) )
         if self.debug: logger.debug('MC PS xs=%s'%str(MC_xs))
 
@@ -746,7 +842,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             k = sum([ upscaled_input_momenta_in_LMB[i_k]*wgt for i_k, wgt in enumerate(self.SG['edge_signatures'][edge_name][0]) ])
             shift = sum([ self.external_momenta[i_shift]*wgt for i_shift, wgt in enumerate(self.SG['edge_signatures'][edge_name][1]) ])
 
-            MC_delta_jacobian += float(edge_direction)*(
+            MC_delta_jacobian += (
                 ( 2. * MC_inv_rescaling_t * k.square() + k.dot(shift) ) / 
                 ( 2. * math.sqrt( (MC_inv_rescaling_t*k + shift).square() - self.edge_masses[edge_name]**2 ) )
             )

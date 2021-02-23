@@ -565,6 +565,8 @@ class SuperGraph(dict):
                 for edge_name, edge_direction in sorted_incoming_edges:
                     pos_leg_id_counter += 1
                     edge_name_to_leg_number[edge_name] = pos_leg_id_counter
+                # For a technical reason in the SingleChannelPhasespace generator, the final state legs must start at 3.
+                pos_leg_id_counter = max(pos_leg_id_counter,2)
                 for edge_name, edge_direction in sorted(tree_topologies[side]['outgoing_edges'],key=lambda e:e[0]):
                     pos_leg_id_counter += 1
                     edge_name_to_leg_number[edge_name] = pos_leg_id_counter
@@ -1978,6 +1980,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='Batch size for parallelisation (default: as per hyperparameters n_vec).')
     integrate_parser.add_argument('--seed', metavar='seed', type=int, default=0,
                     help='Specify the random seed for the integration (default: %(default)s).')
+    integrate_parser.add_argument('-hp','--hyperparameters', metavar='hyperparameters', type=str, default=[], nargs='+',
+                    help='Specify particular hyperparameters to overwrite in pairs of form <hp_name> <hp_str_expression_value>  (default: %(default)s).')
     integrate_parser.add_argument(
         '-mc','--multichanneling',action="store_true", dest="multichanneling", default=False,
         help="Enable multichanneling (default: as per hyperparameters)")
@@ -2004,10 +2008,17 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         self.hyperparameters.set_parameter('General.multi_channeling',args.multichanneling)
 
+        args.hyperparameters = [( args.hyperparameters[i],eval(args.hyperparameters[i+1]) ) for i in range(0,len(args.hyperparameters),2)]
+        for hp_name, value in args.hyperparameters:
+            self.hyperparameters.set_parameter(hp_name,value)
+
         if args.h_function == 'left_right_polynomial':
             selected_h_function = CallableInstanceWrapper(sampler.HFunction(args.h_function_sigma, debug=args.verbosity))
         else:
             raise alphaLoopInvalidRunCmd("Unsupported h-function specification: %s'."%args.h_function)
+
+        self.hyperparameters.set_parameter('CrossSection.NormalisingFunction.name',args.h_function)
+        self.hyperparameters.set_parameter('CrossSection.NormalisingFunction.spread',float(args.h_function_sigma))
 
         if args.n_cores > 1:
             runner = cluster.MultiCore(args.n_cores)
@@ -2031,7 +2042,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             integrator_options = {
                  'n_iterations' : args.n_iterations_refine,
                  'n_points_per_iterations' : args.n_points_refine,
-                 'verbosity' : args.verbosity+1
+                 'verbosity' : args.verbosity+1,
+                 'seed' : args.seed
             }
         elif args.integrator == 'vegas':
             selected_integrator = pyCubaIntegrator.pyCubaIntegrator
@@ -2114,10 +2126,14 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 my_integrand = sampler.DefaultALIntegrand( rust_worker, my_sampler, 
                     debug=args.verbosity, phase=self.hyperparameters['Integrator']['integrated_phase'] )
 
-            elif args.sampling in ['flat',]:
+            elif args.sampling in ['flat','advanced']:
                 
                 # The multichanneling is done in-house by our sampling for these args.sampling options
                 self.hyperparameters.set_parameter('General.multi_channeling',False)
+
+                self.hyperparameters.set_parameter('Parameterization.mapping','linear')
+                self.hyperparameters.set_parameter('Parameterization.b',1.0)
+                self.hyperparameters.set_parameter('Parameterization.mode','spherical')
 
                 rust_worker = self.get_rust_worker(SG_name)
 
