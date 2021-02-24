@@ -285,7 +285,9 @@ class DefaultALIntegrand(integrands.VirtualIntegrand):
 
 class AdvancedIntegrand(integrands.VirtualIntegrand):
 
-    def __init__(self, rust_worker, SG, model, h_function, hyperparameters, channel_for_generation = None, external_phase_space_generation_type="flat", debug=0, phase='real', **opts):
+    def __init__(self, rust_worker, SG, model, h_function, hyperparameters, channel_for_generation = None, external_phase_space_generation_type="flat", debug=0, phase='real', 
+        selected_cut_and_side=None, selected_LMB=None,
+        **opts):
         """ Set channel_for_generation to (selected_cut_and_side_index, selected_LMB_index) to disable multichaneling and choose one particular channel for the parameterisation. """
 
         self.debug = debug
@@ -299,6 +301,9 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         self.inverse_conformal_map = lin_inverse_conformal
         self.channel_for_generation = channel_for_generation
         
+        self.selected_cut_and_side=selected_cut_and_side
+        self.selected_LMB=selected_LMB
+
         self.n_evals = Value('i', 0)
 
         if external_phase_space_generation_type not in ['flat','advanced']:
@@ -327,9 +332,9 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
         # We must now build the reduced topology of the supergraph to obtain channels
         self.SG.set_integration_channels()
-        #pprint(self.SG['cutkosky_cuts'][0]['multichannel_info'])
-        #pprint(len(self.SG['cutkosky_cuts']))
-        #pprint(self.SG['SG_multichannel_info'])
+        ##pprint(self.SG['cutkosky_cuts'][0]['multichannel_info'])
+        ##pprint(len(self.SG['cutkosky_cuts']))
+        ##pprint(self.SG['SG_multichannel_info'])
 
         # First we must regenerate a TopologyGenerator instance for this supergraph
         # We actually won't need it!
@@ -516,7 +521,14 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
     def __call__(self, continuous_inputs, discrete_inputs, selected_cut_and_side=None, selected_LMB=None, **opts):
 
+        start_time = time.time()
+
         self.n_evals.value += 1
+
+        if selected_cut_and_side is None:
+            selected_cut_and_side = self.selected_cut_and_side 
+        if selected_LMB is None:
+            selected_LMB = self.selected_LMB
 
         final_res = 0.
         if self.channel_for_generation is None:
@@ -534,6 +546,8 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         else:
             final_res += self.evaluate_channel(
                 continuous_inputs, discrete_inputs, self.channel_for_generation[0], self.channel_for_generation[1], multi_channeling=False, **opts)
+
+        if self.debug: logger.debug('Python integrand evaluation time = %.2f ms.'%((time.time()-start_time)*1000.0))
 
         return final_res
 
@@ -608,6 +622,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         if self.debug: logger.debug('(-2*pi*I)/Es=%s'%str( (complex(0., -2.*math.pi)**len(PS_point[2:]) / inv_aL_jacobian)) )
 
         # We should undo the mock-up 2>N if n_initial is 1
+        PS_initial_state_four_momenta = PS_point[:2] 
         PS_point = { edge_name : PS_point[2+i_edge].space()*edge_direction for i_edge, (edge_name, edge_direction) in enumerate(topology_info['outgoing_edges']) } 
 
         i_LMB = selected_LMB
@@ -688,7 +703,10 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         if self.debug: logger.debug('aL xs=%s'%str(aL_xs))
         if self.debug: logger.debug('undo_aL_parameterisation=%s'%str(undo_aL_parameterisation))
         # Finally actually call alphaLoop full integrand
+        rust_start_time = time.time()
         re, im = self.rust_worker.evaluate_integrand( aL_xs )
+        if self.debug: logger.debug('Rust integrand evaluation time = %.2f ms.'%((time.time()-rust_start_time)*1000.0))
+
         aL_wgt = complex(re, im) * undo_aL_parameterisation
         if self.debug: logger.debug('aL res=%s'%str(aL_wgt))
 
@@ -700,6 +718,10 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
             # And accumulate this jacobian into the denominator of the multichanneling factor
             multichannel_factor_denominator = final_jacobian
+
+            multichanneling_cache = {'cutkosky_cut_and_side_cache': {} }
+            # Uncomment the line below to disable this dynamic cache
+            # multichanneling_cache = None
 
             for MC_i_channel, MC_channel_info in enumerate(self.SG['SG_multichannel_info']):
                 # WARNING TODO doing the double for-loop here is not so optimal because a lot of information can be computed independently
@@ -713,7 +735,8 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                         # This contributions was already accounted for as part of final_jacobian
                         continue
                     
-                    MC_final_jacobian = self.get_jacobian_for_channel(MC_i_channel, MC_i_LMB, upscaled_input_momenta_in_LMB)
+                    MC_final_jacobian = self.get_jacobian_for_channel(
+                        MC_i_channel, MC_i_LMB, upscaled_input_momenta_in_LMB, PS_initial_state_four_momenta, multichanneling_cache = multichanneling_cache)
 
                     # Aggregate that final jacobian for this channel to the multichanneling denominator
                     multichannel_factor_denominator += MC_final_jacobian
@@ -729,11 +752,14 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         else:
             return final_res.imag
 
-    def get_jacobian_for_channel(self, MC_i_channel, MC_i_LMB, upscaled_input_momenta_in_LMB):
+    def get_jacobian_for_channel(self, MC_i_channel, MC_i_LMB, upscaled_input_momenta_in_LMB, PS_initial_state_four_momenta, multichanneling_cache=None):
 
         if self.debug: logger.debug('> Computing jacobian for CC cut and side #%d and LMB index #%d from the follwing upscaled LMB momenta:\n%s'%(
                     MC_i_channel, MC_i_LMB, str(upscaled_input_momenta_in_LMB)
                 ))
+
+        if multichanneling_cache is None:
+            multichanneling_cache = {'cutkosky_cut_and_side_cache': {} }
 
         MC_channel_info = self.SG['SG_multichannel_info'][MC_i_channel]
 
@@ -761,96 +787,106 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         if self.debug: logger.debug('MC all CMB_edges=%s'%str(MC_CMB_edges))
 
         MC_upscaled_input_momenta_in_CMB = {}
-        MC_aL_xs = []
-        MC_inv_aL_jacobian = 1.
+#        MC_aL_xs = []
+#        MC_inv_aL_jacobian = 1.
         for i_edge, edge_name in enumerate(MC_CMB_edges):
             k = sum([ upscaled_input_momenta_in_LMB[i_k]*wgt for i_k, wgt in enumerate(self.SG['edge_signatures'][edge_name][0]) ])
             shift = sum([ self.external_momenta[i_shift]*wgt for i_shift, wgt in enumerate(self.SG['edge_signatures'][edge_name][1]) ])
             MC_upscaled_input_momenta_in_CMB[edge_name] = k+shift
 
-            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(
-                list(MC_upscaled_input_momenta_in_CMB[edge_name]), i_edge, self.E_cm**2
-            )
-            MC_aL_xs.extend([kx, ky, kz])
-            MC_inv_aL_jacobian *= inv_jac
+#            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(
+#                list(MC_upscaled_input_momenta_in_CMB[edge_name]), i_edge, self.E_cm**2
+#            )
+#            MC_aL_xs.extend([kx, ky, kz])
+#            MC_inv_aL_jacobian *= inv_jac
 
         if self.debug: logger.debug('MC_upscaled_input_momenta_in_CMB=%s'%str(MC_upscaled_input_momenta_in_CMB))
 
-        MC_upscaled_final_state_configurations = [ ]
-        MC_upscaled_final_state_momenta = [ ]
-        for edge_name, edge_direction in MC_topology_info['outgoing_edges']:
-            k = sum([ upscaled_input_momenta_in_LMB[i_k]*wgt for i_k, wgt in enumerate(self.SG['edge_signatures'][edge_name][0]) ])
-            shift = sum([ self.external_momenta[i_shift]*wgt for i_shift, wgt in enumerate(self.SG['edge_signatures'][edge_name][1]) ])
-            MC_upscaled_final_state_momenta.append( (k+shift)*edge_direction )
-            MC_upscaled_final_state_configurations.append({
-                'k' : k,
-                'shift' : shift,
-                'direction' : edge_direction,
-                'mass' : self.edge_masses[edge_name]
-            })
-        MC_inv_rescaling_t = self.solve_soper_flow(
-            MC_upscaled_final_state_configurations, self.hyperparameters['CrossSection']['incoming_momenta'] )
-        MC_rescaling_t = 1./MC_inv_rescaling_t
+        # The quantities below depend only on the selected CC cut and side but *not* on the particular LMB chosen, so we cache them.
+        if MC_i_channel in multichanneling_cache['cutkosky_cut_and_side_cache']:
+            MC_inv_rescaling_t = multichanneling_cache['cutkosky_cut_and_side_cache'][MC_i_channel]['MC_inv_rescaling_t']
+            MC_PS_jac = multichanneling_cache['cutkosky_cut_and_side_cache'][MC_i_channel]['MC_PS_jac']
+            MC_wgt_t = multichanneling_cache['cutkosky_cut_and_side_cache'][MC_i_channel]['MC_wgt_t']
+            MC_inv_aL_jacobian = multichanneling_cache['cutkosky_cut_and_side_cache'][MC_i_channel]['MC_inv_aL_jacobian']
+        else:
+            MC_upscaled_final_state_configurations = [ ]
+            MC_upscaled_final_state_momenta = [ ]
+            for edge_name, edge_direction in MC_topology_info['outgoing_edges']:
+                k = sum([ upscaled_input_momenta_in_LMB[i_k]*wgt for i_k, wgt in enumerate(self.SG['edge_signatures'][edge_name][0]) ])
+                shift = sum([ self.external_momenta[i_shift]*wgt for i_shift, wgt in enumerate(self.SG['edge_signatures'][edge_name][1]) ])
+                MC_upscaled_final_state_momenta.append( (k+shift)*edge_direction )
+                MC_upscaled_final_state_configurations.append({
+                    'k' : k,
+                    'shift' : shift,
+                    'direction' : edge_direction,
+                    'mass' : self.edge_masses[edge_name]
+                })
+            MC_inv_rescaling_t = self.solve_soper_flow(
+                MC_upscaled_final_state_configurations, self.hyperparameters['CrossSection']['incoming_momenta'] )
+            MC_rescaling_t = 1./MC_inv_rescaling_t
 
-        if self.debug: logger.debug('MC_rescaling_t=%s'%str(MC_rescaling_t))
+            if self.debug: logger.debug('MC_rescaling_t=%s'%str(MC_rescaling_t))
 
-        MC_x_t, MC_inv_wgt_t = self.h_function.inverse_sampling(MC_rescaling_t)
-        MC_wgt_t = 1./MC_inv_wgt_t
+            MC_x_t, MC_inv_wgt_t = self.h_function.inverse_sampling(MC_rescaling_t)
+            MC_wgt_t = 1./MC_inv_wgt_t
 
-        if self.debug: logger.debug('MC_downscaled_input_momenta_in_CMB=%s'%str({e: v*MC_inv_rescaling_t for e,v in MC_upscaled_input_momenta_in_CMB.items()}))
+            if self.debug: logger.debug('MC_downscaled_input_momenta_in_CMB=%s'%str({e: v*MC_inv_rescaling_t for e,v in MC_upscaled_input_momenta_in_CMB.items()}))
 
-        # Note that MC_normalising_func*MC_wgt_t = 1 when the sampling PDF matches exactly the h function, but it won't if approximated.
-        #MC_normalising_func = self.h_function.PDF(MC_rescaling_t)
+            # Note that MC_normalising_func*MC_wgt_t = 1 when the sampling PDF matches exactly the h function, but it won't if approximated.
+            #MC_normalising_func = self.h_function.PDF(MC_rescaling_t)
 
-        MC_downscaled_final_state_momenta = []
-        MC_downscaled_final_state_four_momenta = []
-        for cfg in MC_upscaled_final_state_configurations:
-            MC_downscaled_final_state_momenta.append(
-                (cfg['k']*MC_inv_rescaling_t + cfg['shift'])*cfg['direction']
-            )
-            MC_downscaled_final_state_four_momenta.append(vectors.LorentzVector(
-                [ math.sqrt(MC_downscaled_final_state_momenta[-1].square()+cfg['mass']**2), ]+list(MC_downscaled_final_state_momenta[-1])
-            ))
+            MC_downscaled_final_state_momenta = []
+            MC_downscaled_final_state_four_momenta = []
+            for cfg in MC_upscaled_final_state_configurations:
+                MC_downscaled_final_state_momenta.append(
+                    (cfg['k']*MC_inv_rescaling_t + cfg['shift'])*cfg['direction']
+                )
+                MC_downscaled_final_state_four_momenta.append(vectors.LorentzVector(
+                    [ math.sqrt(MC_downscaled_final_state_momenta[-1].square()+cfg['mass']**2), ]+list(MC_downscaled_final_state_momenta[-1])
+                ))
 
-        # Warning! It is irrelevant for our usecase here, but the inversion below is only valid for the jacobian and the xs that control invariant masses 
-        # when using the SingleChannelPhaseSpaceGenerator (for the FlatInvertiblePhaseSpaceGenerator all inverted xs would be correct)
-        # We need to pad with two dummy initial states
-        if self.debug:
-            MC_incoming_edge_names = [e for (e,d) in MC_topology_info['incoming_edges']]
-            if len(MC_incoming_edge_names)==1:
-                MC_incoming_edge_names *= 2
-            MC_outgoing_edge_names = [e for (e,d) in MC_topology_info['outgoing_edges']]
-            logger.debug('MC PS_point=\n%s'%LorentzVectorList(
-                [ vectors.LorentzVector([self.E_cm/2.0,0.,0.,self.E_cm/2.0]),
-                     vectors.LorentzVector([self.E_cm/2.0,0.,0.,-self.E_cm/2.0]),
-                ]+MC_downscaled_final_state_four_momenta
-            ).__str__(n_initial=2, leg_names=MC_incoming_edge_names+MC_outgoing_edge_names))
+            # Warning! It is irrelevant for our usecase here, but the inversion below is only valid for the jacobian and the xs that control invariant masses 
+            # when using the SingleChannelPhaseSpaceGenerator (for the FlatInvertiblePhaseSpaceGenerator all inverted xs would be correct)
+            # We need to pad with two dummy initial states
+            if self.debug:
+                MC_incoming_edge_names = [e for (e,d) in MC_topology_info['incoming_edges']]
+                if len(MC_incoming_edge_names)==1:
+                    MC_incoming_edge_names *= 2
+                MC_outgoing_edge_names = [e for (e,d) in MC_topology_info['outgoing_edges']]
+                logger.debug('MC PS_point=\n%s'%LorentzVectorList(
+                    list(PS_initial_state_four_momenta)+MC_downscaled_final_state_four_momenta
+                ).__str__(n_initial=2, leg_names=MC_incoming_edge_names+MC_outgoing_edge_names))
 
+            MC_xs, MC_PS_jac= MC_generator.invertKinematics( self.E_cm, vectors.LorentzVectorList(list(PS_initial_state_four_momenta)+MC_downscaled_final_state_four_momenta) )
+            if self.debug: logger.debug('MC PS xs=%s'%str(MC_xs))
 
+            # Correct for the 1/(2E) of each cut propagator that alphaLoop includes but which is already included in the normal PS parameterisation
+            MC_inv_aL_jacobian = 1.
+            for v in MC_downscaled_final_state_four_momenta:
+                MC_inv_aL_jacobian *= 2*v[0]
 
-        MC_xs, MC_PS_jac= MC_generator.invertKinematics( self.E_cm, vectors.LorentzVectorList([None, None]+MC_downscaled_final_state_four_momenta) )
-        if self.debug: logger.debug('MC PS xs=%s'%str(MC_xs))
+            MC_delta_jacobian = 0.
+            for edge_name, edge_direction in MC_topology_info['outgoing_edges']:
 
-        # Correct for the 1/(2E) of each cut propagator that alphaLoop includes but which is already included in the normal PS parameterisation
-        MC_inv_aL_jacobian = 1
-        for v in MC_downscaled_final_state_four_momenta:
-            MC_inv_aL_jacobian *= 2*v[0]
+                k = sum([ upscaled_input_momenta_in_LMB[i_k]*wgt for i_k, wgt in enumerate(self.SG['edge_signatures'][edge_name][0]) ])
+                shift = sum([ self.external_momenta[i_shift]*wgt for i_shift, wgt in enumerate(self.SG['edge_signatures'][edge_name][1]) ])
 
-        MC_delta_jacobian = 0.
-        for edge_name, edge_direction in MC_topology_info['outgoing_edges']:
+                MC_delta_jacobian += (
+                    ( 2. * MC_inv_rescaling_t * k.square() + k.dot(shift) ) / 
+                    ( 2. * math.sqrt( (MC_inv_rescaling_t*k + shift).square() - self.edge_masses[edge_name]**2 ) )
+                )
+            if self.debug: logger.debug('MC_delta_jacobian=%s'%str(MC_delta_jacobian))
+            MC_inv_aL_jacobian *= MC_delta_jacobian
 
-            k = sum([ upscaled_input_momenta_in_LMB[i_k]*wgt for i_k, wgt in enumerate(self.SG['edge_signatures'][edge_name][0]) ])
-            shift = sum([ self.external_momenta[i_shift]*wgt for i_shift, wgt in enumerate(self.SG['edge_signatures'][edge_name][1]) ])
+            # Then the inverse of the H-function and of the Jacobian of the causal flow change of variables
+            MC_inv_aL_jacobian *=  ( 1. / self.h_function.PDF(1./MC_rescaling_t) ) * (MC_rescaling_t**(len(MC_CMB_edges)*3)) 
 
-            MC_delta_jacobian += (
-                ( 2. * MC_inv_rescaling_t * k.square() + k.dot(shift) ) / 
-                ( 2. * math.sqrt( (MC_inv_rescaling_t*k + shift).square() - self.edge_masses[edge_name]**2 ) )
-            )
-        if self.debug: logger.debug('MC_delta_jacobian=%s'%str(MC_delta_jacobian))
-        MC_inv_aL_jacobian *= MC_delta_jacobian
-
-        # Then the inverse of the H-function and of the Jacobian of the causal flow change of variables
-        MC_inv_aL_jacobian *=  ( 1. / self.h_function.PDF(1./MC_rescaling_t) ) * (MC_rescaling_t**(len(MC_CMB_edges)*3)) 
+            # Store all these quantities being always identical independently of the particular LMB chosen for future use.
+            multichanneling_cache['cutkosky_cut_and_side_cache'][MC_i_channel] = {}
+            multichanneling_cache['cutkosky_cut_and_side_cache'][MC_i_channel]['MC_inv_rescaling_t'] = MC_inv_rescaling_t
+            multichanneling_cache['cutkosky_cut_and_side_cache'][MC_i_channel]['MC_PS_jac'] = MC_PS_jac
+            multichanneling_cache['cutkosky_cut_and_side_cache'][MC_i_channel]['MC_wgt_t'] = MC_wgt_t
+            multichanneling_cache['cutkosky_cut_and_side_cache'][MC_i_channel]['MC_inv_aL_jacobian'] = MC_inv_aL_jacobian
 
         loop_phase_space_momenta = []
         for edge_name in MC_LMB_info['loop_edges']:

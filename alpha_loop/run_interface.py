@@ -538,16 +538,27 @@ class SuperGraph(dict):
                 tree_topologies[side]['edges'] = {
                     cut_tree.edge_map_lin[i][0] : non_shrunk_edges_for_this_CC_cut[cut_tree.edge_map_lin[i][0]]
                     for i in sub_tree_indices[0] if cut_tree.edge_map_lin[i][0] not in external_edges[side] }
-                internal_edge_nodes = list(set(sum( [ [edge[0], edge[1]] for e_name, edge in tree_topologies[side]['edges'].items() ],[])))
-                tree_topologies[side]['effective_vertices_contained'] = [node for node in internal_edge_nodes if node in effective_vertices]
+
+                #internal_edge_nodes = list(set(sum( [ [edge[0], edge[1]] for e_name, edge in tree_topologies[side]['edges'].items() ],[])))
+
+                # Add incoming edges to the subtree
                 for edge_name in external_edges[side]:
                     tree_topologies[side]['edges'][edge_name] = non_shrunk_edges_for_this_CC_cut[edge_name]
+                # We want the nodes in subtree to *not* include the nodes from the final state cuts, so we compute them here.
+                nodes_in_subtree = list(set(sum( [ [edge[0], edge[1]] for e_name, edge in tree_topologies[side]['edges'].items() ],[])))
                 for edge_name in cut_edge_names:
                     # Lower the power of the cut propagators as they have been cut
                     edge_info = list(non_shrunk_edges_for_this_CC_cut[edge_name])
                     edge_info[-1] -= 1
                     tree_topologies[side]['edges'][edge_name] = tuple(edge_info)
 
+                internal_edge_nodes = sum( [ [edge[0], edge[1]] for e_name, edge in tree_topologies[side]['edges'].items() ],[])
+                # Remove all nodes appearing once only and outside of the original list of nodes appearing in the subtree of that side
+                internal_edge_nodes = [e for e in internal_edge_nodes if internal_edge_nodes.count(e)>1 and e in nodes_in_subtree]
+                # Make each node occurrence unique
+                internal_edge_nodes = list(set(internal_edge_nodes))
+
+                tree_topologies[side]['effective_vertices_contained'] = [node for node in internal_edge_nodes if node in effective_vertices]
                 tree_topologies[side]['incoming_edges'] = [
                     (e_name, 1 if non_shrunk_edges_for_this_CC_cut[e_name][1] in internal_edge_nodes else -1) for e_name in external_edges[side]
                 ]
@@ -1982,6 +1993,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='Specify the random seed for the integration (default: %(default)s).')
     integrate_parser.add_argument('-hp','--hyperparameters', metavar='hyperparameters', type=str, default=[], nargs='+',
                     help='Specify particular hyperparameters to overwrite in pairs of form <hp_name> <hp_str_expression_value>  (default: %(default)s).')
+    integrate_parser.add_argument('-cc','--selected_cutkosky_cuts_and_sides', metavar='selected_cutkosky_cuts_and_sides', type=int, nargs='+', default=[-1,],
+                    help='Selected cutkosky cut and sides for the multichanneling. [-1,] means sum over all. (default: %(default)s).')
+    integrate_parser.add_argument('-lmbs','--selected_lmbs', metavar='selected_lmbs', type=int, nargs='+', default=[-1,],
+                    help='Selected lmb indices for the multichanneling. [-1,] means sum over all. (default: %(default)s).')
     integrate_parser.add_argument(
         '-mc','--multichanneling',action="store_true", dest="multichanneling", default=False,
         help="Enable multichanneling (default: as per hyperparameters)")
@@ -2137,6 +2152,19 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                 rust_worker = self.get_rust_worker(SG_name)
 
+                # Specify particular channels options
+                if args.multichanneling:
+                    channel_for_generation = None
+                    selected_cut_and_side = None if args.selected_cutkosky_cuts_and_sides[0]<0 else args.selected_cutkosky_cuts_and_sides
+                    selected_LMB = None if args.selected_lmbs[0]<0 else args.selected_lmbs
+                else:
+                    channel_for_generation = ( 
+                        args.selected_cutkosky_cuts_and_sides[0] if args.selected_cutkosky_cuts_and_sides[0]>=0 else 0,
+                        args.selected_lmbs[0] if args.selected_lmbs[0]>=0 else 0 
+                    )
+                    selected_cut_and_side = None
+                    selected_LMB = None                    
+
                 computed_model = model_reader.ModelReader(self.alphaLoop_interface._curr_model)
                 computed_model.set_parameters_and_couplings(
                                             pjoin(self.dir_path,'Source','MODEL','param_card.dat'))
@@ -2149,7 +2177,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     self.hyperparameters,
                     debug=args.verbosity,
                     external_phase_space_generation_type = args.sampling,
-                    channel_for_generation = None if args.multichanneling else (0,0),
+                    channel_for_generation = channel_for_generation,
+                    selected_cut_and_side=selected_cut_and_side, 
+                    selected_LMB=selected_LMB,
                     phase=self.hyperparameters['Integrator']['integrated_phase']
                 )
 
