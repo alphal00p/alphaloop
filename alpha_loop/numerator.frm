@@ -502,6 +502,8 @@ argument uv;
                 id t = 1; * it could be that the LTD momentum also makes an appearance as an external momentum
             endargument;
 
+            id m?!{tmax,} = t*m; * rescale all masses in the numerator
+
 * Taylor expand the propagators to the right depth
 * p carries a t dependence that determines the order
 * t1 determines the powers of the UV propagator
