@@ -1594,10 +1594,7 @@ CTable pfmap(0:{},0:{});
                             (self.name, self.additional_lmbs)))
             else:
                 topo.export(pjoin(root_output_path, "%s.yaml" % self.name))
-        if self.is_set_representative:
-            return True
-        else: 
-            return False
+        return True
 
     def generate_replacement_rules(self, topo):
         # collect the transformations of the bubble
@@ -2918,7 +2915,7 @@ class FORMSuperGraphList(list):
                 graph_name=p.stem + '_' + str(i)
             # convert to FORM supergraph
             form_graph = FORMSuperGraph(name=graph_name, edges = g['edges'], nodes=g['nodes'], 
-                        overall_factor=g['overall_factor'], multiplicity = g.get('multiplicity',1),is_amplitude = True, color_struc=g.get('color_struc',None) , effective_vertex_id = g.get('effective_vertex_id',None), numerator = g.get('analytic_num'),external_data = external_data )
+                        overall_factor=g['overall_factor'], multiplicity = g.get('multiplicity',1),is_amplitude = True, color_struc=g.get('color_struc',None) , effective_vertex_id = g.get('effective_vertex_id',None), numerator = g.get('analytic_num'),external_data = external_data,diag_set=g.get("diag_set",graph_name) )
             form_graph.derive_signatures()
             full_graph_list.append(form_graph)
 
@@ -3467,22 +3464,23 @@ int %(header)sget_rank(int diag, int conf) {{
                 if g.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call=non_zero_graph, 
                                                             final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, 
                                                             workspace=workspace, bar=bar, integrand_type=integrand_type):
-                    topo_collection['topologies'].append({
-                        'name': g[0].name,
-                        # Let us not put it there but in the topology itself
-                        # 'benchmark_result': g[0].benchmark_result,
-                        'multiplicity': g[0].multiplicity
-                        ,'additional_LMBs': [
-                            {
-                                'name' : '%s_LMB%d'%(other_supergraph.name,other_supergraph.additional_lmbs),
-                                'defining_lmb_to_this_lmb' : original_lmb_to_other_lmb_affine_transfo,
-                                'this_lmb_to_defining_lmb' : other_lmb_to_original_lmb_affine_transfo
-                            }
-                            for i_lmb, other_lmb_to_original_lmb_affine_transfo, 
-                                original_lmb_to_other_lmb_affine_transfo, other_supergraph in g[0].additional_lmbs
-                        ]
+                    if g[0].is_set_representative:
+                        topo_collection['topologies'].append({
+                            'name': g[0].name,
+                            # Let us not put it there but in the topology itself
+                            # 'benchmark_result': g[0].benchmark_result,
+                            'multiplicity': g[0].multiplicity
+                            ,'additional_LMBs': [
+                                {
+                                    'name' : '%s_LMB%d'%(other_supergraph.name,other_supergraph.additional_lmbs),
+                                    'defining_lmb_to_this_lmb' : original_lmb_to_other_lmb_affine_transfo,
+                                    'this_lmb_to_defining_lmb' : other_lmb_to_original_lmb_affine_transfo
+                                }
+                                for i_lmb, other_lmb_to_original_lmb_affine_transfo, 
+                                    original_lmb_to_other_lmb_affine_transfo, other_supergraph in g[0].additional_lmbs
+                            ]
 
-                    })
+                        })
                     non_zero_graph += 1
                     contributing_supergraphs.append(g)
 
