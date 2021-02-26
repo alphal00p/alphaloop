@@ -349,6 +349,8 @@ pub struct FORMNumeratorCallSignature {
 #[derive(Debug, Clone, Deserialize)]
 pub struct FORMIntegrandCallSignature {
     pub id: usize,
+    #[serde(default)]
+    pub extra_calls: Vec<(usize, usize)>,
 }
 
 #[derive(Deserialize)]
@@ -2404,28 +2406,41 @@ impl SquaredTopology {
 
                     let mut res = if let Some(call_signature) = &self.form_integrand.call_signature
                     {
-                        let res = match self.settings.cross_section.integrand_type {
-                            IntegrandType::LTD => T::get_integrand_ltd(
-                                form_integrand.as_mut().unwrap(),
-                                &cache.scalar_products,
-                                &params,
-                                call_signature.id,
-                                diagram_set.id,
-                            ),
-                            IntegrandType::PF => T::get_integrand_pf(
-                                form_integrand.as_mut().unwrap(),
-                                &cache.scalar_products,
-                                &params,
-                                call_signature.id,
-                                if self.settings.cross_section.sum_diagram_sets {
-                                    1000 + cut_index
-                                } else {
-                                    diagram_set.id
-                                },
-                            ),
-                        };
+                        let mut res = Complex::default();
 
-                        Complex::new(Into::<T>::into(res.re), Into::<T>::into(res.im))
+                        let (d, c) = (
+                            call_signature.id,
+                            if self.settings.cross_section.sum_diagram_sets {
+                                1000 + cut_index
+                            } else {
+                                diagram_set.id
+                            },
+                        );
+
+                        for &(diag, conf) in [(d, c)].iter().chain(&call_signature.extra_calls) {
+                            let res_bare = match self.settings.cross_section.integrand_type {
+                                IntegrandType::LTD => T::get_integrand_ltd(
+                                    form_integrand.as_mut().unwrap(),
+                                    &cache.scalar_products,
+                                    &params,
+                                    diag,
+                                    conf,
+                                ),
+                                IntegrandType::PF => T::get_integrand_pf(
+                                    form_integrand.as_mut().unwrap(),
+                                    &cache.scalar_products,
+                                    &params,
+                                    diag,
+                                    conf,
+                                ),
+                            };
+
+                            res += Complex::new(
+                                Into::<T>::into(res_bare.re),
+                                Into::<T>::into(res_bare.im),
+                            );
+                        }
+                        res
                     } else {
                         panic!(
                         "No call signature for FORM integrand, but FORM integrand mode is enabled"
