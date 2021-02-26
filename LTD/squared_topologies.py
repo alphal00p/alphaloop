@@ -27,7 +27,7 @@ class SquaredTopologyGenerator:
         self.FORM_integrand = FORM_integrand
 
         if not additional_calls == None:
-            self.FORM_integrand["extra_call"] = additional_calls
+            self.FORM_integrand["call_signature"]["extra_calls"] = additional_calls
         self.subgraphs_info = subgraphs_info
         self.generation_options = generation_options
 

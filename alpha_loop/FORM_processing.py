@@ -58,8 +58,8 @@ plugin_path = os.path.dirname(os.path.realpath(__file__))
 
 
 FORM_processing_options = {
-    'FORM_path': 'form',
-    'tFORM_path': 'tform',
+    'FORM_path': str(Path(plugin_path).parent.joinpath('libraries', 'form', 'sources', 'form').resolve()),
+    'tFORM_path': str(Path(plugin_path).parent.joinpath('libraries', 'form', 'sources', 'tform').resolve()),
     # Define the extra aguments for the compilation
     'compilation-options': [],
     'cores': 2,  # multiprocessing.cpu_count(),
@@ -2995,7 +2995,7 @@ class FORMSuperGraphList(list):
         
         for elems in diag_sets.values():
             if len(elems) > 0:
-                (full_graph_list[elems[0]]).additional_calls = [{"id" : g_id} for g_id in elems[1:]]
+                (full_graph_list[elems[0]]).additional_calls = [[g_id,0] for g_id in elems[1:]]
             
 
         FORM_sg_list = FORMSuperGraphList(full_graph_list, name=p.stem)
