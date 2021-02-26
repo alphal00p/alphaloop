@@ -1238,7 +1238,7 @@ class HardCodedAmpExporter():
         in_moms =[]
         out_moms =[]
         # get form-supergraphs
-        for top in topo_list:
+        for i, top in enumerate(topo_list):
             for toponame, topo in top.items():
                 if not len(topo["pdgs"]) == len(topo["definition"]) or len(topo["pdgs"])==0:
                         raise alphaLoopExporterError("Not enough PDGs for all edges")
@@ -1249,8 +1249,8 @@ class HardCodedAmpExporter():
                     tuple(topo["externals"][0]),tuple(topo["externals"][1]), computed_model, loop_momenta_names=topo["lmb"],
                     pdgs = topo["pdgs"],
                     numerator = topo['numerator'],
-                    powers = topo.get('powers',{})
-                    )]
+                    powers = topo.get('powers',{}),
+                    diag_set = topo.get('diag_set',"topo_set_xxx_"+str(i)) )]
                 in_moms += [tuple("p"+str(i+1) for i in range(len(topo["externals"][0])))]
                 out_moms += [tuple("p"+str(i+1 +len(topo["externals"][0]) ) for i in range(len(topo["externals"][1])))]
         # create output for mathematica
@@ -1261,7 +1261,8 @@ class HardCodedAmpExporter():
                 "analytic_num": top.numerator,
                 "overall_factor":1,
                 "in_momenta": in_moms[i],
-                "out_momenta": out_moms[i]
+                "out_momenta": out_moms[i],
+                "diag_set": top.diag_set,
             }                   
             for i, top in enumerate(topos)
         ]

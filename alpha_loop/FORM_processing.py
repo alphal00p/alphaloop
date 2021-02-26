@@ -197,7 +197,10 @@ class FORMSuperGraph(object):
         is_amplitude=False,
         color_struc=None,
         numerator=None,
-        external_data={}
+        external_data={},
+        diag_set = None,
+        is_set_representative = True,
+        additional_calls = None
     ):
         """ initialize a FORM SuperGraph from several options."""
 
@@ -233,6 +236,10 @@ class FORMSuperGraph(object):
         self.color_struc = color_struc
         self.numerator = numerator
         self.external_data = external_data
+        # for the combination of diags with counterterms
+        self.diag_set = diag_set
+        self.is_set_representative = is_set_representative
+        self.additional_calls = additional_calls
         # determine powers
         self.powers = None
         if self.is_amplitude:
@@ -368,7 +375,7 @@ class FORMSuperGraph(object):
         return valid_cut
     
     @classmethod
-    def from_topology(cls, edge_map_lin, name, incoming_momentum_names, outgoing_momentum_names, model, pdgs=[], loop_momenta_names=None, numerator=1, powers ={}, is_amplitude = True):
+    def from_topology(cls, edge_map_lin, name, incoming_momentum_names, outgoing_momentum_names, model, pdgs=[], loop_momenta_names=None, numerator=1, powers ={}, is_amplitude = True, diag_set = None):
         vertices = [v for e in edge_map_lin for v in e[1:]]
 
         topo_generator = LTD.ltd_utils.TopologyGenerator(edge_map_lin, {})
@@ -466,7 +473,8 @@ class FORMSuperGraph(object):
             overall_factor = '1',
             multiplicity = 1,
             numerator = numerator,
-            is_amplitude = is_amplitude
+            is_amplitude = is_amplitude,
+            diag_set=diag_set
         )
 
 
@@ -1501,7 +1509,7 @@ CTable pfmap(0:{},0:{});
         else:
             vrtx_weights = {}
         
-
+        
         # notice the edge-weight we assign to avoid uv-configs
         if self.is_amplitude:
             topo = LTD.squared_topologies.SquaredTopologyGenerator(edge_map_lin,
@@ -1527,7 +1535,8 @@ CTable pfmap(0:{},0:{});
                 is_amplitude=self.is_amplitude,
                 external_data=self.external_data,
                 color_struc=self.color_struc,
-                powers = self.powers
+                powers = self.powers,
+                additional_calls = self.additional_calls,
 
             )
         else:
@@ -1555,7 +1564,7 @@ CTable pfmap(0:{},0:{});
 
             )
         # check if cut is possible
-        print(len(topo.cuts))
+
         if len(topo.cuts) == 0:
             logger.info("No cuts for graph {}".format(self.name))
             return False
@@ -1585,8 +1594,10 @@ CTable pfmap(0:{},0:{});
                             (self.name, self.additional_lmbs)))
             else:
                 topo.export(pjoin(root_output_path, "%s.yaml" % self.name))
-
-        return True
+        if self.is_set_representative:
+            return True
+        else: 
+            return False
 
     def generate_replacement_rules(self, topo):
         # collect the transformations of the bubble
@@ -2972,6 +2983,20 @@ class FORMSuperGraphList(list):
 
 
         logger.info("\033[1m{} amplitude supergraphs\033[m".format(len(full_graph_list)))
+        
+        # Here we determine which of the graphs is a set_representative
+        diag_sets = {}
+        for i,g in enumerate(full_graph_list):
+            if not g.diag_set in set(diag_sets.keys()):
+                diag_sets[g.diag_set] = [i]
+            else: 
+                g.is_set_representative = False
+                diag_sets[g.diag_set] = diag_sets[g.diag_set] + [i]
+        
+        for elems in diag_sets.values():
+            if len(elems) > 0:
+                (full_graph_list[elems[0]]).additional_calls = [{"id" : g_id} for g_id in elems[1:]]
+            
 
         FORM_sg_list = FORMSuperGraphList(full_graph_list, name=p.stem)
 
@@ -3425,6 +3450,10 @@ int %(header)sget_rank(int diag, int conf) {{
         # Set sensible jet_ids if none
         if jet_ids is None:
             jet_ids=tuple(list(range(1,6))+list(range(-1,-6,-1))+[21,82,-82,1337])
+
+                    
+
+
 
         contributing_supergraphs = []
 

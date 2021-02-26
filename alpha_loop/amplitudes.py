@@ -205,6 +205,7 @@ def sew_amp_diags(ld, rd):
         left_diag ([dict]): [dictionary containing the left-diagram]
         right_diag ([dict]): [dictionary containing the right diagram]
     """
+    
     sewed_graph = {}
     left_diag = copy.deepcopy(ld)
     right_diag = copy.deepcopy(rd)
@@ -389,7 +390,7 @@ def sew_amp_diags(ld, rd):
                     valdic['indices'] = valdic.get('indices',()) + (idxs[0],)
                 else:
                     valdic['indices'] = valdic.get('indices',())+ (idxs[-1],)
-
+    sewed_graph["diag_set"] = left_diag["diag_set"]
     return copy.deepcopy(sewed_graph)
 
 
@@ -480,9 +481,11 @@ class amplitude():
             # BUILD SUPEGRPAPHS
             left_diags=math_supergraph.graphs
             right_diags=[]
-            for g in left_diags:
+            for i,g in enumerate(left_diags):
                 if 'analytic_num' not in g.keys():
                     g['analytic_num']="1"
+                if 'diag_set' not in g.keys():
+                    g['diag_set'] = "diag_set_xxx" + str(i)
                 if self.interfence_type == "effective_vertex":
                     right_diags += [to_right_diag(g, to_effective_vertex=True)]
                 else:

@@ -16,7 +16,7 @@ class SquaredTopologyGenerator:
         MG_numerator={}, subgraphs_info={},overall_numerator=1., numerator_structure={},
         cut_filter=set(), FORM_numerator={}, FORM_integrand={},
         vertex_weights={}, edge_weights={}, generation_options={},analytic_result=None,
-        default_kinematics=None, external_data={}, color_struc = None, is_amplitude = False):
+        default_kinematics=None, external_data={}, color_struc = None, is_amplitude = False, additional_calls = None):
 
         self.name = name
         self.topo = TopologyGenerator(edges, powers=powers)
@@ -25,6 +25,9 @@ class SquaredTopologyGenerator:
         self.MG_numerator = MG_numerator
         self.FORM_numerator = FORM_numerator
         self.FORM_integrand = FORM_integrand
+
+        if not additional_calls == None:
+            self.FORM_integrand["extra_call"] = additional_calls
         self.subgraphs_info = subgraphs_info
         self.generation_options = generation_options
 
@@ -42,6 +45,7 @@ class SquaredTopologyGenerator:
         self.is_amplitude = is_amplitude
         self.external_data = external_data
         self.color_struc = color_struc
+        
 
 
 
