@@ -634,7 +634,6 @@ class SuperGraph(dict):
                 sink_external_node = non_shrunk_edges_for_this_CC_cut[sink_edge][
                     0 if sorted_incoming_edges[-1][1]==1 else 1
                 ] 
-
                 while len(remaining_internal_nodes)>0:
                     # Find one node if all connected nodes being external but one
                     for node in remaining_internal_nodes:
@@ -652,8 +651,9 @@ class SuperGraph(dict):
                             connected_non_explored_edge = connected_non_explored_edges[0][0]
                             connected_non_explored_node = connected_non_explored_edges[0][1]
                             # Add an s- or t-channel
+
                             connected_external_nodes = set(a_node for e, a_node in connected_nodes if a_node not in remaining_internal_nodes)
-                            ancestors_states = [ancestor_legs_for_node[a_node] for a_node in connected_external_nodes]
+                            ancestors_states = [ ancestor_legs_for_node[a_node] for a_node in connected_external_nodes ]
                             final_state_ancestors = []
                             initial_state_ancestors = []
                             for ancestors in ancestors_states:
@@ -664,10 +664,12 @@ class SuperGraph(dict):
                                         initial_state_ancestors.append( (ancestor_edge_name, ancestor_state) )
                             
                             # Add the ancestors to this node:
-                            if connected_non_explored_node in ancestor_legs_for_node:
-                                ancestor_legs_for_node[connected_non_explored_node].extend(final_state_ancestors+initial_state_ancestors)
+                            #node_to_update_ancestors_for = connected_non_explored_node
+                            node_to_update_ancestors_for = node
+                            if node_to_update_ancestors_for in ancestor_legs_for_node:
+                                ancestor_legs_for_node[node_to_update_ancestors_for].extend(final_state_ancestors+initial_state_ancestors)
                             else:
-                                ancestor_legs_for_node[connected_non_explored_node] = final_state_ancestors+initial_state_ancestors
+                                ancestor_legs_for_node[node_to_update_ancestors_for] = final_state_ancestors+initial_state_ancestors
                             new_vertex = base_objects.Vertex({
                                 'id': DUMMY, # Irrelevant
                                 'legs': base_objects.LegList(

@@ -345,14 +345,14 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         #)
 
         # Now assign a tree-level structure generator to each channel 
-        self.multichannel_generators = []
+        self.multichannel_generators = {}
 
         self.edges_PDG = { e[0] : e [1] for e in self.SG['edge_PDGs'] }
         self.edge_masses = { edge_name : self.model['parameter_dict'][
                     self.model.get_particle(self.edges_PDG[edge_name]).get('mass')
             ].real for edge_name in self.edges_PDG }
 
-        for SG_channel_info in self.SG['SG_multichannel_info']:
+        for i_channel, SG_channel_info in enumerate(self.SG['SG_multichannel_info']):
             
             # When generating the phase-space flat, we always ever only have a single channel per cut.
             if self.external_phase_space_generation_type == 'flat' and SG_channel_info['side']!='left':
@@ -382,12 +382,10 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             
             if self.external_phase_space_generation_type == 'flat':
                 
-                self.multichannel_generators.append( 
-                    PS.FlatInvertiblePhasespace(
+                self.multichannel_generators[i_channel] = PS.FlatInvertiblePhasespace(
                         generator_initial_state_masses, final_state_masses, 
                         beam_Es=generator_beam_Es, beam_types=(0,0),
                         dimensions = self.dimensions.get_dimensions(['x_%d'%i_dim for i_dim in range(1,n_external_state_dofs+1)])
-                    )
                 )
 
             elif self.external_phase_space_generation_type == 'advanced':
@@ -434,14 +432,12 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                 else:
                     selected_topology = tree_topology_info['s_and_t_propagators']
 
-                self.multichannel_generators.append( 
-                    PS.SingleChannelPhasespace(
+                self.multichannel_generators[i_channel] =  PS.SingleChannelPhasespace(
                         generator_initial_state_masses, final_state_masses, 
                         beam_Es=generator_beam_Es, beam_types=(0,0),
                         model=model, topology=selected_topology, path = selected_generator_path,
                         dimensions = self.dimensions.get_dimensions(['x_%d'%i_dim for i_dim in range(1,n_external_state_dofs+1)])
                     )
-                )
 
     def loop_parameterisation(self, xs):
 
@@ -537,7 +533,11 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             for i_channel, channel_info in enumerate(self.SG['SG_multichannel_info']):
                 if selected_cut_and_side is not None and i_channel not in selected_cut_and_side:
                     continue
-        
+
+                # When generating the phase-space flat, we always ever only have a single channel per cut.
+                if self.external_phase_space_generation_type == 'flat' and channel_info['side']!='left':
+                    continue
+
                 for i_LMB, LMB_info in enumerate(channel_info['loop_LMBs']):
                     if selected_LMB is not None and i_LMB not in selected_LMB:
                         continue
@@ -726,7 +726,10 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             for MC_i_channel, MC_channel_info in enumerate(self.SG['SG_multichannel_info']):
                 # WARNING TODO doing the double for-loop here is not so optimal because a lot of information can be computed independently
                 # of the LMB chosen already. I leave this to future refinements.
-                for MC_i_LMB, MC_LMB_info in enumerate(channel_info['loop_LMBs']):
+                # When generating the phase-space flat, we always ever only have a single channel per cut.
+                if self.external_phase_space_generation_type == 'flat' and MC_channel_info['side']!='left':
+                    continue
+                for MC_i_LMB, MC_LMB_info in enumerate(MC_channel_info['loop_LMBs']):
                     # Note that for debugging it is useful to uncomment the three lines below and verify explicitly that 
                     #         MC_final_jacobian = final_jacobian
                     # for (MC_i_channel, MC_i_LMB) == (i_channel, i_LMB)
