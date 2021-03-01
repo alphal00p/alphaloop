@@ -1736,9 +1736,6 @@ class FORMSuperGraphIsomorphicList(list):
             return to_dump
     
     def multiplicity_factor(self, iso_id, workspace, form_source):
-        if len(self) == 1:
-            return (self, 1)
-
         output_match = re.compile(r'isoF=(.*?);')
         reference = self[0].generate_numerator_form_input('', only_algebra=True)
         FORM_vars = {}
@@ -1750,6 +1747,8 @@ class FORMSuperGraphIsomorphicList(list):
             for i_graph, g in enumerate(self):
                 mapped = g.generate_numerator_form_input('', only_algebra=True)
                 f.write("L F{} = {};\n".format(i_graph + 1, mapped))
+                if len(self) == 1:
+                    f.write("L F2 = {};\n".format(mapped))
             
         cmd = ' '.join([
             FORM_processing_options["FORM_path"],
@@ -1763,6 +1762,11 @@ class FORMSuperGraphIsomorphicList(list):
             raise FormProcessingError("FORM processing failed with error:\n%s"%(r.stdout.decode('UTF-8')))
 
         output = r.stdout.decode('UTF-8').replace(' ','').replace('\n','')
+        if output_match.findall(output)[0] == "0":
+            return(self, 0)
+        if len(self) == 1:
+            return(self, 1)
+
         factor = re.sub(r'rat\(([-0-9]+),([-0-9]+)\)', r'(\1)/(\2)', output_match.findall(output)[0])
         if "rat" in factor:
             raise FormProcessingError("Multiplicity not found: {} / {} is not rational (iso_check_%(SGID)d)".format(self[0].name,g.name )%FORM_vars)
