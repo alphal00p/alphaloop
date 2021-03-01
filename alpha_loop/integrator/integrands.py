@@ -19,6 +19,7 @@ import math
 import shutil
 import numpy as np
 import random
+from multiprocessing import Value, Array
 
 import madgraph
 MADEVENT= False
@@ -135,14 +136,32 @@ class DimensionList(list):
 class VirtualIntegrand(object):
     """A mother base class that specifies the feature that any integrand should implement."""
     
-    def __init__(self, dimensions=DimensionList()):
+    def __init__(self, dimensions=None):
+
+        if dimensions is None:
+            dimensions = DimensionList()
+
         self.continuous_dimensions      = dimensions.get_continuous_dimensions()
         self.discrete_dimensions        = dimensions.get_discrete_dimensions()
         self.apply_observables          = True
         self.observable_list            = observables.ObservableList()
         self.function_list              = functions.FunctionList()
+
+        self.n_evals = Value('i', 0)
+        self.max_eval = Value('d', -1.)
+        self.max_eval_xs = Array('d', [-1. for _ in range(len(dimensions))])
+
         pass
     
+    def update_evaluation_statistics(self, xs, wgt):
+        """ Record the evaluation and update corresponding statistics."""
+
+        self.n_evals.value += 1
+
+        if abs(wgt) > self.max_eval.value:
+            self.max_eval.value = abs(wgt)
+            self.max_eval_xs[:] = xs
+
     def get_dimensions(self):
         """ Return all dimensions characterizing this integrand."""
         return DimensionList(self.continuous_dimensions + self.discrete_dimensions)

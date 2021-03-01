@@ -757,7 +757,7 @@ class SuperGraph(dict):
                 nx_graphs[side].add_edges_from(cutkosky_cut['multichannel_info']['tree_topologies'][side]['nx_graph_edges'])
 
             are_both_side_isomorphic = self.is_isomorphic_to(nx_graphs['left'],nx_graphs['right'])
-            sides_to_consider_for_SG_multichanneling = ['left',] if are_both_side_isomorphic else ['right',]
+            sides_to_consider_for_SG_multichanneling = ['left',] if are_both_side_isomorphic else ['left','right']
 
             for side in sides_to_consider_for_SG_multichanneling:
 
@@ -1958,7 +1958,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser.add_argument('-s','--sampling', metavar='sampling', type=str, default='xs', 
                     choices=('xs','flat', 'advanced', 'test_h_function'), help='Specify the sampling method (default: %(default)s)')
     integrate_parser.add_argument('-i','--integrator', metavar='integrator', type=str, default='vegas3', 
-                    choices=('naive','vegas', 'vegas3'), help='Specify the integrator (default: %(default)s)')
+                    choices=('naive','vegas', 'vegas3', 'inspect'), help='Specify the integrator (default: %(default)s)')
     integrate_parser.add_argument('-hf','--h_function', metavar='h_function', type=str, default='left_right_polynomial', 
                     choices=('left_right_polynomial',), help='Specify the h-function to use (default: %(default)s)')
     integrate_parser.add_argument('-hfs','--h_function_sigma', metavar='h_function_sigma', type=int, default=3, 
@@ -1999,6 +1999,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='Selected cutkosky cut and sides for the multichanneling. [-1,] means sum over all. (default: %(default)s).')
     integrate_parser.add_argument('-lmbs','--selected_lmbs', metavar='selected_lmbs', type=int, nargs='+', default=[-1,],
                     help='Selected lmb indices for the multichanneling. [-1,] means sum over all. (default: %(default)s).')
+    integrate_parser.add_argument('-xs','--xs', metavar='xs', type=float, nargs='+', default=[-1.,],
+                    help='Selected random variables to probe with inspect.')
     integrate_parser.add_argument(
         '-mc','--multichanneling',action="store_true", dest="multichanneling", default=False,
         help="Enable multichanneling (default: as per hyperparameters)")
@@ -2091,7 +2093,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                  'n_points_refine' : args.n_points_refine,
                  'batch_size' : args.batch_size,
             }
-
+        elif args.integrator == 'inspect':
+            # Inspection requires no integrator
+            selected_integrator = None
         else:
             raise alphaLoopInvalidRunCmd("Unsupported integrator specification: %s'."%args.integrator)
 
@@ -2185,6 +2189,19 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     phase=self.hyperparameters['Integrator']['integrated_phase']
                 )
 
+            if selected_integrator is None:
+                if len(args.xs)==0 or args.xs[0]<0.:
+                    raise InvalidCmd("When running in inspect mode, the random variables must be supplied with -xs = x1 x2 x3 ...") 
+                if len(args.xs) != SG_info['topo']['n_loops']*3:
+                    raise InvalidCmd("Expected %d random variables, but only %d were specified."%(SG_info['topo']['n_loops']*3,len(args.xs))) 
+
+                # Inspect mode
+                res = my_integrand(args.xs, [])
+                logger.info("Final weight for point xs=[%s] : %.16e"%(
+                    ' '.join('%.16f'%x for x in args.xs), res 
+                ))
+                return
+
             my_integrator = selected_integrator(my_integrand, **integrator_options)
 
             result = my_integrator.integrate()
@@ -2192,11 +2209,16 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             logger.info('')
             logger.info("Result of the cross-section for %s%s%s of %s%s%s with sampler %s%s%s and integrator %s%s%s, using %s%d%s function calls:\n%s %.6g +/- %.4g%s"%(
                 utils.bcolors.GREEN, SG_name, utils.bcolors.ENDC,
-                utils.bcolors.GREEN,os.path.basename(self.dir_path), utils.bcolors.ENDC,
+                utils.bcolors.GREEN, os.path.basename(self.dir_path), utils.bcolors.ENDC,
                 utils.bcolors.BLUE, args.sampling, utils.bcolors.ENDC,
                 utils.bcolors.BLUE, args.integrator, utils.bcolors.ENDC,
                 utils.bcolors.GREEN, my_integrator.tot_func_evals, utils.bcolors.ENDC,
                 utils.bcolors.GREEN, result[0], result[1], utils.bcolors.ENDC,
+            ))
+            logger.info("Maximum weight found: %.6g (%.1e x central value) for xs=[%s]"%(
+                my_integrand.max_eval.value, 
+                abs(my_integrand.max_eval.value/result[0]),
+                ' '.join('%.16f'%x for x in my_integrand.max_eval_xs) 
             ))
             logger.info('')
 

@@ -259,7 +259,6 @@ class DefaultALIntegrand(integrands.VirtualIntegrand):
         #if type(self.phase_space_generator).__name__ == 'SingleChannelPhasespace':
         #    PS_point, wgt, x1, x2 = self.phase_space_generator.get_PS_point(continuous_inputs,self.my_random_path)
         #else:
-        self.n_evals.value += 1
 
         xs, wgt = self.generator(continuous_inputs)
         re, im = self.rust_worker.evaluate_integrand( xs )
@@ -279,6 +278,9 @@ class DefaultALIntegrand(integrands.VirtualIntegrand):
                 else:
                     if self.debug: logger.debug("Diff w.r.t previous final wgt   : %.16e"%(self.first_final_res-final_res))
         if self.debug > 2: time.sleep(self.debug/10.0)
+
+
+        self.update_evaluation_statistics(xs,final_res)
 
         return final_res
 
@@ -303,8 +305,6 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         
         self.selected_cut_and_side=selected_cut_and_side
         self.selected_LMB=selected_LMB
-
-        self.n_evals = Value('i', 0)
 
         if external_phase_space_generation_type not in ['flat','advanced']:
             raise InvalidCmd("External phase-space generation mode not supported: %s"%external_phase_space_generation_type)
@@ -332,9 +332,17 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
         # We must now build the reduced topology of the supergraph to obtain channels
         self.SG.set_integration_channels()
-        ##pprint(self.SG['cutkosky_cuts'][0]['multichannel_info'])
-        ##pprint(len(self.SG['cutkosky_cuts']))
-        ##pprint(self.SG['SG_multichannel_info'])
+        if self.debug>2: 
+            selected_channels = [(i_channel, channel_info) for i_channel, channel_info in enumerate(self.SG['SG_multichannel_info']) if 
+                                    self.external_phase_space_generation_type != 'flat' or channel_info['side']=='left']
+            logger.debug("\n>>> Integration channel analysis (%d channels):"%len(selected_channels))
+            for i_cut, cut_info in enumerate(self.SG['cutkosky_cuts']):
+                logger.info("\n>> Multichannel info for cut #%d:\n%s"%(i_cut,pformat(cut_info['multichannel_info'])))
+            logger.info("\n>>> Overall multichannel info (%d channels):"%len(selected_channels))
+            for i_channel, channel_info in selected_channels:
+                logger.info("\n>>Info of channel #%d:\n%s"%(
+                    i_channel, pformat(channel_info)
+                ))
 
         # First we must regenerate a TopologyGenerator instance for this supergraph
         # We actually won't need it!
@@ -353,10 +361,6 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             ].real for edge_name in self.edges_PDG }
 
         for i_channel, SG_channel_info in enumerate(self.SG['SG_multichannel_info']):
-            
-            # When generating the phase-space flat, we always ever only have a single channel per cut.
-            if self.external_phase_space_generation_type == 'flat' and SG_channel_info['side']!='left':
-                continue
 
             tree_topology_info = self.SG['cutkosky_cuts'][
                     SG_channel_info['cutkosky_cut_id']
@@ -533,7 +537,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             for i_channel, channel_info in enumerate(self.SG['SG_multichannel_info']):
                 if selected_cut_and_side is not None and i_channel not in selected_cut_and_side:
                     continue
-
+                
                 # When generating the phase-space flat, we always ever only have a single channel per cut.
                 if self.external_phase_space_generation_type == 'flat' and channel_info['side']!='left':
                     continue
@@ -548,6 +552,8 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                 continuous_inputs, discrete_inputs, self.channel_for_generation[0], self.channel_for_generation[1], multi_channeling=False, **opts)
 
         if self.debug: logger.debug('Python integrand evaluation time = %.2f ms.'%((time.time()-start_time)*1000.0))
+
+        self.update_evaluation_statistics(list(continuous_inputs),final_res)
 
         return final_res
 
@@ -676,6 +682,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                 ( 2. * inv_rescaling_t * k.square() + k.dot(shift) ) / 
                 ( 2. * math.sqrt( (inv_rescaling_t*k + shift).square() - self.edge_masses[edge_name]**2 ) )
             )
+
         if self.debug: logger.debug('delta_jacobian=%s'%str(delta_jacobian))
         if self.debug: logger.debug('1./delta_jacobian=%s'%str(1./delta_jacobian))
         inv_aL_jacobian *= delta_jacobian
@@ -710,6 +717,30 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         aL_wgt = complex(re, im) * undo_aL_parameterisation
         if self.debug: logger.debug('aL res=%s'%str(aL_wgt))
 
+        if self.debug:
+            reconstituted_res = complex(0., 0.)
+            for cut_ID, cut_info in enumerate(self.SG['cutkosky_cuts']):
+                logger.debug("    Result for cut_ID #%d with external edges %s"%(cut_ID, ', '.join(c['name'] for c in cut_info['cuts']) ))
+                scaling_solutions = list(self.rust_worker.get_scaling(upscaled_input_momenta_in_LMB, cut_ID))
+                scaling, scaling_jacobian = scaling_solutions.pop(0)
+                while scaling < 0.0:
+                    if len(scaling_solutions)==0:
+                        break
+                    scaling, scaling_jacobian = scaling_solutions.pop(0)
+                logger.debug("    > t-scaling, t-scaling jacobian = %.16f, %.16f"%(scaling, scaling_jacobian))
+                re, im = self.rust_worker.evaluate_cut_f128(upscaled_input_momenta_in_LMB,cut_ID,scaling,scaling_jacobian)
+                this_cut_res = complex(re, im)
+                if self.hyperparameters['CrossSection']['picobarns'] or False:
+                    this_cut_res /= 0.389379304e9
+                logger.debug("    > aL res for this cut = %s"%str(this_cut_res))
+                reconstituted_res += this_cut_res
+            logger.debug("    Reconstituted aL res = %s (rel. diff = %s )"%(
+                str(reconstituted_res), complex(
+                    reconstituted_res.real/aL_wgt.real if abs(aL_wgt.real) > 0. else reconstituted_res.real,
+                    reconstituted_res.imag/aL_wgt.imag if abs(aL_wgt.imag) > 0. else reconstituted_res.imag,
+                )
+            ))
+
         if self.debug: logger.debug('normalising_func=%s'%normalising_func)
         # And accumulate it to what will be the final result
         final_res = final_jacobian * normalising_func * aL_wgt
@@ -734,9 +765,9 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                     #         MC_final_jacobian = final_jacobian
                     # for (MC_i_channel, MC_i_LMB) == (i_channel, i_LMB)
                     # because this is indeed a non-trivial check of all the inversion of the parameterisations used here.
-                    if (MC_i_channel, MC_i_LMB) == (i_channel, i_LMB):
-                        # This contributions was already accounted for as part of final_jacobian
-                        continue
+                    #if (MC_i_channel, MC_i_LMB) == (i_channel, i_LMB):
+                    #    # This contributions was already accounted for as part of final_jacobian
+                    #    continue
                     
                     MC_final_jacobian = self.get_jacobian_for_channel(
                         MC_i_channel, MC_i_LMB, upscaled_input_momenta_in_LMB, PS_initial_state_four_momenta, multichanneling_cache = multichanneling_cache)
