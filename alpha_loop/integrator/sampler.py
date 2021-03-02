@@ -34,6 +34,8 @@ import numpy as np
 
 import logging
 
+sampler_path = os.path.dirname(os.path.realpath( __file__ ))
+
 pjoin = os.path.join
 
 import copy
@@ -122,6 +124,8 @@ class HFunction(object):
             lambda t : (t**self.sigma / (1 + t**(2*self.sigma))) * self.normalisation
         )
 
+        self.exact_PDF = self.PDF
+
         if self.sigma == 2:
             self.CDF = lambda t, x : (
                 (1 / (2*math.pi))*(
@@ -204,6 +208,101 @@ class HFunction(object):
         
         return root_result.root, 1./PDF
 
+class DiscreteExponentialHFunction(object):
+    r"""
+    Implements sampling from the noramlised distibution:
+
+            PDF(t) = exp(-(t^2+1)/t) * (1 / 2 BesselK[1, 2])
+ 
+    The resulting CDF cannot be computed analytically, so we instead pick here a discretised version, with a discretisation 
+    that can be specified upon instantiation
+    """
+
+    _DISCRETE_BINS_FILE = 'ExponentialHFunctionDiscretizationData_300bins.csv'
+    #_DISCRETE_BINS_FILE = 'ExponentialHFunctionDiscretizationData_10bins.csv'
+
+    def __init__(self, sigma, debug=0):
+
+        self.debug = debug
+
+        self.sigma = sigma
+
+        if self.sigma != 1:
+            raise BaseException("Currently the DiscreteExponentialHFunction is only implemented for sigma=1.")
+
+        
+        # Hard-coding 1./(2 BesselK[1, 2]) here.
+        self.normalisation = 3.5748532344428743120454466520221
+
+        self.exact_PDF = (
+            lambda t : math.exp( - (1. + t**2) / t ) * self.normalisation
+        )
+
+        discretization_data_file = os.path.join(sampler_path,self._DISCRETE_BINS_FILE)
+        self.discrete_bins = []
+        try:
+            headers = []
+            for i_line, line in enumerate(open(discretization_data_file,'r').readlines()):
+                if i_line == 0:
+                    headers = [ header.replace('"','') for header in line.strip('\n').split(',') ]
+                    continue
+                self.discrete_bins.append({key : float(value) for key, value in zip(headers, line.strip('\n').split(',')) })
+        except Exception as e:
+            logger.info("Could not read exponential H-function discretization in file %s. Error: %s"%(discretization_data_file, str(e)))
+
+        logger.info("Successfully loaded %d discretized bin data from file %s."%(
+            len(self.discrete_bins), discretization_data_file
+        ))
+
+    def inverse_sampling(self, t):
+        """ Inverse sampling, which is trivial in this case given that we do an exact inversion, but it may not always be so.
+        Returns the corresponding sampling x in [0,1] and the inverse of the Jacobian.
+        """
+
+        x_t = (t / 1. + t)
+
+        selected_bin = None
+        for a_bin in self.discrete_bins:
+            if a_bin['left_edge'] <= x_t <= a_bin['right_edge']:
+                selected_bin = a_bin
+                break
+        if selected_bin is None:
+            raise Exception("Could not find a discretized bin for t=%.16f, x_t=%.16f"%(t, x_t))
+
+        a = 0.5*selected_bin['a']
+        b = selected_bin['b']
+        c = -0.5*selected_bin['a']*selected_bin['left_edge']**2 - selected_bin['b']*selected_bin['left_edge'] + selected_bin['CDF_left'] 
+
+        CDF_t = a*(x_t**2) + b*(x_t) + c 
+
+        PDF_t = ( selected_bin['a'] * x_t + selected_bin['b'] ) / ((1+t)**2)
+
+        return CDF_t, PDF_t
+
+    def __call__(self, x):
+
+        
+        # First find the relevant bin
+        selected_bin = None
+        for a_bin in self.discrete_bins:
+            if a_bin['CDF_left'] <= x <= a_bin['CDF_right']:
+                selected_bin = a_bin
+                break
+        if selected_bin is None:
+            raise Exception("Could not find a discretized bin for random variable %.16f."%x)
+
+        a = 0.5*selected_bin['a']
+        b = selected_bin['b']
+        c = -0.5*selected_bin['a']*selected_bin['left_edge']**2 - selected_bin['b']*selected_bin['left_edge'] + selected_bin['CDF_left'] - x
+
+        x_t = ( -b + math.sqrt(b**2-4*a*c) ) / ( 2* a )
+
+        t = x_t / ( 1 - x_t )
+
+        PDF_t = ( selected_bin['a'] * x_t + selected_bin['b'] ) / ((1+t)**2)
+
+        return t, 1./PDF_t
+
 class TestHFuncIntegrand(integrands.VirtualIntegrand):
     """An integrand for this phase-space volume test."""
 
@@ -212,26 +311,30 @@ class TestHFuncIntegrand(integrands.VirtualIntegrand):
         super(TestHFuncIntegrand, self).__init__( integrands.DimensionList([ integrands.ContinuousDimension('x_1',lower_bound=0.0, upper_bound=1.0), ]) )
 
         self.h_function = h_function
+
+        # Integrate trivial one
+        self.trial_normalised_integrand = lambda t: self.h_function.exact_PDF(t)
+        # Integrate similarly shaped integrand
+        #HF2 = HFunction(2)
+        #HF3 = HFunction(3)
+        #self.trial_normalised_integrand = lambda t: (HF2.PDF(t)+HF3.PDF(t))/2.
+
         self.debug = debug
 
         self.n_evals = Value('i', 0)
 
-        #if type(self.phase_space_generator).__name__ == 'SingleChannelPhasespace':
-        #    self.my_random_path = self.phase_space_generator.generate_random_path()
-    
     def __call__(self, continuous_inputs, discrete_inputs, **opts):
-        #if type(self.phase_space_generator).__name__ == 'SingleChannelPhasespace':
-        #    PS_point, wgt, x1, x2 = self.phase_space_generator.get_PS_point(continuous_inputs,self.my_random_path)
-        #else:
-        self.n_evals.value += 1
 
         x = list(continuous_inputs)[0]
         t, wgt = self.h_function(x)
 
-        final_res = (1./(1+t**2))*(1./(math.pi/2.)) * wgt
+        #final_res = (1./(1+t**2))*(1./(math.pi/2.)) * wgt
+        final_res = self.trial_normalised_integrand(t) * wgt
 
         if self.debug: logger.debug("Final wgt returned to integrator: %s"%str(final_res))
         if self.debug > 2: time.sleep(self.debug)
+
+        self.update_evaluation_statistics([x,],final_res)
 
         return final_res
 

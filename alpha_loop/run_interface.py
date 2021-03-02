@@ -1959,9 +1959,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     choices=('xs','flat', 'advanced', 'test_h_function'), help='Specify the sampling method (default: %(default)s)')
     integrate_parser.add_argument('-i','--integrator', metavar='integrator', type=str, default='vegas3', 
                     choices=('naive','vegas', 'vegas3', 'inspect'), help='Specify the integrator (default: %(default)s)')
-    integrate_parser.add_argument('-hf','--h_function', metavar='h_function', type=str, default='left_right_polynomial', 
-                    choices=('left_right_polynomial',), help='Specify the h-function to use (default: %(default)s)')
-    integrate_parser.add_argument('-hfs','--h_function_sigma', metavar='h_function_sigma', type=int, default=3, 
+    integrate_parser.add_argument('-hf','--h_function', metavar='h_function', type=str, default='left_right_exponential', 
+                    choices=('left_right_polynomial','left_right_exponential'), help='Specify the h-function to use (default: %(default)s)')
+    integrate_parser.add_argument('-hfs','--h_function_sigma', metavar='h_function_sigma', type=int, default=1, 
                     help='Spread of the h-function, higher=steeper (default: %(default)s).')
     integrate_parser.add_argument('-v','--verbosity', metavar='verbosity', type=int, default=0,choices=(0,1,2,3),
                     help='verbosity level (default: %(default)s).')
@@ -2033,6 +2033,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         if args.h_function == 'left_right_polynomial':
             selected_h_function = CallableInstanceWrapper(sampler.HFunction(args.h_function_sigma, debug=args.verbosity))
+        elif args.h_function == 'left_right_exponential':
+            selected_h_function = CallableInstanceWrapper(sampler.DiscreteExponentialHFunction(args.h_function_sigma, debug=args.verbosity))
         else:
             raise alphaLoopInvalidRunCmd("Unsupported h-function specification: %s'."%args.h_function)
 
@@ -2112,6 +2114,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             logger.info('')
             logger.info("Result of the test integration using h function %s with %d function calls (target is 1.0): %.4e +/- %.2e"%(
                 args.h_function, my_integrator.tot_func_evals, result[0], result[1]))
+            logger.info("Maximum weight found: %.6g (%.1e x central value) for xs=[%s]"%(
+                my_integrand.max_eval.value, 
+                abs(my_integrand.max_eval.value/result[0]),
+                ' '.join('%.16f'%x for x in my_integrand.max_eval_xs) 
+            ))
             logger.info('')
             return
         else:
