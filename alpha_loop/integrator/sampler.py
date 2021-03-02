@@ -678,7 +678,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         rescaling_t, wgt_t = self.h_function(x_t)
         if self.debug: logger.debug('t, 1/t, wgt_t=%s, %s, %s'%(rescaling_t, 1./rescaling_t, wgt_t))
 
-        normalising_func = self.h_function.PDF(rescaling_t)
+        normalising_func = self.h_function.exact_PDF(rescaling_t)
         if self.debug: logger.debug('normalising_func=%s'%str(normalising_func))
 
         # Note that normalising_func*wgt_t = 1 when the sampling PDF matches exactly the h function, but it won't if approximated.
@@ -791,7 +791,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         inv_aL_jacobian *= delta_jacobian
 
         # Then the inverse of the H-function and of the Jacobian of the causal flow change of variables
-        inv_aL_jacobian *=  ( 1. / self.h_function.PDF(1./rescaling_t) ) * (rescaling_t**(len(CMB_edges)*3)) 
+        inv_aL_jacobian *=  ( 1. / self.h_function.exact_PDF(1./rescaling_t) ) * (rescaling_t**(len(CMB_edges)*3)) 
 
         # The final jacobian must then be our param. jac together with that of t divided by the one from alphaloop.
         final_jacobian = PS_jac * loop_jac * wgt_t * inv_aL_jacobian
@@ -970,7 +970,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             if self.debug: logger.debug('MC_downscaled_input_momenta_in_CMB=%s'%str({e: v*MC_inv_rescaling_t for e,v in MC_upscaled_input_momenta_in_CMB.items()}))
 
             # Note that MC_normalising_func*MC_wgt_t = 1 when the sampling PDF matches exactly the h function, but it won't if approximated.
-            #MC_normalising_func = self.h_function.PDF(MC_rescaling_t)
+            #MC_normalising_func = self.h_function.exact_PDF(MC_rescaling_t)
 
             MC_downscaled_final_state_momenta = []
             MC_downscaled_final_state_four_momenta = []
@@ -1016,7 +1016,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             MC_inv_aL_jacobian *= MC_delta_jacobian
 
             # Then the inverse of the H-function and of the Jacobian of the causal flow change of variables
-            MC_inv_aL_jacobian *=  ( 1. / self.h_function.PDF(1./MC_rescaling_t) ) * (MC_rescaling_t**(len(MC_CMB_edges)*3)) 
+            MC_inv_aL_jacobian *=  ( 1. / self.h_function.exact_PDF(1./MC_rescaling_t) ) * (MC_rescaling_t**(len(MC_CMB_edges)*3)) 
 
             # Store all these quantities being always identical independently of the particular LMB chosen for future use.
             multichanneling_cache['cutkosky_cut_and_side_cache'][MC_i_channel] = {}
@@ -1420,7 +1420,7 @@ class generator_epem_a_jjjj_SG_QG36(CustomGenerator):
 
         # Exclude normalising func when testing the inverse jacobian.
         if not self.test_inverse_jacobian:
-            normalising_func = self.h_function.PDF(rescaling_t)
+            normalising_func = self.h_function.exact_PDF(rescaling_t)
         else:
             normalising_func = 1.0
         
@@ -1429,14 +1429,14 @@ class generator_epem_a_jjjj_SG_QG36(CustomGenerator):
         # Now we inverse parameterise this point using alphaLoop (non-multichanneled internal param)
         aL_xs = []
 
-        if self.debug: logger.debug('h(t)=%s'%str(self.h_function.PDF(rescaling_t)))
+        if self.debug: logger.debug('h(t)=%s'%str(self.h_function.exact_PDF(rescaling_t)))
         if self.debug: logger.debug('1/t=%s'%str(1./rescaling_t))
-        if self.debug: logger.debug('h(1/t)=%s'%str(self.h_function.PDF(1./rescaling_t)))
+        if self.debug: logger.debug('h(1/t)=%s'%str(self.h_function.exact_PDF(1./rescaling_t)))
         if self.debug: logger.debug('rescaling_t**(3*(len(PS_point_LMB)-1))=%s'%str(rescaling_t**(3*(len(PS_point_LMB)-1))))
         if self.debug: logger.debug('sum(k_norms)=%s'%str(sum(k_norms)))
         if self.debug: logger.debug('1./(rescaling_t*sum(k_norms))=%s'%str(1./(rescaling_t*sum(k_norms))))
 
-        inv_aL_jac = ( 1.0 / self.h_function.PDF(1./rescaling_t) ) * (rescaling_t**((len(PS_point_LMB)-1)*3)) * ( rescaling_t * sum(k_norms) )
+        inv_aL_jac = ( 1.0 / self.h_function.exact_PDF(1./rescaling_t) ) * (rescaling_t**((len(PS_point_LMB)-1)*3)) * ( rescaling_t * sum(k_norms) )
 
         for i_v, v in enumerate(rescaled_PS_point_LMB_vec[:-1]):
             kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(v, i_v, self.E_cm**2)
