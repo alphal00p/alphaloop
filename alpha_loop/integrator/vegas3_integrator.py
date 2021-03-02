@@ -130,7 +130,7 @@ class ParallelWrappedIntegrand(vegas.BatchIntegrand):
     def wait_monitoring(self, Idle, Running, Done):
         if Idle+Running+Done == 0:
             return
-        logger.debug('MadEvent7 integration: %d Idle, %d Running, %d Done'%(Idle, Running, Done))
+        logger.debug('alphaLoop integration: %d Idle, %d Running, %d Done'%(Idle, Running, Done))
 
     def __call__(self, x):
         " Divide x into self.nproc chunks, feeding one to each process. "

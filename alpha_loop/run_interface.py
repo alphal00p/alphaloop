@@ -2007,6 +2007,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser.add_argument(
         '-no_mc','--no_multichanneling',action="store_false", dest="multichanneling", default=False,
         help="Disable multichanneling (default: as per hyperparameters)")
+    integrate_parser.add_argument(
+        '-nw','--no_warnings',action="store_false", dest="show_warnings", default=True,
+        help="Disable the printout of numerical warnings during the integration.")
+
     def help_integrate(self):
         self.integrate_parser.print_help()
         return
@@ -2193,7 +2197,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     channel_for_generation = channel_for_generation,
                     selected_cut_and_side=selected_cut_and_side, 
                     selected_LMB=selected_LMB,
-                    phase=self.hyperparameters['Integrator']['integrated_phase']
+                    phase=self.hyperparameters['Integrator']['integrated_phase'],
+                    show_warnings=args.show_warnings
                 )
 
             if selected_integrator is None:
