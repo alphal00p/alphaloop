@@ -259,7 +259,7 @@ class DiscreteExponentialHFunction(object):
         Returns the corresponding sampling x in [0,1] and the inverse of the Jacobian.
         """
 
-        x_t = (t / 1. + t)
+        x_t = (t / (1. + t) )
 
         selected_bin = None
         for a_bin in self.discrete_bins:
@@ -680,6 +680,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
         normalising_func = self.h_function.exact_PDF(rescaling_t)
         if self.debug: logger.debug('normalising_func=%s'%str(normalising_func))
+        if self.debug: logger.debug('normalising_func * wgt-t =%s'%str(normalising_func*wgt_t))
 
         # Note that normalising_func*wgt_t = 1 when the sampling PDF matches exactly the h function, but it won't if approximated.
 
