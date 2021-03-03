@@ -1,4 +1,5 @@
 #--
+*--#[ pf_num :
 *off statistics;
 CF ncmd, kval, num, a;
 
@@ -7,7 +8,7 @@ Auto S invd, E, p;
 Auto S k;
 Auto S f,z,r,x,s,c;
 *#include- pf_2l_pentabox.frm
-#include- pf_4l_2x2_fishnet.frm
+*#include- pf_4l_2x2_fishnet.frm
 *#include- pf_2l_sunrise.frm
 
 #$LOOPS=4;
@@ -45,6 +46,8 @@ if (count(ncmd, 1,num,1,a, 1));
     exit "Critical error";
 endif;
 .sort:rm-num;
+*--#] pf_num :
+
 
 *Format 255;
 Format C;

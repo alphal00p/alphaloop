@@ -2,6 +2,7 @@
 Format nospaces;
 Format 100; 
 
+*--#[ partial_fractioning_vars :
 Auto S n, y,E,p,k;
 CF ncmd, num, Eres, Echain;
 CF den, prop, norm, error;
@@ -9,6 +10,7 @@ CF x, xbar;
 
 set energies:E0,...,E1000;
 set shifts:p0,...,p1000;
+*--#] partial_fractioning_vars :
 
 * The propagators are defined has prop(q0,qE):=q0^2-qE^2;
 
@@ -21,9 +23,12 @@ L F2 = prop(k0+p0,E0)*prop(k0+p1,E1);
 *Triangle
 L F3 = prop(k0+p0,E0)*prop(k0+p1,E1)*prop(k0+p2,E2);
 *Box
-L F4 = prop(k0+p0,E0)*prop(k0+p1,E1)*prop(k0+p2,E2)*prop(k0+p3,E3);
+*L F4 = prop(k0+p0,E0)*prop(k0+p1,E1)*prop(k0+p2,E2)*prop(k0+p3,E3);
+L F4 = prop(k0-p1,E1)*prop(k0-p2,E2)*prop(k0-p3,E3)*prop(k0-p4,E4);
+*L F4 = prop(k0,E1)*prop(k0-p1,E2)*prop(k0-p1-p2,E3)*prop(k0+p1,E4);
 *Box
-L F5 = prop(k0+p0,E0)*prop(k0+p1,E1)*prop(k0+p2,E2)*prop(k0+p3,E3)*prop(k0+p4,E4);
+*L F5 = prop(k0+p0,E0)*prop(k0+p1,E1)*prop(k0+p2,E2)*prop(k0+p3,E3)*prop(k0+p4,E4);
+L F5 = prop(k0-p1,E1)*prop(k0-p2,E2)*prop(k0-p3,E3)*prop(k0-p4,E4)*prop(k0-p5,E5);
 *Decagon
 L F10 = prop(k0+p0,E0)*prop(k0+p1,E1)*prop(k0+p2,E2)*prop(k0+p3,E3)*
         prop(k0+p4,E4)*prop(k0+p5,E5)*prop(k0+p6,E6)*prop(k0+p7,E7)*
@@ -43,6 +48,10 @@ L F2b = prop(k0+p0,E0)*prop(-k0-k1+p1,E1)*prop(k1+p2,E2);
 L F2c = prop(k0+p0,E0)*
         prop(k0-k1+p1,E1)*prop(k0-k1+p2,E2)*prop(k0-k1+p3,E3)*
         prop(k1+p4,E4)*prop(k1+p5,E5)*prop(k1+p6,E6)*prop(k1+p7,E7);
+*UV topology
+L Ftest = prop(k0,E0)*prop(k0-p0,E1)*prop(k0,E2)^6*
+          prop(k1,E3)*prop(k1,E4)^4*
+          prop(k0+k1-p0,E5)*prop(k0+k1,E6)^5;
 
 **************
 *** 4 LOOP ***
@@ -114,9 +123,12 @@ hide;
 	#define LOOPS "1";
 #endif
 L F = F`topoID';
+*L F = Ftest;
 .sort
 Drop;
 ndrop F;
+
+*--#[ partial_fractioning:
 
 multiply norm(1)*num();
 repeat id norm(E?)*prop(y0?,y1?) = norm(2*E*y1)*(den(y0-y1)-den(y0+y1)); 
@@ -175,9 +187,12 @@ repeat id norm(E?)*prop(y0?,y1?) = norm(2*E*y1)*(den(y0-y1)-den(y0+y1));
 * Start unfolding the expression 
     repeat;
         if ( count(x,1) == 1 );
-	    repeat id xbar(?y1)*xbar(?y2) = xbar(?y1,?y2);
-	    id num(0,?n,ncmd(?n1))*x(y1?)*xbar(?y2) = num(?n,ncmd(?n1))*Echain(y1,?y2);
-	    id num(1,?n,ncmd(?n1))*x(y1?)*xbar(?y2) = -num(?n,ncmd(?n1,y1))*Echain(y1,?y2);
+*	    repeat id xbar(?y1)*xbar(?y2) = xbar(?y1,?y2);
+*	    id num(0,?n,ncmd(?n1))*x(y1?)*xbar(?y2) = num(?n,ncmd(?n1))*Echain(y1,?y2);
+*	    id num(1,?n,ncmd(?n1))*x(y1?)*xbar(?y2) = -num(?n,ncmd(?n1,y1))*Echain(y1,?y2);
+	    repeat id x(y1?)*xbar(y2?) = x(y1)*den(y1-y2);
+	    id num(0,?n,ncmd(?n1))*x(y1?) = num(?n,ncmd(?n1));
+	    id num(1,?n,ncmd(?n1))*x(y1?) = -num(?n,ncmd(?n1,y1));
         endif;
 
 
@@ -192,6 +207,7 @@ repeat id norm(E?)*prop(y0?,y1?) = norm(2*E*y1)*(den(y0-y1)-den(y0+y1));
                       den(y1-y2)*xbar(y3)*(xbar(y2)+Eres(y1,y3));
         id once Eres(y1?,y2?)*xbar(y2?)= den(y1-y2)*xbar(y2);
     endrepeat;
+    id num(n0?{0,1},?n) = num(?n);
     .sort:recursive-expansion;
 
 * Sanity check
@@ -200,15 +216,15 @@ repeat id norm(E?)*prop(y0?,y1?) = norm(2*E*y1)*(den(y0-y1)-den(y0+y1));
          exit "Critical ERROR";
     endif;
 
-    id num(n0?{0,1},?n) = num(?n);
 *    repeat id Echain(y0?, y1?,?y)= -den(y0-y1)*Echain(y0,?y);
-    repeat id Echain(y0?, y1?,?y)= den(y0-y1)*Echain(y0,?y);
-    id Echain(y0?)= 1;
-    .sort:terminate-k`i';
+*    repeat id Echain(y0?, y1?,?y)= den(y0-y1)*Echain(y0,?y);
+*    id Echain(y0?)= 1;
+*    .sort:terminate-k`i';
 #enddo
+*--#] partial_fractioning:
 
 *id norm(?y) = 1;
-multiply k0^0;
+*multiply k0^3;
 *id num(ncmd(y1?,y2?,?y)) = 0;
 *print +s ;
 .sort 
@@ -224,20 +240,18 @@ multiply k0^0;
 	
 	.sort:den;
 	off statistics;
-	#include pf_numerator.frm 
+	#include pf_numerator.frm # pf_num 
 	on statistics; 
 	
 	multiply replace_(<den{`oldextrasymbols'+1}_,den(extrasymbol_({`oldextrasymbols'+1}))>\
 	                  ,...,<den`extrasymbols_'_,den(extrasymbol_(`extrasymbols_'))>);
 	
+    Format mathematica;
 	.sort:num-expansion;
-	#message "Storing Expanded"
-	#write<form_pf_`topoID'.out> "%E", F;
-#else
-	#message "Storing"
-	#write<form_pf_`topoID'.out> "%E", F;
-
 #endif
+
+
+#write<form_pf_`topoID'.out> "%e", F;
 
 *
 ** Compare
