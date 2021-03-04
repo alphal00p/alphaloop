@@ -3,8 +3,6 @@
 BeginPackage["cLTD`"];
 
 
-ResourceFunction["RandomString"];
-
 cLTD::usage="\
 Compute the correpsonding cLTD expression using FORM.
 "<>Style["Input Format",Bold]~ToString~StandardForm<>":
@@ -13,11 +11,16 @@ The scalar propagator of the expression must be expressed as:
 Outside of prop[] the presence of a momentum not contracted 
 into a dot product will be considered as being its energy component 
 
-"<>Style["Options",Bold]~ToString~StandardForm<>": {\"FORMpath\"\[Rule]\"form\",\"WorkingDirectory\"\[Rule]Directory[]}
+"<>Style["Options",Bold]~ToString~StandardForm<>": {
+          \"FORMpath\"\[Rule]\"form\",
+          \"WorkingDirectory\"\[Rule]Directory[],
+          \"aLPath\"->\"PathTo/Your/AlphaLoop/Installation/\",
+          \"loopmom\"->{loopmomsymbol1,loopmomsymbol2,...} (default: {k1,k2,k3,k4})
+}
 
 "<>Style["Example",Bold]~ToString~StandardForm<>":
  expr = k1 prop[k1-p1,0]prop[k1-p2,0] - k1.p1 p1.p2 p1 prop[k1-p3,m]prop[k1-p4,m] prop[k1-p5,m]
-=> cLTD[expr,\"/home/andrea/BitBucket/alphaloop/\",\"FORMpath\"\[Rule]\"form\"]
+=> cLTD[expr]
 
 WARNING: when summing multiple diagrams they must contain the same 
          number of loops, if this is not possible then call cLTD[] 
@@ -39,6 +42,7 @@ toLTDprop=Module[{SP},
 (*default loop momenta*)
 {k0,k1,k2,k3,k4};
 cLTDnorm;
+Set[DefaultAlphaLoopPath,DirectoryName[$InputFileName]<>"../"];
 
 
 Begin["cLTDPrivate`"];
@@ -72,12 +76,24 @@ file
 Complement[{k1,k2,k3},{c1,k1}]
 
 
-Options[cLTD]={"loopmom"->{k0,k1,k2,k3},"FORMpath"->"form","WorkingDirectory"->Directory[]};
-cLTD[expression_,alPATH_,OptionsPattern[]]:=Module[{expr=If[Head[expression]===Plus,List@@expression, {expression}]/.toLTDprop,
+Options[cLTD]={"loopmom"->{k0,k1,k2,k3},"FORMpath"->"form","WorkingDirectory"->Directory[],"aLPath"->""};
+cLTD[expression_,OptionsPattern[]]:=Module[{expr=If[Head[expression]===Plus,List@@expression, {expression}]/.toLTDprop,
 energies,i=0,loop0subs,spsubs,FORMinput, 
-filename=ResourceFunction["RandomString"][10],
+filenameID,
 runfilename,cLTDfilename,
+alPATH,
+FORMpath,
 result, return,cleanKs},
+alPATH=If[OptionValue["aLPath"]=="",
+FileInformation[DefaultAlphaLoopPath,"AbsoluteFileName"]<>"/"
+,
+FileInformation[OptionValue["aLPath"],"AbsoluteFileName"]<>"/"
+];
+FORMpath=If[OptionValue["FORMpath"]=="form",
+FileInformation[DefaultAlphaLoopPath<>"libraries/form/bin/form","AbsoluteFileName"]
+,
+FileInformation[OptionValue["FORMpath"],"AbsoluteFileName"]
+];
 (*Sanitisation*)
 cleanKs=Table[k->ToExpression["nonLoopk"<>ToString[i++]],{k, Complement[Table[ToExpression["k"<>ToString[n]],{n,0,9}],OptionValue["loopmom"]]}];i=0;
 
@@ -96,11 +112,19 @@ FORMinput=StringReplace[{"LTD"->"","[":>"(","]"->")"}][ToString[Plus@@expr,Input
 (*Print[FORMinput];*)
 
 (*Call FORM*)
-runfilename=OptionValue["WorkingDirectory"]<>"/cLTD"<>filename<>".frm";
-cLTDfilename=OptionValue["WorkingDirectory"]<>"/"<>filename<>".out";
+filenameID=1;
+While[
+Or[
+FileExistsQ[OptionValue["WorkingDirectory"]<>"/cLTD_in_"<>ToString[filenameID]<>".frm";],
+FileExistsQ[OptionValue["WorkingDirectory"]<>"/cLTD_out_"<>ToString[filenameID]<>".out";]
+],
+filenameID=filenameID+1;
+];
+runfilename=OptionValue["WorkingDirectory"]<>"/cLTD_"<>ToString[filenameID]<>".frm";
+cLTDfilename=OptionValue["WorkingDirectory"]<>"/cLTD_out_"<>ToString[filenameID]<>".out";
 (*Print[runfilename];*)
-Export[runfilename,FORMfile[filename,FORMinput,Length[loop0subs],alPATH],"Text"];
-return = RunProcess[{OptionValue["FORMpath"],runfilename},ProcessDirectory->OptionValue["WorkingDirectory"]];
+Export[runfilename,FORMfile["cLTD_out_"<>ToString[filenameID],FORMinput,Length[loop0subs],alPATH],"Text"];
+return = RunProcess[{FORMpath,runfilename},ProcessDirectory->OptionValue["WorkingDirectory"]];
 If[return["ExitCode"] != 0, Print[return]];
 result=ToExpression[StringReplace[" "|"\\"|"\n"->""][Import[cLTDfilename,"Text"]]];
 DeleteFile[{runfilename,cLTDfilename}];
