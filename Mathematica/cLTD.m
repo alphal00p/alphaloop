@@ -90,8 +90,7 @@ FileInformation[DefaultAlphaLoopPath,"AbsoluteFileName"]<>"/"
 FileInformation[OptionValue["aLPath"],"AbsoluteFileName"]<>"/"
 ];
 FORMpath=If[OptionValue["FORMpath"]=="form",
-FileInformation[DefaultAlphaLoopPath<>"libraries/form/bin/form","AbsoluteFileName"]
-,
+"form",
 FileInformation[OptionValue["FORMpath"],"AbsoluteFileName"]
 ];
 (*Sanitisation*)
@@ -112,14 +111,7 @@ FORMinput=StringReplace[{"LTD"->"","[":>"(","]"->")"}][ToString[Plus@@expr,Input
 (*Print[FORMinput];*)
 
 (*Call FORM*)
-filenameID=1;
-While[
-Or[
-FileExistsQ[OptionValue["WorkingDirectory"]<>"/cLTD_in_"<>ToString[filenameID]<>".frm";],
-FileExistsQ[OptionValue["WorkingDirectory"]<>"/cLTD_out_"<>ToString[filenameID]<>".out";]
-],
-filenameID=filenameID+1;
-];
+filenameID=StringJoin@@RandomSample[Join[Alphabet[], ToUpperCase /@ Alphabet[]], 10];
 runfilename=OptionValue["WorkingDirectory"]<>"/cLTD_"<>ToString[filenameID]<>".frm";
 cLTDfilename=OptionValue["WorkingDirectory"]<>"/cLTD_out_"<>ToString[filenameID]<>".out";
 (*Print[runfilename];*)
