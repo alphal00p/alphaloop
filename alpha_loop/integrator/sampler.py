@@ -845,6 +845,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         inv_aL_jacobian *= delta_jacobian
 
         # Then the inverse of the H-function and of the Jacobian of the causal flow change of variables
+        # WARNING: since h(t) = h (1/t) I am not 100% sure if 1/h(t) or 1/h(1/t) is logically he right thing to do below, but it would be the same anyway.
         inv_aL_jacobian *=  ( 1. / self.h_function.exact_PDF(1./rescaling_t) ) * (rescaling_t**(len(CMB_edges)*3)) 
 
         # The final jacobian must then be our param. jac together with that of t divided by the one from alphaloop.
@@ -901,7 +902,9 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         if self.debug: logger.debug('normalising_func=%s'%normalising_func)
 
         # And accumulate it to what will be the final result
-        final_res = final_jacobian * aL_wgt
+        this_channel_jacobian = final_jacobian
+        #this_channel_jacobian *= normalising_func
+        final_res = this_channel_jacobian * aL_wgt
 
         #HACK
         #final_jacobian /= normalising_func * wgt_t * PS_jac * loop_jac
@@ -957,8 +960,16 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             if self.debug: logger.debug("%sAll multi-channeling denominator components:\n%s%s"%(
                 utils.bcolors.BLUE,pformat(all_multi_channel_denominator_weights),utils.bcolors.ENDC
             ))
-            if self.debug: logger.debug('Integrand without jacobian / Multi-channeling factor=%s'%( normalising_func * aL_wgt / multichannel_factor_denominator ))
-            if self.debug: logger.debug('Multi-channeling factor=%s'%( 1./final_jacobian / multichannel_factor_denominator ))
+            if self.debug: logger.debug('normalising_func =%s'%( normalising_func ))
+            if self.debug: logger.debug('Jacobian of this channel=%s'%( this_channel_jacobian ))
+            if self.debug: logger.debug('alphaLoop integrand weight=%s'%( aL_wgt ))
+            if self.debug: logger.debug('Multi-channeling factor numerator=%s'%( 1./final_jacobian ))
+            if self.debug: logger.debug('Multi-channeling factor denominator=%s'%( multichannel_factor_denominator ))
+            if self.debug: logger.debug('Integrand without jacobian / Multi-channeling denominator=%s'%( aL_wgt / multichannel_factor_denominator ))
+            # The quantity below is interesting because for some reason it is very often of order O(1) for the max weights found, hinting at how to possibly cure these large weight perhaps.
+            if self.debug: logger.debug('(Integrand without jacobian / Multi-channeling denominator)*normalising_func=%s'%( (aL_wgt / multichannel_factor_denominator) * normalising_func ))
+            if self.debug: logger.debug('Jacobian of this channel * Multi-channeling numerator=%s'%( this_channel_jacobian * (1./final_jacobian) ))
+
             final_res *= 1./final_jacobian / multichannel_factor_denominator
 
         if self.debug: logger.debug( 'Final weight returned = %s (phase = %s)'%( final_res, self.phase) )
@@ -1103,6 +1114,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                 if self.show_warnings: logger.warning("H-function evaluated to 0 for t=%.16f. Aborting point now."%(1./MC_rescaling_t))
                 return None
 
+            # WARNING: since h(t) = h (1/t) I am not 100% sure if 1/h(t) or 1/h(1/t) is logically he right thing to do below, but it would be the same anyway.
             MC_inv_aL_jacobian *=  ( 1. / self.h_function.exact_PDF(1./MC_rescaling_t) ) * (MC_rescaling_t**(len(MC_CMB_edges)*3)) 
 
             # Store all these quantities being always identical independently of the particular LMB chosen for future use.
