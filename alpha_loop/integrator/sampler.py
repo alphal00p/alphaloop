@@ -839,6 +839,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                 ( 2. * math.sqrt( (inv_rescaling_t*k + shift).square() - self.edge_masses[edge_name]**2 ) )
             )
 
+        delta_jacobian *= (inv_rescaling_t)**2
         if self.debug: logger.debug('delta_jacobian=%s'%str(delta_jacobian))
         if self.debug: logger.debug('1./delta_jacobian=%s'%str(1./delta_jacobian))
         inv_aL_jacobian *= delta_jacobian
@@ -904,7 +905,6 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
         #HACK
         #final_jacobian /= normalising_func * wgt_t * PS_jac * loop_jac
-
 
         if multi_channeling:
 
@@ -1093,6 +1093,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                     ( 2. * MC_inv_rescaling_t * k.square() + k.dot(shift) ) / 
                     ( 2. * math.sqrt( (MC_inv_rescaling_t*k + shift).square() - self.edge_masses[edge_name]**2 ) )
                 )
+            MC_delta_jacobian *= (MC_inv_rescaling_t)**2
             if self.debug: logger.debug('MC_delta_jacobian=%s'%str(MC_delta_jacobian))
             MC_inv_aL_jacobian *= MC_delta_jacobian
 
