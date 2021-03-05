@@ -152,12 +152,13 @@ class ParallelWrappedIntegrand(vegas.BatchIntegrand):
             logger.debug('Dispatching batch of %d points on %d cores:'%(
                                                           batch_size,self.cluster.nb_core))            
         for position, input in enumerate(inputs):
+            if len(input)==0: continue
+            time.sleep(0.1)
             self.cluster.submit(self.batch_integrand, [input, results[position]])            
 
         # Wait for all jobs to finish.
-        self.cluster.wait('', self.wait_monitoring,update_first=self.wait_monitoring)
-#        self.cluster.wait('', self.wait_monitoring)
-
+#        self.cluster.wait('', self.wait_monitoring,update_first=self.wait_monitoring)
+        self.cluster.wait('', self.wait_monitoring)
 
         self.integrator.n_function_evals += batch_size
         return np.concatenate([ np.array(result[:]) for result in results ])
