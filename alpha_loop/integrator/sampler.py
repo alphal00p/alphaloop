@@ -367,7 +367,94 @@ class DefaultALIntegrand(integrands.VirtualIntegrand):
         #else:
 
         xs, wgt = self.generator(continuous_inputs)
-        re, im = self.rust_worker.evaluate_integrand( xs )
+        ks = []
+        for i_v, v in enumerate([xs[0:3],xs[3:6],xs[6:9]]):
+            kx, ky, kz, jac = self.rust_worker.parameterize(list(v), i_v, 125.0**2)
+            ks.append([kx, ky, kz])
+
+        all_aL_xs = []
+
+        all_aL_xs.append([])
+        for i_v, v in enumerate([ 
+                [ ks[0][0], ks[0][1], ks[0][2] ],
+                [ ks[1][0], ks[1][1], ks[1][2] ],
+                [ ks[2][0], ks[2][1], ks[2][2] ],
+            ]):
+            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
+            all_aL_xs[-1].extend([kx, ky, kz])
+
+        all_aL_xs.append([])
+        for i_v, v in enumerate([ 
+                [ -ks[0][0], -ks[0][1], -ks[0][2] ],
+                [ ks[1][0], ks[1][1], ks[1][2] ],
+                [ ks[2][0], ks[2][1], ks[2][2] ],
+            ]):
+            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
+            all_aL_xs[-1].extend([kx, ky, kz])
+
+        all_aL_xs.append([])
+        for i_v, v in enumerate([ 
+                [ ks[0][0], ks[0][1], ks[0][2] ],
+                [ -ks[1][0], -ks[1][1], -ks[1][2] ],
+                [ ks[2][0], ks[2][1], ks[2][2] ],
+            ]):
+            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
+            all_aL_xs[-1].extend([kx, ky, kz])
+
+        all_aL_xs.append([])
+        for i_v, v in enumerate([ 
+                [ -ks[0][0], -ks[0][1], -ks[0][2] ],
+                [ -ks[1][0], -ks[1][1], -ks[1][2] ],
+                [ ks[2][0], ks[2][1], ks[2][2] ],
+            ]):
+            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
+            all_aL_xs[-1].extend([kx, ky, kz])
+
+        all_aL_xs.append([])
+        for i_v, v in enumerate([ 
+                [ ks[1][0], ks[1][1], ks[1][2] ],
+                [ ks[0][0], ks[0][1], ks[0][2] ],
+                [ ks[2][0], ks[2][1], ks[2][2] ],
+            ]):
+            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
+            all_aL_xs[-1].extend([kx, ky, kz])
+
+        all_aL_xs.append([])
+        for i_v, v in enumerate([ 
+                [ -ks[1][0], -ks[1][1], -ks[1][2] ],
+                [ ks[0][0], ks[0][1], ks[0][2] ],
+                [ ks[2][0], ks[2][1], ks[2][2] ],
+            ]):
+            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
+            all_aL_xs[-1].extend([kx, ky, kz])
+
+        all_aL_xs.append([])
+        for i_v, v in enumerate([ 
+                [ ks[1][0], ks[1][1], ks[1][2] ],
+                [ -ks[0][0], -ks[0][1], -ks[0][2] ],
+                [ ks[2][0], ks[2][1], ks[2][2] ],
+            ]):
+            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
+            all_aL_xs[-1].extend([kx, ky, kz])
+
+        all_aL_xs.append([])
+        for i_v, v in enumerate([ 
+                [ -ks[1][0], -ks[1][1], -ks[1][2] ],
+                [ -ks[0][0], -ks[0][1], -ks[0][2] ],
+                [ ks[2][0], ks[2][1], ks[2][2] ],
+            ]):
+            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
+            all_aL_xs[-1].extend([kx, ky, kz])
+
+        #all_aL_xs = [all_aL_xs[0],]
+        res = complex(0., 0.)
+        for aL_xs in all_aL_xs:
+            res += complex( *self.rust_worker.evaluate_integrand( aL_xs ) )
+        res /= float(len(all_aL_xs))
+
+        #res = ( complex( *self.rust_worker.evaluate_integrand( xs ) ) + complex( *self.rust_worker.evaluate_integrand( xs[3:6]+xs[0:3]+xs[6:9] ) ) ) / 2.0
+        #res = complex( *self.rust_worker.evaluate_integrand( xs ) )
+        re, im = res.real, res.imag
 
         if self.phase=='real':
             final_res = re*wgt
@@ -394,7 +481,7 @@ class DefaultALIntegrand(integrands.VirtualIntegrand):
 class AdvancedIntegrand(integrands.VirtualIntegrand):
 
     def __init__(self, rust_worker, SG, model, h_function, hyperparameters, channel_for_generation = None, external_phase_space_generation_type="flat", debug=0, phase='real', 
-        selected_cut_and_side=None, selected_LMB=None, show_warnings=True,
+        selected_cut_and_side=None, selected_LMB=None, show_warnings=True, return_individual_channels=False,
         **opts):
         """ Set channel_for_generation to (selected_cut_and_side_index, selected_LMB_index) to disable multichaneling and choose one particular channel for the parameterisation. """
 
@@ -409,6 +496,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         self.conformal_map = lin_conformal
         self.inverse_conformal_map = lin_inverse_conformal
         self.channel_for_generation = channel_for_generation
+        self.return_individual_channels = return_individual_channels
         
         self.selected_cut_and_side=selected_cut_and_side
         self.selected_LMB=selected_LMB
@@ -644,7 +732,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         ))
 
         final_res = 0.
-        if self.debug:
+        if self.debug or self.return_individual_channels:
             all_channel_weights = {}
         if self.channel_for_generation is None:
 
@@ -680,7 +768,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                              ))
                             return 0.
 
-                    if self.debug:
+                    if self.debug or self.return_individual_channels:
                         all_channel_weights[(i_channel,i_LMB)] = this_channel_wgt
                     final_res += this_channel_wgt
 
@@ -704,13 +792,26 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                     utils.bcolors.ENDC
                     ))
                 return 0.
+            if self.debug or self.return_individual_channels:
+                all_channel_weights[(self.channel_for_generation[0],self.channel_for_generation[1])] = this_channel_wgt
             final_res += this_channel_wgt
 
         if self.debug: logger.debug('Python integrand evaluation time = %.2f ms.'%((time.time()-start_time)*1000.0))
 
         self.update_evaluation_statistics(list(continuous_inputs),final_res)
-
-        return final_res
+        if self.return_individual_channels:
+            res_dic = { 'I' : final_res }
+            for (i_channel,i_LMB), wgt in all_channel_weights.items():
+                res_dic['channel #(%d,%d) [ CC #%d, side=%s, LMB #%d (%s) ]'%(
+                    i_channel, i_LMB, 
+                    self.SG['SG_multichannel_info'][i_channel]['cutkosky_cut_id'], 
+                    self.SG['SG_multichannel_info'][i_channel]['side'],
+                    i_LMB,
+                    ','.join(self.SG['SG_multichannel_info'][i_channel]['loop_LMBs'][i_LMB]['loop_edges'])
+                )] = wgt
+            return res_dic
+        else:
+            return final_res
 
     def evaluate_channel(self, continuous_inputs, discrete_inputs, selected_cut_and_side, selected_LMB, multi_channeling=True, **opts):
         """ The 'selected_cut_and_side' and 'selected_LMB' give the option of specifying a particle (subset of) all integration channels."""
@@ -894,8 +995,8 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                 reconstituted_res += this_cut_res
             logger.debug("    Reconstituted aL res = %s (rel. diff = %s )"%(
                 str(reconstituted_res), complex(
-                    reconstituted_res.real/aL_wgt.real if abs(aL_wgt.real) > 0. else reconstituted_res.real,
-                    reconstituted_res.imag/aL_wgt.imag if abs(aL_wgt.imag) > 0. else reconstituted_res.imag,
+                    reconstituted_res.real/aL_wgt.real-1. if abs(aL_wgt.real) > 0. else reconstituted_res.real,
+                    reconstituted_res.imag/aL_wgt.imag-1. if abs(aL_wgt.imag) > 0. else reconstituted_res.imag,
                 )
             ))
 

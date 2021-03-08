@@ -49,7 +49,7 @@ import madgraph.various.cluster as cluster
 import madgraph.iolibs.save_load_object as save_load_object
 
 from madgraph import InvalidCmd, MadGraph5Error, MG5DIR
-from multiprocessing import Value, Array
+from multiprocessing import Value, Array, Manager
 
 MPI_ACTIVE = False
 MPI_SIZE = 1
@@ -104,17 +104,22 @@ class ParallelWrappedIntegrand(vegas.BatchIntegrand):
         """ Function to call the wrapped integrand for a batch of inputs"""
         
         for input_position, inputs in enumerate(inputs_list):
-            sum = 0.
+            summed_res = {}
             dims = integrands[0].continuous_dimensions
             fct_inputs = np.array(
                 [dims[i].lower_bound + x*(dims[i].upper_bound - dims[i].lower_bound) 
                                                           for i, x in enumerate(inputs)])
-            for integrand in integrands:
+            for i_integrand, integrand in enumerate(integrands):
+                integrand_volume = integrand.get_dimensions().volume()
                 res = integrand(fct_inputs, np.array([], dtype=int))
-                res *= integrand.get_dimensions().volume()
-                sum += res
+                if isinstance(res, dict):
+                    res = dict( (k,v*integrand_volume) for k,v in res.items())
+                else:
+                    res = {'I': res*integrand_volume, 'I%d'%i_integrand: res*integrand_volume}
+                
+                summed_res = dict( (k,res.get(k,0.)+summed_res.get(k,0.)) for k in set(res.keys()).union(set(summed_res.keys())) )
 
-            result[input_position] = sum
+            result[input_position] = summed_res
 
         return 0
 
@@ -143,7 +148,12 @@ class ParallelWrappedIntegrand(vegas.BatchIntegrand):
 #            self.cluster.nb_core, nx, self.integrator.n_function_evals ))
         # The results enttried will be accessed from independent processes and must
         # therefore be defined as shared memory
-        results = [Array('d', [0.]*len(input)) for input in inputs]
+        
+        #results = [Array('d', [0.]*len(input)) for input in inputs]
+
+        local_manager = Manager()
+        all_results = [ local_manager.list([{}]*len(input)) for input in inputs ]
+
         # launch evaluation of self.integrands for each chunk, in parallel
         if not self.start_time is None:
             logger.debug('Dispatching batch of %d points on %d cores: [%s]'%(
@@ -154,14 +164,20 @@ class ParallelWrappedIntegrand(vegas.BatchIntegrand):
         for position, input in enumerate(inputs):
             if len(input)==0: continue
             time.sleep(0.1)
-            self.cluster.submit(self.batch_integrand, [input, results[position]])            
+            #self.cluster.submit(self.batch_integrand, [input, results[position]])            
+            self.cluster.submit(self.batch_integrand, [input, all_results[position]])
 
         # Wait for all jobs to finish.
 #        self.cluster.wait('', self.wait_monitoring,update_first=self.wait_monitoring)
         self.cluster.wait('', self.wait_monitoring)
 
         self.integrator.n_function_evals += batch_size
-        return np.concatenate([ np.array(result[:]) for result in results ])
+        #return np.concatenate([ np.array(result[:]) for result in results ])
+        final_result = { k: 
+            np.concatenate([ np.array([res[k] for res in results]) for results in all_results ])
+            for k in all_results[0][0].keys()
+        }
+        return final_result
 
 class Vegas3Integrator(integrators.VirtualIntegrator):
 
@@ -223,6 +239,8 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         else:
             logger.level = logging.INFO
 
+        self.full_result = None
+
     def observables_normalization(self, n_integrand_calls):
         """ Given the number of integrand calls, return the appropriate overall normalization
         to apply to the observables."""
@@ -242,17 +260,29 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         fct_inputs = np.array([dims[i].lower_bound + x*(dims[i].upper_bound - dims[i].lower_bound) 
                                                                          for i, x in enumerate(x_inputs)])
         
-        all_results = []
-        for integrand in self.integrands:
+        all_results = {}
+        found_non_dict = False
+        summed_res = 0.
+        for i_integrand, integrand in enumerate(self.integrands):
+            integrand_volume = integrand.get_dimensions().volume()
             try:
                 res = integrand(fct_inputs, np.array([], dtype=int), integrator_jacobian=jacobian)
             except AssertionError as err:
                 traceback.print_tb(sys.exc_info()[-1])
                 logger.warning('Assertion error encountered.')
                 res = 0.
-
-            res *= integrand.get_dimensions().volume()
-            all_results.append(res)
+            if isinstance(res, dict):
+                for k, v in res.items():
+                    if k in all_results:
+                        all_results[k] += v*integrand_volume
+                    else:
+                        all_results[k] = v*integrand_volume
+            else:
+                found_non_dict = True
+                summed_res += res*integrand_volume
+                all_results['I%d'%i_integrand] = res*integrand_volume
+        if found_non_dict:
+            all_results['I'] = summed_res
             
         self.n_function_evals +=1
         if self.n_function_evals%(max(self.curr_n_evals_per_iterations/2,1))==0 and MPI_RANK == 0:
@@ -261,7 +291,7 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
                 (100.0*self.n_function_evals*MPI_SIZE / (self.curr_n_iterations*self.curr_n_evals_per_iterations)),
                                             misc.format_time(time.time()-self.start_time)))
         
-        return dict( ('I%d'%i, res) for i, res in enumerate(all_results) )
+        return all_results #dict( ('I%d'%i, res) for i, res in enumerate(all_results) )
 
     def get_name(self):
         """ Returns the integrator name."""
@@ -415,11 +445,16 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         # RAvg.Q    : p-value of the weighted average 
         # RAvg.itn_results : list of the integral estimates for each iteration
         # RAvg.summary() : summary of the integration
-        if False or self.cluster.nb_core==1:
-            summed_result = sum(result.values())
-        else:
-            summed_result = result
-           
+#        if False or self.cluster.nb_core==1:
+#            summed_result = sum(result.values())
+#        else:
+#            summed_result = result
+        
+        self.full_result = result
+        if 'I' not in result.keys():
+            raise IntegratorError("The integrand did not meet the requirement of specifying the mandatory dictionary entry 'I'.")
+        summed_result = result['I']
+
         integration_time = time.time() - start_time
 
         if MPI_RANK == 0:
@@ -435,7 +470,7 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         #out_data.close()
         ##misc.sprint('\n%.16e, '%(summed_result.mean)+'%.16e, '%(summed_result.sdev)+'%i\n'%(self.integrands[0].counter))
         self.integrands[0].counter = 0
-        
+
         return summed_result.mean, summed_result.sdev
 
     def show_grid(self, n_grid=40, shrink=False, axes=None):

@@ -1995,7 +1995,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='Specify the random seed for the integration (default: %(default)s).')
     integrate_parser.add_argument('-hp','--hyperparameters', metavar='hyperparameters', type=str, default=[], nargs='+',
                     help='Specify particular hyperparameters to overwrite in pairs of form <hp_name> <hp_str_expression_value>  (default: %(default)s).')
-    integrate_parser.add_argument('-cc','--selected_cutkosky_cuts_and_sides', metavar='selected_cutkosky_cuts_and_sides', type=int, nargs='+', default=[-1,],
+    integrate_parser.add_argument('-ccs','--selected_cutkosky_cuts_and_sides', metavar='selected_cutkosky_cuts_and_sides', type=int, nargs='+', default=[-1,],
                     help='Selected cutkosky cut and sides for the multichanneling. [-1,] means sum over all. (default: %(default)s).')
     integrate_parser.add_argument('-lmbs','--selected_lmbs', metavar='selected_lmbs', type=int, nargs='+', default=[-1,],
                     help='Selected lmb indices for the multichanneling. [-1,] means sum over all. (default: %(default)s).')
@@ -2198,7 +2198,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     selected_cut_and_side=selected_cut_and_side, 
                     selected_LMB=selected_LMB,
                     phase=self.hyperparameters['Integrator']['integrated_phase'],
-                    show_warnings=args.show_warnings
+                    show_warnings=args.show_warnings,
+                    return_individual_channels = (args.integrator == 'vegas3')
                 )
 
             if selected_integrator is None:
@@ -2218,14 +2219,36 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
             result = my_integrator.integrate()
 
+            if args.integrator == 'vegas3' and my_integrator.full_result is not None:
+                logger.info('')
+                logger.info('Summary of the integration:\n%s'%str(my_integrator.full_result.summary()))
+                logger.info('')
+                logger.info("Complete integration result for all integrand components:")
+                max_key_length = max(len(k) for k in my_integrator.full_result.keys())
+                for k in sorted(my_integrator.full_result.keys()):
+                    logger.info(('%-{}s : %s%.6g +/- %.4g (%.2g%%)'.format(max_key_length))%(k, 
+                        ' ' if my_integrator.full_result[k].mean>=0. else '',
+                        my_integrator.full_result[k].mean, my_integrator.full_result[k].sdev,
+                        abs(my_integrator.full_result[k].sdev/my_integrator.full_result[k].mean)*100. if my_integrator.full_result[k].mean!=0. else 0.
+                    ))
+
+            # RAvg.mean : mean 
+            # RAvg.sdev : standard dev.
+            # RAvg.chi2 : Chi^2 of the weighted average
+            # RAvg.dof  : number of degreeas of freedom
+            # RAvg.Q    : p-value of the weighted average 
+            # RAvg.itn_results : list of the integral estimates for each iteration
+            # RAvg.summary() : summary of the integration
+
             logger.info('')
-            logger.info("Result of the cross-section for %s%s%s of %s%s%s with sampler %s%s%s and integrator %s%s%s, using %s%d%s function calls:\n%s %.6g +/- %.4g%s"%(
+            logger.info("Result of the cross-section for %s%s%s of %s%s%s with sampler %s%s%s and integrator %s%s%s, using %s%d%s function calls:\n%s %.6g +/- %.4g%s (%.2g%%)"%(
                 utils.bcolors.GREEN, SG_name, utils.bcolors.ENDC,
                 utils.bcolors.GREEN, os.path.basename(self.dir_path), utils.bcolors.ENDC,
                 utils.bcolors.BLUE, args.sampling, utils.bcolors.ENDC,
                 utils.bcolors.BLUE, args.integrator, utils.bcolors.ENDC,
                 utils.bcolors.GREEN, my_integrator.tot_func_evals, utils.bcolors.ENDC,
                 utils.bcolors.GREEN, result[0], result[1], utils.bcolors.ENDC,
+                abs(result[1]/result[0])*100. if result[0]!=0. else 0.
             ))
             logger.info("Maximum weight found: %.6g (%.1e x central value) for xs=[%s]"%(
                 my_integrand.max_eval.value, 
