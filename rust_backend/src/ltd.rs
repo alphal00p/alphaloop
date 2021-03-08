@@ -660,12 +660,14 @@ impl Topology {
             let mut cut_index = 0;
             for (cut, ll) in s.cut.iter().zip_eq(self.loop_lines.iter()) {
                 if let Cut::NegativeCut(cut_prop_index) | Cut::PositiveCut(cut_prop_index) = cut {
-                    mass_sum +=
-                        Into::<float>::into(ll.propagators[*cut_prop_index].m_squared.sqrt());
-                    surface_shift -= ll.propagators[*cut_prop_index]
-                        .q
-                        .cast()
-                        .multiply_sign(s.sig_ll_in_cb[cut_index]);
+                    if s.sig_ll_in_cb[cut_index] != 0 {
+                        mass_sum +=
+                            Into::<float>::into(ll.propagators[*cut_prop_index].m_squared.sqrt());
+                        surface_shift -= ll.propagators[*cut_prop_index]
+                            .q
+                            .cast()
+                            .multiply_sign(s.sig_ll_in_cb[cut_index]);
+                    }
                     cut_index += 1;
                 }
             }

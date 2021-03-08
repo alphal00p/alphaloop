@@ -61,7 +61,6 @@ class SquaredTopologyGenerator:
         self.incoming_momenta = incoming_momentum_names
 
         edge_map = self.topo.get_signature_map()
-
         mu_uv = 2. * math.sqrt(sum(self.external_momenta[e][0] for e in self.incoming_momenta)**2 - 
                         sum(x*x for x in (sum(self.external_momenta[e][i] for e in self.incoming_momenta) for i in range(1, 4))))
 
@@ -75,7 +74,7 @@ class SquaredTopologyGenerator:
             # determine the signature of the cuts
             for cut_edge in c:
                 cut_edge['signature'] = copy.deepcopy(edge_map[cut_edge['edge']])
-                cut_edge['particle_id'] = particle_ids[cut_edge['edge']] if cut_edge['edge'] in particle_ids else 0
+                cut_edge['particle_id'] = self.particle_ids[cut_edge['edge']] if cut_edge['edge'] in self.particle_ids else 0
 
             cut_name = tuple(a['edge'] for a in c)
 
@@ -90,12 +89,10 @@ class SquaredTopologyGenerator:
                     # the derivative wrt the numerator does not change the UV scaling
                     if diag_info['derivative'] and diag_info['derivative'][0] != diag_info['derivative'][1]:
                         ew[diag_info['derivative'][1]] -= 1
-
-                    #ew['pp2'] = 0 # FIXME!
-
+                    
                     uv_limits = diag_info['graph'].construct_uv_limits(vw, ew, 
                                 UV_min_dod_to_subtract=self.generation_options.get('UV_min_dod_to_subtract',0) )
-
+            
                     # give every subdiagram a globally unique id
                     for uv_limit in uv_limits:
                         for uv_sg in uv_limit['uv_subgraphs']:
@@ -275,7 +272,7 @@ class SquaredTopologyGenerator:
                         g_int = TopologyGenerator([(lm, i, i) for i, lm in enumerate(lm)],
                             powers={lm: 3 for lm in lm})
                         (loop_mom_map, shift_map) = self.topo.build_proto_topology(g_int, c, skip_shift=diag_info['uv_info'] is not None)
-                        loop_topo = g_int.create_loop_topology(name + '_' + ''.join(cut_name) + uv_name + '_' + str(i),
+                        loop_topo = g_int.create_loop_topology(self.name + '_' + ''.join(cut_name) + uv_name + '_' + str(i),
                             # provide dummy external momenta
                             ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
                             fixed_deformation=False,

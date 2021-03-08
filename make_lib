@@ -26,10 +26,10 @@ cd rust_backend/
 
 if [ "$MODE" == debug ]; then
 	echo "Running in debug mode"
-	cargo build --lib --features="python_api" -p $BUILD
+	cargo build --lib --features="python_api" --features="higher_loops" -p $BUILD
 else
 	echo "Running in release mode"
-	cargo build --lib --features="python_api" --release -p $BUILD
+	cargo build --lib --features="python_api" --features="higher_loops" --release -p $BUILD
 fi
 
 cp ${SO_LTD} ../ltd.so

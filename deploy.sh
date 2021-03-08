@@ -19,3 +19,10 @@ tar -xvf Cuba-4.2.1.tar.gz
 cd Cuba-4.2.1
 ./configure
 make
+cd ..
+rm Cuba-4.2.1.tar.gz
+git clone https://github.com/vermaseren/form.git
+cd form
+autoreconf -i
+./configure
+make -j4

@@ -49,7 +49,8 @@ class VirtualPhaseSpaceGenerator(object):
                  beam_types=(1,1),
                  is_beam_factorization_active=(False, False),
                  correlated_beam_convolution = False,
-                 dimensions=None
+                 dimensions=None,
+                 **opts
                 ):
         
         self.initial_masses  = initial_masses
@@ -250,16 +251,16 @@ class SingleChannelPhasespace(VirtualPhaseSpaceGenerator):
             raise PhaseSpaceGeneratorError("A list of s- and t-channels must be specified with the "+
                 "option 'topology' when instantiating the class %s."%self.__class__.__name__)
         self.topology = opts.pop('topology')
-        
+
         super(SingleChannelPhasespace, self).__init__(*args, **opts)
 
-        if 'path' not in opts:
+        if 'path' not in opts or opts['path'] is None:
             # In order to make resutls deterministic, force using the first available path as opposed 
             # as a random one.
             path = self.get_random_path(select_first=True)
         else:
             path = opts.pop('path')
-        
+
         self.path = path
         
         ##topology_string = self.get_topology_string(self.topology,path_to_print=self.path)
@@ -460,10 +461,12 @@ class SingleChannelPhasespace(VirtualPhaseSpaceGenerator):
         Breit-Wigner competition (in distributed invariants) is not taken into account yet.
         When setting the flag 'select_first' to True, this is made deterministic and the first possible
         path is selected instead."""
+
+        # TODO generalise for self.n_initial=1
         
         max_leg_nr = self.n_initial+ self.n_final
         min_leg_nr = self.topology[1][-1].get('legs')[-1].get('number')
-        numbers = list(range(min_leg_nr,0))+list(range(3,max_leg_nr+1))+[1]
+        numbers = list(range(min_leg_nr,0))+list(range(self.n_initial+1,max_leg_nr+1))+[1]
 
         """distr_inv stores vertices for distributed (=s-channel) invariants that
         can be used to generate a next invariant (available)
@@ -474,10 +477,9 @@ class SingleChannelPhasespace(VirtualPhaseSpaceGenerator):
         distr_inv = {'available': [],'finished': []}
         # kinematics stores if a leg is available (True/False)
         kinematics = dict((nr,{'is_available': False}) for nr in numbers)
-        
         # final legs are available
         for nr in kinematics:
-            if nr > 2:
+            if nr > self.n_initial:
                 kinematics[nr]['is_available'] = True
 
         # when no t-channels, first s-channel invariant is fixed
@@ -576,6 +578,11 @@ class SingleChannelPhasespace(VirtualPhaseSpaceGenerator):
         
         return [s_channel_path,t_channel_path]
         
+    def invertKinematics(self, E_cm, momenta, **opts):
+
+        return self.get_PS_point(
+            LorentzVectorList([LorentzVector(v) for v in momenta]), **opts
+        )
 
     def get_PS_point(self, input_variables, path=None, **opts):
         """ Generates a complete PS point, including Bjorken x's, dictating a specific choice

@@ -59,8 +59,8 @@ plugin_path = os.path.dirname(os.path.realpath( __file__ ))
 
 
 FORM_processing_options = {
-    'FORM_path': 'form', 
-    'tFORM_path': 'tform', 
+    'FORM_path': str(Path(plugin_path).parent.joinpath('libraries', 'form', 'sources', 'form').resolve()),
+    'tFORM_path': str(Path(plugin_path).parent.joinpath('libraries', 'form', 'sources', 'tform').resolve()),
     # Define the extra aguments for the compilation
     'compilation-options': [],
     'cores': 2, #multiprocessing.cpu_count(),
@@ -1264,7 +1264,7 @@ CTable pfmap(0:{},0:{});
         assert(e[0] != 'q' or int(e[1:]) < 5 for e in edge_map_lin)
 
         particle_ids = { e['name']: e['PDG'] for e in self.edges.values() }
-        particle_masses = {e['name']: 0. if e['PDG'] == 1337 else model['parameter_dict'][model.get_particle(e['PDG']).get('mass')].real for e in self.edges.values()}
+        particle_masses = {e['name']: model['parameter_dict'][model.get_particle(e['PDG']).get('mass')].real for e in self.edges.values()}
 
         num_incoming = sum(1 for e in edge_map_lin if e[0][0] == 'q') // 2
 
@@ -1526,7 +1526,8 @@ CTable pfmap(0:{},0:{});
                 if last_cmb == '':
                     last_cmb = cmb_map
                 if last_cmb != cmb_map:
-                    logger.warning("WARNING: cmbs differ between diagram sets. inherit_deformation_for_uv_counterterm should be set to FALSE.")
+                    pass
+                    #logger.warning("WARNING: cmbs differ between diagram sets. inherit_deformation_for_uv_counterterm should be set to FALSE.")
                     #raise AssertionError("Diagram sets do not have the same cmb")
 
                 # store which momenta are LTD momenta

@@ -1,11 +1,3 @@
-extern crate arrayvec;
-extern crate f128;
-extern crate ltd;
-extern crate num;
-extern crate num_traits;
-extern crate rand;
-extern crate vector;
-
 use arrayvec::ArrayVec;
 use ltd::topologies::{LTDCache, Topology};
 use ltd::utils::test_utils::{get_test_topology, numeriacal_eq};

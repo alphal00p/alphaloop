@@ -80,13 +80,15 @@ impl Topology {
             let prop = &self.loop_lines[*ll].propagators[*pp];
             // get the loop momentum
             for (i, sig) in prop.signature.iter().enumerate() {
-                print!("{}k{}", if *sig > 0 { "+" } else { "-" }, i);
+                if *sig != 0 {
+                    print!("{}k{}", if *sig > 0 { "+" } else { "-" }, i);
+                }
             }
             print!("+({},{},{}))^2", prop.q.x, prop.q.y, prop.q.z);
 
             print!("+{})", prop.m_squared);
         }
-        println!("{:+}", s.shift.t);
+        println!("{:+} exists={}", s.shift.t, s.exists);
     }
 }
 
@@ -860,6 +862,10 @@ impl Topology {
             .iter()
             .enumerate()
             .filter_map(|(i, s)| {
+                if self.settings.general.debug > 1 {
+                    self.print_surface(&s);
+                }
+
                 if s.exists && s.surface_type == SurfaceType::Ellipsoid && s.group == i {
                     Some(i)
                 } else {
