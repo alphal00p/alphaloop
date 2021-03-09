@@ -51,7 +51,7 @@ Begin["cLTDPrivate`"];
 FORMfile[filename_,expr_,nLoops_,alPATH_]:=Module[{
 file="#--\n"},
 file = file <> "#include "<>ToString[alPATH]<>"alpha_loop/pf.frm # partial_fractioning_vars\n";
-file = file <> "Auto S sp,q;\n";
+file = file <> "Auto S sp,q,mUV;\n";
 file = file <> "#define LOOPS \""<>ToString[nLoops]<>"\"\n";
 file = file <> "#define topoID \""<>filename<>"\"\n";
 file = file <> "L F = "<>expr<>";\n";
