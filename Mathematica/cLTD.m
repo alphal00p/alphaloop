@@ -33,19 +33,17 @@ WARNING: when summing multiple diagrams they must contain the same
 ";
 
 Print[cLTD::usage];
+Set[DefaultAlphaLoopPath,DirectoryName[$InputFileName]<>"../"];
+
+
+Begin["cLTDPrivate`"];
+
 
 toLTDprop=Module[{SP},
 	SetAttributes[SP,Orderless];
 	SP[p1_+p2_,p3_]:=SP[p1,p3]+SP[p2,p3];
 	SP[-p1_,p2_]:=-SP[p1,p2];
-	prop[mom_,m_]:>LTDprop[mom,Sqrt[SP[mom,mom]-m^2]/.SP->Dot]];
-(*default loop momenta*)
-{k0,k1,k2,k3,k4};
-cLTDnorm;
-Set[DefaultAlphaLoopPath,DirectoryName[$InputFileName]<>"../"];
-
-
-Begin["cLTDPrivate`"];
+	Global`prop[mom_,m_]:>LTDprop[mom,Sqrt[SP[mom,mom]-m^2]/.SP->Dot]];
 
 
 FORMfile[filename_,expr_,nLoops_,alPATH_]:=Module[{
@@ -73,10 +71,7 @@ file
 ]
 
 
-Complement[{k1,k2,k3},{c1,k1}]
-
-
-Options[cLTD]={"loopmom"->{k0,k1,k2,k3},"FORMpath"->"form","WorkingDirectory"->Directory[],"aLPath"->""};
+Options[cLTD]={"loopmom"->{Global`k0,Global`k1,Global`k2,Global`k3},"FORMpath"->"form","WorkingDirectory"->Directory[],"aLPath"->""};
 cLTD[expression_,OptionsPattern[]]:=Module[{expr=If[Head[expression]===Plus,List@@expression, {expression}]/.toLTDprop,
 energies,i=0,loop0subs,spsubs,FORMinput, 
 filenameID,
@@ -107,7 +102,7 @@ spsubs = Table[x->ToExpression["sp"<>ToString[i++]],{x,Union[Cases[expr,_Dot,Inf
 expr = expr/.spsubs/.loop0subs;
 
 (*Create strings to send to FORM*)
-FORMinput=StringReplace[{"LTD"->"","[":>"(","]"->")"}][ToString[Plus@@expr,InputForm]];
+FORMinput=StringReplace[{"cLTDPrivate`"->"","LTD"->"","[":>"(","]"->")"}][ToString[Plus@@expr,InputForm]];
 (*Print[FORMinput];*)
 
 (*Call FORM*)
@@ -122,7 +117,7 @@ result=ToExpression[StringReplace[" "|"\\"|"\n"->""][Import[cLTDfilename,"Text"]
 DeleteFile[{runfilename,cLTDfilename}];
 result = result/.ReplaceAll[spsubs,Rule[a_,b_]:>Rule[b,a]]
 				/.ReplaceAll[cleanKs,Rule[a_,b_]:>Rule[b,a]]
-				/.ToExpression["norm"]->ToExpression["cLTDnorm"];
+				/.Global`norm->cLTD`cLTDnorm;
 {Collect[result,_cLTDnorm], energies}
 ]
 
