@@ -152,7 +152,7 @@ repeat id norm(E?)*prop(y0?,y1?) = norm(2*E*y1)*(den(y0-y1)-den(y0+y1));
     id den(?a,p?) = den(p,?a);
     factarg (-1) den 1;
     id den(p?,y?,p1?) = x(p1/y,0,0)/y;
-    id den(p?,1) = den(p);
+    id den(p?,y?) = den(y*p);
     .sort:get-poles;
 
 * Split the poles by their position in the complex plane
