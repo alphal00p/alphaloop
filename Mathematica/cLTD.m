@@ -17,6 +17,9 @@ into a dot product will be considered as being its energy component
           \"aLPath\"->\"PathTo/Your/AlphaLoop/Installation/\",
           \"loopmom\"->{loopmomsymbol1,loopmomsymbol2,...} (default: {k1,k2,k3,k4})
 }
+	To change change the default options to different values use SetOptions[cLTD,...]:
+	e.g.:
+		Use `form` in the alphaloop directory "<>Style["SetOptions[cLTD,\"FORMpath\"\[Rule]\"aLform\"]",Bold]~ToString~StandardForm<>"
 
 "<>Style["Example",Bold]~ToString~StandardForm<>":
  expr = k1 prop[k1-p1,0]prop[k1-p2,0] - k1.p1 p1.p2 p1 prop[k1-p3,m]prop[k1-p4,m] prop[k1-p5,m]
@@ -84,9 +87,10 @@ FileInformation[DefaultAlphaLoopPath,"AbsoluteFileName"]<>"/"
 ,
 FileInformation[OptionValue["aLPath"],"AbsoluteFileName"]<>"/"
 ];
-FORMpath=If[OptionValue["FORMpath"]=="form",
-"form",
-FileInformation[OptionValue["FORMpath"],"AbsoluteFileName"]
+FORMpath=Which[
+OptionValue["FORMpath"]=="form", "form",
+OptionValue["FORMpath"]=="aLform", FileInformation[DefaultAlphaLoopPath<>"libraries/form/bin/form","AbsoluteFileName"],
+True, FileInformation[OptionValue["FORMpath"],"AbsoluteFileName"]
 ];
 (*Sanitisation*)
 cleanKs=Table[k->ToExpression["nonLoopk"<>ToString[i++]],{k, Complement[Table[ToExpression["k"<>ToString[n]],{n,0,9}],OptionValue["loopmom"]]}];i=0;
