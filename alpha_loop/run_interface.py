@@ -30,6 +30,8 @@ import networkx as nx
 
 #import matplotlib.pyplot as plt
 #from matplotlib.font_manager import FontProperties
+mpl_logger = logging.getLogger("matplotlib")
+mpl_logger.setLevel(logging.WARNING)
 
 from distutils.version import LooseVersion, StrictVersion
 
@@ -1959,10 +1961,14 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     choices=('xs','flat', 'advanced', 'test_h_function'), help='Specify the sampling method (default: %(default)s)')
     integrate_parser.add_argument('-i','--integrator', metavar='integrator', type=str, default='vegas3', 
                     choices=('naive','vegas', 'vegas3', 'inspect'), help='Specify the integrator (default: %(default)s)')
-    integrate_parser.add_argument('-hf','--h_function', metavar='h_function', type=str, default='left_right_exponential', 
-                    choices=('left_right_polynomial','left_right_exponential'), help='Specify the h-function to use (default: %(default)s)')
-    integrate_parser.add_argument('-hfs','--h_function_sigma', metavar='h_function_sigma', type=int, default=1, 
-                    help='Spread of the h-function, higher=steeper (default: %(default)s).')
+    integrate_parser.add_argument('-hf','--h_function', metavar='h_function', type=str, default='left_right_polynomial', 
+                    choices=('left_right_polynomial','left_right_exponential', 'flat'), help='Specify the h-function to use in sampling (default: %(default)s)')
+    integrate_parser.add_argument('-hfs','--h_function_sigma', metavar='h_function_sigma', type=int, default=3,
+                    help='Spread of the h-function in sampling, higher=steeper (default: %(default)s).')
+    integrate_parser.add_argument('-alhf','--al_h_function', metavar='al_h_function', type=str, default='left_right_exponential', 
+                    choices=('left_right_polynomial','left_right_exponential'), help='Specify the h-function to use in alphaLoop (default: %(default)s)')
+    integrate_parser.add_argument('-alhfs','--al_h_function_sigma', metavar='al_h_function_sigma', type=int, default=1, 
+                    help='Spread of the h-function in alphaLoop, higher=steeper (default: %(default)s).')
     integrate_parser.add_argument('-v','--verbosity', metavar='verbosity', type=int, default=0,choices=(0,1,2,3),
                     help='verbosity level (default: %(default)s).')
     integrate_parser.add_argument('-c','--n_cores', metavar='n_cores', type=int, default=multiprocessing.cpu_count(),
@@ -2039,11 +2045,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             selected_h_function = CallableInstanceWrapper(sampler.HFunction(args.h_function_sigma, debug=args.verbosity))
         elif args.h_function == 'left_right_exponential':
             selected_h_function = CallableInstanceWrapper(sampler.DiscreteExponentialHFunction(args.h_function_sigma, debug=args.verbosity))
+        elif args.h_function == 'flat':
+            selected_h_function = CallableInstanceWrapper(sampler.FlatHFunction(args.h_function_sigma, debug=args.verbosity))
         else:
             raise alphaLoopInvalidRunCmd("Unsupported h-function specification: %s'."%args.h_function)
 
-        self.hyperparameters.set_parameter('CrossSection.NormalisingFunction.name',args.h_function)
-        self.hyperparameters.set_parameter('CrossSection.NormalisingFunction.spread',float(args.h_function_sigma))
+        self.hyperparameters.set_parameter('CrossSection.NormalisingFunction.name',args.al_h_function)
+        self.hyperparameters.set_parameter('CrossSection.NormalisingFunction.spread',float(args.al_h_function_sigma))
 
         if args.n_cores > 1:
             runner = cluster.MultiCore(args.n_cores)
@@ -2116,13 +2124,27 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             result = my_integrator.integrate()
 
             logger.info('')
+            if my_integrator.n_evals_failed.value > 0:
+                logger.info("Number of failed evaluations: %d (%.6g%%)"%(
+                    my_integrator.n_evals_failed.value, (my_integrator.n_evals_failed.value/my_integrator.n_evals.value)*100.
+                ))
+            logger.info("Zero weights fraction: %.6g%%"%(
+                float((my_integrator.n_zero_evals.value / my_integrator.n_evals.value))*100.
+            ))
+            if my_integrand.max_eval_positive.value != 0.0:
+                logger.info("Maximum posivite weight found: %.6g (%.1e x central value) for xs=[%s]"%(
+                    my_integrand.max_eval_positive.value, 
+                    abs(my_integrand.max_eval_positive.value/result[0]),
+                    ' '.join('%.16f'%x for x in my_integrand.max_eval_positive_xs) 
+                ))
+            if my_integrand.max_eval_negative.value != 0.0:
+                logger.info("Maximum negative weight found: %.6g (%.1e x central value) for xs=[%s]"%(
+                    my_integrand.max_eval_negative.value, 
+                    abs(my_integrand.max_eval_negative.value/result[0]),
+                    ' '.join('%.16f'%x for x in my_integrand.max_eval_negative_xs) 
+                ))
             logger.info("Result of the test integration using h function %s with %d function calls (target is 1.0): %.4e +/- %.2e"%(
                 args.h_function, my_integrator.tot_func_evals, result[0], result[1]))
-            logger.info("Maximum weight found: %.6g (%.1e x central value) for xs=[%s]"%(
-                my_integrand.max_eval.value, 
-                abs(my_integrand.max_eval.value/result[0]),
-                ' '.join('%.16f'%x for x in my_integrand.max_eval_xs) 
-            ))
             logger.info('')
             return
         else:
@@ -2213,7 +2235,62 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 logger.info("Final weight for point xs=[%s] : %.16e"%(
                     ' '.join('%.16f'%x for x in args.xs), res 
                 ))
+                
                 return
+
+                # import matplotlib
+                # import matplotlib.pyplot as plt
+                # mpl_logger = logging.getLogger("matplotlib")
+                # mpl_logger.setLevel(logging.WARNING)
+    
+                # ts = []
+                # wgts = []
+
+                # min_t = 0.01
+                # max_t = 0.1
+                # t_incr = 0.001
+                # all_ts = [min_t+i*t_incr for i in range(int((max_t-min_t)/t_incr))]
+
+                # min_t = 0.1
+                # max_t = 2.0
+                # t_incr = 0.05
+                # all_ts += [min_t+i*t_incr for i in range(int((max_t-min_t)/t_incr))]
+
+                # min_t = 2.0
+                # max_t = 10.0
+                # t_incr = 0.1
+                # all_ts += [min_t+i*t_incr for i in range(int((max_t-min_t)/t_incr))]
+
+                # min_t = 10.0
+                # max_t = 100.0
+                # t_incr = 1.0
+                # all_ts += [min_t+i*t_incr for i in range(int((max_t-min_t)/t_incr))]
+
+                # for i_t, t_value in enumerate(all_ts):
+                #     print("Currently at t #%d/%d"%(i_t, len(all_ts)),end='\r')
+                #     x_t, inv_wgt_t = my_integrand.h_function.inverse_sampling(t_value)
+                #     this_xs =[x_t,]+args.xs[1:] 
+                #     res = my_integrand(this_xs, [])
+                #     ts.append(t_value/(1.+t_value))
+                #     wgts.append(res)
+                #     #logger.info("Final weight for point xs=[%s] : %.16e"%(
+                #     #    ' '.join('%.16f'%x for x in this_xs), res 
+                #     #))
+                #     #misc.sprint("Eval for t=%.16f = %.16e"%(t_value,res))
+
+                # fig, ax = plt.subplots()
+                # plt.yscale('log')
+                # plt.xscale('linear')
+                # ax.plot(ts, wgts)
+
+                # ax.set(xlabel='tx', ylabel='I(t)',
+                #     title='Integrand wgt vs t-scaling')
+                # ax.grid()
+
+                # #fig.savefig("test.png")
+                # plt.show()
+
+                # return
 
             my_integrator = selected_integrator(my_integrand, **integrator_options)
 
@@ -2241,6 +2318,25 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # RAvg.summary() : summary of the integration
 
             logger.info('')
+            if my_integrand.n_evals_failed.value > 0:
+                logger.info("Number of failed evaluations: %d (%.6g%%)"%(
+                    my_integrand.n_evals_failed.value, (my_integrand.n_evals_failed.value/my_integrand.n_evals.value)*100.
+                ))
+            logger.info("Zero weights fraction: %.6g%%"%(
+                float((my_integrand.n_zero_evals.value / my_integrand.n_evals.value))*100.
+            ))
+            if my_integrand.max_eval_positive.value != 0.0:
+                logger.info("Maximum posivite weight found: %.6g (%.1e x central value) for xs=[%s]"%(
+                    my_integrand.max_eval_positive.value, 
+                    abs(my_integrand.max_eval_positive.value/result[0]),
+                    ' '.join('%.16f'%x for x in my_integrand.max_eval_positive_xs) 
+                ))
+            if my_integrand.max_eval_negative.value != 0.0:
+                logger.info("Maximum negative weight found: %.6g (%.1e x central value) for xs=[%s]"%(
+                    my_integrand.max_eval_negative.value, 
+                    abs(my_integrand.max_eval_negative.value/result[0]),
+                    ' '.join('%.16f'%x for x in my_integrand.max_eval_negative_xs) 
+                ))
             logger.info("Result of the cross-section for %s%s%s of %s%s%s with sampler %s%s%s and integrator %s%s%s, using %s%d%s function calls:\n%s %.6g +/- %.4g%s (%.2g%%)"%(
                 utils.bcolors.GREEN, SG_name, utils.bcolors.ENDC,
                 utils.bcolors.GREEN, os.path.basename(self.dir_path), utils.bcolors.ENDC,
@@ -2249,11 +2345,6 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 utils.bcolors.GREEN, my_integrator.tot_func_evals, utils.bcolors.ENDC,
                 utils.bcolors.GREEN, result[0], result[1], utils.bcolors.ENDC,
                 abs(result[1]/result[0])*100. if result[0]!=0. else 0.
-            ))
-            logger.info("Maximum weight found: %.6g (%.1e x central value) for xs=[%s]"%(
-                my_integrand.max_eval.value, 
-                abs(my_integrand.max_eval.value/result[0]),
-                ' '.join('%.16f'%x for x in my_integrand.max_eval_xs) 
             ))
             logger.info('')
 

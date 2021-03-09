@@ -211,6 +211,40 @@ class HFunction(object):
         
         return root_result.root, 1./PDF
 
+class FlatHFunction(object):
+
+    def __init__(self, *args, debug=0):
+
+        self.debug = debug
+        
+        # Constant PDF in x gives 1/(1+t)^2 PDF in t
+        self.normalisation = 1
+
+        self.PDF = (
+            lambda t : 1./(1.+t)**2
+        )
+        #self.exact_PDF = self.PDF
+
+        normalisation = 3.5748532344428743120454466520221
+        self.exact_PDF = (
+            lambda t : math.exp( - (1. + t**2) / t ) * normalisation
+        )
+
+    def inverse_sampling(self, t):
+        """ Inverse sampling, which is trivial in this case given that we do an exact inversion, but it may not always be so.
+        Returns the corresponding sampling x in [0,1] and the inverse of the Jacobian.
+        """
+
+        x_t = (t / (1. + t) )
+
+        return x_t, (1./(1.+t)**2)
+
+    def __call__(self, x):
+
+        t = x/(1.-x)
+
+        return t, 1./(1./(1.+t)**2)
+
 class DiscreteExponentialHFunction(object):
     r"""
     Implements sampling from the noramlised distibution:
@@ -317,6 +351,7 @@ class TestHFuncIntegrand(integrands.VirtualIntegrand):
 
         # Integrate trivial one
         self.trial_normalised_integrand = lambda t: self.h_function.exact_PDF(t)
+
         # Integrate similarly shaped integrand
         #HF2 = HFunction(2)
         #HF3 = HFunction(3)
@@ -362,91 +397,35 @@ class DefaultALIntegrand(integrands.VirtualIntegrand):
         self.first_final_res = None
 
     def __call__(self, continuous_inputs, discrete_inputs, **opts):
-        #if type(self.phase_space_generator).__name__ == 'SingleChannelPhasespace':
-        #    PS_point, wgt, x1, x2 = self.phase_space_generator.get_PS_point(continuous_inputs,self.my_random_path)
-        #else:
 
         xs, wgt = self.generator(continuous_inputs)
-        ks = []
-        for i_v, v in enumerate([xs[0:3],xs[3:6],xs[6:9]]):
-            kx, ky, kz, jac = self.rust_worker.parameterize(list(v), i_v, 125.0**2)
-            ks.append([kx, ky, kz])
 
-        all_aL_xs = []
+        # ks = []
+        # for i_v, v in enumerate([xs[0:3],xs[3:6],xs[6:9]]):
+        #     kx, ky, kz, jac = self.rust_worker.parameterize(list(v), i_v, 125.0**2)
+        #     ks.append([kx, ky, kz])
 
-        all_aL_xs.append([])
-        for i_v, v in enumerate([ 
-                [ ks[0][0], ks[0][1], ks[0][2] ],
-                [ ks[1][0], ks[1][1], ks[1][2] ],
-                [ ks[2][0], ks[2][1], ks[2][2] ],
-            ]):
-            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
-            all_aL_xs[-1].extend([kx, ky, kz])
+        # all_aL_xs = []
 
-        all_aL_xs.append([])
-        for i_v, v in enumerate([ 
-                [ -ks[0][0], -ks[0][1], -ks[0][2] ],
-                [ ks[1][0], ks[1][1], ks[1][2] ],
-                [ ks[2][0], ks[2][1], ks[2][2] ],
-            ]):
-            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
-            all_aL_xs[-1].extend([kx, ky, kz])
+        # all_aL_xs.append([])
+        # for i_v, v in enumerate([ 
+        #         [ ks[0][0], ks[0][1], ks[0][2] ],
+        #         [ ks[1][0], ks[1][1], ks[1][2] ],
+        #         [ ks[2][0], ks[2][1], ks[2][2] ],
+        #     ]):
+        #     kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
+        #     all_aL_xs[-1].extend([kx, ky, kz])
 
-        all_aL_xs.append([])
-        for i_v, v in enumerate([ 
-                [ ks[0][0], ks[0][1], ks[0][2] ],
-                [ -ks[1][0], -ks[1][1], -ks[1][2] ],
-                [ ks[2][0], ks[2][1], ks[2][2] ],
-            ]):
-            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
-            all_aL_xs[-1].extend([kx, ky, kz])
+        # all_aL_xs.append([])
+        # for i_v, v in enumerate([ 
+        #         [ -ks[0][0], -ks[0][1], -ks[0][2] ],
+        #         [ ks[1][0], ks[1][1], ks[1][2] ],
+        #         [ ks[2][0], ks[2][1], ks[2][2] ],
+        #     ]):
+        #     kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
+        #     all_aL_xs[-1].extend([kx, ky, kz])
 
-        all_aL_xs.append([])
-        for i_v, v in enumerate([ 
-                [ -ks[0][0], -ks[0][1], -ks[0][2] ],
-                [ -ks[1][0], -ks[1][1], -ks[1][2] ],
-                [ ks[2][0], ks[2][1], ks[2][2] ],
-            ]):
-            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
-            all_aL_xs[-1].extend([kx, ky, kz])
-
-        all_aL_xs.append([])
-        for i_v, v in enumerate([ 
-                [ ks[1][0], ks[1][1], ks[1][2] ],
-                [ ks[0][0], ks[0][1], ks[0][2] ],
-                [ ks[2][0], ks[2][1], ks[2][2] ],
-            ]):
-            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
-            all_aL_xs[-1].extend([kx, ky, kz])
-
-        all_aL_xs.append([])
-        for i_v, v in enumerate([ 
-                [ -ks[1][0], -ks[1][1], -ks[1][2] ],
-                [ ks[0][0], ks[0][1], ks[0][2] ],
-                [ ks[2][0], ks[2][1], ks[2][2] ],
-            ]):
-            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
-            all_aL_xs[-1].extend([kx, ky, kz])
-
-        all_aL_xs.append([])
-        for i_v, v in enumerate([ 
-                [ ks[1][0], ks[1][1], ks[1][2] ],
-                [ -ks[0][0], -ks[0][1], -ks[0][2] ],
-                [ ks[2][0], ks[2][1], ks[2][2] ],
-            ]):
-            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
-            all_aL_xs[-1].extend([kx, ky, kz])
-
-        all_aL_xs.append([])
-        for i_v, v in enumerate([ 
-                [ -ks[1][0], -ks[1][1], -ks[1][2] ],
-                [ -ks[0][0], -ks[0][1], -ks[0][2] ],
-                [ ks[2][0], ks[2][1], ks[2][2] ],
-            ]):
-            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
-            all_aL_xs[-1].extend([kx, ky, kz])
-
-        #all_aL_xs = [all_aL_xs[0],]
+        all_aL_xs = [xs,]
         res = complex(0., 0.)
         for aL_xs in all_aL_xs:
             res += complex( *self.rust_worker.evaluate_integrand( aL_xs ) )
@@ -734,6 +713,19 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         final_res = 0.
         if self.debug or self.return_individual_channels:
             all_channel_weights = {}
+
+            # Set a dummy result with all entries set to zero when we encounter a numerical crash
+            all_channel_weights_set_to_none = {}
+            for i_channel, channel_info in enumerate(self.SG['SG_multichannel_info']):
+                if selected_cut_and_side is not None and i_channel not in selected_cut_and_side:
+                    continue
+                if self.external_phase_space_generation_type == 'flat' and channel_info['side']!='left':
+                    continue
+                for i_LMB, LMB_info in enumerate(channel_info['loop_LMBs']):
+                    if selected_LMB is not None and i_LMB not in selected_LMB:
+                        continue
+                    all_channel_weights_set_to_none[(i_channel,i_LMB)] = None
+
         if self.channel_for_generation is None:
 
             # Now we loop over channels 
@@ -766,13 +758,16 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                                 self.n_aborted_evals.value, self.n_aborted_evals.value+self.n_evals.value, (self.n_aborted_evals.value/float(self.n_aborted_evals.value+self.n_evals.value))*100.,
                                 utils.bcolors.ENDC
                              ))
-                            return 0.
+                            final_res = None
+                            break
 
                     if self.debug or self.return_individual_channels:
                         all_channel_weights[(i_channel,i_LMB)] = this_channel_wgt
                     final_res += this_channel_wgt
 
-            if self.debug: logger.debug('%sAll channel weights:\n%s%s'%(utils.bcolors.GREEN,pformat(all_channel_weights),utils.bcolors.ENDC))
+                if final_res is None:
+                    break
+            if final_res is not None and self.debug: logger.debug('%sAll channel weights:\n%s%s'%(utils.bcolors.GREEN,pformat(all_channel_weights),utils.bcolors.ENDC))
 
         else:
             try:
@@ -791,16 +786,21 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                     self.n_aborted_evals.value, self.n_aborted_evals.value+self.n_evals.value, (self.n_aborted_evals.value/float(self.n_aborted_evals.value+self.n_evals.value))*100.,
                     utils.bcolors.ENDC
                     ))
-                return 0.
-            if self.debug or self.return_individual_channels:
-                all_channel_weights[(self.channel_for_generation[0],self.channel_for_generation[1])] = this_channel_wgt
-            final_res += this_channel_wgt
+                final_res = None
+
+            if final_res is not None:
+                if self.debug or self.return_individual_channels:
+                    all_channel_weights[(self.channel_for_generation[0],self.channel_for_generation[1])] = this_channel_wgt
+                final_res += this_channel_wgt
 
         if self.debug: logger.debug('Python integrand evaluation time = %.2f ms.'%((time.time()-start_time)*1000.0))
 
         self.update_evaluation_statistics(list(continuous_inputs),final_res)
+
         if self.return_individual_channels:
-            res_dic = { 'I' : final_res }
+            if final_res is None:
+                all_channel_weights = all_channel_weights_set_to_none
+            res_dic = { 'I' : final_res if final_res is not None else 0. }
             for (i_channel,i_LMB), wgt in all_channel_weights.items():
                 res_dic['channel #(%d,%d) [ CC #%d, side=%s, LMB #%d (%s) ]'%(
                     i_channel, i_LMB, 
@@ -808,10 +808,10 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                     self.SG['SG_multichannel_info'][i_channel]['side'],
                     i_LMB,
                     ','.join(self.SG['SG_multichannel_info'][i_channel]['loop_LMBs'][i_LMB]['loop_edges'])
-                )] = wgt
+                )] = (wgt if wgt is not None else 0.)
             return res_dic
         else:
-            return final_res
+            return (final_res if final_res is not None else 0.)
 
     def evaluate_channel(self, continuous_inputs, discrete_inputs, selected_cut_and_side, selected_LMB, multi_channeling=True, **opts):
         """ The 'selected_cut_and_side' and 'selected_LMB' give the option of specifying a particle (subset of) all integration channels."""
@@ -947,10 +947,20 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
         # Then the inverse of the H-function and of the Jacobian of the causal flow change of variables
         # WARNING: since h(t) = h (1/t) I am not 100% sure if 1/h(t) or 1/h(1/t) is logically he right thing to do below, but it would be the same anyway.
-        inv_aL_jacobian *=  ( 1. / self.h_function.exact_PDF(1./rescaling_t) ) * (rescaling_t**(len(CMB_edges)*3)) 
+        try:
+            inv_aL_jacobian *=  ( 1. / self.h_function.exact_PDF(1./rescaling_t) ) * (rescaling_t**(len(CMB_edges)*3)) 
+        except ZeroDivisionError:
+            if self.show_warnings: logger.warning("H-function evaluated to 0 for t=%.16f. Aborting point now."%(1./rescaling_t))
+            return None
 
         # The final jacobian must then be our param. jac together with that of t divided by the one from alphaloop.
         final_jacobian = PS_jac * loop_jac * wgt_t * inv_aL_jacobian * normalising_func
+        if math.isinf(final_jacobian):
+            if self.show_warnings: logger.warning("final_jacobian evaluated to infinity. Aborting point now."+
+                "\n(PS_jac=%.16e * loop_jac=%.16e * wgt_t=%.16e * inv_aL_jacobian=%.16e * normalising_func=%.16e)"%(
+                    PS_jac , loop_jac , wgt_t , inv_aL_jacobian , normalising_func
+                ))
+            return None
         if self.debug: logger.debug('PS_jac=%s'%PS_jac)
         if self.debug: logger.debug('loop_jac=%s'%loop_jac)
         if self.debug: logger.debug('wgt_t=%s'%wgt_t)
@@ -973,8 +983,10 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         re, im = self.rust_worker.evaluate_integrand( aL_xs )
         if self.debug: logger.debug('Rust integrand evaluation time = %.2f ms.'%((time.time()-rust_start_time)*1000.0))
 
-        aL_wgt = complex(re, im) * undo_aL_parameterisation
+        aL_wgt = complex(re, im)
         if self.debug: logger.debug('aL res=%s'%str(aL_wgt))
+        aL_wgt *= undo_aL_parameterisation
+        if self.debug: logger.debug('aL*undo_aL_parameterisation res=%s'%str(aL_wgt))
 
         if self.debug:
             reconstituted_res = complex(0., 0.)
@@ -1006,6 +1018,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         this_channel_jacobian = final_jacobian
         #this_channel_jacobian *= normalising_func
         final_res = this_channel_jacobian * aL_wgt
+
 
         #HACK
         #final_jacobian /= normalising_func * wgt_t * PS_jac * loop_jac

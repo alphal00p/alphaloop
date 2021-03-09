@@ -148,8 +148,12 @@ class VirtualIntegrand(object):
         self.function_list              = functions.FunctionList()
 
         self.n_evals = Value('i', 0)
-        self.max_eval = Value('d', -1.)
-        self.max_eval_xs = Array('d', [-1. for _ in range(len(dimensions))])
+        self.n_evals_failed = Value('i', 0)
+        self.max_eval_positive = Value('d', 0.)
+        self.max_eval_positive_xs = Array('d', [-1. for _ in range(len(dimensions))])
+        self.max_eval_negative = Value('d', 0.)
+        self.max_eval_negative_xs = Array('d', [-1. for _ in range(len(dimensions))])
+        self.n_zero_evals = Value('i', 0)
 
         pass
     
@@ -158,9 +162,20 @@ class VirtualIntegrand(object):
 
         self.n_evals.value += 1
 
-        if abs(wgt) > self.max_eval.value:
-            self.max_eval.value = abs(wgt)
-            self.max_eval_xs[:] = xs
+        if wgt is None:
+            self.n_evals_failed.value += 1
+            return
+
+        if wgt>0. and wgt > self.max_eval_positive.value:
+            self.max_eval_positive.value = wgt
+            self.max_eval_positive_xs[:] = xs
+
+        if wgt<0. and wgt < self.max_eval_negative.value:
+            self.max_eval_negative.value = wgt
+            self.max_eval_negative_xs[:] = xs
+        
+        if wgt == 0.:
+            self.n_zero_evals.value += 1
 
     def get_dimensions(self):
         """ Return all dimensions characterizing this integrand."""
