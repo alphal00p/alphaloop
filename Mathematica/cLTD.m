@@ -46,7 +46,7 @@ toLTDprop=Module[{SP},
 	SetAttributes[SP,Orderless];
 	SP[p1_+p2_,p3_]:=SP[p1,p3]+SP[p2,p3];
 	SP[-p1_,p2_]:=-SP[p1,p2];
-	Global`prop[mom_,m_]:>LTDprop[mom,Sqrt[SP[mom,mom]-m^2]/.SP->Dot]];
+	Global`prop[mom_,m_]:>LTDprop[mom,Sqrt[SP[mom,mom]+m^2]/.SP->Dot]];
 
 
 FORMfile[filename_,expr_,nLoops_,alPATH_]:=Module[{
