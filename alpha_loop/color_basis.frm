@@ -189,7 +189,13 @@ argument;
 endargument;
 *Print +ss;
 .sort
+repeat; 
+    id once sp(p?!vector_,x?) = p(mu)*sp(mu,x);
+    id p?(mu?)*sp(mu?,x?) = sp(p,x);
+endrepeat;
 
+repeat id sp(p1?,p2?) = p1.p2;
+.sort
 * count polarizations and spinors on left diagram
 #do i = 1,50
         if ( (count(pol,1)>0) ) ; 
