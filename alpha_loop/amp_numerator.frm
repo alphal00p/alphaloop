@@ -167,7 +167,7 @@ NF energync;
 S  i, m, n, ALARM;
 
 CF hermconjugate, pol, cpol, uSpinor, ubarSpinor, vSpinor, vbarSpinor, sp(s), d, diracInd, lorentzInd,sunTF,sunTA,vec;
-S ii,m,x,y,yy,xx;
+S ii,m,y,yy,xx;
 CF spatialComp, spatialCompTmp;
 Auto I i1, i2, j1,j2;
 

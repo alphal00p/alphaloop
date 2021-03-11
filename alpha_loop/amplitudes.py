@@ -611,7 +611,17 @@ class intefered_sgs_list():
         i_graph=int(FORM_vars['SGID'])
 
         form_input=graph_dict['analytic_num']
+        # verify input
+        if form_input.find(".")!=-1:
+            sys.exit("ERROR IN NUMERATOR: The numerator contains . , which is not allowed. Write scalar-products as sp(mom1+mom2+...,momN+...)")
 
+        
+        for cc in re.findall("x+[A-Za-z]",form_input):
+            if not cc[1].isupper():
+                err = "ERROR IN NUMERATOR: "+cc+" has to have an capital letter as the second character"
+                sys.exit(err)
+
+        
         selected_workspace=workspace
         FORM_source=pjoin(selected_workspace, 'color_basis.frm')
 
