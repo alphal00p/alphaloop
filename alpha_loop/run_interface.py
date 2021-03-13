@@ -1429,6 +1429,18 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         scalings = [ 10.**(math.log10(args.min_scaling)+i*((math.log10(args.max_scaling)-math.log10(args.min_scaling))/(args.n_points-1))) 
                         for i in range(args.n_points) ]
 
+        # We need to detect here if we are in the amplitude-mock-up situation with frozen external momenta.
+        frozen_momenta = None
+        if 'external_data' in self.cross_section_set:
+            frozen_momenta = {
+                'in' : self.cross_section_set['external_data']['in_momenta'],
+                'out' : self.cross_section_set['external_data']['out_momenta'],
+            }
+            # Also force the specified incoming momenta specified in the hyperparameters to match the frozen specified ones.
+            self.hyperparameters.set_parameter('CrossSection.incoming_momenta',frozen_momenta['in'])
+            self.hyperparameters.set_parameter('CrossSection.do_rescaling',False)
+            self.hyperparameters.set_parameter('CrossSection.fixed_cut_momenta',frozen_momenta['out'])
+
         # Built external momenta. Remember that they appear twice.
         external_momenta = [ Vector(v[1:]) for v in self.hyperparameters['CrossSection']['incoming_momenta'] ]
         external_momenta.extend(external_momenta)
@@ -1528,15 +1540,17 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         added_UV_edges_to_probe = True
 
             if args.n_max <= 0:
-                for cut_ID in sorted(list(uv_probes_to_add_for_this_cut.keys())):
-                    UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts'].extend(uv_probes_to_add_for_this_cut[cut_ID])
+                if frozen_momenta is None:
+                    for cut_ID in sorted(list(uv_probes_to_add_for_this_cut.keys())):
+                        UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts'].extend(uv_probes_to_add_for_this_cut[cut_ID])
                 UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe'].extend(uv_probes_to_add_for_this_SG)
             else:
-                for cut_ID in sorted(list(uv_probes_to_add_for_this_cut.keys())):
-                    if len(uv_probes_to_add_for_this_cut[cut_ID])<=args.n_max:
-                        UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts'].extend(uv_probes_to_add_for_this_cut[cut_ID])
-                    else:
-                        UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts'].extend(random.sample(uv_probes_to_add_for_this_cut[cut_ID],args.n_max))                        
+                if frozen_momenta is None:
+                    for cut_ID in sorted(list(uv_probes_to_add_for_this_cut.keys())):
+                        if len(uv_probes_to_add_for_this_cut[cut_ID])<=args.n_max:
+                            UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts'].extend(uv_probes_to_add_for_this_cut[cut_ID])
+                        else:
+                            UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts'].extend(random.sample(uv_probes_to_add_for_this_cut[cut_ID],args.n_max))                        
                 if len(uv_probes_to_add_for_this_SG) <= args.n_max:
                     UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe'].extend(uv_probes_to_add_for_this_SG)
                 else:
@@ -1768,7 +1782,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                             break
 
                     do_debug = False
-                    if not args.scale_cuts:
+                    if not args.scale_cuts and len(LU_scalings)>0:
                         t_sols = [LU_scaling[0] for LU_scaling in LU_scalings]
                         t_variance = (max(t_sols)-min(t_sols))/((max(t_sols)+min(t_sols))/2.0)
                         if t_variance > 1.0e-4:
@@ -2052,7 +2066,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 'out' : self.cross_section_set['external_data']['out_momenta'],
             }
             # Also force the specified incoming momenta specified in the hyperparameters to match the frozen specified ones.
-            self.hyperparameters.set_parameter('General.incoming_momenta',frozen_momenta['in'])
+            self.hyperparameters.set_parameter('CrossSection.incoming_momenta',frozen_momenta['in'])
+            self.hyperparameters.set_parameter('CrossSection.do_rescaling',False)
+            self.hyperparameters.set_parameter('CrossSection.fixed_cut_momenta',frozen_momenta['out'])
 
         self.hyperparameters.set_parameter('General.multi_channeling',args.multichanneling)
 

@@ -318,7 +318,6 @@ class DiscreteExponentialHFunction(object):
 
     def __call__(self, x):
 
-        
         # First find the relevant bin
         selected_bin = None
         for a_bin in self.discrete_bins:
@@ -430,7 +429,9 @@ class DefaultALIntegrand(integrands.VirtualIntegrand):
         res = complex(0., 0.)
         for overall_sign, aL_xs in all_aL_xs:
             if self.debug: logger.debug("aL input xs:: %s"%str(aL_xs))
-            res += overall_sign*complex( *self.rust_worker.evaluate_integrand( aL_xs ) )
+            aL_res = complex( *self.rust_worker.evaluate_integrand( aL_xs ) )
+            if self.debug: logger.debug("aL res :: %s"%str(aL_res))
+            res += overall_sign*aL_res
         res /= float(len(all_aL_xs))
 
         re, im = res.real, res.imag
@@ -441,15 +442,6 @@ class DefaultALIntegrand(integrands.VirtualIntegrand):
             final_res = im*wgt
         
         if self.debug: logger.debug("Final wgt returned to integrator: %.16e"%final_res)
-        if hasattr(self.generator,"test_inverse_jacobian") and self.generator.test_inverse_jacobian:
-            if final_res == 0.0:
-                self.generator.i_count = 0
-            else:
-                if self.first_final_res is None:
-                    self.first_final_res = final_res
-                else:
-                    if self.debug: logger.debug("Diff w.r.t previous final wgt   : %.16e"%(self.first_final_res-final_res))
-        if self.debug > 2: time.sleep(self.debug/10.0)
 
         # Remove the padded xs for frozen momenta if applicable
         if self.frozen_momenta is not None:
@@ -464,22 +456,31 @@ class DefaultALIntegrand(integrands.VirtualIntegrand):
 
 class DummyFrozenPSGenerator(object):
 
-    def __init__(self, beam_Es, frozen_momenta, *args, **opts):
+    def __init__(self, beam_Es, frozen_momenta, rust_worker, n_loops, E_cm, *args, **opts):
         self.frozen_momenta = dict(frozen_momenta)
-        self.frozen_momenta['in'] = [ vectors.LorentzVector(v) for v in self.frozen_momenta['in'] ]
-        self.frozen_momenta['out'] = [ vectors.LorentzVector(v) for v in self.frozen_momenta['out'] ]
-        self.frozen_momenta['out'].append( sum(self.frozen_momenta['in'])-sum(self.frozen_momenta['out']) )
 
         self.dummy_initial_momenta = [ 
             vectors.LorentzVector([beam_Es[0],0.,0.,beam_Es[0]]),
             vectors.LorentzVector([beam_Es[0],0.,0.,-beam_Es[0]])
         ]
+    
+        # Pad xs with frozen momenta if necessary
+        self.overall_inv_jac = 1.
+        self.PS_xs = []
+        for i_v, v in enumerate([v[1:] for v in self.frozen_momenta['out']]):
+            xx, xy, xz, inv_jac = rust_worker.inv_parameterize(list(v), n_loops+i_v, E_cm**2)
+            self.PS_xs.extend([xx, xy, xz])
+            self.overall_inv_jac *= inv_jac*(2.0*math.pi)**4
+
+        self.frozen_momenta['in'] = [ vectors.LorentzVector(v) for v in self.frozen_momenta['in'] ]
+        self.frozen_momenta['out'] = [ vectors.LorentzVector(v) for v in self.frozen_momenta['out'] ]
+        self.frozen_momenta['out'].append( sum(self.frozen_momenta['in'])-sum(self.frozen_momenta['out']) )
 
     def get_PS_point(self,*args, **opts):
-        return vectors.LorentzVectorList(self.dummy_initial_momenta+self.frozen_momenta['out']), 1., 1., 1.
+        return vectors.LorentzVectorList(self.dummy_initial_momenta+self.frozen_momenta['out']), self.overall_inv_jac, 1., 1.
 
     def invertKinematics(self, *args, **opts):
-        return [0.5,]*(len(self.frozen_momenta['out'])*3-1), 1.
+        return self.PS_xs, self.overall_inv_jac
 
 class DummyFrozenHFunction(object):
 
@@ -616,7 +617,9 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             
             if self.frozen_momenta is not None:
                 
-                self.multichannel_generators[i_channel] = DummyFrozenPSGenerator(generator_beam_Es, self.frozen_momenta)
+                self.multichannel_generators[i_channel] = DummyFrozenPSGenerator(
+                    generator_beam_Es, self.frozen_momenta, self.rust_worker, 
+                    (SG['topo']['n_loops']-len(self.frozen_momenta['out'])), self.E_cm)
 
             elif self.external_phase_space_generation_type == 'flat':
                 
@@ -922,7 +925,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                 for i_dim in range(1,len(channel_info['independent_final_states'])*3) 
             ]
         else:
-            external_phase_space_xs = [0.5,]*(len(self.frozen_momenta['out'])*3-1)
+            external_phase_space_xs = generator.PS_xs
 
         # build the external kinematics 
         PS_point, PS_jac, _, _ = generator.get_PS_point(external_phase_space_xs)
@@ -1058,12 +1061,15 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         aL_xs = []
         undo_aL_parameterisation = 1.
         for i_v, v in enumerate(upscaled_input_momenta_in_LMB):
-            if self.frozen_momenta is not None and i_v >= len(upscaled_input_momenta_in_LMB)-len(self.frozen_momenta['out']):
-                aL_xs.extend([0.5,0.5,0.5])
-            else:
-                kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, self.E_cm**2)
-                undo_aL_parameterisation *= inv_jac
-                aL_xs.extend([kx, ky, kz])
+            if self.frozen_momenta is not None and i_v >= (len(upscaled_input_momenta_in_LMB)-len(self.frozen_momenta['out'])):
+                continue
+            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, self.E_cm**2)
+            undo_aL_parameterisation *= inv_jac
+            aL_xs.extend([kx, ky, kz])
+        # When there are frozen momenta we must pad the input xs of alphaloop with the frozen xs
+        if self.frozen_momenta is not None:
+            aL_xs.extend(external_phase_space_xs)
+
         if self.debug: logger.debug('aL xs=%s'%str(aL_xs))
         if self.debug: logger.debug('undo_aL_parameterisation=%s'%str(undo_aL_parameterisation))
         # Finally actually call alphaLoop full integrand
@@ -1383,6 +1389,10 @@ class generator_aL(CustomGenerator):
         self.debug = debug
         self.frozen_momenta = frozen_momenta
 
+        E_cm = self.SG_info.get_E_cm(self.hyperparameters)        
+        self.E_cm = E_cm
+        if debug: logger.debug("E_cm detected=%.16e"%self.E_cm)
+
     def __call__(self, random_variables, **opts):
         """ 
         Generates a point using a sampling reflecting the topolgy of SG_QG0.
@@ -1392,7 +1402,12 @@ class generator_aL(CustomGenerator):
         xs = list(random_variables)
 
         # Pad xs with frozen momenta if necessary
+        overall_inv_jac = 1.
         if self.frozen_momenta is not None:
-            xs += [0.5,]*(3*len(self.frozen_momenta['out']))
+            n_loop_vs = len(random_variables)//3
+            for i_v, v in enumerate([v[1:] for v in self.frozen_momenta['out']]):
+                xx, xy, xz, inv_jac = self.rust_worker.inv_parameterize(list(v), n_loop_vs+i_v, self.E_cm**2)
+                xs.extend([xx, xy, xz])
+                overall_inv_jac *= inv_jac*(2.0*math.pi)**4
 
-        return xs, 1.0
+        return xs, overall_inv_jac
