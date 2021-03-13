@@ -1133,8 +1133,17 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         else:
             self.generation_statistics = {}
 
-        self.cross_section_set = CrossSectionSet(pjoin(self.dir_path,
-                            self._rust_inputs_folder, self._cross_section_set_yaml_name))
+        # The cross-section set file may not be standard
+        if os.path.isfile(pjoin(self.dir_path, self._rust_inputs_folder, self._cross_section_set_yaml_name)):
+            cross_section_set_yaml_file_path = pjoin(self.dir_path, self._rust_inputs_folder, self._cross_section_set_yaml_name)
+        else:
+            candidates = [fp for fp in glob.glob(pjoin(self.dir_path, self._rust_inputs_folder,'*.yaml')) if 
+                            not os.path.basename(fp).startswith('SG') and not os.path.basename(fp).startswith('PROCESSED_SG')]
+            if len(candidates)!=1:
+                raise alphaLoopInvalidRunCmd("Could not find cross-section set yaml file in path %s"%(pjoin(self.dir_path, self._rust_inputs_folder)))
+            cross_section_set_yaml_file_path = candidates[0]
+
+        self.cross_section_set = CrossSectionSet(cross_section_set_yaml_file_path)
         self.all_supergraphs = self.load_supergraphs()
 
         super(alphaLoopRunInterface, self).__init__(*args, **opts)
@@ -2021,7 +2030,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         self.integrate_parser.print_help()
         return
     # We must wrape this function in a process because of the border effects of the pyO3 rust Python bindings
-    @wrap_in_process()
+    #@wrap_in_process()
     @with_tmp_hyperparameters({
         'Integrator.dashboard': False
     })
@@ -2034,6 +2043,16 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         args = self.split_arg(line)
         args = self.integrate_parser.parse_args(args)
+
+        # We need to detect here if we are in the amplitude-mock-up situation with frozen external momenta.
+        frozen_momenta = None
+        if 'external_data' in self.cross_section_set:
+            frozen_momenta = {
+                'in' : self.cross_section_set['external_data']['in_momenta'],
+                'out' : self.cross_section_set['external_data']['out_momenta'],
+            }
+            # Also force the specified incoming momenta specified in the hyperparameters to match the frozen specified ones.
+            self.hyperparameters.set_parameter('General.incoming_momenta',frozen_momenta['in'])
 
         self.hyperparameters.set_parameter('General.multi_channeling',args.multichanneling)
 
@@ -2163,11 +2182,15 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 self.hyperparameters.set_parameter('General.multi_channeling',args.multichanneling)
                 rust_worker = self.get_rust_worker(SG_name)
                 
+                n_integration_dimensions = SG_info['topo']['n_loops']*3
+                if frozen_momenta is not None:
+                    n_integration_dimensions -= 3*len(frozen_momenta['out'])
+
                 if args.sampling == 'xs':
                     my_sampler = sampler.generator_aL( 
                         integrands.DimensionList([ 
                             integrands.ContinuousDimension('x_%d'%i_dim,lower_bound=0.0, upper_bound=1.0) 
-                            for i_dim in range(1,SG_info['topo']['n_loops']*3+1) 
+                            for i_dim in range(1,n_integration_dimensions+1)
                         ]),
                         rust_worker,
                         SG_info,
@@ -2175,10 +2198,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         selected_h_function,
                         self.hyperparameters,
                         debug=args.verbosity,
+                        frozen_momenta=frozen_momenta
                     )
 
                 my_integrand = sampler.DefaultALIntegrand( rust_worker, my_sampler, 
-                    debug=args.verbosity, phase=self.hyperparameters['Integrator']['integrated_phase'] )
+                    debug=args.verbosity, phase=self.hyperparameters['Integrator']['integrated_phase'], frozen_momenta=frozen_momenta)
 
             elif args.sampling in ['flat','advanced']:
                 
@@ -2221,21 +2245,22 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     selected_LMB=selected_LMB,
                     phase=self.hyperparameters['Integrator']['integrated_phase'],
                     show_warnings=args.show_warnings,
-                    return_individual_channels = (args.integrator == 'vegas3')
+                    return_individual_channels = (args.integrator in ['vegas3','inspect']),
+                    frozen_momenta=frozen_momenta
                 )
 
+            # Inspect mode
             if selected_integrator is None:
                 if len(args.xs)==0 or args.xs[0]<0.:
                     raise InvalidCmd("When running in inspect mode, the random variables must be supplied with -xs = x1 x2 x3 ...") 
-                if len(args.xs) != SG_info['topo']['n_loops']*3:
+
+                if len(args.xs) != (SG_info['topo']['n_loops'] - (0 if frozen_momenta is None else len(frozen_momenta['out'])))*3:
                     raise InvalidCmd("Expected %d random variables, but only %d were specified."%(SG_info['topo']['n_loops']*3,len(args.xs))) 
 
-                # Inspect mode
                 res = my_integrand(args.xs, [])
-                logger.info("Final weight for point xs=[%s] : %.16e"%(
-                    ' '.join('%.16f'%x for x in args.xs), res 
+                logger.info("Final weight for point xs=[%s] :\n %s"%(
+                    ' '.join('%.16f'%x for x in args.xs), pformat(res) 
                 ))
-                
                 return
 
                 # import matplotlib
@@ -2247,44 +2272,63 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 # wgts = []
 
                 # min_t = 0.01
-                # max_t = 0.1
-                # t_incr = 0.001
+                # max_t = 0.99
+                # t_incr = 0.01
                 # all_ts = [min_t+i*t_incr for i in range(int((max_t-min_t)/t_incr))]
 
-                # min_t = 0.1
-                # max_t = 2.0
-                # t_incr = 0.05
-                # all_ts += [min_t+i*t_incr for i in range(int((max_t-min_t)/t_incr))]
+                # # min_t = 0.1
+                # # max_t = 2.0
+                # # t_incr = 0.05
+                # # all_ts += [min_t+i*t_incr for i in range(int((max_t-min_t)/t_incr))]
 
-                # min_t = 2.0
-                # max_t = 10.0
-                # t_incr = 0.1
-                # all_ts += [min_t+i*t_incr for i in range(int((max_t-min_t)/t_incr))]
+                # # min_t = 2.0
+                # # max_t = 10.0
+                # # t_incr = 0.1
+                # # all_ts += [min_t+i*t_incr for i in range(int((max_t-min_t)/t_incr))]
 
-                # min_t = 10.0
-                # max_t = 100.0
-                # t_incr = 1.0
-                # all_ts += [min_t+i*t_incr for i in range(int((max_t-min_t)/t_incr))]
+                # # min_t = 10.0
+                # # max_t = 100.0
+                # # t_incr = 1.0
+                # # all_ts += [min_t+i*t_incr for i in range(int((max_t-min_t)/t_incr))]
 
                 # for i_t, t_value in enumerate(all_ts):
                 #     print("Currently at t #%d/%d"%(i_t, len(all_ts)),end='\r')
-                #     x_t, inv_wgt_t = my_integrand.h_function.inverse_sampling(t_value)
-                #     this_xs =[x_t,]+args.xs[1:] 
+                #     #x_t, inv_wgt_t = my_integrand.h_function.inverse_sampling(t_value)
+                #     #this_xs =[x_t,]+args.xs[1:] 
+                #     this_xs = list(args.xs)
+                #     tot_res = 0.
+                #     this_xs[2] = t_value
+                #     #this_xs[5] = t_value
+                #     #this_xs[5] = args.xs[5]
                 #     res = my_integrand(this_xs, [])
-                #     ts.append(t_value/(1.+t_value))
-                #     wgts.append(res)
+                #     tot_res += res['I']
+                #     #this_xs[5] = (t_value-0.5) if t_value-0.5 > 0. else t_value+0.5
+                #     #this_xs[8] = args.xs[8]
+                #     #res = my_integrand(this_xs, [])
+                #     #tot_res += res['I']
+                #     # this_xs[5] = t_value
+                #     # this_xs[8] = (args.xs[8]-0.5) if args.xs[8]-0.5 > 0. else args.xs[8]+0.5
+                #     # res = my_integrand(this_xs, [])
+                #     # tot_res += res['I']
+                #     # this_xs[5] = (t_value-0.5) if t_value-0.5 > 0. else t_value+0.5
+                #     # this_xs[8] = (args.xs[8]-0.5) if args.xs[8]-0.5 > 0. else args.xs[8]+0.5
+                #     # res = my_integrand(this_xs, [])
+                #     # tot_res += res['I']
+                #     tot_res /= 1.
+                #     ts.append(t_value)
+                #     wgts.append(tot_res)
                 #     #logger.info("Final weight for point xs=[%s] : %.16e"%(
                 #     #    ' '.join('%.16f'%x for x in this_xs), res 
                 #     #))
                 #     #misc.sprint("Eval for t=%.16f = %.16e"%(t_value,res))
 
                 # fig, ax = plt.subplots()
-                # plt.yscale('log')
+                # plt.yscale('linear')
                 # plt.xscale('linear')
                 # ax.plot(ts, wgts)
 
-                # ax.set(xlabel='tx', ylabel='I(t)',
-                #     title='Integrand wgt vs t-scaling')
+                # ax.set(xlabel='x_phi(pq2)', ylabel='I(x_phi(pq2))',
+                #     title='Symmetrized integrand h > gg vs angle')
                 # ax.grid()
 
                 # #fig.savefig("test.png")

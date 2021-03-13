@@ -379,12 +379,13 @@ class TestHFuncIntegrand(integrands.VirtualIntegrand):
 class DefaultALIntegrand(integrands.VirtualIntegrand):
     """An integrand for this phase-space volume test."""
 
-    def __init__(self, rust_worker, generator, debug=0, phase='real'):
+    def __init__(self, rust_worker, generator, debug=0, phase='real', frozen_momenta=None):
 
         self.generator = generator
         self.dimensions = generator.dimensions
         self.debug = debug
-    
+        self.frozen_momenta = frozen_momenta
+
         super(DefaultALIntegrand, self).__init__( self.dimensions )
 
         self.rust_worker = rust_worker
@@ -406,33 +407,32 @@ class DefaultALIntegrand(integrands.VirtualIntegrand):
         #     ks.append([kx, ky, kz])
 
         # all_aL_xs = []
+        # for signs in [
+        #         (1.,1.,1.),
+        #         (1.,1.,-1.),
+        #         (1.,-1.,1.),
+        #         (1.,-1.,-1.),
+        #         (-1.,1.,1.),
+        #         (-1.,1.,-1.),
+        #         (-1.,-1.,1.),
+        #         (-1.,-1.,-1.),
+        #     ]:
+        #     all_aL_xs.append( ( 1.0, []) )
+        #     for i_v, v in enumerate([ 
+        #             [ signs[0]*ks[0][0], signs[0]*ks[0][1], signs[0]*ks[0][2] ],
+        #             [ signs[1]*ks[1][0], signs[1]*ks[1][1], signs[1]*ks[1][2] ],
+        #             [ signs[2]*ks[2][0], signs[2]*ks[2][1], signs[2]*ks[2][2] ],
+        #         ]):
+        #         kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
+        #         all_aL_xs[-1][-1].extend([kx, ky, kz])
 
-        # all_aL_xs.append([])
-        # for i_v, v in enumerate([ 
-        #         [ ks[0][0], ks[0][1], ks[0][2] ],
-        #         [ ks[1][0], ks[1][1], ks[1][2] ],
-        #         [ ks[2][0], ks[2][1], ks[2][2] ],
-        #     ]):
-        #     kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
-        #     all_aL_xs[-1].extend([kx, ky, kz])
-
-        # all_aL_xs.append([])
-        # for i_v, v in enumerate([ 
-        #         [ -ks[0][0], -ks[0][1], -ks[0][2] ],
-        #         [ ks[1][0], ks[1][1], ks[1][2] ],
-        #         [ ks[2][0], ks[2][1], ks[2][2] ],
-        #     ]):
-        #     kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, 125.0**2)
-        #     all_aL_xs[-1].extend([kx, ky, kz])
-
-        all_aL_xs = [xs,]
+        all_aL_xs = [(1.,xs),]
         res = complex(0., 0.)
-        for aL_xs in all_aL_xs:
-            res += complex( *self.rust_worker.evaluate_integrand( aL_xs ) )
+        for overall_sign, aL_xs in all_aL_xs:
+            if self.debug: logger.debug("aL input xs:: %s"%str(aL_xs))
+            res += overall_sign*complex( *self.rust_worker.evaluate_integrand( aL_xs ) )
         res /= float(len(all_aL_xs))
 
-        #res = ( complex( *self.rust_worker.evaluate_integrand( xs ) ) + complex( *self.rust_worker.evaluate_integrand( xs[3:6]+xs[0:3]+xs[6:9] ) ) ) / 2.0
-        #res = complex( *self.rust_worker.evaluate_integrand( xs ) )
         re, im = res.real, res.imag
 
         if self.phase=='real':
@@ -451,16 +451,57 @@ class DefaultALIntegrand(integrands.VirtualIntegrand):
                     if self.debug: logger.debug("Diff w.r.t previous final wgt   : %.16e"%(self.first_final_res-final_res))
         if self.debug > 2: time.sleep(self.debug/10.0)
 
+        # Remove the padded xs for frozen momenta if applicable
+        if self.frozen_momenta is not None:
+            xs_without_frozen_momenta = xs[:-3*len(self.frozen_momenta['out'])]
+        else:
+            xs_without_frozen_momenta = xs
 
-        self.update_evaluation_statistics(xs,final_res)
+        self.update_evaluation_statistics(xs_without_frozen_momenta,final_res)
 
-        return final_res
+        return {'I':final_res}
 
+
+class DummyFrozenPSGenerator(object):
+
+    def __init__(self, beam_Es, frozen_momenta, *args, **opts):
+        self.frozen_momenta = dict(frozen_momenta)
+        self.frozen_momenta['in'] = [ vectors.LorentzVector(v) for v in self.frozen_momenta['in'] ]
+        self.frozen_momenta['out'] = [ vectors.LorentzVector(v) for v in self.frozen_momenta['out'] ]
+        self.frozen_momenta['out'].append( sum(self.frozen_momenta['in'])-sum(self.frozen_momenta['out']) )
+
+        self.dummy_initial_momenta = [ 
+            vectors.LorentzVector([beam_Es[0],0.,0.,beam_Es[0]]),
+            vectors.LorentzVector([beam_Es[0],0.,0.,-beam_Es[0]])
+        ]
+
+    def get_PS_point(self,*args, **opts):
+        return vectors.LorentzVectorList(self.dummy_initial_momenta+self.frozen_momenta['out']), 1., 1., 1.
+
+    def invertKinematics(self, *args, **opts):
+        return [0.5,]*(len(self.frozen_momenta['out'])*3-1), 1.
+
+class DummyFrozenHFunction(object):
+
+    def __init__(self, *args, **opts):
+
+        normalisation = 3.5748532344428743120454466520221
+        self.exact_PDF = (
+            lambda t :  1.
+        )
+
+    def inverse_sampling(self, t):
+
+        return 1., 1.
+
+    def __call__(self, x):
+
+        return 1., 1.
 
 class AdvancedIntegrand(integrands.VirtualIntegrand):
 
     def __init__(self, rust_worker, SG, model, h_function, hyperparameters, channel_for_generation = None, external_phase_space_generation_type="flat", debug=0, phase='real', 
-        selected_cut_and_side=None, selected_LMB=None, show_warnings=True, return_individual_channels=False,
+        selected_cut_and_side=None, selected_LMB=None, show_warnings=True, return_individual_channels=False, frozen_momenta=None,
         **opts):
         """ Set channel_for_generation to (selected_cut_and_side_index, selected_LMB_index) to disable multichaneling and choose one particular channel for the parameterisation. """
 
@@ -471,12 +512,17 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         self.SG = SG
         self.phase = phase
         self.hyperparameters = hyperparameters
-        self.h_function = h_function
         self.conformal_map = lin_conformal
         self.inverse_conformal_map = lin_inverse_conformal
         self.channel_for_generation = channel_for_generation
         self.return_individual_channels = return_individual_channels
-        
+        self.frozen_momenta = frozen_momenta
+
+        if self.frozen_momenta is None:
+            self.h_function = h_function
+        else:
+            self.h_function = DummyFrozenHFunction()
+
         self.selected_cut_and_side=selected_cut_and_side
         self.selected_LMB=selected_LMB
 
@@ -492,14 +538,22 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         self.external_momenta.extend(self.external_momenta)
 
         self.dimensions = integrands.DimensionList()
-        # The first dimension will always be for the upscaling 't' variable
-        self.dimensions.append(integrands.ContinuousDimension('x_t',lower_bound=0.0, upper_bound=1.0))
-        # Then the remaining ones will first be for the final-state mappings (the number depends on the particular Cutkosky cut)
-        # and of the remaining loop variables
-        self.dimensions.extend([ 
-            integrands.ContinuousDimension('x_%d'%i_dim,lower_bound=0.0, upper_bound=1.0) 
-            for i_dim in range(1,SG['topo']['n_loops']*3) 
-        ])
+        
+        if self.frozen_momenta is None:
+            # The first dimension will always be for the upscaling 't' variable
+            self.dimensions.append(integrands.ContinuousDimension('x_t',lower_bound=0.0, upper_bound=1.0))
+            # Then the remaining ones will first be for the final-state mappings (the number depends on the particular Cutkosky cut)
+            # and of the remaining loop variables
+            self.dimensions.extend([ 
+                integrands.ContinuousDimension('x_%d'%i_dim,lower_bound=0.0, upper_bound=1.0) 
+                for i_dim in range(1,SG['topo']['n_loops']*3) 
+            ])
+        else:
+            self.dimensions.extend([ 
+                integrands.ContinuousDimension('x_%d'%i_dim,lower_bound=0.0, upper_bound=1.0) 
+                for i_dim in range(1,(SG['topo']['n_loops']-len(self.frozen_momenta['out']))*3+1) 
+            ])
+
         super(AdvancedIntegrand, self).__init__( self.dimensions )
 
         E_cm = self.SG.get_E_cm(self.hyperparameters)        
@@ -560,7 +614,11 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                 generator_initial_state_masses = initial_state_masses
                 generator_beam_Es = (E_cm/2.,E_cm/2.)
             
-            if self.external_phase_space_generation_type == 'flat':
+            if self.frozen_momenta is not None:
+                
+                self.multichannel_generators[i_channel] = DummyFrozenPSGenerator(generator_beam_Es, self.frozen_momenta)
+
+            elif self.external_phase_space_generation_type == 'flat':
                 
                 self.multichannel_generators[i_channel] = PS.FlatInvertiblePhasespace(
                         generator_initial_state_masses, final_state_masses, 
@@ -824,7 +882,10 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
         if self.debug: logger.debug('Edge masses:\n%s'%pformat(self.edge_masses))
 
-        x_t = random_variables[self.dimensions.get_position('x_t')]
+        if self.frozen_momenta is None:
+            x_t = random_variables[self.dimensions.get_position('x_t')]
+        else:
+            x_t = 1.
         if self.debug: logger.debug('x_t=%s'%x_t)
 
         # We must now promote the point to full 3^L using the causal flow, and thus determine the rescaling_t with the right density.
@@ -842,7 +903,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         channel_info = self.SG['SG_multichannel_info'][i_channel]
 
         generator = self.multichannel_generators[i_channel]
-        if self.debug and self.external_phase_space_generation_type == 'advanced':
+        if self.debug and self.frozen_momenta is None and self.external_phase_space_generation_type == 'advanced':
             logger.debug("Considering the following topology:")
             logger.debug("-"*10)
             logger.debug(generator.get_topology_string(generator.topology, path_to_print=generator.path))
@@ -855,10 +916,13 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             ]
 
         # Get the external phase-space random variables
-        external_phase_space_xs = [ 
-            random_variables[self.dimensions.get_position('x_%d'%i_dim)] 
-            for i_dim in range(1,len(channel_info['independent_final_states'])*3) 
-        ]
+        if self.frozen_momenta is None:
+            external_phase_space_xs = [ 
+                random_variables[self.dimensions.get_position('x_%d'%i_dim)] 
+                for i_dim in range(1,len(channel_info['independent_final_states'])*3) 
+            ]
+        else:
+            external_phase_space_xs = [0.5,]*(len(self.frozen_momenta['out'])*3-1)
 
         # build the external kinematics 
         PS_point, PS_jac, _, _ = generator.get_PS_point(external_phase_space_xs)
@@ -871,7 +935,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             return None
 
         if self.debug: logger.debug('PS xs=%s'%str(external_phase_space_xs))
-        if self.debug: 
+        if self.debug:
             incoming_edge_names = [e for (e,d) in topology_info['incoming_edges']]
             if len(incoming_edge_names)==1:
                 incoming_edge_names *= 2
@@ -879,9 +943,10 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             logger.debug('PS_point=\n%s'%LorentzVectorList(PS_point).__str__(n_initial=2, leg_names=incoming_edge_names+outgoing_edge_names))
 
         inv_aL_jacobian = 1.
-        # Correct for the 1/(2E) of each cut propagator that alphaLoop includes but which is already included in the normal PS parameterisation
-        for v in PS_point[2:]:
-            inv_aL_jacobian *= 2*v[0]
+        if self.frozen_momenta is None:
+            # Correct for the 1/(2E) of each cut propagator that alphaLoop includes but which is already included in the normal PS parameterisation
+            for v in PS_point[2:]:
+                inv_aL_jacobian *= 2*v[0]
         if self.debug: logger.debug('(-2*pi*I)/Es=%s'%str( (complex(0., -2.*math.pi)**len(PS_point[2:]) / inv_aL_jacobian)) )
 
         # We should undo the mock-up 2>N if n_initial is 1
@@ -899,16 +964,24 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         if self.debug: logger.debug('loop edges=%s'%str(LMB_info['loop_edges']))
         if self.debug: logger.debug('all CMB_edges=%s'%str(CMB_edges))
 
-        loop_phase_space_xs = [ 
-            random_variables[self.dimensions.get_position('x_%d'%i_dim)] 
-            for i_dim in range(
-                len(channel_info['independent_final_states'])*3,
-                self.SG['topo']['n_loops']*3
-            ) 
-        ]
+        if self.frozen_momenta is None:
+            loop_phase_space_xs = [ 
+                random_variables[self.dimensions.get_position('x_%d'%i_dim)] 
+                for i_dim in range(
+                    len(channel_info['independent_final_states'])*3,
+                    self.SG['topo']['n_loops']*3
+                ) 
+            ]
+        else:
+            loop_phase_space_xs = [ 
+                random_variables[self.dimensions.get_position('x_%d'%i_dim)] 
+                for i_dim in range(1,(self.SG['topo']['n_loops']-len(self.frozen_momenta['out']))*3+1) 
+            ]
 
         ks, loop_jac = self.loop_parameterisation(loop_phase_space_xs)
+        
         PS_point.update( { edge_name : vectors.Vector(ks[3*i_LMB_entry:3*(i_LMB_entry+1)]) for i_LMB_entry, edge_name in enumerate(LMB_info['loop_edges']) } )
+
         if self.debug: logger.debug('loop_phase_space_momenta=%s'%str(ks))
         if self.debug: logger.debug('loop_xs=%s'%str(loop_phase_space_xs))
 
@@ -921,6 +994,13 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         downscaled_input_momenta_in_LMB = [ vectors.Vector(v) for v in transformation_matrix.dot(
             [list(rm+shift) for rm, shift in zip(downscaled_input_momenta_in_CMB, shifts)] ) ]
 
+        if self.debug:
+            all_downscaled_momenta = { edge_name : 
+                    ( sum([ downscaled_input_momenta_in_LMB[i_k]*wgt for i_k, wgt in enumerate(edge_info[0]) ]) + 
+                      sum([ self.external_momenta[i_shift]*wgt for i_shift, wgt in enumerate(edge_info[1]) ]) )
+                for edge_name, edge_info in self.SG['edge_signatures'].items() }
+            logger.debug('Downscaled momenta of all supergraph edges:\n%s'%pformat(all_downscaled_momenta))
+
         upscaled_input_momenta_in_LMB = [ k*rescaling_t for k in downscaled_input_momenta_in_LMB ]
         if self.debug: logger.debug('upscaled_input_momenta_in_LMB=%s'%str(upscaled_input_momenta_in_LMB))
 
@@ -928,30 +1008,35 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         # and thus effectively compute the inverse of the jacobian that will be included by the full integrand in rust
 
         # First the delta function jacobian
-        delta_jacobian = 0.
-        inv_rescaling_t = 1./rescaling_t
-        for edge_name, edge_direction in topology_info['outgoing_edges']:
-            
-            k = sum([ upscaled_input_momenta_in_LMB[i_k]*wgt for i_k, wgt in enumerate(self.SG['edge_signatures'][edge_name][0]) ])
-            shift = sum([ self.external_momenta[i_shift]*wgt for i_shift, wgt in enumerate(self.SG['edge_signatures'][edge_name][1]) ])
+        if self.frozen_momenta is None:
+            delta_jacobian = 0.
+            inv_rescaling_t = 1./rescaling_t
+            for edge_name, edge_direction in topology_info['outgoing_edges']:
+                
+                k = sum([ upscaled_input_momenta_in_LMB[i_k]*wgt for i_k, wgt in enumerate(self.SG['edge_signatures'][edge_name][0]) ])
+                shift = sum([ self.external_momenta[i_shift]*wgt for i_shift, wgt in enumerate(self.SG['edge_signatures'][edge_name][1]) ])
 
-            delta_jacobian += (
-                ( 2. * inv_rescaling_t * k.square() + k.dot(shift) ) / 
-                ( 2. * math.sqrt( (inv_rescaling_t*k + shift).square() - self.edge_masses[edge_name]**2 ) )
-            )
+                delta_jacobian += (
+                    ( 2. * inv_rescaling_t * k.square() + k.dot(shift) ) / 
+                    ( 2. * math.sqrt( (inv_rescaling_t*k + shift).square() - self.edge_masses[edge_name]**2 ) )
+                )
 
-        delta_jacobian *= (inv_rescaling_t)**2
+            delta_jacobian *= (inv_rescaling_t)**2
+        else:
+            delta_jacobian = 1.
+
         if self.debug: logger.debug('delta_jacobian=%s'%str(delta_jacobian))
         if self.debug: logger.debug('1./delta_jacobian=%s'%str(1./delta_jacobian))
         inv_aL_jacobian *= delta_jacobian
 
-        # Then the inverse of the H-function and of the Jacobian of the causal flow change of variables
-        # WARNING: since h(t) = h (1/t) I am not 100% sure if 1/h(t) or 1/h(1/t) is logically he right thing to do below, but it would be the same anyway.
-        try:
-            inv_aL_jacobian *=  ( 1. / self.h_function.exact_PDF(1./rescaling_t) ) * (rescaling_t**(len(CMB_edges)*3)) 
-        except ZeroDivisionError:
-            if self.show_warnings: logger.warning("H-function evaluated to 0 for t=%.16f. Aborting point now."%(1./rescaling_t))
-            return None
+        if self.frozen_momenta is None:
+            # Then the inverse of the H-function and of the Jacobian of the causal flow change of variables
+            # WARNING: since h(t) = h (1/t) I am not 100% sure if 1/h(t) or 1/h(1/t) is logically he right thing to do below, but it would be the same anyway.
+            try:
+                inv_aL_jacobian *=  ( 1. / self.h_function.exact_PDF(1./rescaling_t) ) * (rescaling_t**(len(CMB_edges)*3)) 
+            except ZeroDivisionError:
+                if self.show_warnings: logger.warning("H-function evaluated to 0 for t=%.16f. Aborting point now."%(1./rescaling_t))
+                return None
 
         # The final jacobian must then be our param. jac together with that of t divided by the one from alphaloop.
         final_jacobian = PS_jac * loop_jac * wgt_t * inv_aL_jacobian * normalising_func
@@ -973,9 +1058,12 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         aL_xs = []
         undo_aL_parameterisation = 1.
         for i_v, v in enumerate(upscaled_input_momenta_in_LMB):
-            kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, self.E_cm**2)
-            undo_aL_parameterisation *= inv_jac
-            aL_xs.extend([kx, ky, kz])
+            if self.frozen_momenta is not None and i_v >= len(upscaled_input_momenta_in_LMB)-len(self.frozen_momenta['out']):
+                aL_xs.extend([0.5,0.5,0.5])
+            else:
+                kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, self.E_cm**2)
+                undo_aL_parameterisation *= inv_jac
+                aL_xs.extend([kx, ky, kz])
         if self.debug: logger.debug('aL xs=%s'%str(aL_xs))
         if self.debug: logger.debug('undo_aL_parameterisation=%s'%str(undo_aL_parameterisation))
         # Finally actually call alphaLoop full integrand
@@ -988,7 +1076,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         aL_wgt *= undo_aL_parameterisation
         if self.debug: logger.debug('aL*undo_aL_parameterisation res=%s'%str(aL_wgt))
 
-        if self.debug:
+        if self.debug and self.frozen_momenta is None:
             reconstituted_res = complex(0., 0.)
             for cut_ID, cut_info in enumerate(self.SG['cutkosky_cuts']):
                 logger.debug("    Result for cut_ID #%d with external edges %s"%(cut_ID, ', '.join(c['name'] for c in cut_info['cuts']) ))
@@ -1116,7 +1204,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         MC_CMB_edges.extend([edge_name for edge_name, edge_direction in MC_channel_info['independent_final_states']])
 
         MC_generator = self.multichannel_generators[MC_i_channel]
-        if self.debug and self.external_phase_space_generation_type == 'advanced':
+        if self.debug and self.frozen_momenta is None and self.external_phase_space_generation_type == 'advanced':
             logger.debug("MC Considering the following topology:")
             logger.debug("-"*10)
             logger.debug(MC_generator.get_topology_string(MC_generator.topology, path_to_print=MC_generator.path))
@@ -1163,8 +1251,12 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                     'direction' : edge_direction,
                     'mass' : self.edge_masses[edge_name]
                 })
-            MC_inv_rescaling_t = self.solve_soper_flow(
-                MC_upscaled_final_state_configurations, self.hyperparameters['CrossSection']['incoming_momenta'] )
+            if self.frozen_momenta is None:
+                MC_inv_rescaling_t = self.solve_soper_flow(
+                    MC_upscaled_final_state_configurations, self.hyperparameters['CrossSection']['incoming_momenta'] )
+            else:
+                MC_inv_rescaling_t = 1.
+
             MC_rescaling_t = 1./MC_inv_rescaling_t
 
             if self.debug: logger.debug('MC_rescaling_t=%s'%str(MC_rescaling_t))
@@ -1205,20 +1297,24 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
             # Correct for the 1/(2E) of each cut propagator that alphaLoop includes but which is already included in the normal PS parameterisation
             MC_inv_aL_jacobian = 1.
-            for v in MC_downscaled_final_state_four_momenta:
-                MC_inv_aL_jacobian *= 2*v[0]
+            if self.frozen_momenta is None:
+                for v in MC_downscaled_final_state_four_momenta:
+                    MC_inv_aL_jacobian *= 2*v[0]
 
-            MC_delta_jacobian = 0.
-            for edge_name, edge_direction in MC_topology_info['outgoing_edges']:
+            if self.frozen_momenta is None:
+                MC_delta_jacobian = 0.
+                for edge_name, edge_direction in MC_topology_info['outgoing_edges']:
 
-                k = sum([ upscaled_input_momenta_in_LMB[i_k]*wgt for i_k, wgt in enumerate(self.SG['edge_signatures'][edge_name][0]) ])
-                shift = sum([ self.external_momenta[i_shift]*wgt for i_shift, wgt in enumerate(self.SG['edge_signatures'][edge_name][1]) ])
+                    k = sum([ upscaled_input_momenta_in_LMB[i_k]*wgt for i_k, wgt in enumerate(self.SG['edge_signatures'][edge_name][0]) ])
+                    shift = sum([ self.external_momenta[i_shift]*wgt for i_shift, wgt in enumerate(self.SG['edge_signatures'][edge_name][1]) ])
 
-                MC_delta_jacobian += (
-                    ( 2. * MC_inv_rescaling_t * k.square() + k.dot(shift) ) / 
-                    ( 2. * math.sqrt( (MC_inv_rescaling_t*k + shift).square() - self.edge_masses[edge_name]**2 ) )
-                )
-            MC_delta_jacobian *= (MC_inv_rescaling_t)**2
+                    MC_delta_jacobian += (
+                        ( 2. * MC_inv_rescaling_t * k.square() + k.dot(shift) ) / 
+                        ( 2. * math.sqrt( (MC_inv_rescaling_t*k + shift).square() - self.edge_masses[edge_name]**2 ) )
+                    )
+                MC_delta_jacobian *= (MC_inv_rescaling_t)**2
+            else:
+                MC_delta_jacobian = 1.
             if self.debug: logger.debug('MC_delta_jacobian=%s'%str(MC_delta_jacobian))
             MC_inv_aL_jacobian *= MC_delta_jacobian
 
@@ -1277,7 +1373,7 @@ class CustomGenerator(object):
 
 class generator_aL(CustomGenerator):
 
-    def __init__(self, dimensions, rust_worker, SG_info, model, h_function, hyperparameters, debug=0, **opts):
+    def __init__(self, dimensions, rust_worker, SG_info, model, h_function, hyperparameters, debug=0, frozen_momenta=None, **opts):
 
         self.rust_worker = rust_worker
         self.model = model
@@ -1285,6 +1381,7 @@ class generator_aL(CustomGenerator):
         self.hyperparameters = hyperparameters
         self.dimensions = dimensions
         self.debug = debug
+        self.frozen_momenta = frozen_momenta
 
     def __call__(self, random_variables, **opts):
         """ 
@@ -1292,4 +1389,10 @@ class generator_aL(CustomGenerator):
         It will return the point directly in x-space as well as the final weight to combine
         the result with.
         """
-        return list(random_variables), 1.0
+        xs = list(random_variables)
+
+        # Pad xs with frozen momenta if necessary
+        if self.frozen_momenta is not None:
+            xs += [0.5,]*(3*len(self.frozen_momenta['out']))
+
+        return xs, 1.0
