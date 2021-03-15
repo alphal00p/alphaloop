@@ -1340,6 +1340,267 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         else:
             self.do_display('--timing')
 
+
+    #### IR PROFILE COMMAND
+    ir_profile_parser = ArgumentParser(prog='ir_profile')
+    ir_profile_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
+                    help='the name of a supergraph to display')
+    ir_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=20,
+                    help='force a certain number of points to be considered for the ir profile')
+    ir_profile_parser.add_argument("-max","--max_scaling", dest='max_scaling', type=float, default=1.0e5,
+                    help='maximum UV scaling to consider')
+    ir_profile_parser.add_argument("-min","--min_scaling", dest='min_scaling', type=float, default=1.0e3,
+                    help='minimum UV scaling to consider')
+    ir_profile_parser.add_argument("-s","--seed", dest='seed', type=int, default=0,
+                    help='specify random seed')
+    ir_profile_parser.add_argument("-rp","--required_precision", dest='required_precision', type=float, default=None,
+                    help='minimum required relative precision for returning a result.')
+    ir_profile_parser.add_argument(
+        "-f", "--f128", action="store_true", dest="f128", default=False,
+        help="Perfom the UV profile using f128 arithmetics.")
+    ir_profile_parser.add_argument(
+        "-nf", "--no_f128", action="store_true", dest="no_f128", default=False,
+        help="Forbid automatic promotion to f128.")
+    ir_profile_parser.add_argument(
+        "-nw", "--no_warnings", action="store_false", dest="show_warnings", default=True,
+        help="Do not show warnings about this profiling run.")
+    ir_profile_parser.add_argument(
+        "-srw", "--show_rust_warnings", action="store_true", dest="show_rust_warnings", default=False,
+        help="Show rust warnings.")
+    ir_profile_parser.add_argument(
+        "-nsof", "--no_skip_once_failed", action="store_false", dest="skip_once_failed", default=True,
+        help="Do not skip the probing of a supergraph once it failed.")
+    ir_profile_parser.add_argument(
+        "-sf", "--show_fails", action="store_true", dest="show_fails", default=True,
+        help="Show exhaustive information for each fail.")
+    ir_profile_parser.add_argument("-n_max","--n_max", dest='n_max', type=int, default=-1,
+                    help='Set the maximum number of IR tests to perform per SG (default: all)')
+    ir_profile_parser.add_argument("-maxnE","--max_E_surfaces_in_intersections", dest='max_E_surfaces_in_intersections', type=int, default=3,
+                    help='Set the maximum number of E-surfaces in an intersection (default: all)')
+    ir_profile_parser.add_argument("-nshifts","--n_shifts_to_test_for_finding_intersection", dest='n_shifts_to_test_for_finding_intersection', type=int, default=10,
+                    help='Set the maximum number of shifts to test for finding an intersection (default: %(default)s)')
+    ir_profile_parser.add_argument("-e_surfaces","--e_surfaces", dest='selected_e_surfaces', type=str, nargs='*', default=None,
+                    help='Set the particular E-surfaces to study by specifying their edge names. Example --e_surfaces ("pq1","pq3") ("pq3","pq5","pq8") (default: All)')
+    ir_profile_parser.add_argument("-reanalyze","--reanalyze_E_surfaces", action="store_true", dest="reanalyze_E_surfaces", default=False,
+                    help='Force the re-analysis of E-surfaces even if result already found in cache (default: %(default)s)')
+
+    ir_profile_parser.add_argument(
+        "-v", "--verbose", action="store_true", dest="verbose", default=False,
+        help="Enable verbose output.")
+    def help_ir_profile(self):
+        self.ir_profile_parser.print_help()
+        return
+    # We must wrape this function in a process because of the border effects of the pyO3 rust Python bindings
+    @wrap_in_process()
+    @with_tmp_hyperparameters({
+        'Integrator.dashboard': False,
+        'General.minimal_precision_for_returning_result': 1.0,
+        'CrossSection.NormalisingFunction.name'         : 'left_right_exponential',
+        'CrossSection.NormalisingFunction.center'       : 1.0,
+        'CrossSection.NormalisingFunction.spread'       : 1.0,
+        'General.multi_channeling'                      : False
+    })
+    def do_ir_profile(self, line):
+        """ Automatically probe all UV limits of a process output."""
+
+        from alpha_loop.E_surface_intersection_finder import EsurfaceIntersectionFinder
+        import cvxpy
+
+        if line=='help':
+            self.ir_profile_parser.print_help()
+            return 
+
+        args = self.split_arg(line)
+        args = self.ir_profile_parser.parse_args(args)
+        
+        if args.selected_e_surfaces is not None:
+            args.selected_e_surfaces = [
+                set(eval(e_surfs)) for e_surfs in args.selected_e_surfaces
+            ]
+
+        if args.SG_name is None:
+            selected_SGs = list(self.all_supergraphs.keys())
+        else:
+            selected_SGs = [args.SG_name,]
+
+        if args.required_precision is None:
+            self.hyperparameters['General']['stability_checks'][-1]['relative_precision']=1.0e-99
+        else:
+            for entry in self.hyperparameters['General']['stability_checks']:
+                entry['relative_precision'] = args.required_precision
+
+        logger.info("Starting IR profile...")
+
+        # We need to detect here if we are in the amplitude-mock-up situation with frozen external momenta.
+        frozen_momenta = None
+        if 'external_data' in self.cross_section_set:
+            frozen_momenta = {
+                'in' : self.cross_section_set['external_data']['in_momenta'],
+                'out' : self.cross_section_set['external_data']['out_momenta'],
+            }
+            # Also force the specified incoming momenta specified in the hyperparameters to match the frozen specified ones.
+            self.hyperparameters.set_parameter('CrossSection.incoming_momenta',frozen_momenta['in'])
+            self.hyperparameters.set_parameter('CrossSection.do_rescaling',False)
+            self.hyperparameters.set_parameter('CrossSection.fixed_cut_momenta',frozen_momenta['out'])
+
+        # Prepare the run
+        IR_info_per_SG_and_E_surfaces_set = {}
+
+        n_intersections_found = 0
+        n_intersections_rejected = 0
+
+        with progressbar.ProgressBar(
+                prefix=("IR preparation. E-surface intersections: {variables.intersection} {variables.i_comb}/{variables.n_comb} {variables.inter_found}\u2713, {variables.inter_failed}\u2717, SG: {variables.SG_name} "), 
+                max_value=len(selected_SGs),variables={
+                    'intersection': 'N/A', 'inter_found': 0, 'inter_failed': 0, 'SG_name': 'N/A', 'i_comb': 0, 'n_comb': 0
+                }
+            ) as bar:
+
+            for i_SG, SG_name in enumerate(selected_SGs):
+                
+                bar.update(SG_name=SG_name)
+                bar.update(i_SG)
+
+                SG = self.all_supergraphs[SG_name]
+
+                if (args.selected_e_surfaces is None) and not args.reanalyze_E_surfaces and all(entry in SG for entry in ['E_surfaces','E_surfaces_intersection_analysis']):
+                    IR_info_per_SG_and_E_surfaces_set[SG_name] = {
+                        'E_surfaces' : SG['E_surfaces'],
+                        'E_surfaces_intersection_analysis' : SG['E_surfaces_intersection_analysis']
+                    }
+                    continue
+                
+                IR_info_per_SG_and_E_surfaces_set[SG_name] = {}
+
+                if args.seed != 0:
+                    random.seed(args.seed)
+
+                E_cm = SG.get_E_cm(self.hyperparameters)
+
+                # First we must regenerate a TopologyGenerator instance for this supergraph
+                edges_list = SG['topo_edges']
+                SG_topo_gen = ltd_utils.TopologyGenerator(
+                    [e[:-1] for e in edges_list],
+                    powers = { e[0] : e[-1] for e in edges_list }
+                )
+                loop_SG = ltd_utils.LoopTopology.from_flat_format(SG['topo'])
+
+                # We must adjust entries in the loop_SG for the specific external momenta specified
+                external_momenta = [ LorentzVector(v) for v in self.hyperparameters['CrossSection']['incoming_momenta'] ]
+                external_momenta.extend(external_momenta)
+                loop_SG.external_kinematics = LorentzVectorList([list(v) for v in external_momenta])
+                for i_ll, ll in enumerate(loop_SG.loop_lines):
+                    for i_p, p in enumerate(ll.propagators):
+                        p.q = sum([ external_momenta[i_shift]*wgt for i_shift, wgt in enumerate(SG['edge_signatures'][p.name][1]) ])
+
+                edge_signatures = SG['edge_signatures']
+
+                cvxpy_source_coordinates = [cvxpy.Variable(3) for _ in range(loop_SG.n_loops)]
+
+                pinched_E_surface_keys = []
+                extra_info = {}
+                ellipsoids, ellipsoid_param, delta_param, expansion_threshold = loop_SG.build_existing_ellipsoids(
+                    cvxpy_source_coordinates, pinched_E_surfaces=pinched_E_surface_keys, extra_info=extra_info,allow_for_zero_shifts=True)
+                prop_id_to_name = {
+                    (ll_index, p_index) : p.name for ll_index, ll in enumerate(loop_SG.loop_lines) for p_index, p in enumerate(ll.propagators)
+                }
+                delta_param_per_prop = {}
+                for i_ll, ll in enumerate(loop_SG.loop_lines):
+                    for i_p, p in enumerate(ll.propagators):
+                        delta_param_per_prop[prop_id_to_name[(i_ll,i_p)]] = delta_param[len(delta_param_per_prop)]
+
+                E_surfaces = []
+                for E_surface_key, expression in ellipsoids.items():
+                    E_surfaces.append({
+                        'E_surface_key' : E_surface_key,
+                        'n_loops' : len(E_surface_key)-1,
+                        'onshell_propagators' : sorted( [
+                            {
+                                'name': prop_id_to_name[os[0]],
+                                'square_root_sign' : os[1],
+                                'energy_shift_sign' : os[2],
+                                'loop_sig' : loop_SG.loop_lines[os[0][0]].propagators[os[0][1]].signature,
+                                'v_shift'  : loop_SG.loop_lines[os[0][0]].propagators[os[0][1]].q.space(),
+                                'm_squared': loop_SG.loop_lines[os[0][0]].propagators[os[0][1]].m_squared
+                            }
+                            for os in E_surface_key], 
+                                key=lambda el: el['name'] if re.match('^pq\d+$','pq1743') is None else int(el['name'][2:]) ),
+                        'cxpy_expression' : expression,
+                        'ellipsoid_param' : ellipsoid_param[E_surface_key],
+                        'pinched' : (E_surface_key in pinched_E_surface_keys),
+                        'E_shift' : sum( os[2]*loop_SG.loop_lines[os[0][0]].propagators[os[0][1]].q[0] for os in E_surface_key )
+                    })
+                E_surfaces.sort(key=lambda e: (
+                    e['n_loops'],
+                    (not e['pinched']),
+                    tuple([os['name'] for os in e['onshell_propagators']]),
+                    tuple([os['square_root_sign'] for os in e['onshell_propagators']]), 
+                    tuple([os['energy_shift_sign'] for os in e['onshell_propagators']])
+                ))
+                for i_surf, E_surf in enumerate(E_surfaces):
+                    E_surf['id'] = i_surf
+
+                if args.selected_e_surfaces is not None:
+                    E_surfaces = [ E_surf for E_surf in E_surfaces if set([os['name'] for os in E_surf["onshell_propagators"]]) in args.selected_e_surfaces ]
+                    if len(E_surfaces)==0:
+                        raise alphaLoopInvalidRunCmd("No E-surface found within the selected list: %s"%str(args.selected_e_surfaces))
+
+                # We want to work in the convention were all E-surface square root signs are positive
+                assert(all(all(os['square_root_sign']==1 for os in E_surf['onshell_propagators']) for E_surf in E_surfaces))
+
+                IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces']=E_surfaces
+                logger.info("All %d existing E-surfaces from supergraph %s:"%(len(E_surfaces),SG_name))
+                for i_surf, E_surface in enumerate(E_surfaces):
+                    logger.info("#%-3d: %s%d%s-loop E-surface %s : %s"%(E_surface['id'], Colours.GREEN,E_surface['n_loops'],Colours.END, '(pinched)' if  E_surface['pinched'] else ' '*9,
+                        ', '.join('%-21s'%('%s%s%-4s%s'%('%s%s%s'%(Colours.GREEN,'+',Colours.END) if term['energy_shift_sign']> 0 else '%s%s%s'%(Colours.RED,'-',Colours.END),  
+                            Colours.BLUE, term['name'], Colours.END) ) 
+                        for term in  E_surface['onshell_propagators'])))
+
+                IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection_analysis']={}
+                E_surfaces_combinations = []
+                for n_E_surf_in_intersection in range(2,args.max_E_surfaces_in_intersections+1):
+                    IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection_analysis'][n_E_surf_in_intersection] = {}
+                    for E_surfaces_combination in itertools.combinations(range(0,len(E_surfaces)),n_E_surf_in_intersection):
+                        E_surfaces_combinations.append(E_surfaces_combination)
+                bar.update(n_comb=len(E_surfaces_combinations))
+
+                for i_comb, E_surfaces_combination in enumerate(E_surfaces_combinations):
+                    bar.update(i_comb=i_comb)
+                    bar.update(intersection=str(E_surfaces_combination))
+                    a_finder = EsurfaceIntersectionFinder([E_surfaces[E_surf_id] for E_surf_id in E_surfaces_combination],cvxpy_source_coordinates, 
+                                                            E_cm, debug=args.verbose, seed_point_shifts=args.n_shifts_to_test_for_finding_intersection)
+                    intersection_point = a_finder.find_intersection()
+                    if intersection_point is not None:
+                        n_intersections_found += 1
+                        bar.update(inter_found=n_intersections_found)
+                        E_surfaces_combination_with_id = tuple(sorted([E_surfaces[E_surf_index]['id'] for E_surf_index in E_surfaces_combination]))
+                        IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection_analysis'][len(E_surfaces_combination_with_id)][E_surfaces_combination_with_id] = {
+                            'intersection_point' : intersection_point
+                        }
+                    else:
+                        n_intersections_rejected += 1
+                        bar.update(inter_failed=n_intersections_rejected)
+                logger.info("The IR profiler found a total %d(=%s) intersections for SG %s to inspect."%(
+                    sum(len(v) for v in IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection_analysis'].values()),
+                    '+'.join(
+                        '%d'%len(IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection_analysis'][len_comb]) 
+                        for len_comb in range(2,args.max_E_surfaces_in_intersections+1)
+                    ),
+                    SG_name
+                ))
+                for len_comb in range(2,args.max_E_surfaces_in_intersections+1):
+                    logger.info("%d combinations of %d-E_surface intersecting: %s"%(
+                        len(IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection_analysis'][len_comb]),
+                        len_comb,', '.join('-'.join('%d'%E_id for E_id in comb) for comb in 
+                        sorted(IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection_analysis'][len_comb])
+                    )))
+
+                # Save the completed preprocessing
+                if (args.selected_e_surfaces is None):
+                    SG['E_surfaces'] = IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces']
+                    SG['E_surfaces_intersection_analysis'] = IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection_analysis']
+                    self.all_supergraphs.export(pjoin(self.dir_path, self._rust_inputs_folder))
+
     #### UV PROFILE COMMAND
     uv_profile_parser = ArgumentParser(prog='uv_profile')
     uv_profile_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
@@ -1460,7 +1721,6 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 [e[:-1] for e in edges_list],
                 powers = { e[0] : e[-1] for e in edges_list }
             )
-            UV_info_per_SG_and_cut['SG_topo_gen'] = SG_topo_gen
             edge_signatures = SG['edge_signatures']
 
             if args.LMB is not None and args.UV_indices is not None:
