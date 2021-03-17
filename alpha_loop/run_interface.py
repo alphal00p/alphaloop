@@ -1755,6 +1755,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         dod, standard_error, number_of_points_considered, successful_fit = utils.compute_dod(results)
                         # Flip sign since we approach the singularity with a decreasing scaling
                         dod *= -1.
+                        # Subtract 1 since this is now the dod in x-space
+                        dod -= 1
 
                         # We expect dod of at most five sigma above 0.0 for the integral to be convergent.
                         test_passed = (dod < float(args.target_scaling)+min(max(5.0*abs(standard_error),0.005),0.1) )
