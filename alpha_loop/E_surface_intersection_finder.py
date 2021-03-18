@@ -18,7 +18,7 @@ from pprint import pprint, pformat
 
 class EsurfaceIntersectionFinder(object):
 
-    def __init__(self, E_surfaces, cvxpy_coordinates, E_cm, seed_point_shifts=None, debug=False, **opts):
+    def __init__(self, E_surfaces, cvxpy_coordinates, E_cm, seed_point_shifts=None, debug=False, frozen_momenta=None, **opts):
         
         self.E_surfaces = E_surfaces
 
@@ -28,6 +28,11 @@ class EsurfaceIntersectionFinder(object):
         self.E_cm = E_cm
         self.consistency_check_threshold = 1.0e-6
         self.scipy_tolerance = 1.49012e-08
+        self.frozen_momenta = frozen_momenta
+        # Ignore the spatial component of the frozen momenta
+        self.frozen_momenta['in'] = [list(v[1:]) for v in self.frozen_momenta['in']]
+        self.frozen_momenta['out'] = [list(v[1:]) for v in self.frozen_momenta['out']]
+        self.n_frozen_momenta = 0 if self.frozen_momenta is None else len(self.frozen_momenta['out'])
 
         # Assign a truly random seed to cvxpy problem solving
         for cvxpy_coord in self.cvxpy_coordinates:
@@ -228,8 +233,12 @@ class EsurfaceIntersectionFinder(object):
             new_seed_point = [ Vector([float(c.value[0]), float(c.value[1]), float(c.value[2])]) for c in self.cvxpy_coordinates ]
 
         if best_seed_so_far is None:
+            if self.frozen_momenta is not None:
+                new_seed_point[-len(self.frozen_momenta['out']):] = self.frozen_momenta['out']
             return new_seed_point, solved
         else:
+            if self.frozen_momenta is not None:
+                best_seed_so_far[-len(self.frozen_momenta['out']):] = self.frozen_momenta['out']
             return best_seed_so_far, solved
 
     def improve_seed_point_cardinal(self, seed_point):
@@ -281,6 +290,9 @@ class EsurfaceIntersectionFinder(object):
             if not any(sig[i_loop]!=0 for sig in all_loop_sigs):
                 new_seed_point[i_loop] = [random.random()*(self.E_cm/2.) for _ in range(0,3)]
 
+        if self.frozen_momenta is not None:
+            new_seed_point[-len(self.frozen_momenta['out']):] = self.frozen_momenta['out']
+
         return new_seed_point, solved
 
     def improve_seed_point_E_surf_projection(self, seed_point):
@@ -320,6 +332,9 @@ class EsurfaceIntersectionFinder(object):
                 ]
 
                 new_seed_point = self.project_onto_E_surface_closest(new_seed_point, E_surf_normal, orientations=('plus','minus'))
+
+        if self.frozen_momenta is not None:
+            new_seed_point[-len(self.frozen_momenta['out']):] = self.frozen_momenta['out']
 
         return new_seed_point, solved
 
@@ -361,11 +376,14 @@ class EsurfaceIntersectionFinder(object):
 
         if p.status == cvxpy.OPTIMAL:
             seed_point = [ [ float(c.value[0]), float(c.value[1]), float(c.value[2]) ]  for c in self.cvxpy_coordinates ]
-        
+
         if seed_point is None:
             # No possible intersection
             if self.debug: logger.info("Could not find a seed point in the interior of all E-surfaces. There is therefore no intersection.")
             return None
+
+        if self.frozen_momenta is not None:
+            seed_point[-len(self.frozen_momenta['out']):] = self.frozen_momenta['out']
 
         if self.maximal_cvxpy_seed_point_improvement_steps is not None and self.maximal_cvxpy_seed_point_improvement_steps > 0:
             #seed_point, solved = self.improve_seed_point_cardinal(seed_point)
@@ -383,6 +401,7 @@ class EsurfaceIntersectionFinder(object):
                         E_surf['id'], self.E_surface( seed_point, E_surf['onshell_propagators'], E_surf['E_shift'] )) for E_surf in self.E_surfaces
                     )
                 ))
+
                 return seed_point
 
         if self.debug: 
@@ -398,6 +417,9 @@ class EsurfaceIntersectionFinder(object):
             #seed_point_shift = [[0.,]*3]*4
             shifted_seed = [ [ seed_comp+seed_point_shift[i_vec][i_comp] for i_comp, seed_comp in enumerate(seed_vec) ] for i_vec, seed_vec in enumerate(seed_point) ]
 
+            if self.frozen_momenta is not None:
+                shifted_seed[-len(self.frozen_momenta['out']):] = self.frozen_momenta['out']
+
             if self.debug: 
                 logger.info("An intersection is possible, scipy.optimize.root will now attempt to find an intersection from the scipy seed point with shift #%d: %s."%(i_shift,str(shifted_seed)))
                 logger.info("The E-surface equations evaluate as follows for this scipy seed point:\n%s"%(
@@ -405,6 +427,10 @@ class EsurfaceIntersectionFinder(object):
                         E_surf['id'], self.E_surface( shifted_seed, E_surf['onshell_propagators'], E_surf['E_shift'] )) for E_surf in self.E_surfaces
                     )
                 ))
+
+            if self.frozen_momenta is not None:
+                shifted_seed = shifted_seed[:-len(self.frozen_momenta['out'])]
+
             scipy_seed = sum(shifted_seed,[])
 
             if self.use_scipy_root:
@@ -431,6 +457,8 @@ class EsurfaceIntersectionFinder(object):
                     #pprint(self.intersection_function(scipy_res.x))
                     #pprint(self.intersection_function_jac(scipy_res.x))
                     intersection_point = [ scipy_res.x[i:i+3] for i in range(0,len(scipy_res.x),3) ]
+                    if self.frozen_momenta is not None:
+                        intersection_point += self.frozen_momenta['out']
                     # Double-check the solution
                     solution_sum = sum(abs(self.E_surface( intersection_point, E_surf['onshell_propagators'], E_surf['E_shift'] )) for E_surf in self.E_surfaces)
                     consistency_test = abs(solution_sum/self.E_cm)
@@ -479,6 +507,8 @@ class EsurfaceIntersectionFinder(object):
                     #pprint(self.intersection_function(scipy_res.x))
                     #pprint(self.intersection_function_jac(scipy_res.x))
                     intersection_point = [ scipy_res[i:i+3] for i in range(0,len(scipy_res),3) ]
+                    if self.frozen_momenta is not None:
+                        intersection_point += self.frozen_momenta['out']
                     # Double-check the solution
                     solution_sum = sum(abs(self.E_surface( intersection_point, E_surf['onshell_propagators'], E_surf['E_shift'] )) for E_surf in self.E_surfaces)
                     consistency_test = abs(solution_sum/self.E_cm)
@@ -526,6 +556,8 @@ class EsurfaceIntersectionFinder(object):
                     #pprint(self.intersection_function(scipy_res.x))
                     #pprint(self.intersection_function_jac(scipy_res.x))
                     intersection_point = [ scipy_res.x[i:i+3] for i in range(0,len(scipy_res.x),3) ]
+                    if self.frozen_momenta is not None:
+                        intersection_point += self.frozen_momenta['out']
                     # Double-check the solution
                     solution_sum = sum(abs(self.E_surface( intersection_point, E_surf['onshell_propagators'], E_surf['E_shift'] )) for E_surf in self.E_surfaces)
                     consistency_test = abs(solution_sum/self.E_cm)
@@ -547,7 +579,7 @@ class EsurfaceIntersectionFinder(object):
         if self.maximal_cvxpy_find_intersection_steps is not None and self.maximal_cvxpy_find_intersection_steps > 0:
             #seed_point, solved = self.improve_seed_point_cardinal(seed_point)
             seed_point, solved = self.improve_seed_point_directions_per_signature(
-                seed_point,
+                seed_point + ([] if self.frozen_momenta is None else self.frozen_momenta['out']),
                 self.maximal_cvxpy_find_intersection_steps,
                 include_push_away_soft=False
             )
@@ -560,7 +592,7 @@ class EsurfaceIntersectionFinder(object):
                     )
                 ))
                 return seed_point
-
+    
         if self.debug: logger.info("Could not find an intersection with scipy.optimize with %d attempts of shifting the seed point."%len(self.seed_point_shifts))
 
         return None
@@ -610,6 +642,8 @@ class EsurfaceIntersectionFinder(object):
     def intersection_function(self, xs):
 
         loop_momenta = [ xs[i:i+3] for i in range(0,len(xs),3) ]
+        if self.frozen_momenta is not None:
+            loop_momenta += self.frozen_momenta['out']
 
         res = []
         for E_surf in self.E_surfaces:
@@ -623,22 +657,26 @@ class EsurfaceIntersectionFinder(object):
     def intersection_function_jac(self, xs):
 
         loop_momenta = [ xs[i:i+3] for i in range(0,len(xs),3) ]
+        if self.frozen_momenta is not None:
+            loop_momenta += self.frozen_momenta['out']
 
         res = []
         for E_surf in self.E_surfaces:
             res.append([])
-            for loop_index in range(0,len(loop_momenta)):
+            for loop_index in range(0,len(loop_momenta)-self.n_frozen_momenta):
                 for component_index in range(0,3):
                     res[-1].append( self.dE_surface(loop_momenta, E_surf['onshell_propagators'], E_surf['E_shift'], loop_index, component_index) )
 
         # Pad remaining entries with no constraints if there are some left.
-        res += [ [0.]*(len(loop_momenta)*3) ]*(len(xs)-len(res))
+        res += [ [0.]*len(xs) ]*(len(xs)-len(res))
 
         return res
 
     def intersection_scalar_function(self, xs):
 
         loop_momenta = [ xs[i:i+3] for i in range(0,len(xs),3) ]
+        if self.frozen_momenta is not None:
+            loop_momenta += self.frozen_momenta['out']
 
         res = 0.
         for E_surf in self.E_surfaces:
@@ -649,9 +687,11 @@ class EsurfaceIntersectionFinder(object):
     def intersection_scalar_function_jac(self, xs):
 
         loop_momenta = [ xs[i:i+3] for i in range(0,len(xs),3) ]
+        if self.frozen_momenta is not None:
+            loop_momenta += self.frozen_momenta['out']
 
         res = []
-        for loop_index in range(0,len(loop_momenta)):
+        for loop_index in range(0,len(loop_momenta)-self.n_frozen_momenta):
             for component_index in range(0,3):
                 res.append(0.)
                 for E_surf in self.E_surfaces:
@@ -663,12 +703,14 @@ class EsurfaceIntersectionFinder(object):
     def intersection_scalar_function_hessian(self, xs):
 
         loop_momenta = [ xs[i:i+3] for i in range(0,len(xs),3) ]
+        if self.frozen_momenta is not None:
+            loop_momenta += self.frozen_momenta['out']
 
         res = []
-        for loop_index_A in range(0,len(loop_momenta)):
+        for loop_index_A in range(0,len(loop_momenta)-self.n_frozen_momenta):
             for component_index_A in range(0,3):
                 res.append([])
-                for loop_index_B in range(0,len(loop_momenta)):
+                for loop_index_B in range(0,len(loop_momenta)-self.n_frozen_momenta):
                     for component_index_B in range(0,3):
                         res[-1].append(0.)
                         for E_surf in self.E_surfaces:

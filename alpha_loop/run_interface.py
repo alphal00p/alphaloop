@@ -1426,7 +1426,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         "-nw", "--no_warnings", action="store_false", dest="show_warnings", default=True,
         help="Do not show warnings about this profiling run.")
     ir_profile_parser.add_argument(
-        "-srw", "--show_rust_warnings", action="store_true", dest="show_rust_warnings", default=True,
+        "-srw", "--show_rust_warnings", action="store_true", dest="show_rust_warnings", default=False,
         help="Show rust warnings.")
     ir_profile_parser.add_argument(
         "-nsof", "--no_skip_once_failed", action="store_false", dest="skip_once_failed", default=True,
@@ -1506,16 +1506,25 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 raise alphaLoopInvalidRunCmd("The --intersections option can only be used together with the --e_surfaces one.")
             args.intersections = [eval(inter) for inter in args.intersections]
 
-        if args.intersection_point is not None:
-            args.intersection_point = eval(args.intersection_point)
-
-        if args.approach_direction is not None:
-            args.approach_direction = eval(args.approach_direction)
-
         if args.SG_name is None:
             selected_SGs = list(self.all_supergraphs.keys())
         else:
             selected_SGs = [args.SG_name,]
+
+        if frozen_momenta and len(selected_SGs)>1:
+            raise alphaLoopInvalidRunCmd("For amplitude LU mockups, the IR profile should be run for a single SG at a time.")
+
+        if args.intersection_point is not None:
+            args.intersection_point = eval(args.intersection_point)
+            if len(args.intersection_point) != (self.all_supergraphs[selected_SGs[0]]['topo']['n_loops'] - (0 if frozen_momenta is None else len(frozen_momenta['out'])))*3:
+                raise alphaLoopInvalidRunCmd("Expected %d components for the intersection point, but only %d were specified."%(
+                    (self.all_supergraphs[selected_SGs[0]]['topo']['n_loops'] - (0 if frozen_momenta is None else len(frozen_momenta['out'])))*3 ,len(args.intersection_point))) 
+
+        if args.approach_direction is not None:
+            args.approach_direction = eval(args.approach_direction)
+            if len(args.approach_direction) != (self.all_supergraphs[selected_SGs[0]]['topo']['n_loops'] - (0 if frozen_momenta is None else len(frozen_momenta['out'])))*3:
+                raise alphaLoopInvalidRunCmd("Expected %d components for the approach direction, but only %d were specified."%(
+                    (self.all_supergraphs[selected_SGs[0]]['topo']['n_loops'] - (0 if frozen_momenta is None else len(frozen_momenta['out'])))*3 ,len(args.approach_direction))) 
 
         if args.required_precision is None:
             self.hyperparameters['General']['stability_checks'][-1]['relative_precision']=1.0e-99
@@ -1634,6 +1643,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 #consider_pinches = pinched_E_surface_keys
                 ellipsoids, ellipsoid_param, delta_param, expansion_threshold = loop_SG.build_existing_ellipsoids(
                     cvxpy_source_coordinates, pinched_E_surfaces=consider_pinches, extra_info=extra_info,allow_for_zero_shifts=True)
+                
                 prop_id_to_name = {
                     (ll_index, p_index) : p.name for ll_index, ll in enumerate(loop_SG.loop_lines) for p_index, p in enumerate(ll.propagators)
                 }
@@ -1673,10 +1683,21 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 for i_surf, E_surf in enumerate(E_surfaces):
                     E_surf['id'] = i_surf
 
+                if frozen_momenta is not None:
+                    frozen_edge_names = set([c['name'] for c in self.all_supergraphs[selected_SGs[0]]['cutkosky_cuts'][0]['cuts']])
+                    # Only consider E surfaces not involving any of the frozen momenta
+                    E_surfaces = [ E_surf for E_surf in E_surfaces if set([os['name'] for os in E_surf["onshell_propagators"]]).intersection(frozen_edge_names)==set([]) ]
+
                 if args.selected_e_surfaces is not None:
                     E_surfaces = [ E_surf for E_surf in E_surfaces if set([os['name'] for os in E_surf["onshell_propagators"]]) in args.selected_e_surfaces ]
                     if len(E_surfaces)==0:
                         raise alphaLoopInvalidRunCmd("No E-surface found within the selected list: %s"%str(args.selected_e_surfaces))
+
+                elif len(E_surfaces)==0:
+                    if args.verbose: logger.info("No E surfaces found for SG %s"%SG_name)
+                    IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces'] = []
+                    IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection']={}
+                    continue
 
                 # We want to work in the convention were all E-surface square root signs are positive
                 assert(all(all(os['square_root_sign']==1 for os in E_surf['onshell_propagators']) for E_surf in E_surfaces))
@@ -1723,13 +1744,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection']={}
                 E_surfaces_combinations = []
                 if not args.intersections:
-                    for n_E_surf_in_intersection in range(2,args.max_E_surfaces_in_intersections+1):
+                    for n_E_surf_in_intersection in range(2 if frozen_momenta is None else 1,args.max_E_surfaces_in_intersections+1):
                         for E_surfaces_combination in itertools.combinations(range(0,len(E_surfaces)),n_E_surf_in_intersection):
                             E_surfaces_combinations.append(E_surfaces_combination)
                 else:
                     E_surfaces_combinations = args.intersections
 
-                for n_E_surf_in_intersection in range(2,max(max(len(comb) for comb in E_surfaces_combinations),args.max_E_surfaces_in_intersections)+1):
+                for n_E_surf_in_intersection in range( 2 if frozen_momenta is None else 1 ,max(max(len(comb) for comb in E_surfaces_combinations),args.max_E_surfaces_in_intersections)+1):
                     IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection'][n_E_surf_in_intersection] = {}
 
                 bar.update(n_comb=len(E_surfaces_combinations))
@@ -1749,8 +1770,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         # The finder is really super verbose, so edit the line below if you really want its debug output
                         finder_verbosity = args.verbose and False
                         a_finder = EsurfaceIntersectionFinder([E_surfaces[E_surf_id] for E_surf_id in E_surfaces_combination],cvxpy_source_coordinates, 
-                                                                E_cm, debug=finder_verbosity, seed_point_shifts=args.n_shifts_to_test_for_finding_intersection)
+                                E_cm, debug=finder_verbosity, seed_point_shifts=args.n_shifts_to_test_for_finding_intersection, frozen_momenta=frozen_momenta)
                         intersection_point = a_finder.find_intersection()
+                        intersection_point = [list(v) for v in intersection_point]
                         if intersection_point is not None:
                             n_intersections_found += 1
                             bar.update(inter_found=n_intersections_found)
@@ -1770,7 +1792,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     ),
                     SG_name
                 ))
-                for len_comb in range(2,args.max_E_surfaces_in_intersections+1):
+                for len_comb in range(2 if frozen_momenta is None else 1,args.max_E_surfaces_in_intersections+1):
                     logger.info("%d combinations of %d-E_surface intersecting: %s"%(
                         len(IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection'][len_comb]),
                         len_comb,', '.join('-'.join('%d'%E_id for E_id in comb) for comb in 
@@ -1834,6 +1856,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     approach_direction = [ Vector(list(args.approach_direction[i:i+3])) for i in range(0,len(args.approach_direction),3) ]
                     if len(approach_direction)!=SG['n_loops']:
                         raise alphaLoopInvalidRunCmd("The specified approach direction does not specify %d*3 components."%SG['n_loops'])
+                
+                if frozen_momenta is not None:
+                    # Never leave off the frozen momenta
+                    approach_direction[-len(frozen_momenta['out']):] = [Vector([0.,0.,0.]),]*len(frozen_momenta['out'])             
 
                 bar.update(SG_name=SG_name)
                 bar.update(i_SG)
@@ -1879,7 +1905,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         ))
 
                     # Cut_ID None means running over the full supergraph
-                    for cut_ID, cuts_info in [(None, None)]+list(enumerate(SG['cutkosky_cuts'])):
+                    for cut_ID, cuts_info in [(None, None)]+(list(enumerate(SG['cutkosky_cuts'])) if frozen_momenta is None else []):
                         
                         if cut_ID is not None:
                             # Skip Cutkosky cuts not matching any of the specified thresholds
@@ -1898,6 +1924,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 # Now map these momenta in the defining LMB into x variables in the unit hypercube
                                 xs_in_defining_LMB = []
                                 overall_jac = 1.0
+                                frozen_jac = 1.0
                                 for i_k, k in enumerate(rescaled_momenta):
                                     # This is cheap, always do in f128
                                     if use_f128 or True:
@@ -1906,6 +1933,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                         x1, x2, x3, jac = rust_worker.inv_parameterize( list(k), i_k, E_cm**2)
                                     xs_in_defining_LMB.extend([x1, x2, x3])
                                     overall_jac *= jac
+                                    if frozen_momenta is not None:
+                                        if i_k >= (len(rescaled_momenta)-len(frozen_momenta['out'])):
+                                            frozen_jac *= jac*(2.0*math.pi)**4
 
                                 if cut_ID is None:
 
@@ -1919,7 +1949,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                         else:
                                             res_re, res_im = rust_worker.evaluate_integrand(xs_in_defining_LMB)
                                     # We do *not* want to include the inverse jacobian in this case here, so do *not* multiply by overall_jac
-                                    results.append( (scaling, complex(res_re, res_im) ) )
+                                    results.append( (scaling, complex(res_re, res_im)*frozen_jac ) )
 
                                 else:
 
@@ -1946,7 +1976,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                             res_re, res_im = rust_worker.evaluate_cut_f128(rescaled_momenta,cut_ID,LU_scaling,LU_scaling_jacobian)                            
                                         else:
                                             res_re, res_im = rust_worker.evaluate_cut(rescaled_momenta,cut_ID,LU_scaling,LU_scaling_jacobian)
-                                    results.append( (scaling, complex(res_re, res_im)/overall_jac ) )
+                                    results.append( (scaling, (complex(res_re, res_im)/overall_jac)*frozen_jac ) )
 
     #                        misc.sprint(results)
                             # Here we are in x-space, so the dod read is already the one we want.
@@ -3007,7 +3037,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     raise InvalidCmd("When running in inspect mode, the random variables must be supplied with -xs = x1 x2 x3 ...") 
 
                 if len(args.xs) != (SG_info['topo']['n_loops'] - (0 if frozen_momenta is None else len(frozen_momenta['out'])))*3:
-                    raise InvalidCmd("Expected %d random variables, but only %d were specified."%(SG_info['topo']['n_loops']*3,len(args.xs))) 
+                    raise InvalidCmd("Expected %d random variables, but only %d were specified."%(
+                        (SG_info['topo']['n_loops'] - (0 if frozen_momenta is None else len(frozen_momenta['out'])))*3 ,len(args.xs))) 
 
                 res = my_integrand(args.xs, [])
                 logger.info("Final weight for point xs=[%s] :\n %s"%(
