@@ -406,6 +406,8 @@ class SuperGraph(dict):
                 Colours.GREEN, inter_length, Colours.END
             ))
             for E_surface_combination, results in all_results.items():
+                if len(results)==0:
+                    continue
                 res_str.append('Intersection of E-surfaces %s%s%s'%(
                     Colours.BLUE,
                     '^'.join('dE(%s)'%(','.join(osp['name'] for osp in E_surface_ID_to_E_surface[E_surf_ID]['onshell_propagators'])) for E_surf_ID in E_surface_combination),
@@ -1194,7 +1196,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             cross_section_set_yaml_file_path = pjoin(self.dir_path, self._rust_inputs_folder, self._cross_section_set_yaml_name)
         else:
             candidates = [fp for fp in glob.glob(pjoin(self.dir_path, self._rust_inputs_folder,'*.yaml')) if 
-                            not os.path.basename(fp).startswith('SG') and not os.path.basename(fp).startswith('PROCESSED_SG')]
+                            not os.path.basename(fp).startswith('SG') 
+                            and not os.path.basename(fp).startswith('PROCESSED_SG') 
+                            and not os.path.basename(fp).startswith('BACKUP_PROCESSED_SG')]
             if len(candidates)!=1:
                 raise alphaLoopInvalidRunCmd("Could not find cross-section set yaml file in path %s"%(pjoin(self.dir_path, self._rust_inputs_folder)))
             cross_section_set_yaml_file_path = candidates[0]
@@ -1429,7 +1433,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         "-srw", "--show_rust_warnings", action="store_true", dest="show_rust_warnings", default=False,
         help="Show rust warnings.")
     ir_profile_parser.add_argument(
-        "-nsof", "--no_skip_once_failed", action="store_false", dest="skip_once_failed", default=True,
+        "-sof", "--skip_once_failed", action="store_true", dest="skip_once_failed", default=False,
+        help="Skip the probing of a supergraph once it failed.")
+    ir_profile_parser.add_argument(
+        "-nsof", "--no_skip_once_failed", action="store_false", dest="skip_once_failed", default=False,
         help="Do not skip the probing of a supergraph once it failed.")
     ir_profile_parser.add_argument(
         "-nsf", "--no_show_fails", action="store_false", dest="show_fails", default=True,
@@ -1639,11 +1646,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                 pinched_E_surface_keys = []
                 extra_info = {}
-                consider_pinches = None
-                #consider_pinches = pinched_E_surface_keys
+                #consider_pinches = None
+                consider_pinches = pinched_E_surface_keys
                 ellipsoids, ellipsoid_param, delta_param, expansion_threshold = loop_SG.build_existing_ellipsoids(
-                    cvxpy_source_coordinates, pinched_E_surfaces=consider_pinches, extra_info=extra_info,allow_for_zero_shifts=True)
-                
+                    cvxpy_source_coordinates, pinched_E_surfaces=consider_pinches, extra_info=extra_info,allow_for_zero_shifts=False, E_cm=E_cm)
+
                 prop_id_to_name = {
                     (ll_index, p_index) : p.name for ll_index, ll in enumerate(loop_SG.loop_lines) for p_index, p in enumerate(ll.propagators)
                 }
@@ -1702,13 +1709,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 # We want to work in the convention were all E-surface square root signs are positive
                 assert(all(all(os['square_root_sign']==1 for os in E_surf['onshell_propagators']) for E_surf in E_surfaces))
 
-                # Assert that if some E surfaces are pinched then all internal masses are zero and the E surface shift is zero too.
+                # Assert that if some E surfaces are pinched then all internal masses are zero.
                 for E_surf in E_surfaces:
                     if not E_surf['pinched']:
                         continue
-                    assert(E_surf['E_shift']==0.) 
+                    # assert(E_surf['E_shift']==0.) 
                     assert(all(osp['m_squared']==0 for osp in E_surf['onshell_propagators']))
-                    assert(all(list(osp['v_shift'])==[0.,0.,0.] for osp in E_surf['onshell_propagators']))
+                    # assert(all(list(osp['v_shift'])==[0.,0.,0.] for osp in E_surf['onshell_propagators']))
 
                 IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces']=E_surfaces
                 if args.verbose:
@@ -1998,6 +2005,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 test_passed = (dod < float(args.target_scaling)+min(max(10.0*abs(standard_error),0.005),0.2) )
                                 container['dod_computed'] = (dod, standard_error, test_passed)
                                 container['max_result'] = (max_result[0], (max_result[1].real, max_result[1].imag))
+                                stop
                                 break
 
                             # Support for IR-safety isolation cuts:

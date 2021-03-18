@@ -28,10 +28,12 @@ class EsurfaceIntersectionFinder(object):
         self.E_cm = E_cm
         self.consistency_check_threshold = 1.0e-6
         self.scipy_tolerance = 1.49012e-08
-        self.frozen_momenta = frozen_momenta
+
         # Ignore the spatial component of the frozen momenta
-        self.frozen_momenta['in'] = [list(v[1:]) for v in self.frozen_momenta['in']]
-        self.frozen_momenta['out'] = [list(v[1:]) for v in self.frozen_momenta['out']]
+        self.frozen_momenta = {}
+        self.frozen_momenta['in'] = [list(v[1:]) for v in frozen_momenta['in']]
+        self.frozen_momenta['out'] = [list(v[1:]) for v in frozen_momenta['out']]
+
         self.n_frozen_momenta = 0 if self.frozen_momenta is None else len(self.frozen_momenta['out'])
 
         # Assign a truly random seed to cvxpy problem solving
@@ -579,7 +581,7 @@ class EsurfaceIntersectionFinder(object):
         if self.maximal_cvxpy_find_intersection_steps is not None and self.maximal_cvxpy_find_intersection_steps > 0:
             #seed_point, solved = self.improve_seed_point_cardinal(seed_point)
             seed_point, solved = self.improve_seed_point_directions_per_signature(
-                seed_point + ([] if self.frozen_momenta is None else self.frozen_momenta['out']),
+                seed_point,
                 self.maximal_cvxpy_find_intersection_steps,
                 include_push_away_soft=False
             )
@@ -628,6 +630,10 @@ class EsurfaceIntersectionFinder(object):
                 self.delta(loop_momenta, loop_sig, shift, m_squared) )
 
     def E_surface(self, loop_momenta, onshell_propagators, E_surface_shift):
+        
+        # Not necessary any longer as I append frozen momenta upstream now.
+        #if len(loop_momenta) < len(self.cvxpy_coordinates):
+        #    loop_momenta += self.frozen_momenta['out']
 
         return sum( self.delta(loop_momenta,osp['loop_sig'],osp['v_shift'],osp['m_squared']) for osp in onshell_propagators) + E_surface_shift
 
