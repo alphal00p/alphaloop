@@ -22,10 +22,10 @@ class bcolors:
     RED = '\033[91m'
     END = ENDC
 
-def compute_dod(sequence):
+def compute_dod(sequence, threshold=0.01):
     """ from a sequence of results in the format (scaling, complex(result)), determine the asymptotic scaling."""
 
-    _THRESHOLD = 0.01
+    _THRESHOLD = threshold
 
     # First filer zeros for the sequence
     sequence = [s for s in sequence if abs(s[1])>0.]
