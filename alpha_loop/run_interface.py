@@ -1779,8 +1779,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         a_finder = EsurfaceIntersectionFinder([E_surfaces[E_surf_id] for E_surf_id in E_surfaces_combination],cvxpy_source_coordinates, 
                                 E_cm, debug=finder_verbosity, seed_point_shifts=args.n_shifts_to_test_for_finding_intersection, frozen_momenta=frozen_momenta)
                         intersection_point = a_finder.find_intersection()
-                        intersection_point = [list(v) for v in intersection_point]
                         if intersection_point is not None:
+                            intersection_point = [list(v) for v in intersection_point]
                             n_intersections_found += 1
                             bar.update(inter_found=n_intersections_found)
                             E_surfaces_combination_with_id = tuple(sorted([E_surfaces[E_surf_index]['id'] for E_surf_index in E_surfaces_combination]))
@@ -2005,7 +2005,6 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 test_passed = (dod < float(args.target_scaling)+min(max(10.0*abs(standard_error),0.005),0.2) )
                                 container['dod_computed'] = (dod, standard_error, test_passed)
                                 container['max_result'] = (max_result[0], (max_result[1].real, max_result[1].imag))
-                                stop
                                 break
 
                             # Support for IR-safety isolation cuts:

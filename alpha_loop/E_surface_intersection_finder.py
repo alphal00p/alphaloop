@@ -30,9 +30,12 @@ class EsurfaceIntersectionFinder(object):
         self.scipy_tolerance = 1.49012e-08
 
         # Ignore the spatial component of the frozen momenta
-        self.frozen_momenta = {}
-        self.frozen_momenta['in'] = [list(v[1:]) for v in frozen_momenta['in']]
-        self.frozen_momenta['out'] = [list(v[1:]) for v in frozen_momenta['out']]
+        if frozen_momenta is not None:
+            self.frozen_momenta = {}
+            self.frozen_momenta['in'] = [list(v[1:]) for v in frozen_momenta['in']]
+            self.frozen_momenta['out'] = [list(v[1:]) for v in frozen_momenta['out']]
+        else:
+            self.frozen_momenta = None
 
         self.n_frozen_momenta = 0 if self.frozen_momenta is None else len(self.frozen_momenta['out'])
 
