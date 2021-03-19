@@ -1674,7 +1674,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 'm_squared': loop_SG.loop_lines[os[0][0]].propagators[os[0][1]].m_squared
                             }
                             for os in E_surface_key], 
-                                key=lambda el: el['name'] if re.match('^pq\d+$','pq1743') is None else int(el['name'][2:]) ),
+                                key=lambda el: el['name'] if re.match('^pq\d+$',el['name']) is None else int(el['name'][2:]) ),
                         'cxpy_expression' : expression,
                         'ellipsoid_param' : ellipsoid_param[E_surface_key],
                         'pinched' : (E_surface_key in pinched_E_surface_keys),
@@ -1843,6 +1843,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
             for i_SG, SG_name in enumerate(selected_SGs):
                 
+                SG = self.all_supergraphs[SG_name]
+
                 E_surfaces = IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces']
                 SG['E_surfaces_analysis'] = E_surfaces
                 SG['E_surfaces_intersection_analysis'] = {}
