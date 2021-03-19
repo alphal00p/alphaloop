@@ -73,6 +73,7 @@ FORM_processing_options = {
     # If positive and equal to N, the Nth LMB will be used for the reference implementation of the supergraph.
     'reference_lmb' : None,
     'FORM_call_sig_id_offset_for_additional_lmb' : 1000000,
+    'generate_arb_prec_output': False,
     'generate_integrated_UV_CTs' : True,
     'generate_renormalisation_graphs' : True,
     'UV_min_dod_to_subtract' : 0,
@@ -2503,6 +2504,7 @@ class FORMSuperGraphList(list):
                         confs = []
                         integrand_main_code = ''
                         integrand_f128_main_code = ''
+                        integrand_mpfr_main_code = ''
                         conf_secs = num.split('#CONF')
                         for conf_sec in conf_secs[1:]:
                             conf_sec = conf_sec.replace("#CONF\n", '')
@@ -2531,9 +2533,9 @@ class FORMSuperGraphList(list):
                                 energy_secs = energy_secs.replace('\n', '')
 
                                 # some energies are repeated and we only keep the first
-                                energy_code = []
                                 energy_index = 0
                                 skip_next = 1
+                                energy_code = []
                                 energy_prefactor = []
                                 for j, e in enumerate(energy_secs.split(',')):
                                     if e == '':
@@ -2555,15 +2557,19 @@ class FORMSuperGraphList(list):
                                 const_code = const_code + ('*' if len(const_code) > 0 and len(energy_prefactor) > 0 else '') + energy_prefactor
 
                                 if const_code == '':
-                                    const_code = '1'
+                                    const_code = '1.'
 
                                 # parse the denominators
                                 denom_secs = conf_sec.split('#ELLIPSOIDS')[1]
                                 denom_secs = denom_secs.replace('\n', '')
-                                denom_code = '\n'.join('\tdouble complex invd{} = 1./({});'.format(i, d) for i, d in enumerate(denom_secs.split(',')) if d != '')
+                                d = [d for d in denom_secs.split(',') if d != '']
+                                denom_code = '\n'.join('\tdouble complex invd{} = 1./({});'.format(i, dd) for i,dd in enumerate(d))
+                                denom_code = re.sub(r'([+\-*()])(\s*\d+)', r'\1\2.', denom_code)
                                 conf_sec = conf_sec.split('#ELLIPSOIDS')[-1]
 
+                            conf_sec = re.sub(r'(^|[+\-*=])(\s*\d+)($|[^.\d\w])', r'\1\2.\3', conf_sec)
                             returnval = list(return_exp.finditer(conf_sec))[0].groups()[0]
+                            returnval = re.sub(r'(^|[+\-*=])(\s*\d+)($|[^.\d\w])', r'\1\2.\3', returnval)
                             if denominator_mode == 'FOREST':
                                 conf_sec = return_exp.sub('return {};\n'.format(returnval), conf_sec)
                             elif denominator_mode == 'DIAG':
@@ -2579,12 +2585,20 @@ class FORMSuperGraphList(list):
                                 integrand_main_code += '\nstatic double complex forest_{}(double complex lm[], double complex params[]) {{{}\n{}}}'.format(abs(int(conf[0])),
                                     '\n\tdouble complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_with_diag_call
                                 )
-
                                 main_code_f128 = main_code.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
                                 main_code_f128 = float_pattern.sub(r'\1q', main_code_f128)
                                 main_code_f128 = diag_pattern.sub(r'diag_\1_f128(lm, params)', main_code_f128)
                                 integrand_f128_main_code += '\n' + '\nstatic __complex128 forest_{}_f128(__complex128 lm[], __complex128 params[]) {{{}\n{}}}'.format(abs(int(conf[0])),
                                     '\n\t__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
+                                )
+
+                                main_code_mpfr = main_code.replace('pi', 'mpreal(mpfr::const_pi())').replace('double complex', 'mpcomplex')
+                                main_code_mpfr = float_pattern.sub(r'mpreal("\1")', main_code_mpfr)
+                                main_code_mpfr = re.sub(r'sqrt\(([^)]+)\)', r'sqrt(mpcomplex(\1))', main_code_mpfr)
+                                main_code_mpfr = re.sub(r'pow\(([^,]+)', r'pow(mpcomplex(\1)', main_code_mpfr)
+                                main_code_mpfr = diag_pattern.sub(r'diag_\1_mpfr(lm, params)', main_code_mpfr)
+                                integrand_mpfr_main_code += '\n' + '\nstatic mpcomplex forest_{}_mpfr(__complex128 lm[], __complex128 params[]) {{{}\n{}}}'.format(abs(int(conf[0])),
+                                    '\n\tmpcomplex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_mpfr
                                 )
                             elif denominator_mode == 'DIAG':
                                 main_code = '{}\n{}\n{}'.format(energy_code, denom_code, conf_sec)
@@ -2597,6 +2611,14 @@ class FORMSuperGraphList(list):
                                 main_code_f128 = float_pattern.sub(r'\1q', main_code_f128)
                                 integrand_f128_main_code += '\n' + '\nstatic __complex128 diag_{}_f128(__complex128 lm[], __complex128 params[]) {{{}\n{}}}'.format(abs(int(conf[0])),
                                     '\n\t__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
+                                )
+
+                                main_code_mpfr = main_code.replace('pi', 'mpreal(mpfr::const_pi())').replace('double complex', 'mpcomplex')
+                                main_code_mpfr = re.sub(r'sqrt\(([^)]+)\)', r'sqrt(mpcomplex(\1))', main_code_mpfr)
+                                main_code_mpfr = re.sub(r'pow\(([^,]+)', r'pow(mpcomplex(\1)', main_code_mpfr)
+                                main_code_mpfr = float_pattern.sub(r'mpreal("\1")', main_code_mpfr)
+                                integrand_mpfr_main_code += '\n' + '\nstatic mpcomplex diag_{}_mpfr(__complex128 lm[], __complex128 params[]) {{{}\n{}}}'.format(abs(int(conf[0])),
+                                    '\n\tmpcomplex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_mpfr
                                 )
                             else:
                                 confs.append(int(conf[0]))
@@ -2617,10 +2639,21 @@ class FORMSuperGraphList(list):
                                     '\n\t__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
                                 )
 
+                                main_code_mpfr = main_code.replace('pi', 'mpreal(mpfr::const_pi())').replace('double complex', 'mpcomplex')
+                                main_code_mpfr = re.sub(r'pow\(([^,]+)', r'pow(mpcomplex(\1)', main_code_mpfr)
+                                main_code_mpfr = re.sub(r'sqrt\(([^)]+)\)', r'sqrt(mpcomplex(\1))', main_code_mpfr)
+                                main_code_mpfr = float_pattern.sub(r'mpreal("\1")', main_code_mpfr)
+                                main_code_mpfr = forest_pattern.sub(r'forest_\1_mpfr(lm, params)', main_code_mpfr)
+                                main_code_mpfr = re.sub(r'\*out =([^;]*);', r'*out = (__complex128)(\1);', main_code_mpfr)
+                                integrand_mpfr_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{}_{}_{}_mpfr(__complex128 lm[], __complex128 params[], __complex128* out) {{{}\n{}}}'.format(itype, i, int(conf[0]),
+                                    '\n\tmpcomplex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_mpfr
+                                )
+
                         
                         for x in range(4):
                             integrand_main_code = empty_line_pattern.sub(r'\n\n', integrand_main_code)
                             integrand_f128_main_code = empty_line_pattern.sub(r'\n\n', integrand_f128_main_code)
+                            integrand_mpfr_main_code = empty_line_pattern.sub(r'\n\n', integrand_mpfr_main_code)
 
                         integrand_main_code += \
 """
@@ -2649,11 +2682,40 @@ void %(header)sevaluate_{}_{}_f128(__complex128 lm[], __complex128 params[], int
         (['\t\tdefault: *out = 0.q;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
         ))
 
+
+
+                        integrand_mpfr_main_code = \
+"""
+#include "mpreal.h"
+#include "mpcomplex.h"
+
+using mpfr::mpreal;
+using mpfr::mpcomplex;
+
+""" + integrand_mpfr_main_code
+                        integrand_mpfr_main_code += \
+"""
+extern "C" {{
+void %(header)sevaluate_{}_{}_mpfr(__complex128 lm[], __complex128 params[], int conf, __complex128* out) {{
+   switch(conf) {{
+{}
+    }}
+}}
+}}
+""".format(itype, i,
+        '\n'.join(
+        ['\t\tcase {}: %(header)sevaluate_{}_{}_{}_mpfr(lm, params, out); return;'.format(conf, itype, i, conf) for conf in sorted(confs)] +
+        (['\t\tdefault: *out = 0.;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
+        ))
+
                         bar.update(timing='%d'%int((total_time/float(i_graph+1))*1000.0))
                         bar.update(i_graph+1)
 
                         writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand_{}_{}_f64.c'%header_map).format(itype, i)).write((numerator_header + integrand_main_code)%header_map)
                         writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand_{}_{}_f128.c'%header_map).format(itype, i)).write((numerator_header + integrand_f128_main_code)%header_map)
+
+                        if FORM_processing_options["generate_arb_prec_output"]:
+                            writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand_{}_{}_mpfr.cpp'%header_map).format(itype, i)).write((numerator_header + integrand_mpfr_main_code)%header_map)
 
 
 
@@ -2662,7 +2724,9 @@ void %(header)sevaluate_{}_{}_f128(__complex128 lm[], __complex128 params[], int
 #include <tgmath.h>
 #include <quadmath.h>
 #include <signal.h>
+#include <mpfr.h>
 
+{}
 {}
 {}
 
@@ -2673,6 +2737,14 @@ void %(header)sevaluate_PF(double complex lm[], double complex params[], int dia
 }}
 
 void %(header)sevaluate_PF_f128(__complex128 lm[], __complex128 params[], int diag, int conf, __complex128* out) {{
+    switch(diag) {{
+{}
+    }}
+}}
+
+void %(header)sevaluate_PF_mpfr(__complex128 lm[], __complex128 params[], int diag, int conf, int prec, __complex128* out) {{
+    mpfr_set_default_prec((mpfr_prec_t)(ceil(prec * 3.3219280948873624)));
+
     switch(diag) {{
 {}
     }}
@@ -2690,9 +2762,18 @@ void %(header)sevaluate_LTD_f128(__complex128 lm[], __complex128 params[], int d
     }}
 }}
 
+void %(header)sevaluate_LTD_mpfr(__complex128 lm[], __complex128 params[], int diag, int conf, int prec, __complex128* out) {{
+    mpfr_set_default_prec((mpfr_prec_t)(ceil(prec * 3.3219280948873624)));
+
+    switch(diag) {{
+{}
+    }}
+}}
+
 """.format(
     '\n'.join('void %(header)sevaluate_{}_{}(double complex[], double complex[], int conf, double complex* out);'.format(itype, i) for itype in integrand_type_list for i in all_numerator_ids[itype]),
-    '\n'.join('void %(header)sevaluate_{}_{}_f128(__complex128[], __complex128[], int conf, __complex128* out);'.format(itype, i) for itype in integrand_type_list for i in all_numerator_ids[itype]),
+    '\n'.join('void %(header)sevaluate_{}_{}_f128(__complex128[], __complex128[], int conf, __complex128* out);'.format(itype, i) for itype in integrand_type_list for i in all_numerator_ids[itype]), 
+    '' if not FORM_processing_options["generate_arb_prec_output"] else '\n'.join('void %(header)sevaluate_{}_{}_mpfr(__complex128[], __complex128[], int conf, __complex128* out);'.format(itype, i) for itype in integrand_type_list for i in all_numerator_ids[itype]),
     '\n'.join(
     ['\t\tcase {}: %(header)sevaluate_PF_{}(lm, params, conf, out); return;'.format(i, i) for i in all_numerator_ids['PF']]+
     ['\t\tdefault: raise(SIGABRT);']
@@ -2702,11 +2783,19 @@ void %(header)sevaluate_LTD_f128(__complex128 lm[], __complex128 params[], int d
     ['\t\tdefault: raise(SIGABRT);']
     ),
     '\n'.join(
+    ([] if not FORM_processing_options["generate_arb_prec_output"] else ['\t\tcase {}: %(header)sevaluate_PF_{}_mpfr(lm, params, conf, out); return;'.format(i, i) for i in all_numerator_ids['PF']]) +
+    ['\t\tdefault: raise(SIGABRT);']
+    ),
+    '\n'.join(
     ['\t\tcase {}: %(header)sevaluate_LTD_{}(lm, params, conf, out); return;'.format(i, i) for i in all_numerator_ids['LTD']]+
     ['\t\tdefault: raise(SIGABRT);']
     ),
     '\n'.join(
     ['\t\tcase {}: %(header)sevaluate_LTD_{}_f128(lm, params, conf, out); return;'.format(i, i) for i in all_numerator_ids['LTD']]+
+    ['\t\tdefault: raise(SIGABRT);']
+    ),
+    '\n'.join(
+    ([] if not FORM_processing_options["generate_arb_prec_output"] else ['\t\tcase {}: %(header)sevaluate_LTD_{}_mpfr(lm, params, conf, out); return;'.format(i, i) for i in all_numerator_ids['LTD']]) +
     ['\t\tdefault: raise(SIGABRT);']
     )
     )
@@ -3426,6 +3515,8 @@ void %(header)sevaluate_LTD_f128(__complex128 lm[], __complex128 params[], int d
         source_file.readline()
         with open(pjoin(TMP_FORM, 'Makefile'), 'w') as target_file:
             shutil.copyfileobj(source_file, target_file)
+        shutil.copy('mpreal.h', pjoin(TMP_FORM, 'mpreal.h'))
+        shutil.copy('mpcomplex.h', pjoin(TMP_FORM, 'mpcomplex.h'))
         Path(pjoin(TMP_OUTPUT, 'lib')).mkdir(parents=True, exist_ok=True)
         FORMProcessor.compile(TMP_FORM)
 

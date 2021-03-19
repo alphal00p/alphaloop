@@ -847,6 +847,10 @@ impl IntegrandImplementation for Topology {
     fn create_cache(&self) -> LTDCacheAllPrecisions {
         LTDCacheAllPrecisions::new(self)
     }
+
+    fn set_precision(&mut self, _prec: usize) {
+        // ignored
+    }
 }
 
 impl Topology {

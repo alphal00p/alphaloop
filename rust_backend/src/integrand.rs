@@ -66,6 +66,8 @@ pub trait IntegrandImplementation: Clone {
         events: Option<&mut EventManager>,
     ) -> Complex<f128>;
 
+    fn set_precision(&mut self, prec: usize);
+
     fn create_cache(&self) -> Self::Cache;
 }
 
@@ -180,6 +182,7 @@ macro_rules! check_stability_precision {
         &mut self,
         weight: f64,
         x: IntegrandSample<'_>,
+        prec: usize,
         relative_precision: f64,
         num_samples: usize,
         escalate_for_large_weight_threshold: f64,
@@ -190,6 +193,11 @@ macro_rules! check_stability_precision {
     ) -> ($ty, $ty, Complex<$ty>, Complex<$ty>, bool) {
         event_manager.integrand_evaluation_timing = 0;
         event_manager.time_integrand_evaluation = timing;
+
+        for t in &mut self.topologies {
+            t.set_precision(prec);
+        }
+
         let result = self.topologies[0].$eval_fn(x, cache, Some(event_manager));
 
         if timing {
@@ -456,10 +464,11 @@ impl<I: IntegrandImplementation> Integrand<I> {
 
             let abs_diff;
             let escalate;
-            if !stability_check.use_f128 {
+            if stability_check.prec == 16 {
                 let (d, diff, min_rot, max_rot, esc) = self.check_stability_float(
                     weight,
                     x,
+                    16,
                     stability_check.relative_precision,
                     stability_check.n_samples,
                     if level + 1 == stability_checks.len() {
@@ -481,6 +490,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
                 let (d, diff, min_rot, max_rot, esc) = self.check_stability_quad(
                     weight,
                     x,
+                    stability_check.prec,
                     stability_check.relative_precision,
                     stability_check.n_samples,
                     if level + 1 == stability_checks.len() {

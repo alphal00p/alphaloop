@@ -57,6 +57,17 @@ mod form_integrand {
         ) -> Complex<Self>
         where
             Self: std::marker::Sized;
+
+        fn get_integrand_mpfr(
+            api_container: &mut Container<FORMIntegrandAPI>,
+            p: &[Self],
+            params: &[Self],
+            diag: usize,
+            conf: usize,
+            prec: usize,
+        ) -> Complex<Self>
+        where
+            Self: std::marker::Sized;
     }
 
     impl GetIntegrand for f64 {
@@ -79,6 +90,7 @@ mod form_integrand {
                 c
             }
         }
+
         fn get_integrand_pf(
             api_container: &mut Container<FORMIntegrandAPI>,
             p: &[f64],
@@ -97,6 +109,17 @@ mod form_integrand {
                 );
                 c
             }
+        }
+
+        fn get_integrand_mpfr(
+            _api_container: &mut Container<FORMIntegrandAPI>,
+            _p: &[f64],
+            _params: &[f64],
+            _diag: usize,
+            _conf: usize,
+            _prec: usize,
+        ) -> Complex<f64> {
+            unimplemented!("MPFR is only supported in f128 mode")
         }
     }
 
@@ -140,6 +163,28 @@ mod form_integrand {
                 *c
             }
         }
+
+        fn get_integrand_mpfr(
+            api_container: &mut Container<FORMIntegrandAPI>,
+            p: &[f128::f128],
+            params: &[f128::f128],
+            diag: usize,
+            conf: usize,
+            prec: usize,
+        ) -> Complex<f128::f128> {
+            unsafe {
+                let mut c = Box::new(Complex::default());
+                api_container.evaluate_pf_mpfr(
+                    &p[0] as *const f128::f128,
+                    &params[0] as *const f128::f128,
+                    diag as i32,
+                    conf as i32,
+                    prec as i32,
+                    c.as_mut() as *mut Complex<f128::f128>,
+                );
+                *c
+            }
+        }
     }
 
     #[derive(WrapperApi)]
@@ -174,6 +219,15 @@ mod form_integrand {
             params: *const f128::f128,
             diag: c_int,
             conf: c_int,
+            out: *mut Complex<f128::f128>,
+        ),
+        #[dlopen_name = "evaluate_PF_mpfr"]
+        evaluate_pf_mpfr: unsafe extern "C" fn(
+            p: *const f128::f128,
+            params: *const f128::f128,
+            diag: c_int,
+            conf: c_int,
+            prec: c_int,
             out: *mut Complex<f128::f128>,
         ),
     }
@@ -246,6 +300,8 @@ pub struct FORMNumeratorCallSignature {
 #[derive(Debug, Clone, Deserialize)]
 pub struct FORMIntegrandCallSignature {
     pub id: usize,
+    #[serde(default)]
+    pub prec: usize, // will be set by the precision checker
     #[serde(default)]
     pub extra_calls: Vec<(usize, usize)>,
 }
@@ -2144,6 +2200,7 @@ impl SquaredTopology {
 
                 for &(diag, conf) in [(d, c)].iter().chain(&call_signature.extra_calls) {
                     let res_bare = match self.settings.cross_section.integrand_type {
+                        // TODO: mpfr
                         IntegrandType::LTD => T::get_integrand_ltd(
                             form_integrand.as_mut().unwrap(),
                             &cache.scalar_products,
@@ -2151,19 +2208,29 @@ impl SquaredTopology {
                             diag,
                             conf,
                         ),
-                        IntegrandType::PF => T::get_integrand_pf(
-                            form_integrand.as_mut().unwrap(),
-                            &cache.scalar_products,
-                            &params,
-                            diag,
-                            conf,
-                        ),
+                        IntegrandType::PF => {
+                            if call_signature.prec == 0 || call_signature.prec == 16 || call_signature.prec == 32 {
+                                T::get_integrand_pf(
+                                    form_integrand.as_mut().unwrap(),
+                                    &cache.scalar_products,
+                                    &params,
+                                    diag,
+                                    conf,
+                                )
+                            } else {
+                                T::get_integrand_mpfr(
+                                    form_integrand.as_mut().unwrap(),
+                                    &cache.scalar_products,
+                                    &params,
+                                    diag,
+                                    conf,
+                                    call_signature.prec,
+                                )
+                            }
+                        }
                     };
 
-                    res += Complex::new(
-                        Into::<T>::into(res_bare.re),
-                        Into::<T>::into(res_bare.im),
-                    );
+                    res += Complex::new(Into::<T>::into(res_bare.re), Into::<T>::into(res_bare.im));
                 }
                 res
             } else {
@@ -2437,6 +2504,15 @@ impl IntegrandImplementation for SquaredTopologySet {
                 current_supergraph: 0,
                 current_deformation_index: 0,
             },
+        }
+    }
+
+    #[inline]
+    fn set_precision(&mut self, prec: usize) {
+        for t in &mut self.topologies {
+            if let Some(cs) = t.form_integrand.call_signature.as_mut() {
+                cs.prec = prec;
+            }
         }
     }
 }

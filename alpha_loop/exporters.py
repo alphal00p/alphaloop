@@ -348,6 +348,10 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
             shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                     pjoin(FORM_output_path, 'Makefile'))
+            shutil.copy(pjoin(plugin_path, 'mpcomplex.h'),
+                    pjoin(self.dir_path,'FORM', 'mpcomplex.h'))
+            shutil.copy(pjoin(plugin_path, 'mpreal.h'),
+                    pjoin(self.dir_path,'FORM', 'mpreal.h'))
             # Also output a copy of the input super-graph sent to the FORM processor.
             graph_dumps = []
             graph_dumps.append("graphs=[]")
@@ -1336,6 +1340,10 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             form_processor = FORM_processing.FORMProcessor(super_graph_list, computed_model, self.proc_def)
             shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                     pjoin(self.dir_path,'FORM', 'Makefile'))
+            shutil.copy(pjoin(plugin_path, 'mpcomplex.h'),
+                    pjoin(self.dir_path,'FORM', 'mpcomplex.h'))
+            shutil.copy(pjoin(plugin_path, 'mpreal.h'),
+                    pjoin(self.dir_path,'FORM', 'mpreal.h'))
 
             if self.alphaLoop_options['n_rust_inputs_to_generate']<0:
                 if self.alphaLoop_options['n_jets'] is None:
@@ -1740,6 +1748,10 @@ class LUScalarTopologyExporter(QGRAFExporter):
         # Compile
         shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                     pjoin(FORM_output_path, 'Makefile'))
+        shutil.copy(pjoin(plugin_path, 'mpcomplex.h'),
+                    pjoin(self.dir_path,'FORM', 'mpcomplex.h'))
+        shutil.copy(pjoin(plugin_path, 'mpreal.h'),
+                    pjoin(self.dir_path,'FORM', 'mpreal.h'))
         form_processor.compile(FORM_output_path)
 
 class ScalarIntegralTopologyExporter(LUScalarTopologyExporter):

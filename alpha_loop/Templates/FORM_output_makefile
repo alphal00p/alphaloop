@@ -2,12 +2,15 @@ include ../Source/make_opts
 
 ifeq ($(origin GCC),undefined)
 GCC=gcc
+GPP=g++
 endif
 LIBBPATH=../lib
 SRC=$(wildcard numerator*.c)
 OBJ=$(patsubst %.c,%.o, $(SRC))
 INTEGRANDSRC=$(wildcard integrand*.c)
 INTEGRANDOBJ=$(patsubst %.c,%.o, $(INTEGRANDSRC))
+INTEGRANDFMPRSRC=$(wildcard integrand*.cpp)
+INTEGRANDFMPROBJ=$(patsubst %.cpp,%.o, $(INTEGRANDFMPRSRC))
 LIBRARY=libFORM_numerators.so
 INTEGRANDLIBRARY=libFORM_integrands.so
 
@@ -16,10 +19,13 @@ numerator: $(LIBBPATH)/$(LIBRARY)
 integrand: $(LIBBPATH)/$(INTEGRANDLIBRARY)
 
 OPTIMIZATION_LVL = 3
-CFLAGS=-Wconversion -O$(OPTIMIZATION_LVL) -fcx-fortran-rules -fcx-limited-range -lm -lquadmath
+CFLAGS=-Wconversion -O$(OPTIMIZATION_LVL) -fcx-fortran-rules -fcx-limited-range -lm -lquadmath -lmpfr -lgmp
 
 OPTIMIZATION_LVL_f128 = 0
-CFLAGSf128=-Wconversion -O$(OPTIMIZATION_LVL_f128) -fcx-fortran-rules -fcx-limited-range -lm -lquadmath
+CFLAGSf128=-Wconversion -O$(OPTIMIZATION_LVL_f128) -fcx-fortran-rules -fcx-limited-range -lm -lquadmath -lmpfr -lgmp
+
+OPTIMIZATION_LVL_f128 = 0
+CFLAGSFMPR=-Wconversion -O$(OPTIMIZATION_LVL_f128) -fcx-fortran-rules -fcx-limited-range -lm -lquadmath -lmpfr -lgmp
 
 %_f64.o: %_f64.c
 	$(GCC) -c $(CFLAGS) $< -o $@
@@ -27,11 +33,14 @@ CFLAGSf128=-Wconversion -O$(OPTIMIZATION_LVL_f128) -fcx-fortran-rules -fcx-limit
 %_f128.o: %_f128.c
 	$(GCC) -c $(CFLAGSf128) $< -o $@
 
+%_fmpr.o: %_fmpr.c
+	$(GPP) -c $(CFLAGSFMPR) $< -o $@
+
 $(LIBBPATH)/$(LIBRARY): $(OBJ)
 	$(GCC) --shared -fPIC $(CFLAGS) -o $@ $^
 
-$(LIBBPATH)/$(INTEGRANDLIBRARY): $(INTEGRANDOBJ)
-	$(GCC) --shared -fPIC $(CFLAGS) -o $@ $^
+$(LIBBPATH)/$(INTEGRANDLIBRARY): $(INTEGRANDOBJ) $(INTEGRANDFMPROBJ)
+	$(GPP) --shared -fPIC $(CFLAGS) -o $@ $^
 
 clean:
 	rm -f $(LIBBPATH)/$(LIBRARY)

@@ -157,7 +157,7 @@ hyperparameters = HyperParameters({
             {
                 # number of samples to take for the numerical stability check
                 'n_samples': 3,
-                'use_f128': False,
+                'prec': 16,
                 'use_pf': False,
                 # number of digits that should be the same between rotated versions
                 'relative_precision': 4.0,
@@ -167,7 +167,7 @@ hyperparameters = HyperParameters({
             },
             {            
                 'n_samples': 3,
-                'use_f128': False,
+                'prec': 16,
                 'use_pf': True,
                 'relative_precision': 4.0,
                 'escalate_for_large_weight_threshold': 0.8,
@@ -175,7 +175,7 @@ hyperparameters = HyperParameters({
             },
             {
                 'n_samples': 3,
-                'use_f128': True,
+                'prec': 32,
                 'use_pf': True,
                 'relative_precision': 8.0,
                 'escalate_for_large_weight_threshold': -1.,

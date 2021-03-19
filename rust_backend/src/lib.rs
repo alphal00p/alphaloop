@@ -491,7 +491,7 @@ pub struct ObservableSettings {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct StabilityCheckSettings {
     pub n_samples: usize,
-    pub use_f128: bool,
+    pub prec: usize,
     pub use_pf: bool,
     pub relative_precision: f64,
     pub escalate_for_large_weight_threshold: f64,
