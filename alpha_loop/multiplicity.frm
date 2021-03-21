@@ -1,6 +1,6 @@
 #-
 Off statistics;
-CF dotp;
+CF dotp, myv;
 
 #include numerator.frm # setup
 
@@ -26,10 +26,12 @@ L F2 = F[x];
 * Check multiplicity 
 ********************************
 * Dot product to symbols
-id k1?.k2? = dotp(k1*k2);
+#redefine oldextrasymbols "`extrasymbols_'"
+id k1?.k2? = dotp(k1.k2);
 argtoextrasymbol dotp;
 id dotp(x?) = x;
 .sort
+Hide F1, F2;
 
 * Infer multiplicity factor
 L sF1 = firstterm_(F1);
@@ -53,9 +55,20 @@ L isoCHECK = isoF * F1 - F2;
 .sort
 
 #if termsin(isoCHECK) != 0
-	print +s isoCHECK;
-	.sort;
-	exit "ISO CHECK FAIL: multiplicity factor not found";
+	Multiply replace_(<Z{`oldextrasymbols'+1}_,extrasymbol_({`oldextrasymbols'+1})>,...,<Z`extrasymbols_'_,extrasymbol_(`extrasymbols_')>);
+	.sort
+* Test if the expression is really non zero by expanding the scalar products	
+	id k1?.k2? = dotp(myv(k1,0))*dotp(myv(k2,0))
+		   - dotp(myv(k1,1))*dotp(myv(k2,1))
+		   - dotp(myv(k1,2))*dotp(myv(k2,2))
+		   - dotp(myv(k1,3))*dotp(myv(k2,3));
+	.sort
+	
+	#if termsin(isoCHECK) != 0
+		print +s isoCHECK, isoF;
+		.sort;
+		exit "ISO CHECK FAIL: multiplicity factor not found";
+	#endif
 #endif
 print isoF;
 .sort

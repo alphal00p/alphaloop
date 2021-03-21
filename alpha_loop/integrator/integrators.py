@@ -19,6 +19,7 @@ import logging
 import math
 import shutil
 import numpy as np
+import random
 import sys
 
 if __name__ == '__main__':
@@ -71,6 +72,7 @@ class SimpleMonteCarloIntegrator(VirtualIntegrator):
                  n_points_per_iterations=100,
                  verbosity = 2,
                  save_points_to_file = None,
+                 seed = None,
                  **opts):
         """ Initialize the simplest MC integrator."""
         
@@ -80,7 +82,10 @@ class SimpleMonteCarloIntegrator(VirtualIntegrator):
         self.verbosity = verbosity
         self.save_points_to_file = save_points_to_file
         self.tot_func_evals = 0
-
+        self.seed = seed
+        if self.seed is not None:
+            random.seed(self.seed)
+            np.random.seed(self.seed)
         super(SimpleMonteCarloIntegrator, self).__init__(integrands, **opts)
         #misc.sprint(self.integrands)
         
@@ -108,7 +113,7 @@ class SimpleMonteCarloIntegrator(VirtualIntegrator):
 
         points_to_write_to_file = []
         while (self.n_iterations is None or iteration_number < self.n_iterations ) and \
-              (self.accuracy_target is None or error_estimate/(1e-99+integral_estimate) > self.accuracy_target):   
+              (self.accuracy_target is None or error_estimate/abs(1e-99+integral_estimate) > self.accuracy_target):   
 
             iteration_number += 1
             n_curr_points = 0
@@ -137,14 +142,14 @@ class SimpleMonteCarloIntegrator(VirtualIntegrator):
                 sum_squared += new_wgt**2
 
             integral_estimate = sum_int / n_points
-            error_estimate =  math.sqrt( ((sum_squared / n_points) - integral_estimate**2)/n_points)
+            error_estimate =  math.sqrt( ((sum_squared / n_points) - integral_estimate**2)/n_points )
             msg = '%s :: iteration # %d / %s :: point #%d :: %.4e +/- %.2e'%(
                 self.__class__.__name__, iteration_number, 
                 '%d'%self.n_iterations if self.n_iterations else 'inf' ,n_points, 
                 integral_estimate, error_estimate)
             if self.verbosity > 0:
                 logger.info(msg)
-        
+
         if out_stream is not None:
             out_stream.write('\n'.join(points_to_write_to_file))
             points_to_write_to_file = []

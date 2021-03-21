@@ -15,6 +15,7 @@ import aloha
 import shutil
 import copy
 import subprocess
+import glob
 import pickle
 import time
 
@@ -1549,7 +1550,11 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         FORM_workspace = pjoin(self.dir_path, 'FORM', 'workspace')
         
         if self.alphaLoop_options['checkpoint_lvl'] < 1 or not all(os.path.isfile(cp) for cp in self.checkpoint[0]):
+            # Create workspace directory
             Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
+            # Clean old drawings 
+            for gdraw_file in glob.glob(pjoin(drawings_output_path, 'Graph*')):
+                os.remove(gdraw_file)
             super_graph_list = FORM_processing.FORMSuperGraphList.from_dict(
                 self.qgraf_output, merge_isomorphic_graphs=True, 
                 model=self.model, workspace=FORM_workspace, cuts=cuts)
@@ -1597,6 +1602,8 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 )
 
             # Draw all the graphs contributing to the process
+            for gdraw_file in glob.glob(pjoin(drawings_output_path, 'Graph*')):
+                os.remove(gdraw_file)
             form_processor.draw(drawings_output_path)
             
             # Checkpoint 2
@@ -1684,7 +1691,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             with open(qgraf_output, 'w') as f:
                 f.write(stream.read() % dict_replace)
 
-            subprocess.run(['rm', 'output.py'], cwd=qgraf_folder)
+            subprocess.run(['rm', '-f', 'output.py'], cwd=qgraf_folder)
             r = subprocess.run([self.QGRAF_path, ],
                                cwd=qgraf_folder,
                                capture_output=True)

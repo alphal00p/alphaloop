@@ -1,8 +1,6 @@
-extern crate ltd;
-extern crate vector;
+use lorentz_vector::LorentzVector;
 use ltd::partial_fractioning::{PartialFractioning, PartialFractioningMultiLoops};
 use ltd::topologies::{LoopLine, Propagators};
-use lorentz_vector::LorentzVector;
 
 // Testing the one-loop version of E-fractioning
 mod partial_fractioning {
@@ -34,6 +32,7 @@ mod partial_fractioning_multi_loops {
     fn test_pf_multi_loops_decagon() {
         //Dummy prop
         let propagator = Propagators {
+            name: "dummy".to_owned(),
             uv: false,
             id: 0, // global id
             m_squared: 0.0,
@@ -62,6 +61,7 @@ mod partial_fractioning_multi_loops {
     fn test_pf_multi_loops_2loop() {
         //Dummy prop
         let propagator = Propagators {
+            name: "dummy".to_owned(),
             uv: false,
             id: 0, // global id
             m_squared: 0.0,
@@ -94,6 +94,7 @@ mod partial_fractioning_multi_loops {
     fn test_pf_multi_loops_4loop() {
         //Dummy prop
         let propagator = Propagators {
+            name: "dummy".to_owned(),
             uv: false,
             id: 0, // global id
             m_squared: 0.0,

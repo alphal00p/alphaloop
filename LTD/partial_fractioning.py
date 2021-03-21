@@ -5,6 +5,7 @@ import os
 import copy
 import sys
 import progressbar
+from collections import defaultdict
 
 
 # For the moment convert coefficients to int
@@ -288,10 +289,11 @@ class PartialFractioning:
         return res
 
     def to_FORM(self):
-        ss = ""
+        terms = defaultdict(int)
+
         for pf_id, (fact, prod, num) in enumerate(self.pf_res):
-            # store factor
-            ss += "%+d" % cast_int(fact)
+            ss = ""
+
             # store denominators
             if prod != []:
                 den = ""
@@ -343,7 +345,14 @@ class PartialFractioning:
                         ss += "), ncmd("
                     else:
                         ss += ", "
-            ss += "\n"
+
+            terms[ss] += cast_int(fact)
+
+        ss = ""
+        terms_sorted = sorted(terms.items(), key=lambda k: k[0])
+        for x, c in terms_sorted:
+            ss += '\t{}{}\n'.format("%+d" % cast_int(c), x)
+
         return ss
 
     def shifts_to_externals(self):

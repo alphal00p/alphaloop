@@ -33,6 +33,8 @@ import shutil
 import py_compile
 import sympy as sp
 from sympy.simplify.simplify import simplify
+from warnings import catch_warnings
+
 pjoin = os.path.join
 
 if __name__ == "__main__":
@@ -1460,9 +1462,8 @@ CTable pfmap(0:{},0:{});
                          for e in self.edges.values()]
         assert(e[0] != 'q' or int(e[1:]) < 5 for e in edge_map_lin)
 
-        particle_ids = {e['name']: e['PDG'] for e in self.edges.values()}
-        particle_masses = {e['name']: 0. if e['PDG'] == 1337 else model['parameter_dict']
-            [model.get_particle(e['PDG']).get('mass')].real for e in self.edges.values()}
+        particle_ids = { e['name']: e['PDG'] for e in self.edges.values() }
+        particle_masses = {e['name']: model['parameter_dict'][model.get_particle(e['PDG']).get('mass')].real for e in self.edges.values()}
 
         num_incoming = sum(1 for e in edge_map_lin if e[0][0] == 'q') // 2
 
@@ -1777,9 +1778,9 @@ CTable pfmap(0:{},0:{});
                 if last_cmb == '':
                     last_cmb = cmb_map
                 if last_cmb != cmb_map:
-                    logger.warning(
-                        "WARNING: cmbs differ between diagram sets. inherit_deformation_for_uv_counterterm should be set to FALSE.")
-                    # raise AssertionError("Diagram sets do not have the same cmb")
+                    pass
+                    #logger.warning("WARNING: cmbs differ between diagram sets. inherit_deformation_for_uv_counterterm should be set to FALSE.")
+                    #raise AssertionError("Diagram sets do not have the same cmb")
 
                 # store which momenta are LTD momenta
                 conf = 'c0' if n_loops == len(cut['cuts'][:-1]) else ','.join(
@@ -2123,22 +2124,21 @@ class FORMSuperGraphIsomorphicList(list):
             return to_dump
 
     def multiplicity_factor(self, iso_id, workspace, form_source):
-        if len(self) == 1:
-            return (self, 1)
-
         output_match = re.compile(r'isoF=(.*?);')
         reference = self[0].generate_numerator_form_input(
             '', only_algebra=True)
         FORM_vars = {}
         FORM_vars['SGID'] = iso_id
         FORM_vars['NUMD'] = len(self)
-        FORM_vars['FOURDIM'] = 1
+        FORM_vars['FOURDIM'] = 1 
 
         with open(pjoin(workspace, 'iso_check_{}.frm'.format(iso_id)), 'w') as f:
             for i_graph, g in enumerate(self):
                 mapped = g.generate_numerator_form_input('', only_algebra=True)
                 f.write("L F{} = {};\n".format(i_graph + 1, mapped))
-
+                if len(self) == 1:
+                    f.write("L F2 = {};\n".format(mapped))
+            
         cmd = ' '.join([
             FORM_processing_options["FORM_path"],
             ] +
@@ -2151,9 +2151,13 @@ class FORMSuperGraphIsomorphicList(list):
             raise FormProcessingError(
                 "FORM processing failed with error:\n%s" % (r.stdout.decode('UTF-8')))
 
-        output = r.stdout.decode('UTF-8').replace(' ', '').replace('\n', '')
-        factor = re.sub(r'rat\(([-0-9]+),([-0-9]+)\)',
-                        r'(\1)/(\2)', output_match.findall(output)[0])
+        output = r.stdout.decode('UTF-8').replace(' ','').replace('\n','')
+        if output_match.findall(output)[0] == "0":
+            return(self, 0)
+        if len(self) == 1:
+            return(self, 1)
+
+        factor = re.sub(r'rat\(([-0-9]+),([-0-9]+)\)', r'(\1)/(\2)', output_match.findall(output)[0])
         if "rat" in factor:
             raise FormProcessingError(
                 "Multiplicity not found: {} / {} is not rational (iso_check_%(SGID)d)".format(self[0].name, g.name) % FORM_vars)
@@ -2794,19 +2798,29 @@ class FORMSuperGraphList(list):
                     iso_groups.append(((g, edge_colors), [graph]))
 
                 bar.update(g_id+1)
-                bar.update(graph_nr =g_id+1)
-                bar.update(iso_size =len(iso_groups))
+                bar.update(graph_nr=g_id+1)
+                bar.update(iso_size=len(iso_groups))
+        
+
 
         logger.info(
             "\033[1m{} unique supergraphs\033[m".format(len(iso_groups)))
         if not cuts is None:
-            graph_filtered = {'DUMP': [], 'KEEP':[]}
-            with progressbar.ProgressBar(prefix='Filter SG with valid cuts: {variables.keep}\u2713  {variables.drop}\u2717 : ', max_value=len(iso_groups), variables={'keep': '0', 'drop':'0'}) as bar:
-                for sgid, (refs, graphs) in enumerate(iso_groups):
-                    if graphs[0].filter_valid_cuts(cuts):
-                        graph_filtered["KEEP"] += [(refs, graphs)]
-                    else:
-                        graph_filtered["DUMP"] += [(refs, graphs)]
+            if FORM_processing_options["cores"] == 1:
+                cut_it = map(FORMSuperGraph.filter_valid_cuts_helper, 
+                    list((iso_graph, cuts) for iso_graph in iso_groups))
+            else:
+                pool = multiprocessing.Pool(processes=FORM_processing_options["cores"])
+                cut_it = pool.imap(FORMSuperGraph.filter_valid_cuts_helper, 
+                    list((iso_graph, cuts) for iso_graph in iso_groups))
+            
+            graph_filtered = {'DUMP':[], 'KEEP':[]}
+            with progressbar.ProgressBar(prefix='Filter SG with valid cuts: {variables.keep}\u2713  {variables.drop}\u2717 : ', max_value=len(iso_groups),variables={'keep': '0', 'drop':'0'}) as bar:
+                for sgid, (iso_graph, valid_cutQ) in enumerate(cut_it):
+                    if valid_cutQ: 
+                        graph_filtered["KEEP"] += [iso_graph]
+                    else: 
+                        graph_filtered["DUMP"] += [iso_graph]
                     bar.update(sgid+1)
                     bar.update(keep=len(graph_filtered['KEEP']))
                     bar.update(drop=len(graph_filtered['DUMP']))
