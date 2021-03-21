@@ -1090,7 +1090,7 @@ aGraph=%s;
                     max_diag_set_id = max(max_diag_set_id, diag_set['id'])
                     max_diag_id = max(max_diag_id, graph_id)
 
-                    ltd_sig = (g.n_loops, ','.join(c[0] for c in constants), ','.join(propagators), ','.join(energies), res)
+                    ltd_sig = (g.n_loops, str(constants), ','.join(propagators), ','.join(energies), res)
                     max_diag_set_id = max(max_diag_set_id, diag_set['id'])
                     max_diag_id = max(max_diag_id, graph_id)
                     
@@ -1197,7 +1197,7 @@ CTable ltdmap(0:{},0:{});
                     global_diag_id = (diag_set['id'], graph_id)
 
                     # TODO: symmetrize over the signature offset?
-                    pf_sig = (','.join(c[0] for c in constants), ','.join(energies), resden, res)
+                    pf_sig = (str(constants), ','.join(energies), resden, res)
                     #(tuple(n_props), tuple(tuple(x) for x in signatures), tuple(tuple(x) for x in shift_map), tuple(energies), tuple(constants), tuple(energy_map))
                     max_diag_set_id = max(max_diag_set_id, diag_set['id'])
                     max_diag_id = max(max_diag_id, graph_id)
