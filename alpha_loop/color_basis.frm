@@ -269,6 +269,15 @@ id D^n? = rat(D^n, 1);
 ******************
 * Color evaluation
 ******************
+id deltaA(cOlj1?,cOlj2?) = d_(cOlj1,cOlj2);
+id deltaF(cOli1?,cOli2?) = d_(cOli1,cOli2);
+id sunTA(cOlj1?,cOlj2?,cOlj3?) = fCol(cOlj1,cOlj2,cOlj3);
+* ffC(a,b,c,d) = f(a,b,e)*f(c,d,e) for 4g vertex. see coltracebased.h
+id ffC(?a) = ffCol(?a); 
+id sunTF(?a) = TCol(?a);
+id d(i1?,i2?) = d_(i1,i2); 
+.sort:transform_color_strings;
+
 #call tracebased
 .sort:color;
 *Manipulate color string
