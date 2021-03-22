@@ -990,7 +990,7 @@ aGraph=%s;
                             # TODO: recycle energy computations since Es will appear more than once
                             if not is_constant:
                                 prop_mom_in_lmb.append((lmp, shift, extshift))
-                                energy_map.append((p.m_squared if not p.uv else 'mUV*mUV', 1)) # we treat powers specially for LTD
+                                energy_map.append((totalmom, p.m_squared if not p.uv else 'mUV*mUV', 1)) # we treat powers specially for LTD
                                 energies.append(totalmom)
                                 shift_map.append(list(shift) + list(extshift))
 
@@ -1090,7 +1090,7 @@ aGraph=%s;
                     max_diag_set_id = max(max_diag_set_id, diag_set['id'])
                     max_diag_id = max(max_diag_id, graph_id)
 
-                    ltd_sig = (g.n_loops, str(constants), ','.join(propagators), ','.join(energies), res)
+                    ltd_sig = (g.n_loops, str(constants), ','.join(propagators), str(energy_map), res)
                     max_diag_set_id = max(max_diag_set_id, diag_set['id'])
                     max_diag_id = max(max_diag_id, graph_id)
                     
@@ -1169,7 +1169,7 @@ CTable ltdmap(0:{},0:{});
 
                             # recycle energy computations when there are duplicate edges
                             if not is_constant:
-                                energy_map.append(((p.m_squared if p.m_squared != 0 else 'small_mass_sq') if not p.uv else 'mUV*mUV', p.power))
+                                energy_map.append((totalmom, (p.m_squared if p.m_squared != 0 else 'small_mass_sq') if not p.uv else 'mUV*mUV', p.power))
 
                                 for _ in range(p.power):
                                     energies.append(totalmom)
@@ -1197,8 +1197,7 @@ CTable ltdmap(0:{},0:{});
                     global_diag_id = (diag_set['id'], graph_id)
 
                     # TODO: symmetrize over the signature offset?
-                    pf_sig = (str(constants), ','.join(energies), resden, res)
-                    #(tuple(n_props), tuple(tuple(x) for x in signatures), tuple(tuple(x) for x in shift_map), tuple(energies), tuple(constants), tuple(energy_map))
+                    pf_sig = (str(constants), str(energy_map), resden, res)
                     max_diag_set_id = max(max_diag_set_id, diag_set['id'])
                     max_diag_id = max(max_diag_id, graph_id)
                     if pf_sig not in unique_pf:
@@ -2544,7 +2543,7 @@ class FORMSuperGraphList(list):
                                     if skip_next != 0:
                                         continue
 
-                                    (mass, p) = mom_map[energy_index]
+                                    (_, mass, p) = mom_map[energy_index]
                                     skip_next += p
                                     energy_index += 1
                                     energy_code.append('\tdouble complex E{} = sqrt({}+{});'.format(j, e, mass))
