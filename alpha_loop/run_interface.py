@@ -388,7 +388,6 @@ class SuperGraph(dict):
 
     def show_IR_statistics(self, show_momenta=True):
 
-        # TODO improve rendering
         res_str = []
 
         res_str.append("All %d E-surfaces considered in tests:"%(len(self['E_surfaces_analysis'])))
@@ -415,6 +414,19 @@ class SuperGraph(dict):
                 ))
                 if show_momenta:
                     intersection_point = [ Vector(v) for v in results['intersection_point'] ]
+                    approach_direction = [ Vector(v) for v in results['approach_direction'] ]
+
+                    intersection_point_for_options = [ intersection_point[i] for i in range(0, len(approach_direction)) ]
+                    res_str.append('This can be rerun with the command: ir_profile %s -e_surfaces %s -intersections %s -intersection_point %s -approach_direction %s'%(
+                        self['name'],
+                        ' '.join('(%s)'%(','.join(
+                            '"%s"'%os['name'] for os in E_surface_ID_to_E_surface[E_surf_id]['onshell_propagators']
+                        )) for E_surf_id in E_surface_combination),
+                        '(%s)'%(','.join('%d'%i_surf for i_surf in range(0, len(E_surface_combination)))),
+                        '(%s)'%(','.join(','.join('%.16e'%v_i for v_i in list(v) ) for v in intersection_point_for_options)),
+                        '(%s)'%(','.join(','.join('%.16e'%v_i for v_i in list(v) ) for v in approach_direction))
+                    ))
+
                     res_str.append( '\n'.join('\n'.join('   %s%-5s%s : %-20s'%(Colours.BLUE, osp['name'], Colours.END, 
                             ', '.join( '%s%.10e'%('+' if vi>=0. else '', vi) for vi in list(sum( l*factor for l, factor in zip(intersection_point,osp['loop_sig']) )+Vector(osp['v_shift'])) )
                         ) for osp in E_surface_ID_to_E_surface[E_surf_ID]['onshell_propagators']
@@ -1447,7 +1459,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     ir_profile_parser.add_argument("-n_max","--n_max", dest='n_max', type=int, default=-1,
                     help='Set the maximum number of IR tests to perform per SG (default: all)')
     ir_profile_parser.add_argument("-maxnE","--max_E_surfaces_in_intersections", dest='max_E_surfaces_in_intersections', type=int, default=3,
-                    help='Set the maximum number of E-surfaces in an intersection (default: all)')
+                    help='Set the maximum number of E-surfaces in an intersection (default: 3)')
+    ir_profile_parser.add_argument("-minnE","--min_E_surfaces_in_intersections", dest='min_E_surfaces_in_intersections', type=int, default=1,
+                    help='Set the minimum number of E-surfaces in an intersection (default: 1)')
     ir_profile_parser.add_argument("-nshifts","--n_shifts_to_test_for_finding_intersection", dest='n_shifts_to_test_for_finding_intersection', type=int, default=10,
                     help='Set the maximum number of shifts to test for finding an intersection (default: %(default)s)')
     ir_profile_parser.add_argument("-e_surfaces","--e_surfaces", dest='selected_e_surfaces', type=str, nargs='*', default=None,
@@ -1751,20 +1765,20 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection']={}
                 E_surfaces_combinations = []
                 if not args.intersections:
-                    for n_E_surf_in_intersection in range(2 if frozen_momenta is None else 1,args.max_E_surfaces_in_intersections+1):
+                    for n_E_surf_in_intersection in range(args.min_E_surfaces_in_intersections, args.max_E_surfaces_in_intersections+1):
                         for E_surfaces_combination in itertools.combinations(range(0,len(E_surfaces)),n_E_surf_in_intersection):
                             E_surfaces_combinations.append(E_surfaces_combination)
                 else:
                     E_surfaces_combinations = args.intersections
 
-                for n_E_surf_in_intersection in range( 2 if frozen_momenta is None else 1 ,max(max(len(comb) for comb in E_surfaces_combinations),args.max_E_surfaces_in_intersections)+1):
+                for n_E_surf_in_intersection in range( args.min_E_surfaces_in_intersections ,max(max(len(comb) for comb in E_surfaces_combinations),args.max_E_surfaces_in_intersections)+1):
                     IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection'][n_E_surf_in_intersection] = {}
 
                 bar.update(n_comb=len(E_surfaces_combinations))
 
                 if args.intersection_point is not None:
                     if len(E_surfaces_combinations)!=1:
-                        raise alphaLoopInvalidRunCmd("An intersection point can only be specified if there is a single interesection to sample.")
+                        raise alphaLoopInvalidRunCmd("An intersection point can only be specified if there is a single intersection to sample.")
                     E_surfaces_combination_with_id = tuple(sorted([E_surfaces[E_surf_index]['id'] for E_surf_index in E_surfaces_combinations[0]]))
                     IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection'][len(E_surfaces_combination_with_id)][E_surfaces_combination_with_id] = {
                         'intersection_point' : [ args.intersection_point[i:i+3] for i in range(0,len(args.intersection_point),3) ]
@@ -1795,11 +1809,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     sum(len(v) for v in IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection'].values()),
                     '+'.join(
                         '%d'%len(IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection'][len_comb]) 
-                        for len_comb in range(2,args.max_E_surfaces_in_intersections+1)
+                        for len_comb in range(args.min_E_surfaces_in_intersections,args.max_E_surfaces_in_intersections+1)
                     ),
                     SG_name
                 ))
-                for len_comb in range(2 if frozen_momenta is None else 1,args.max_E_surfaces_in_intersections+1):
+                for len_comb in range(args.min_E_surfaces_in_intersections,args.max_E_surfaces_in_intersections+1):
                     logger.info("%d combinations of %d-E_surface intersecting: %s"%(
                         len(IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection'][len_comb]),
                         len_comb,', '.join('-'.join('%d'%E_id for E_id in comb) for comb in 
@@ -1881,7 +1895,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     rust_worker_f128 = rust_workers_f128[SG_name]
 
                 i_test = 0
-                #for len_comb in range(2,args.max_E_surfaces_in_intersections+1):
+                #for len_comb in range(args.min_E_surfaces_in_intersections,args.max_E_surfaces_in_intersections+1):
                 #    for E_surface_combination, comb_info in SG['E_surfaces_intersection_analysis'].get(len_comb,{}).items():
                 all_tests = sum([list(E_surfaces_intersection_analysis[len_comb].items()) for len_comb in E_surfaces_intersection_analysis],[])
                 for E_surface_combination, comb_info in all_tests:
@@ -1898,6 +1912,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     bar.update(intersection=str(E_surface_combination))
 
                     SG['E_surfaces_intersection_analysis'][len(E_surface_combination)][tuple(E_surface_combination)]['intersection_point'] = comb_info['intersection_point']
+                    SG['E_surfaces_intersection_analysis'][len(E_surface_combination)][tuple(E_surface_combination)]['approach_direction'] = \
+                        approach_direction if frozen_momenta is None else approach_direction[:-len(frozen_momenta['out'])]
                     intersection_point = [ Vector(v) for v in comb_info['intersection_point'] ]
                     momenta_str = '\n'.join('\n'.join('%-5s : %-20s'%(osp['name'], 
                             ', '.join( '%.10e'%vi for vi in list(sum( l*factor for l, factor in zip(intersection_point,osp['loop_sig']) )+Vector(osp['v_shift'])) )
@@ -2051,8 +2067,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                     '"%s"'%os['name'] for os in E_surface_ID_to_E_surface[E_surf_id]['onshell_propagators']
                                 )) for E_surf_id in E_surface_combination),
                                 '(%s)'%(','.join('%d'%i_surf for i_surf in range(0, len(E_surface_combination)))),
-                                '(%s)'%(','.join(','.join('%.16e'%v_i for v_i in list(v) ) for v in intersection_point)),
-                                '(%s)'%(','.join(','.join('%.16e'%v_i for v_i in list(v) ) for v in approach_direction))
+                                '(%s)'%(','.join(','.join('%.16e'%v_i for v_i in list(v) ) for v in (intersection_point if frozen_momenta is None else intersection_point[:-len(frozen_momenta['out'])] ) )),
+                                '(%s)'%(','.join(','.join('%.16e'%v_i for v_i in list(v) ) for v in (approach_direction if frozen_momenta is None else approach_direction[:-len(frozen_momenta['out'])] ) ))
                             ))
                             if args.verbose or do_debug:
                                 logger.info('\n'+'\n'.join('%-13.5e -> %-13.5e'%(
