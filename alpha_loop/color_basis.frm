@@ -123,6 +123,7 @@ CF  sp(s), sunA, sunF, diracInd, lorentzInd,ffC,sunTF,sunTA,vec,deltaA,deltaF;
 CF deltaS, deltaL;
 S ii,m,n,y,z,i;
 CF d,rat, num, den,numtemp;
+CF ampDenom;
 
 Auto I i1, i2, j1, j2;
 Polyratfun rat;
@@ -133,25 +134,15 @@ Polyratfun rat;
 
 * Load the diagrams
 #include- input_`SGID'.h
-*L F =   (gs^2*ii^2*gamma(diracInd(2),cpol(1,0,sunA(8)),diracInd(4))*(sp(p1,cpol(2,0,sunA(6)))+sp(p2,cpol(2,0,sunA(6)))+sp(k1,cpol(2,0,sunA(6))))*sunTA(sunA(6),sunA(8),sunA(11))*sunTF(sunF(7),sunA(11),sunF(9))*uSpinor(1,diracInd(4))*vbarSpinor(1,diracInd(2))-gs^2*ii^2*gamma(diracInd(2),cpol(2,0,sunA(6)),diracInd(4))*(sp(p1,cpol(1,0,sunA(8)))+sp(p2,cpol(1,0,sunA(8)))+sp(p2+p1-k1,cpol(1,0,sunA(8))))*sunTA(sunA(6),sunA(8),sunA(11))*sunTF(sunF(7),sunA(11),sunF(9))*uSpinor(1,diracInd(4))*vbarSpinor(1,diracInd(2))+gs^2*ii^2*gamma(diracInd(2),-k1+p2+p1-k1,diracInd(4))*sp(cpol(1,0,sunA(8)),cpol(2,0,sunA(6)))*sunTA(sunA(6),sunA(8),sunA(11))*sunTF(sunF(7),sunA(11),sunF(9))*uSpinor(1,diracInd(4))*vbarSpinor(1,diracInd(2)))*(hermconjugate(1));
-#$epsCount = 0;
-#$cepsCount = 0;
-#$vCount = 0;
-#$vbarCount =0;
-#$uCount = 0;
-#$ubarCount = 0;
-*--#[ feynman-rules :
 .sort
-*id hermconjugate(x?) = x;
-************************************************
-* Implement the inteferences of scalar integrals
-************************************************
 
-*id hermconjugate(x?) = x;
-************************************************
-* Implement the inteferences of scalar integrals
-************************************************
-
+* We only allow for the numerator of the effective vertex to be 1 :> no squaring/interferences
+id hermconjugate(1) = 1;
+if ( count(hermconjugate,1)>0 ); 
+    Print "Only hermconjugat(1) is allowed: %t";
+    exit "Critical error";
+endif;
+id denom_(?a) = ampDenom(?a);
 * now on the left-diagram
 * extract polarizations and spinors
 
@@ -193,182 +184,49 @@ repeat;
     id once sp(p?!vector_,x?) = p(mu)*sp(mu,x);
     id p?(mu?)*sp(mu?,x?) = sp(p,x);
 endrepeat;
-
-repeat id sp(p1?,p2?) = p1.p2;
+argument ampDenom;
+    id once sp(p?!vector_,x?) = p(mu)*sp(mu,x);
+    id p?(mu?)*sp(mu?,x?) = sp(p,x);
+endargument;
+argument ampDenom;
+    id sp(p1?,p2?) = p1.p2;
+endargument;
 .sort
+
 * count polarizations and spinors on left diagram
 #do i = 1,50
-        if ( (count(pol,1)>0) ) ; 
-            #$epsCount=$epsCount+1;
-        endif;
-        repeat id pol($epsCount,?a,i1?) = vec(eps`i',i1);
-        if ( count(pol,1)==0 ) redefine i "50";
-        .sort        
+    repeat id pol(`i',?a,i1?) = vec(eps`i',i1);
+    if ( count(pol,1)==0 ) redefine i "50";
+    .sort        
 #enddo
 
 #do i = 1,50
-        if ( (count(cpol,1)>0));
-            #$cepsCount=$cepsCount+1;
-        endif;
-        id cpol($cepsCount,?a,i1?) = vec(ceps`i',i1);
-        if ( count(cpol,1)==0 ) redefine i "50";
-        .sort        
+    id cpol(`i',?a,i1?) = vec(ceps`i',i1);
+    if ( count(cpol,1)==0 ) redefine i "50";
+    .sort        
 #enddo
-*Print +ss;
-.sort
 #do i = 1,50
-        if ( (count(uSpinor,1)>0) );
-          #$uCount=$uCount+1;
-        endif;
-        id uSpinor($uCount,?a,i1?) = spinor(sU`i',i1);
-        if ( count(uSpinor,1)==0 ) redefine i "50";
-        .sort        
+    id uSpinor(`i',?a,i1?) = spinor(sU`i',i1);
+    if ( count(uSpinor,1)==0 ) redefine i "50";
+    .sort        
 #enddo
 
 #do i = 1,50
-        if ( (count(vSpinor,1)>0) );
-          #$vCount=$vCount+1;
-        endif;
-        id uSpinor($vCount,?a,i1?) = spinor(sV`i',i1);
-        if ( count(vSpinor,1)==0 ) redefine i "50";
-        .sort        
+    id uSpinor(`i',?a,i1?) = spinor(sV`i',i1);
+    if ( count(vSpinor,1)==0 ) redefine i "50";
+    .sort        
 #enddo
-
 #do i = 1,50
-        if ( (count(ubarSpinor,1)>0) );  
-            #$ubarCount=$ubarCount+1;
-        endif;
-        id ubarSpinor($ubarCount,?a,i1?) = spinor(sUbar`i',i1);
-        if ( count(ubarSpinor,1)==0 ) redefine i "50";
-        .sort        
+    id ubarSpinor(`i',?a,i1?) = spinor(sUbar`i',i1);
+    if ( count(ubarSpinor,1)==0 ) redefine i "50";
+    .sort        
 #enddo
-
 #do i = 1,50
-        if ( (count(vbarSpinor,1)>0) );
-          #$vbarCount=$vbarCount+1;
-        endif;
-        id vbarSpinor($vbarCount,?a,i1?) = spinor(sVbar`i',i1);
-        if ( count(vbarSpinor,1)==0 ) redefine i "50";
-        .sort        
+    id vbarSpinor(`i',?a,i1?) = spinor(sVbar`i',i1);
+    if ( count(vbarSpinor,1)==0 ) redefine i "50";
+    .sort        
 #enddo
-**Print +s; 
 .sort
-
-
-* play the same game with the right-diagram
-argument hermconjugate;
-* construct gamma string
-    repeat id gamma(s1?,?a,s2?)*gamma(s2?,?b,s3?) = gamma(s1,?a,?b,s3);
-    repeat id p(mu1?)*gamma(s1?,?a,mu1?,?b,s2?)= gamma(s1,?a,p,?b,s2);
-    Multiply counter(10);
-* vectors
-    repeat id gamma(?a,pol(?b),?c)*counter(i?) = pol(?b,lorentzdummy[i])*gamma(?a,lorentzdummy[i],?c)*counter(i+1);
-    repeat id gamma(?a,cpol(?b),?c)*counter(i?) = cpol(?b,lorentzdummy[i])*gamma(?a,lorentzdummy[i],?c)*counter(i+1);
-    repeat id sp(pol(?a),p?vector_)*counter(i?) = pol(?a,lorentzdummy[i])*vec(p,lorentzdummy[i])*counter(i+1);
-    repeat id sp(cpol(?a),p?vector_)*counter(i?) = cpol(?a,lorentzdummy[i])*vec(p,lorentzdummy[i])*counter(i+1);
-    repeat id sp(pol(?a),pol(?b))*counter(i?) = pol(?a,lorentzdummy[i])*pol(?b,lorentzdummy[i])*counter(i+1);
-    repeat id sp(cpol(?a),cpol(?b))*counter(i?) = cpol(?a,lorentzdummy[i])*cpol(?b,lorentzdummy[i])*counter(i+1);
-    repeat id sp(pol(?a),cpol(?b))*counter(i?) = pol(?a,lorentzdummy[i])*cpol(?b,lorentzdummy[i])*counter(i+1);
-    id counter(n?) = 1;
-* spinors
-    Multiply counter(10);
-    repeat id gamma(ubarSpinor(?a),?b)*counter(i?) = ubarSpinor(?a,diracdummy[i])*gamma(diracdummy[i],?b)*counter(i+1);
-    repeat id gamma(vbarSpinor(?a),?b)*counter(i?) = vbarSpinor(?a,diracdummy[i])*gamma(diracdummy[i],?b)*counter(i+1);
-    repeat id gamma(?b,uSpinor(?a))*counter(i?) = uSpinor(?a,diracdummy[i])*gamma(?b,diracdummy[i])*counter(i+1);
-    repeat id gamma(?b,vSpinor(?a))*counter(i?) = vSpinor(?a,diracdummy[i])*gamma(?b,diracdummy[i])*counter(i+1);
-    id counter(n?) =1;
-endargument;
-.sort 
-
-Splitarg,hermconjugate;
-repeat id hermconjugate(x?,y?,?a)= hermconjugate(x)+hermconjugate(y,?a);
-FactArg,hermconjugate;
-repeat id hermconjugate(x?,y?,?a)= hermconjugate(x)*hermconjugate(y,?a);
-.sort
-* manipulate indices for the right diagrams
-argument hermconjugate;
-    argument;
-        id sunA(x?) = sunA(x+40);
-        id sunF(x?) = sunF(x+40);
-        id diracInd(x?) = diracInd(x+40);
-        id lorentzInd(x?) = lorentzInd(x+40);
-        id sunA(x?) = colA[x];
-        id sunF(x?) = colF[x];
-        id diracInd(x?) = dirac[x];
-        id lorentzInd(x?) = lorentz[x];
-        id deltaS(i1?,i2?) = d_(i1,i2);
-* metric
-        id deltaL(i1?,i2?) = d_(i1,i2);
-        id d(i1?,i2?) = d_(i1,i2);  
-    endargument;
-
-endargument;
-.sort
-id  hermconjugate(ii) = -ii;
-id hermconjugate(vSpinor(?a)) =vbarSpinor(?a);
-id hermconjugate(vbarSpinor(?a)) =vSpinor(?a);
-id hermconjugate(uSpinor(?a)) =ubarSpinor(?a);
-id hermconjugate(ubarSpinor(?a)) =uSpinor(?a);
-id hermconjugate(pol(?a)) = cpol(?a);
-id hermconjugate(cpol(?a)) = pol(?a);
-
-* assume no gamma5
-argument hermconjugate;
-    Transform, gamma, reverse(1,last);
-endargument;
-id hermconjugate(x?)=x;
-*Print;
-* translate color
-id deltaA(cOlj1?,cOlj2?) = d_(cOlj1,cOlj2);
-id deltaF(cOli1?,cOli2?) = d_(cOli1,cOli2);
-id sunTA(cOlj1?,cOlj2?,cOlj3?) = fCol(cOlj1,cOlj2,cOlj3);
-* ffC(a,b,c,d) = f(a,b,e)*f(c,d,e) for 4g vertex. see coltracebased.h
-id ffC(?a) = ffCol(?a); 
-id sunTF(?a) = TCol(?a);
-id d(i1?,i2?) = d_(i1,i2); 
-.sort
-
-* update the spinor/polarization counts for spinors from the right-hand diagram.
-#$offsetVB = $vbarCount;
-#$offsetV = $vCount;
-#$offsetU = $uCount;
-#$offsetUB = $ubarCount;
-#$offsetEP = $epsCount;
-#$offsetCEP = $cepsCount;
-.sort
-#do i=1,50
-    if(match(vbarSpinor(`i'-$offsetVB,?a))>=1);
-        id vbarSpinor(`i'-$offsetVB,?a,i1?) =  spinor(sVbar`i',i1);
-        #$vbarCount = $vbarCount+1;
-    endif;
-    if(match(vSpinor(`i'-$offsetV,?a))>=1);
-        id vSpinor(`i'-$offsetV,?a,i1?) =  spinor(sV`i',i1);
-        #$vCount = $vCount+1;
-    endif;
-    if(match(uSpinor(`i'-$offsetU,?a))>=1);
-        id uSpinor(`i'-$offsetU,?a,i1?) =  spinor(sU`i',i1);
-        #$uCount = $uCount+1;
-    endif;
-    if(match(ubarSpinor(`i'-$offsetUB,?a))>=1);
-        id ubarSpinor(`i'-$offsetUB,?a,i1?) =  spinor(sUbar`i',i1);
-        #$ubarCount = $ubarCount+1;
-    endif;
-    if(match(pol(`i'-$offsetEP,?a))>=1);
-        id pol(`i'-$offsetEP,?a,i1?) =  vec(eps`i',i1);
-        #$epsCount = $epsCount+1;
-    endif;    
-    if(match(cpol(`i'-$offsetCEP,?a))>=1);
-        id cpol(`i'-$offsetCEP,?a,i1?) =  vec(ceps`i',i1);
-        #$cepsCount = $cepsCount+1;
-    endif;
-    if((occurs(vbarSpinor,vSpinor,ubarSpinor,uSpinor,pol,cpol)==0));
-        redefine i "50";
-    endif;
-    .sort
-#enddo
-id ii=i_;
-*Print;
-
 if (count(pol,1,cpol,1,uSpinor,1,vSpinor,1,ubarSpinor,1,vbarSpinor,1));
     Print "Unsubstituted polarization: %t";
     exit "Critical error";
@@ -391,12 +249,12 @@ Multiply counter(1);
 repeat id gamma(i1?,?a,p?,?b,i2?)*counter(i?) = vec(p,lorentzdummy[i])*gamma(i1,?a,lorentzdummy[i],?b,i2)*counter(i+1);
 id counter(n?) = 1;
 *Do gamma traces
-#do i=1,10
+#do i=1,50
     id once gamma(mu?,?a,mu?) = g_(`i',?a);
 #enddo
 .sort
 
-#do i=1,10
+#do i=1,50
     tracen `i';
     .sort:trace-`i';
 #enddo
@@ -404,7 +262,6 @@ id counter(n?) = 1;
 #call ChisholmIdentities
 
 id vec(p?,mu?) = p(mu);
-
 .sort
 
 id D^n? = rat(D^n, 1);
@@ -428,8 +285,6 @@ id cOlNA=8;
 Multiply replace_(cOlNF,3,cOlNA,8,Tf,1/2);
 .sort:color-final;
 
-
-
 * construct gamma string
 repeat id gamma(s1?,?a,s2?)*gamma(s2?,?b,s3?) = gamma(s1,?a,?b,s3);
 Multiply counter(1);
@@ -445,13 +300,9 @@ id vec(p?,mu?) = p(mu);
     .sort:trace-`i';
 #enddo
 
-*if (count(gamma, 1));
-*    Print "Unsubstituted gamma string: %t";
-*    exit "Critical error";
-*endif;
-
 id D^n? = rat(D^n, 1);
 .sort:gamma-traces;
+
 Polyratfun;
 repeat id rat(x?,y?) =x/y;
 .sort:undo-polyrat;

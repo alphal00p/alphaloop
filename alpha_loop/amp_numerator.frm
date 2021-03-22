@@ -150,6 +150,7 @@ CF f, vx, vxs(s), vec, vec1;
 CF subs, configurations, conf, cmb, diag, der, energy, spatial(s);
 CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, integrateduv;
 CT gammatracetensor(c);
+CF ampDenom, pow;
 
 
 S UVRenormFINITE;
@@ -763,14 +764,23 @@ endargument;
         argument energies, ellipsoids, constants;
             id penergy(p`i') = lm`$OFFSET';
         endargument;
+        argument ampDenom;
+            id penergy(p`i') = lm`$OFFSET';
+        endargument;
         #$OFFSET = $OFFSET + 1;
         #do j=`i',`$MAXP'
             argument energies, ellipsoids, constants;
                 id p`i'.p`j' = lm`$OFFSET';
             endargument;
+            argument ampDenom;
+                id p`i'.p`j' = lm`$OFFSET';
+            endargument;
             #$OFFSET = $OFFSET + 1;
             id spatial(p`i', p`j') = lm`$OFFSET';
             argument energies;
+                id spatial(p`i', p`j') = lm`$OFFSET';
+            endargument;
+            argument ampDenom;
                 id spatial(p`i', p`j') = lm`$OFFSET';
             endargument;
             #$OFFSET = $OFFSET + 1;
@@ -782,14 +792,23 @@ endargument;
         argument energies, ellipsoids, constants;
             id penergy(c`i') = lm`$OFFSET';
         endargument;
+        argument ampDenom;
+            id penergy(c`i') = lm`$OFFSET';
+        endargument;
         #$OFFSET = $OFFSET + 1;
         #do j=1,`$MAXP'
             argument energies, ellipsoids, constants;
                 id c`i'.p`j' = lm`$OFFSET';
             endargument;
+            argument ampDenom;
+                id c`i'.p`j' = lm`$OFFSET';
+            endargument;
             #$OFFSET = $OFFSET + 1;
             id spatial(p`j', c`i') = lm`$OFFSET';
             argument energies;
+                id spatial(p`j', c`i') = lm`$OFFSET';
+            endargument;
+            argument ampDenom;
                 id spatial(p`j', c`i') = lm`$OFFSET';
             endargument;
             #$OFFSET = $OFFSET + 1;
@@ -799,9 +818,15 @@ endargument;
             argument energies, ellipsoids, constants;
                 id c`i'.c`j' = lm`$OFFSET';
             endargument;
+            argument ampDenom;
+                id c`i'.c`j' = lm`$OFFSET';
+            endargument;
             #$OFFSET = $OFFSET + 1;
             id spatial(c`i', c`j') = lm`$OFFSET';
             argument energies;
+                id spatial(c`i', c`j') = lm`$OFFSET';
+            endargument;
+            argument ampDenom;
                 id spatial(c`i', c`j') = lm`$OFFSET';
             endargument;
             #$OFFSET = $OFFSET + 1;
@@ -815,6 +840,9 @@ endargument;
         #$OFFSET = $OFFSET + 1;
         #do j=`i',`$MAXP'
             id p`i'.p`j' = lm`$OFFSET';
+            argument ampDenom;
+                id p`i'.p`j' = lm`$OFFSET';
+            endargument;
             #$OFFSET = $OFFSET + 2;
         #enddo
     #enddo
@@ -823,14 +851,21 @@ endargument;
         #$OFFSET = $OFFSET + 1;
         #do j=1,`$MAXP'
             id c`i'.p`j' = lm`$OFFSET';
+            argument ampDenom;
+                id c`i'.p`j' = lm`$OFFSET';
+            endargument;
             #$OFFSET = $OFFSET + 2;
         #enddo
 
         #do j=`i',`$MAXK'
             id c`i'.c`j' = lm`$OFFSET';
+            argument ampDenom;
+                id c`i'.c`j' = lm`$OFFSET';
+            endargument;
             #$OFFSET = $OFFSET + 2;
         #enddo
     #enddo
+    id ampDenom(xx?) = pow(xx,-1);
     .sort:conv-dots;    
 ********************** TRANSLATION OF ALL ADDITONAL OBJECTS ONLY EXISTING IN AMPLITUDES (spinors, spatial components etc)
 * for polarized cross-sections
@@ -1044,30 +1079,51 @@ id cmb(?a) = 1;
     #$OFFSET = $OFFSET + 1;
     #do j=`i',`$MAXP'
         id p`i'.p`j' = lm`$OFFSET';
+        argument ampDenom;
+            id p`i'.p`j' = lm`$OFFSET';
+        endargument;
         #$OFFSET = $OFFSET + 1;
         id spatial(p`i', p`j') = lm`$OFFSET';
+        argument ampDenom;
+            id spatial(p`i', p`j') = lm`$OFFSET';
+        endargument;
         #$OFFSET = $OFFSET + 1;
     #enddo
 #enddo
 
 #do i=1,`$MAXK'
     id penergy(c`i') = lm`$OFFSET';
+    argument ampDenom;
+        id penergy(c`i') = lm`$OFFSET';
+    endargument;
     #$OFFSET = $OFFSET + 1;
     #do j=1,`$MAXP'
         id c`i'.p`j' = lm`$OFFSET';
+        argument ampDenom;
+            id c`i'.p`j' = lm`$OFFSET';
+        endargument;
         #$OFFSET = $OFFSET + 1;
         id spatial(p`j', c`i') = lm`$OFFSET';
+        argument ampDenom;
+            id spatial(p`j', c`i') = lm`$OFFSET';
+        endargument;
         #$OFFSET = $OFFSET + 1;
     #enddo
 
     #do j=`i',`$MAXK'
         id c`i'.c`j' = lm`$OFFSET';
+        argument ampDenom;
+            id c`i'.c`j' = lm`$OFFSET';
+        endargument;
         #$OFFSET = $OFFSET + 1;
         id spatial(c`i', c`j') = lm`$OFFSET';
+        argument ampDenom;
+            id spatial(c`i', c`j') = lm`$OFFSET';
+        endargument;
         #$OFFSET = $OFFSET + 1;
     #enddo
 #enddo
-    
+id ampDenom(xx?) = pow(xx,-1);    
 ********************** TRANSLATION OF ALL ADDITONAL OBJECTS ONLY EXISTING IN AMPLITUDES (spinors, spatial components etc)
 * for polarized cross-sections
     #$MAXEPS =  `NPOL';

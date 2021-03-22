@@ -2971,7 +2971,7 @@ impl SquaredTopology {
 
                     res *= def_jacobian;
 
-                    if self.settings.general.debug > 1 {
+                    if self.settings.general.debug >= 1 {
                         println!("  | res diagram set {}: = {:e}", diagram_set.id, res);
                     }
 
