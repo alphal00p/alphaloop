@@ -1438,7 +1438,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='the name of a supergraph to display')
     ir_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=20,
                     help='force a certain number of points to be considered for the ir profile')
-    ir_profile_parser.add_argument("-max","--max_scaling", dest='max_scaling', type=float, default=1.0e-09,
+    ir_profile_parser.add_argument("-sdt","--small_deformation_threshold", dest='small_deformation_threshold', type=float, default=1.0e-08,
+                    help='Set the threshold on the normalised deformation norm for considering the deformation small (default: %(default)s)')
+    ir_profile_parser.add_argument("-max","--max_scaling", dest='max_scaling', type=float, default=1.0e-05,
                     help='maximum IR scaling to consider')
     ir_profile_parser.add_argument("-min","--min_scaling", dest='min_scaling', type=float, default=1.0e0,
                     help='minimum IR scaling to consider')
@@ -1446,7 +1448,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='specify random seed')
     ir_profile_parser.add_argument("-rp","--required_precision", dest='required_precision', type=float, default=None,
                     help='minimum required relative precision for returning a result.')
-    ir_profile_parser.add_argument("-t","--target_scaling", dest='target_scaling', type=int, default=0,
+    ir_profile_parser.add_argument("-t","--target_scaling", dest='target_scaling', type=int, default=1,
                     help='set target IR scaling (default=0)')
     ir_profile_parser.add_argument(
         "-mm", "--use_mathematica", action="store_true", dest="mathematica", default=False,
@@ -2140,10 +2142,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                     test_passed_per_cut[cut_ID] = test_passed_per_cut[cut_ID] and (abs(t_scaling_results[-1][1]-1.) < 1.0e-5)
                                 if len(deformation_norm_results)>0:
                                     if any(E_surface_ID_to_E_surface[E_surf_id]['pinched'] for E_surf_id in E_surface_combination if E_surf_id!=CC_E_surf_id):
-                                        test_passed_per_cut[cut_ID] = test_passed_per_cut[cut_ID] and (abs(deformation_norm_results[-1][1]) < 1.0e-5)
+                                        test_passed_per_cut[cut_ID] = test_passed_per_cut[cut_ID] and (abs(deformation_norm_results[-1][1]) < args.small_deformation_threshold)
                                 if len(deformation_projection_results)>0:
-                                    # Only enable the check if the deformation is enabled
-                                    if self.hyperparameters['General']['deformation_strategy']!='none':
+                                    # Only enable the check if the deformation is enabled and if the deformation is large enough, because if it is small it may be that we are on pinched threshold
+                                    if self.hyperparameters['General']['deformation_strategy']!='none' and (abs(deformation_norm_results[-1][1]) > args.small_deformation_threshold):
                                         test_passed_per_cut[cut_ID] = test_passed_per_cut[cut_ID] and all( projections[-1][1] < 0. for E_surf_id, projections in deformation_projection_results.items() )
 
                                 if args.verbose or (not test_passed_per_cut[cut_ID] and args.show_fails):
