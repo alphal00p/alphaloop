@@ -1989,6 +1989,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                             complex_conjugated_propagators = []
                             for diag_piece in cuts_info['diagram_sets'][0]['diagram_info']:
                                 for ll in diag_piece['graph']['loop_lines']:
+                                    if ll['signature']==[]:
+                                        continue
                                     for prop in ll['propagators']:
                                         if diag_piece['conjugate_deformation']:
                                             complex_conjugated_propagators.append(prop['name'])
