@@ -1097,7 +1097,7 @@ impl SquaredTopologySet {
                     *xi = xi.max(0.).min(1.0);
                 }
             }
-
+            
             let (l_energy, (l_space, jac)) = if i < n_loops - n_fixed {
                 // set the loop index to i + 1 so that we can also shift k
                 (
@@ -1134,7 +1134,6 @@ impl SquaredTopologySet {
                     + <T as NumCast>::from(rot[2][1]).unwrap() * l_space[1]
                     + <T as NumCast>::from(rot[2][2]).unwrap() * l_space[2],
             );
-
             jac_para *= jac;
             para_jacs[i] = jac_para;
         }
@@ -1956,8 +1955,10 @@ impl SquaredTopology {
                         ) * (Float::powi(scaling, 2) + T::one())
                             / scaling))
                             .exp(),
+                            // Float::powi(scaling, 12),
                         if self.settings.cross_section.normalising_function.spread == 1. {
                             Into::<T>::into(0.27973176363304485456919761407082)
+                            // Into::<T>::into(3.6462924162048315061277675650969e7)
                         } else {
                             Into::<T>::into(
                                 2. * rgsl::bessel::K1(
@@ -1987,6 +1988,7 @@ impl SquaredTopology {
                 }
                 NormalisingFunction::None => (Into::<T>::into(1.0), Into::<T>::into(1.0)),
             };
+
             scaling_result *=
                 scaling_jac * Float::powi(scaling, self.n_loops as i32 * 3) * h / h_norm;
 

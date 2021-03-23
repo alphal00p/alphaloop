@@ -149,6 +149,13 @@ class RunHyperparameters(HyperParameters):
             'CrossSection.NormalisingFunction.name'         : 'left_right_exponential',
             'CrossSection.NormalisingFunction.center'       : 1.0,
             'CrossSection.NormalisingFunction.spread'       : 1.0,
+            'Deformation.fixed.pinch_dampening_alpha'       : 1.0,
+            'Deformation.fixed.pinch_dampening_k_com'       : 1.0,
+            'Deformation.fixed.pinch_dampening_k_shift'     : 0.0,
+            'Deformation.scaling.branch_cut_alpha'          : 1.0,
+            'Deformation.fixed.dampen_on_pinch'             : True,
+            'Deformation.fixed.dampen_on_pinch_after_lambda': True,
+
             'General.stability_checks'                      : [
                 {
                     # number of samples to take for the numerical stability check
@@ -438,7 +445,7 @@ class SuperGraph(dict):
                         't_scal: %s'%('%.3e'%cut_res['t_scaling'] if cut_res['t_scaling'] is not None else 'N/A'),
                         'def_norm: %s'%('%.3e'%cut_res['deformation_norm'] if cut_res['deformation_norm'] is not None else 'N/A'),
                         'def_proj: %s'%(
-                            ' | '.join('#%d -> %s%.3e'%(E_surface_combination.index(E_surf_id),'+' if proj>=0. else '',proj) for E_surf_id, proj in sorted(cut_res['deformation_projections'].items(), key=lambda el:el[0])) 
+                            ' | '.join('#%d -> %s%.3e'%(E_surface_combination.index(E_surf_id),'+' if proj>0. else '',proj) for E_surf_id, proj in sorted(cut_res['deformation_projections'].items(), key=lambda el:el[0])) 
                             if cut_res['deformation_projections'] is not None else 'N/A'),
                     )
                     res_list.append(
@@ -1961,9 +1968,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     for cut_ID, cuts_info in list(enumerate(SG['cutkosky_cuts']))+[(None, None)]:
                         
                         if cut_ID is not None:
+
+                            CC_edges = set([cut['name'] for cut in cuts_info['cuts']])
                             # Skip Cutkosky cuts not matching any of the specified thresholds
                             if args.only_relevant_cuts and not any( 
-                                set(os['name'] for os in E_surface_ID_to_E_surface[E_surf_id]['onshell_propagators'])==set([cut['name'] for cut in cuts_info['cuts']])
+                                set(os['name'] for os in E_surface_ID_to_E_surface[E_surf_id]['onshell_propagators'])==CC_edges
                                 for E_surf_id in E_surface_combination):
                                 continue
 
@@ -1986,9 +1995,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                         else:
                                             non_complex_conjugated_propagators.append(prop['name'])
                             for E_surf_id in E_surface_combination:
-                                if all( (os['name'] in non_complex_conjugated_propagators) for os in E_surface_ID_to_E_surface[E_surf_id]['onshell_propagators']):
+                                if E_surf_id == CC_E_surf_id:
+                                    continue
+                                if all( (os['name'] in non_complex_conjugated_propagators) for os in E_surface_ID_to_E_surface[E_surf_id]['onshell_propagators'] if os['name'] not in CC_edges):
                                     E_surfaces_to_be_deformed_for_this_CC[E_surf_id] = 1
-                                elif all( (os['name'] in complex_conjugated_propagators) for os in E_surface_ID_to_E_surface[E_surf_id]['onshell_propagators']):
+                                elif all( (os['name'] in complex_conjugated_propagators) for os in E_surface_ID_to_E_surface[E_surf_id]['onshell_propagators'] if os['name'] not in CC_edges):
                                     E_surfaces_to_be_deformed_for_this_CC[E_surf_id] = -1
 
                         use_f128 = args.f128

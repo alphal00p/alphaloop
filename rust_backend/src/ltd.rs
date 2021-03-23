@@ -386,12 +386,7 @@ impl Topology {
                                             - (cut_mass_sum.abs() + surface_mass).powi(2)
                                             < Into::<float>::into(1e-10 * self.e_cm_squared)
                                         {
-                                            if surface_mass.is_zero() {
-                                                is_pinch = true;
-                                            } else {
-                                                // we do not consider pointlike ellipsoids to exist
-                                                exists = false;
-                                            }
+                                            is_pinch = true;
                                         }
                                     } else {
                                         exists = false;
@@ -694,12 +689,7 @@ impl Topology {
                 }
 
                 if size < Into::<float>::into(1e-8 * self.e_cm_squared) {
-                    if mass_sum.is_zero() {
-                        is_pinch = true;
-                    } else {
-                        // we do not consider pointlike ellipsoids to exist
-                        exists = false;
-                    }
+                    is_pinch = true;
                 }
             } else {
                 exists = false;
