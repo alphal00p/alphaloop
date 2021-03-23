@@ -602,7 +602,8 @@ class EsurfaceIntersectionFinder(object):
 
         return None
 
-    def delta(self, loop_momenta, loop_sig, shift, m_squared):
+    @classmethod
+    def delta(cls, loop_momenta, loop_sig, shift, m_squared):
         
         k = [ sum( l[i]*factor for l, factor in zip(loop_momenta,loop_sig)) for i in range(0,3) ]
 
@@ -613,7 +614,8 @@ class EsurfaceIntersectionFinder(object):
             +m_squared
         )
     
-    def ddelta(self, loop_momenta, loop_sig, shift, m_squared, loop_index, component_index):
+    @classmethod
+    def ddelta(cls, loop_momenta, loop_sig, shift, m_squared, loop_index, component_index):
 
         k_derived = loop_momenta[loop_index][component_index]*loop_sig[loop_index]
 
@@ -622,31 +624,35 @@ class EsurfaceIntersectionFinder(object):
 
         k_not_derived = sum( l[component_index]*factor for i_loop_mom, (l, factor) in enumerate(zip(loop_momenta,loop_sig)) if i_loop_mom!=loop_index )
 
-        return (k_derived + k_not_derived + shift[component_index])/self.delta(loop_momenta, loop_sig, shift, m_squared)
+        return (k_derived + k_not_derived + shift[component_index])/cls.delta(loop_momenta, loop_sig, shift, m_squared)
 
-    def dddelta(self, loop_momenta, loop_sig, shift, m_squared, loop_indexA, component_indexA,loop_indexB, component_indexB):
+    @classmethod
+    def dddelta(cls, loop_momenta, loop_sig, shift, m_squared, loop_indexA, component_indexA,loop_indexB, component_indexB):
 
         if (loop_indexA, component_indexA)==(loop_indexB, component_indexB):
-            return (1.-(self.ddelta(loop_momenta, loop_sig, shift, m_squared,loop_indexA, component_indexA)**2))/self.delta(loop_momenta, loop_sig, shift, m_squared)
+            return (1.-(cls.ddelta(loop_momenta, loop_sig, shift, m_squared,loop_indexA, component_indexA)**2))/cls.delta(loop_momenta, loop_sig, shift, m_squared)
         else:
-            return ((self.ddelta(loop_momenta, loop_sig, shift, m_squared,loop_indexA, component_indexA)*self.ddelta(loop_momenta, loop_sig, shift, m_squared,loop_indexB, component_indexB))/
-                self.delta(loop_momenta, loop_sig, shift, m_squared) )
+            return ((cls.ddelta(loop_momenta, loop_sig, shift, m_squared,loop_indexA, component_indexA)*cls.ddelta(loop_momenta, loop_sig, shift, m_squared,loop_indexB, component_indexB))/
+                cls.delta(loop_momenta, loop_sig, shift, m_squared) )
 
-    def E_surface(self, loop_momenta, onshell_propagators, E_surface_shift):
+    @classmethod
+    def E_surface(cls, loop_momenta, onshell_propagators, E_surface_shift):
         
         # Not necessary any longer as I append frozen momenta upstream now.
         #if len(loop_momenta) < len(self.cvxpy_coordinates):
         #    loop_momenta += self.frozen_momenta['out']
 
-        return sum( self.delta(loop_momenta,osp['loop_sig'],osp['v_shift'],osp['m_squared']) for osp in onshell_propagators) + E_surface_shift
+        return sum( cls.delta(loop_momenta,osp['loop_sig'],osp['v_shift'],osp['m_squared']) for osp in onshell_propagators) + E_surface_shift
 
-    def dE_surface(self, loop_momenta, onshell_propagators, E_surface_shift, loop_index, component_index):
+    @classmethod
+    def dE_surface(cls, loop_momenta, onshell_propagators, E_surface_shift, loop_index, component_index):
 
-        return sum( self.ddelta(loop_momenta,osp['loop_sig'],osp['v_shift'],osp['m_squared'],loop_index, component_index) for osp in onshell_propagators)
+        return sum( cls.ddelta(loop_momenta,osp['loop_sig'],osp['v_shift'],osp['m_squared'],loop_index, component_index) for osp in onshell_propagators)
 
-    def ddE_surface(self, loop_momenta, onshell_propagators, E_surface_shift, loop_indexA, component_indexA,loop_indexB, component_indexB):
+    @classmethod
+    def ddE_surface(cls, loop_momenta, onshell_propagators, E_surface_shift, loop_indexA, component_indexA,loop_indexB, component_indexB):
 
-        return sum( self.dddelta(loop_momenta,osp['loop_sig'],osp['v_shift'],osp['m_squared'],loop_indexA, component_indexA,loop_indexB, component_indexB) for osp in onshell_propagators)
+        return sum( cls.dddelta(loop_momenta,osp['loop_sig'],osp['v_shift'],osp['m_squared'],loop_indexA, component_indexA,loop_indexB, component_indexB) for osp in onshell_propagators)
 
     def intersection_function(self, xs):
 
