@@ -768,7 +768,6 @@ repeat id forestmb(?a,k1?,?b)*penergy(k1?) = forestmb(?a,k1,?b)*energy(k1);
 
 * apply the transformation to the spinney basis, only for the energies
 B+ diag, energy, forestmb;
-Print +s;
 .sort:fmb-1;
 Keep brackets;
 id forestmb(?a) = replace_(?a);
