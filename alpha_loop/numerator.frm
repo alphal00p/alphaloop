@@ -149,7 +149,7 @@ Fill logmasses(-6) = logmt;
 
 CF integratedct, rat, num, den;
 Set ts: t0,...,t20;
-CT penergy;
+CT penergy,energyct;
 NF energync;
 Symbol ca,cf,nf,[dabc^2],[d4RR],[d4RA],[d4AA];
 
@@ -628,7 +628,7 @@ if (count(energy,1));
 endif;
 
 repeat id cmb(?a)*forestid(?b) = f(forestid(?b,cmb(?a)))*cmb(?a);
-id cmb(?a) = 1; * TODO: no longer needed?
+id cmb(?a) = 1;
 id f(?a) = forestid(?a);
 argtoextrasymbol tonumber,forestid,1;
 #redefine oldextrasymbols "`extrasymbols_'"
@@ -641,6 +641,11 @@ argtoextrasymbol tonumber,forestid,1;
 #define forestcount "{`forestend'-`oldextrasymbols'}"
 
 id forestid(x1?,?a,x3?) = forestid(?a)*forest(x1)*x3*conf(-1,x1);
+
+if (expression(F) == 0);
+    repeat id forestid(p?,n?,?a) = energy(p)^n*forestid(?a);
+    id forestid = 1;
+endif;
 
 * Create the local UV counterterm
 * TODO: create a new expr per UV subgraph as well since it gens many terms?
@@ -744,20 +749,10 @@ AB+ cmb;
 Keep brackets;
 id replace(?a) = replace_(?a);
 .sort:pf-splitoff;
-*    Hide F;
 
-* add the powers of the energies
-repeat id forestid(?a,p?,n?,?b)*diag(?c,p?,p1?,?d) = forestid(?a,p,n,?b)*diag(?c,p,n,p1,?d);
-repeat id forestid(?a,p?,n?,?b)*diag(?c,p?) = forestid(?a,p,n,?b)*diag(?c,p,n);
-
-if (expression(F) == 0);
-    id forestid(?a) = 1;
-endif;
-
-* The UV counterterm procedure may have create new dot products for which we extract the energies now
-* now extract the energy components of the LTD loop variables
-id k1?.k2? = g(k1, k2);
-repeat id diag(?a,k1?,?b)*g(k1?,k2?) = diag(?a,k1,?b)*f(k1,k2); * FIXME: is this safe? we may have to transform the basis first
+* The UV counterterm procedure may have create new dot products for which we extract the energies
+id c1?.c2? = g(c1, c2);
+repeat id forestmb(?a,c1?,?b)*g(c1?,c2?) = forestmb(?a,c1,?b)*f(c1,c2);
 id g(p1?,p2?) = p1.p2;
 symmetrize f;
 id f(?a) = f(?a,1);
@@ -767,32 +762,18 @@ B+ f;
 .sort:energy-splitoff-1;
 Keep brackets;
 id f(k1?,k2?,n?) = (penergy(k1)*penergy(k2)-spatial(k1,k2))^n;
+.sort
 
-B+ diag,penergy,energy;
-.sort:energy-splitoff-2;
-Keep brackets;
+repeat id forestmb(?a,k1?,?b)*penergy(k1?) = forestmb(?a,k1,?b)*energy(k1);
 
-repeat id diag(?a,k1?,?b)*penergy(k1?) = diag(?a,k1,?b)*energy(k1);
-
-repeat id energy(?a)*energy(?b) = energy(?a,?b);
-symmetrize energy;
-id energy(?a) = energy(f(?a));
-.sort:energy-splitoff-3;
-
-B energy,diag,cmb,forestmb;
-.sort:energy-splitoff-4;
-Keep brackets;
-
-id energy(f(?a)) = energy(?a);
-chainout energy;
-id energy(c0) = 1;
-
-* apply the transformation to the forest basis, only for the energies
+* apply the transformation to the spinney basis, only for the energies
 B+ diag, energy, forestmb;
 Print +s;
 .sort:fmb-1;
 Keep brackets;
 id forestmb(?a) = replace_(?a);
+id energy(p?) = energyct(p);
+id energyct(p?) = energy(p);
 
 .sort:fmb-2;
 Hide F;
@@ -805,10 +786,12 @@ repeat id energy(k?)*diag(?a,k?,n?,?b) = diag(?a,k,n+1,?b);
 
 if (count(energy,1));
     Print "Energy left: %t";
+    exit "Critical error";
 endif;
 
 if (count(cmb,1) == 0);
     Print "CMB missing: %t";
+    exit "Critical error";
 endif;
 .sort
 
