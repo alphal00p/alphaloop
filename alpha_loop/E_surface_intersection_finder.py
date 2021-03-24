@@ -624,7 +624,7 @@ class EsurfaceIntersectionFinder(object):
 
         k_not_derived = sum( l[component_index]*factor for i_loop_mom, (l, factor) in enumerate(zip(loop_momenta,loop_sig)) if i_loop_mom!=loop_index )
 
-        return (k_derived + k_not_derived + shift[component_index])/cls.delta(loop_momenta, loop_sig, shift, m_squared)
+        return loop_sig[loop_index]*(k_derived + k_not_derived + shift[component_index])/cls.delta(loop_momenta, loop_sig, shift, m_squared)
 
     @classmethod
     def dddelta(cls, loop_momenta, loop_sig, shift, m_squared, loop_indexA, component_indexA,loop_indexB, component_indexB):
