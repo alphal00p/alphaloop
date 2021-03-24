@@ -1987,24 +1987,25 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                             # Also compute what are the E_surfaces expected to be deformed and if they are complex conjugated or not
                             E_surfaces_to_be_deformed_for_this_CC = {}
-                            non_complex_conjugated_propagators = []
-                            complex_conjugated_propagators = []
+                            non_complex_conjugated_propagators = {}
+                            complex_conjugated_propagators = {}
                             for diag_piece in cuts_info['diagram_sets'][0]['diagram_info']:
                                 for ll in diag_piece['graph']['loop_lines']:
-                                    if ll['signature']==[]:
-                                        continue
                                     for prop in ll['propagators']:
                                         if diag_piece['conjugate_deformation']:
-                                            complex_conjugated_propagators.append(prop['name'])
+                                            complex_conjugated_propagators[prop['name']] = ll['signature']
                                         else:
-                                            non_complex_conjugated_propagators.append(prop['name'])
+                                            non_complex_conjugated_propagators[prop['name']] = ll['signature']
                             for E_surf_id in E_surface_combination:
                                 if E_surf_id == CC_E_surf_id:
                                     continue
-                                if all( (os['name'] in non_complex_conjugated_propagators) for os in E_surface_ID_to_E_surface[E_surf_id]['onshell_propagators'] if os['name'] not in CC_edges):
-                                    E_surfaces_to_be_deformed_for_this_CC[E_surf_id] = 1
-                                elif all( (os['name'] in complex_conjugated_propagators) for os in E_surface_ID_to_E_surface[E_surf_id]['onshell_propagators'] if os['name'] not in CC_edges):
-                                    E_surfaces_to_be_deformed_for_this_CC[E_surf_id] = -1
+                                E_surf_props_not_in_CC = [ os['name'] for os in E_surface_ID_to_E_surface[E_surf_id]['onshell_propagators'] if os['name'] not in CC_edges ]
+                                if all( (os_name in non_complex_conjugated_propagators) for os_name in E_surf_props_not_in_CC):
+                                    if not all( non_complex_conjugated_propagators[os_name]==[] for os_name in E_surf_props_not_in_CC ):
+                                        E_surfaces_to_be_deformed_for_this_CC[E_surf_id] = 1
+                                elif all( (os_name in complex_conjugated_propagators) for os_name in E_surf_props_not_in_CC):
+                                    if not all( complex_conjugated_propagators[os_name]==[] for os_name in E_surf_props_not_in_CC ):
+                                        E_surfaces_to_be_deformed_for_this_CC[E_surf_id] = -1
 
                         use_f128 = args.f128
                         while True:
