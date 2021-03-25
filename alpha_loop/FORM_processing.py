@@ -1399,10 +1399,14 @@ CTable pfmap(0:{},0:{});
 
                         # construct the map from the cmb/lmb to the forest basis
                         forest_to_cb = []
-                        for lmb_index, r in enumerate(uv_structure['forest_to_cb_matrix']):
+                        for lmb_index, (r, aff) in enumerate(zip(*uv_structure['forest_to_cb_matrix'])):
                             if all(x == 0 for x in r):
+                                assert(all(x == 0 for x in aff))
                                 continue
-                            m = 'k{},{}'.format(lmb_index + 1, ''.join('+{}*fmb{}'.format(a,forest_index + 1) for forest_index, a in enumerate(r) if a != 0))
+                            mom = ''.join('+{}*fmb{}'.format(a, forest_index + 1) for forest_index, a in enumerate(r) if a != 0)
+                            # the shift should be subtracted
+                            shift = ''.join('-{}*c{}'.format(a, forest_index + 1) for forest_index, a in enumerate(aff) if a != 0)
+                            m = 'c{},{}{}'.format(lmb_index + len(aff) + 1, mom, shift)
                             forest_to_cb.append(m)
                         if len(forest_to_cb) > 0:
                             forest_element.append('forestmb({})'.format(','.join(forest_to_cb)))

@@ -252,10 +252,7 @@ class SquaredTopologyGenerator:
                             analytic_result=0)
                         uv_structure['remaining_graph_loop_topo'].external_kinematics = []
 
-                        # store the left inverse
-                        forest_to_cb_matrix = Matrix(forest_to_cb)
-                        forest_to_cb_matrix = forest_to_cb_matrix.T * (forest_to_cb_matrix * forest_to_cb_matrix.T)**-1
-                        uv_structure['forest_to_cb_matrix'] = forest_to_cb_matrix.tolist()
+                        uv_structure['forest_to_cb_matrix'] = forest_to_cb
 
                     """
                     pprint(diag_info)
@@ -310,6 +307,23 @@ class SquaredTopologyGenerator:
                 lmb_to_cb_matrix = lmb_to_cb_matrix**-1
 
                 diag_set['cb_to_lmb'] = [int(x) for x in lmb_to_cb_matrix]
+
+                # construct the forest matrix that maps the amplitude momenta in the cmb
+                # to ones suitable for the spinney
+                for i, diag_info in enumerate(diag_set['diagram_info']):
+                    for uv_structure in diag_info['uv']:
+                        forest_cb = uv_structure['forest_to_cb_matrix']
+
+                        if forest_cb != []:
+                            fmb_in_cb = (Matrix(forest_cb) * lmb_to_cb_matrix).tolist()
+                            shift = Matrix([r[:len(c) - 1] for r in fmb_in_cb])
+                            loops = Matrix([r[len(c) - 1:] for r in fmb_in_cb])
+                            loops = loops**-1
+                            shift = loops * shift
+
+                            uv_structure['forest_to_cb_matrix'] = (loops.tolist() , shift.tolist())
+                        else:
+                            uv_structure['forest_to_cb_matrix'] = ([[]], [[]])
 
             #from pprint import pprint
             #pprint(cut_info)

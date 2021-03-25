@@ -132,6 +132,8 @@ Auto S lm,ext;
 Symbol ge, gs, ghhh, type, in, out, virtual;
 Auto S x, idx, t, n;
 
+Set cmbs: c1,...,c40;
+
 Set dirac: s1,...,s40;
 Set lorentz: mu1,...,mu40;
 Set lorentzdummy: mud1,...,mud40;
@@ -410,7 +412,7 @@ id vec(p?,mu?) = p(mu);
 Multiply replace_(D, 4-2*ep);
 
 #ifdef `FOURDIM'
-    .sort
+    .sort:fourdim-poly;
     Polyratfun;
     id rat(x1?,x2?) = x1/x2;
 #endif
@@ -427,7 +429,7 @@ Keep brackets;
         .sort:trace-`i';
         Keep brackets;
     #enddo
-    .sort
+    .sort:fourdim-trace;
     Polyratfun rat;
 #else
 * at this stage all indices should be inside the gammatracetensor only
@@ -455,7 +457,7 @@ id pzero = 0; * Substitute the 0-momentum by 0
 
 * process all the configurations
 L F = F * CONF;
-.sort
+.sort:load-conf;
 Drop CONF;
 
 * multiply the numerator contribution of derivatives
@@ -563,7 +565,7 @@ id UVRenormFINITE^n? = 1;
 * Expand
 Multiply replace_(D, 4 - 2 * ep);
 id ep^n1? = rat(ep^n1,1);
-.sort
+.sort:rat-expand;
 PolyRatFun rat(expand,ep,{`MAXPOLE'+`SELECTEDEPSILONORDER'});
 Keep brackets;
 .sort:integrated-ct-1;
@@ -578,7 +580,7 @@ id ep^n? = 1;
     if (count(UVRenormFINITE, 1) < -`UVRENORMFINITEPOWERTODISCARD') Discard; * Keep UVRenormFinitiePieces up to some order
 #endif
 id UVRenormFINITE^n? = 1;
-.sort
+.sort:rat-truncate;
 
 
 * If the expression is empty (due to epsilon pole selection), we still write a file
@@ -741,11 +743,11 @@ if (count(subgraph, 1));
     exit "Critical error";
 endif;
 
-.sort
+.sort:local-uv;
 
 id cmb(?a) = cmb(?a)*replace(?a);
 AB+ cmb;
-.sort
+.sort:cmb-replace;
 Keep brackets;
 id replace(?a) = replace_(?a);
 .sort:pf-splitoff;
@@ -762,7 +764,7 @@ B+ f;
 .sort:energy-splitoff-1;
 Keep brackets;
 id f(k1?,k2?,n?) = (penergy(k1)*penergy(k2)-spatial(k1,k2))^n;
-.sort
+.sort:energy-splitoff-2;
 
 repeat id forestmb(?a,k1?,?b)*penergy(k1?) = forestmb(?a,k1,?b)*energy(k1);
 
@@ -773,6 +775,7 @@ Keep brackets;
 id forestmb(?a) = replace_(?a);
 id energy(p?) = energyct(p);
 id energyct(p?) = energy(p);
+id energy(c?cmbs) = penergy(c);
 
 .sort:fmb-2;
 Hide F;
@@ -792,7 +795,7 @@ if (count(cmb,1) == 0);
     Print "CMB missing: %t";
     exit "Critical error";
 endif;
-.sort
+.sort:energy-collect;
 
 *********************************************
 * Construction of the integrand
@@ -807,7 +810,7 @@ endif;
         L forestltd`i' = forest`i';
     #enddo
 
-    .sort
+    .sort:ltd-forest-copy;
     #include- ltdtable_`SGID'.h
 
 * map all diagrams to their unique representative
@@ -881,9 +884,9 @@ endif;
         id energies(0) = 0;
     endargument;
 
-    .sort
+    .sort:ltd-num-0;
     UnHide forestltd1,...,forestltd`forestcount';
-    .sort:pf-num;
+    .sort:ltd-num-1;
     Drop diag1,...,diag`diagcount',forestltd1,...,forestltd`forestcount';
 
 * now add all LTD structures as a special conf
@@ -909,7 +912,7 @@ endif;
 #endif
 
 #if (`INTEGRAND' == "PF") || (`INTEGRAND' == "both")
-    .sort
+    .sort:pf-start;
     #include- pftable_`SGID'.h
     .sort:load-pf;
 
@@ -962,10 +965,10 @@ endif;
         exit "Critical error";
     endif;
 
-    .sort
+    .sort:pf-num-1;
 
     UnHide forest1,...,forest`forestcount';
-    .sort:pf-num;
+    .sort:pf-num-2;
     Drop diag1,...,diag`diagcount',forest1,...,forest`forestcount';
 
 * now add all PF structures as a special conf
@@ -982,7 +985,7 @@ endif;
         id conf(x?{>=0},x1?,?a) = conf(x,?a) + conf(1000 + x1);
     #endif
 
-    .sort
+    .sort:pf-integrand-collect;
     #if (`INTEGRAND' == "both")
         UnHide FINTEGRANDLTD;
     #endif
@@ -1108,7 +1111,7 @@ Keep brackets;
         NHide FINTEGRAND`INTEGRANDTYPE';
 
         B+ conf;
-        .sort
+        .sort:conf-0;
         Keep brackets;
 
         id conf(?a) = conf(conf(?a));
@@ -1134,7 +1137,7 @@ Keep brackets;
             id ellipsoids(?a$ellipsoids) = 1;
             id energies(?a$energies) = 1;
             id constants(?a$constants) = 1;
-            .sort
+            .sort:conf-`ext'-0;
             #if (`$isdenominator' == 1)
                 #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "#CONSTANTS\n%$\n#CONSTANTS", $constants
                 #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "#ENERGIES\n%$\n#ENERGIES", $energies
@@ -1165,7 +1168,7 @@ Keep brackets;
             Drop FF`ext';
             #write "END integrand"
         #enddo
-        .sort
+        .sort:conf-2;
         Drop FINTEGRAND`INTEGRANDTYPE';
         delete extrasymbols>`oldextrasymbols';
     #endif
