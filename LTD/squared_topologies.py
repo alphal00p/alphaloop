@@ -317,8 +317,10 @@ class SquaredTopologyGenerator:
                         if forest_cb != []:
                             fmb_in_cb = (Matrix(forest_cb) * lmb_to_cb_matrix).tolist()
                             shift = Matrix([r[:len(c) - 1] for r in fmb_in_cb])
-                            loops = Matrix([r[len(c) - 1:] for r in fmb_in_cb])
-                            loops = loops**-1
+                            loops = [r[len(c) - 1:] for r in fmb_in_cb]
+                            # filter out all columns with zeroes as these are cmb momenta belonging to another amplitude
+                            loops = [[a for i, a in enumerate(r) if any(b[i] != 0 for b in loops) ] for r in loops]
+                            loops = Matrix(loops)**-1
                             shift = loops * shift
 
                             uv_structure['forest_to_cb_matrix'] = (loops.tolist() , shift.tolist())

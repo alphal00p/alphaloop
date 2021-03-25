@@ -132,7 +132,7 @@ Auto S lm,ext;
 Symbol ge, gs, ghhh, type, in, out, virtual;
 Auto S x, idx, t, n;
 
-Set cmbs: c1,...,c40;
+Set fmbs: fmb1,...,fmb40;
 
 Set dirac: s1,...,s40;
 Set lorentz: mu1,...,mu40;
@@ -467,16 +467,17 @@ id conf(?a,x?) = conf(?a) * x; * note the type difference
 * Take a single derivative in pbubble_i^0
 * FIXME: if the number of terms is 0 after differentiating, this configuration will not be created
 repeat;
-    id once der(p?) = der*replace_(p, p + pzero * x);
-    if ((count(der, 1)) && (count(x, 1) != 1)) Discard;
+    id ifnomatch->bubbleend once der(p?) = replace_(p, p + pzero * x);
+    if (count(x, 1) != 1) Discard;
     id x = 1;
-    id der = 1;
     id pzero.p? = penergy(p);
+    id penergy(pzero) = 1; * d/dpbubble_i^0 pbubble_i^0 = 1
 
     argument subs;
         id x = 0; * undo the replacement in subs
     endargument;
 endrepeat;
+label bubbleend;
 
 id subs(p1?,p2?) = replace_(p1, p2);
 .sort:bubble-treatment;
@@ -670,7 +671,7 @@ repeat;
         repeat id uvconf1(p?)*uvconf1(p?) = uvconf1(p);
         id uvconf1(p?) = replace_(p, t * p);
 
-        argument uvprop,1,vxs,uvtopo;
+        argument uvprop,1,vxs,uvtopo,diag;
             id t = 1; * it could be that the LTD momentum also makes an appearance as an external momentum
         endargument;
 
@@ -775,7 +776,7 @@ Keep brackets;
 id forestmb(?a) = replace_(?a);
 id energy(p?) = energyct(p);
 id energyct(p?) = energy(p);
-id energy(c?cmbs) = penergy(c);
+id energy(c?!fmbs) = penergy(c);
 
 .sort:fmb-2;
 Hide F;

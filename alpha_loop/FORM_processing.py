@@ -1405,7 +1405,18 @@ CTable pfmap(0:{},0:{});
                                 continue
                             mom = ''.join('+{}*fmb{}'.format(a, forest_index + 1) for forest_index, a in enumerate(r) if a != 0)
                             # the shift should be subtracted
-                            shift = ''.join('-{}*c{}'.format(a, forest_index + 1) for forest_index, a in enumerate(aff) if a != 0)
+                            shift = ''
+                            for forest_index, a in enumerate(aff):
+                                if a == 0:
+                                    continue
+
+                                # also subtract the external momenta
+                                d = self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][forest_index]['signature'][1]), False)
+                                if d != '':
+                                    shift += '-{}*(c{}-({}))'.format(a, forest_index + 1, d)
+                                else:
+                                    shift += '-{}*c{}'.format(a, forest_index + 1)
+
                             m = 'c{},{}{}'.format(lmb_index + len(aff) + 1, mom, shift)
                             forest_to_cb.append(m)
                         if len(forest_to_cb) > 0:
