@@ -155,6 +155,10 @@ class RunHyperparameters(HyperParameters):
             'Deformation.scaling.branch_cut_alpha'          : 1.0,
             'Deformation.fixed.dampen_on_pinch'             : True,
             'Deformation.fixed.dampen_on_pinch_after_lambda': True,
+            'Deformation.overall_scaling'                   : 'constant',
+            'Deformation.overall_scaling_constant'          : 10.0,
+            'Deformation.scaling.lambda'                    : 10.0,
+            'CrossSection.inherit_deformation_for_uv_counterterm' : True,
 
             'General.stability_checks'                      : [
                 {
@@ -204,7 +208,8 @@ class CrossSectionSet(dict):
             if '\n' in record:
                 flat_record = yaml.load(record, Loader=Loader)
             else:
-                flat_record = yaml.load(open(record,'r'), Loader=Loader)
+                with open(record,'r') as f:
+                    flat_record = yaml.load(f, Loader=Loader)
         elif isinstance(record, dict):
             flat_record = record
         else:
@@ -259,7 +264,8 @@ class SuperGraph(dict):
             if '\n' in record:
                 flat_record = yaml.load(record, Loader=Loader)
             else:
-                flat_record = yaml.load(open(record,'r'), Loader=Loader)
+                with open(record,'r') as f:
+                    flat_record = yaml.load(f, Loader=Loader)
         elif isinstance(record, dict):
             flat_record = record
         else:
@@ -767,12 +773,13 @@ class SuperGraph(dict):
                                 )
                             })
 
+                            processed_vertices, neg_leg_id_counter = self.post_process_vertex(new_vertex, neg_leg_id_counter)
                             if len(initial_state_ancestors)==0 or len(final_state_ancestors)==0:
                                 # s-channel propagator
-                                s_channels.append(new_vertex)
+                                s_channels.extend(processed_vertices)
                             else:
                                 # t-channel propagator
-                                t_channels.append(new_vertex)
+                                t_channels.extend(processed_vertices)
 
                             remaining_internal_nodes.remove(node)
                             break
@@ -884,6 +891,55 @@ class SuperGraph(dict):
                     )
 
             self['SG_multichannel_info'] = SG_multichannel_info
+
+    def post_process_vertex(self, vertex, split_vertex_negative_number):
+        """ The SingleChannelPhaseSpaceGenerator only supports 2>1 vertices for now, so when finding a N>1 we must split it into several 1>2."""
+
+        #TODO In principle one could consider building several channels for effective vertices stemming from loop shrinking, but this would
+        # anyway best be coded up in a dedicated new PS generator.
+
+        if len(vertex['legs'])==3:
+            return [vertex,], split_vertex_negative_number
+
+        split_vertices = []
+
+        # First capture all the legs that are final states
+        final_state_legs = [ l for l in vertex['legs'][:-1] if l['state']==FINAL ]
+
+        other_legs = [ l for l in vertex['legs'][:-1] if l['state']!=FINAL ]
+        if len(other_legs)>1:
+            raise alphaLoopRunInterfaceError("Error: The following vertex has too many initial-states for being split into many 2>1 chunks:\n%s"%str(vertex))
+
+        if len(other_legs)==0:
+            other_legs.append(final_state_legs.pop(-1))
+
+        while len(final_state_legs)>1:
+            split_vertex_negative_number -= 1
+            new_fake_leg = base_objects.Leg({
+                'id': 22, # Use photons for fake legs for now, but we should maybe have a dedicated particle for that.
+                'number': split_vertex_negative_number,
+                # The state of internal leg is irrelevant and we choose them to be final
+                'state': FINAL,
+            })
+            legs_to_combine = [final_state_legs.pop(-1),]
+            legs_to_combine.append(final_state_legs.pop(-1))
+            final_state_legs.append(new_fake_leg)
+            split_vertices.append(
+                base_objects.Vertex({
+                    'id': DUMMY, # Irrelevant
+                    'legs': base_objects.LegList(legs_to_combine+[new_fake_leg,])
+                })
+            )
+
+        # Then finally add the last vertex
+        split_vertices.append(
+            base_objects.Vertex({
+                'id': DUMMY, # Irrelevant
+                'legs': base_objects.LegList([final_state_legs[0],other_legs[0],vertex['legs'][-1]])
+            })
+        )
+        
+        return split_vertices, split_vertex_negative_number
 
     # Make a copy here of the version of this function used for renormalisation as we may want to save/organised different data for it.
     @classmethod
@@ -1218,7 +1274,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         self.hyperparameters.export_to(pjoin(self.dir_path, self._run_workspace_folder, 'hyperparameters.yaml'))
 
         if os.path.isfile(pjoin(self.dir_path, self._FORM_folder,'generation_statistics.txt')):
-            self.generation_statistics = open(pjoin(self.dir_path, self._FORM_folder,'generation_statistics.txt'),'r').read()
+            with open(pjoin(self.dir_path, self._FORM_folder,'generation_statistics.txt'),'r') as f:
+                self.generation_statistics = f.read()
         else:
             self.generation_statistics = {}
 
@@ -1847,6 +1904,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         sorted(IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection'][len_comb])
                     )))
 
+                # Skim away the cvxpy expression which is heavy and will not be used any longer.
+                for E_surf_info in IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces']:
+                    del E_surf_info['cxpy_expression']
+
                 if args.selected_e_surfaces is None or any(key not in SG for key in ['E_surfaces','E_surfaces_intersection']):
                     # Save the completed preprocessing
                     SG['E_surfaces'] = IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces']
@@ -1854,7 +1915,6 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                     logger.info("Writing out processed yaml for supergaph '%s' on disk..."%SG_name)
                     SG.export(SG_name, pjoin(self.dir_path, self._rust_inputs_folder))
-
 
         # Compute the log-spaced sequence of rescaling
         scalings = [ 10.**((math.log10(args.min_scaling)+i*((math.log10(args.max_scaling)-math.log10(args.min_scaling))/(args.n_points-1))))

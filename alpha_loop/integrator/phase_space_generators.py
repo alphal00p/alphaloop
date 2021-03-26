@@ -332,9 +332,9 @@ class SingleChannelPhasespace(VirtualPhaseSpaceGenerator):
         for cross-section \propto 1/(s-m)^2
         m2 is a small parameter < 0, that fixes numerical problems when min=0,
         instead of setting min=small number, this method still allows to map to min=0"""
-        if min == 0 and m2==0:
+        if min == 0 and m2==0 or min==m2:
             m2 = -self.absolute_Ecm_min**2
-        if nu != 1:
+        if nu != 1:            
             variable = ((max-m2)**(1.-nu)*r+(min-m2)**(1.-nu)*(1.-r))**((1.-nu)**(-1.))+m2
             dvariable = ((variable-m2)**nu)*((max-m2)**(1.-nu)-(min-m2)**(1.-nu))/(1.-nu)
         else:
@@ -346,7 +346,7 @@ class SingleChannelPhasespace(VirtualPhaseSpaceGenerator):
     def inv_massless_distr(self,variable,min,max,nu=1.1,m2=0):
         """inverse of massless_distr, obtain r and inverse jacobian dvariable from variable"""
         assert(min<=variable<=max)
-        if min == 0 and m2==0:
+        if (min == 0 and m2==0) or (min==m2):
             m2 = -self.absolute_Ecm_min**2
         if nu != 1:
             r = ((variable-m2)**(1.-nu)-(min-m2)**(1.-nu))/((max-m2)**(1.-nu)-(min-m2)**(1.-nu))
@@ -463,7 +463,7 @@ class SingleChannelPhasespace(VirtualPhaseSpaceGenerator):
         path is selected instead."""
 
         # TODO generalise for self.n_initial=1
-        
+
         max_leg_nr = self.n_initial+ self.n_final
         min_leg_nr = self.topology[1][-1].get('legs')[-1].get('number')
         numbers = list(range(min_leg_nr,0))+list(range(self.n_initial+1,max_leg_nr+1))+[1]
