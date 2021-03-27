@@ -355,6 +355,21 @@ class TopologyGenerator(object):
             else:
                 forest.append(tuple(sorted(((tuple(sorted(self.edge_map_lin[e][0] for e in s)), dod) for s, dod in subset), key=lambda x: len(x[0]))))
 
+        # increase the dod for overlapping configurations since we are replacing loop momenta in the propagators
+        # and are thus increasing the dod
+        # TODO: more advanced treatment beyond two loops is needed
+        overlapping_edges = defaultdict(list)
+        for (ie1, _), (ie2, _) in combinations(div_subgraphs, 2):
+            e1 = set(self.edge_map_lin[e][0] for e in ie1)
+            e2 = set(self.edge_map_lin[e][0] for e in ie2)
+            fuse_len_e12 = len(e1 | e2)
+            if fuse_len_e12 != len(e1) and fuse_len_e12 != len(e2) and fuse_len_e12 != len(e1) + len(e2):
+                overlapping_edges[tuple(e1 & e2)].extend([e1-e2, e2-e1])
+
+        for fi, f in enumerate(forest):
+            forest[fi] = tuple((g, d * 2) if any(len(set(g) & set(k)) > 0 and sum(1 for vr in v if len(set(g) & vr) > 0) > 1 for k, v in overlapping_edges.items())
+                                    else (g, d) for (g, d) in f)
+
         return forest
 
     def construct_uv_limits(self, vertex_weights, edge_weights, UV_min_dod_to_subtract=0):
