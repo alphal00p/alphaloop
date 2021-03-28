@@ -129,13 +129,13 @@ class suppress_output:
         self._stdout = None 
         self._stderr = None
     def __enter__(self): 
-        devnull = open(os.devnull, "w") 
-        if self.suppress_stdout: 
-            self._stdout = sys.stdout 
-            sys.stdout = devnull        
-        if self.suppress_stderr: 
-            self._stderr = sys.stderr 
-            sys.stderr = devnull 
+        with open(os.devnull, "w") as devnull:
+            if self.suppress_stdout: 
+                self._stdout = sys.stdout 
+                sys.stdout = devnull        
+            if self.suppress_stderr: 
+                self._stderr = sys.stderr 
+                sys.stderr = devnull 
     def __exit__(self, *args): 
         if self.suppress_stdout: 
             sys.stdout = self._stdout 

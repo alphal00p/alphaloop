@@ -595,9 +595,18 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         self.multichannel_generators = {}
 
         self.edges_PDG = { e[0] : e [1] for e in self.SG['edge_PDGs'] }
-        self.edge_masses = { edge_name : self.model['parameter_dict'][
+
+        unknown_particles = set([ PDG for edge_name, PDG in self.edges_PDG.items() if self.model.get_particle(PDG) is None ])
+        if len(unknown_particles)>0:
+            raise SamplerError("The particle PDGs %s are unknown in the model '%s' loaded. Make sure you loaded the same model that was used for generating the output."%(
+                str(unknown_particles), self.model.get('name')
+            ))
+        try:
+            self.edge_masses = { edge_name : self.model['parameter_dict'][
                     self.model.get_particle(self.edges_PDG[edge_name]).get('mass')
             ].real for edge_name in self.edges_PDG }
+        except Exception as e:
+            raise SamplerError("Some of the particle masses used in that supergraph are not defined in the model. Make sure you loaded the proper model and with the proper restrict card.")
 
         for i_channel, SG_channel_info in enumerate(self.SG['SG_multichannel_info']):
 

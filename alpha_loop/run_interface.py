@@ -422,7 +422,9 @@ class SuperGraph(dict):
                     continue
                 res_str.append('Intersection of E-surfaces %s%s%s'%(
                     Colours.BLUE,
-                    '^'.join('dE(%s)'%(','.join(osp['name'] for osp in E_surface_ID_to_E_surface[E_surf_ID]['onshell_propagators'])) for E_surf_ID in E_surface_combination),
+                    '^'.join('dE%s(%s)'%(
+                        '' if not E_surface_ID_to_E_surface[E_surf_ID]['pinched'] else '%s%s%s%s%s'%(Colours.END, Colours.GREEN, 'P', Colours.END, Colours.BLUE),
+                        ','.join(osp['name'] for osp in E_surface_ID_to_E_surface[E_surf_ID]['onshell_propagators'])) for E_surf_ID in E_surface_combination),
                     Colours.END
                 ))
                 if show_momenta:
@@ -1590,6 +1592,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             self.hyperparameters.set_parameter('General.multi_channeling',True)
             self.hyperparameters.set_parameter('multi_channeling_including_massive_propagators',True)
 
+        if args.SG_name is None:
+            selected_SGs = list(self.all_supergraphs.keys())
+        else:
+            selected_SGs = [args.SG_name,]
+
         # We need to detect here if we are in the amplitude-mock-up situation with frozen external momenta.
         frozen_momenta = None
         if 'external_data' in self.cross_section_set:
@@ -1602,6 +1609,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             self.hyperparameters.set_parameter('CrossSection.do_rescaling',False)
             self.hyperparameters.set_parameter('CrossSection.fixed_cut_momenta',frozen_momenta['out'])
 
+            # Sanity check tha the user only supplied the *indendent* frozen momenta of the LMB
+            if len(frozen_momenta['out'])-len(self.all_supergraphs[selected_SGs[0]]['cutkosky_cuts'][0]['cuts'])!=-1:
+                raise alphaLoopInvalidRunCmd("Make sure the number of frozen momenta specified in the 'external_data' of the cross_section_set yaml is only the *independent* frozen momenta.")
+
         if args.selected_e_surfaces is not None:
             args.selected_e_surfaces = [
                 set(eval(e_surfs)) for e_surfs in args.selected_e_surfaces
@@ -1610,11 +1621,6 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             if args.selected_e_surfaces is None:
                 raise alphaLoopInvalidRunCmd("The --intersections option can only be used together with the --e_surfaces one.")
             args.intersections = [eval(inter) for inter in args.intersections]
-
-        if args.SG_name is None:
-            selected_SGs = list(self.all_supergraphs.keys())
-        else:
-            selected_SGs = [args.SG_name,]
 
         if frozen_momenta and len(selected_SGs)>1:
             raise alphaLoopInvalidRunCmd("For amplitude LU mockups, the IR profile should be run for a single SG at a time.")
@@ -1706,6 +1712,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         intersection_length = list(user_intersections.keys())[0]
                         intersection_key = list(user_intersections[intersection_length].keys())[0]
                         user_intersections[intersection_length][intersection_key]['intersection_point'] = [ args.intersection_point[i:i+3] for i in range(0,len(args.intersection_point),3) ]
+                        if frozen_momenta is not None:
+                            user_intersections[intersection_length][intersection_key]['intersection_point'] += [v[1:] for v in frozen_momenta['out']]
 
                     if all_E_surfaces_found and all_intersections_found:
                         IR_info_per_SG_and_E_surfaces_set[SG_name] = {
@@ -1748,7 +1756,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 consider_pinches = pinched_E_surface_keys
                 ellipsoids, ellipsoid_param, delta_param, expansion_threshold = loop_SG.build_existing_ellipsoids(
                     cvxpy_source_coordinates, pinched_E_surfaces=consider_pinches, extra_info=extra_info,allow_for_zero_shifts=False, E_cm=E_cm)
-
+                
                 prop_id_to_name = {
                     (ll_index, p_index) : p.name for ll_index, ll in enumerate(loop_SG.loop_lines) for p_index, p in enumerate(ll.propagators)
                 }
@@ -1790,8 +1798,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                 if frozen_momenta is not None:
                     frozen_edge_names = set([c['name'] for c in self.all_supergraphs[selected_SGs[0]]['cutkosky_cuts'][0]['cuts']])
-                    # Only consider E surfaces not involving any of the frozen momenta
-                    E_surfaces = [ E_surf for E_surf in E_surfaces if set([os['name'] for os in E_surf["onshell_propagators"]]).intersection(frozen_edge_names)==set([]) ]
+                    # Do not Consider the E-surface corresponding to the fake Cutkosky cut
+                    #E_surfaces = [ E_surf for E_surf in E_surfaces if set([os['name'] for os in E_surf["onshell_propagators"]]).intersection(frozen_edge_names)==set([]) ]
+                    E_surfaces = [ E_surf for E_surf in E_surfaces if set([os['name'] for os in E_surf["onshell_propagators"]]) != frozen_edge_names ]
 
                 if args.selected_e_surfaces is not None:
                     E_surfaces = [ E_surf for E_surf in E_surfaces if set([os['name'] for os in E_surf["onshell_propagators"]]) in args.selected_e_surfaces ]
@@ -1964,12 +1973,12 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     approach_direction = [ Vector([random.random()*E_cm for i_comp in range(0,3)]) for i_vec in range(0, SG['n_loops']) ]
                 else:                    
                     approach_direction = [ Vector(list(args.approach_direction[i:i+3])) for i in range(0,len(args.approach_direction),3) ]
-                    if len(approach_direction)!=SG['n_loops']:
+                    if len(approach_direction)!=(SG['n_loops']-(len(frozen_momenta['out']) if frozen_momenta is not None else 0) ):
                         raise alphaLoopInvalidRunCmd("The specified approach direction does not specify %d*3 components."%SG['n_loops'])
-                
+
                 if frozen_momenta is not None:
                     # Never leave off the frozen momenta
-                    approach_direction[-len(frozen_momenta['out']):] = [Vector([0.,0.,0.]),]*len(frozen_momenta['out'])             
+                    approach_direction += [ Vector([0.,0.,0.]), ]*len(frozen_momenta['out'])             
 
                 bar.update(SG_name=SG_name)
                 bar.update(i_SG)
@@ -2033,17 +2042,18 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                             CC_edges = set([cut['name'] for cut in cuts_info['cuts']])
                             # Skip Cutkosky cuts not matching any of the specified thresholds
-                            if args.only_relevant_cuts and not any( 
+                            if (frozen_momenta is None) and (args.only_relevant_cuts and not any( 
                                 set(os['name'] for os in E_surface_ID_to_E_surface[E_surf_id]['onshell_propagators'])==CC_edges
-                                for E_surf_id in E_surface_combination):
+                                    for E_surf_id in E_surface_combination)):
                                 continue
 
                             # Check which E-surface is the Cutkosky one
                             CC_E_surf_id = None
-                            for E_surf_id in E_surface_combination:
-                                if set(os['name'] for os in E_surface_ID_to_E_surface[E_surf_id]['onshell_propagators']) == set([cut['name'] for cut in cuts_info['cuts']]):
-                                    CC_E_surf_id = E_surf_id
-                                    break
+                            if frozen_momenta is None:
+                                for E_surf_id in E_surface_combination:
+                                    if set(os['name'] for os in E_surface_ID_to_E_surface[E_surf_id]['onshell_propagators']) == set([cut['name'] for cut in cuts_info['cuts']]):
+                                        CC_E_surf_id = E_surf_id
+                                        break
 
                             # Also compute what are the E_surfaces expected to be deformed and if they are complex conjugated or not
                             E_surfaces_to_be_deformed_for_this_CC = {}
@@ -2108,24 +2118,29 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                     results.append( (scaling, complex(res_re, res_im)*frozen_jac ) )
 
                                 else:
-
-                                    # Now obtain the rescaling for these momenta
-                                    LU_scaling_solutions = rust_worker.get_scaling(rescaled_momenta,cut_ID)
-                                    if LU_scaling_solutions is None or len(LU_scaling_solutions)==0 or all(LU_scaling[0]<0. for LU_scaling in LU_scaling_solutions):
-                                        if args.show_warnings:
-                                            logger.warning("Could not find rescaling for IR profiling of SG '%s' and cut #%d for the E_surface intersection %s : %s\nInput LMB momenta: %s"%(
-                                                SG_name, cut_ID, str(E_surface_combination), str(LU_scaling_solutions), str(rescaled_momenta) ))
-                                        continue
-                                    LU_scaling_solutions = list(LU_scaling_solutions)
-                                    LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
-                                    if LU_scaling>0.0 and args.show_warnings:
-                                        logger.warning("Found unexpected rescaling solutions for IR profiling of SG '%s' and cut #%d for the E_surface intersection %s : %s\nInput LMB momenta: %s"%(
-                                                SG_name, cut_ID, str(E_surface_combination), str(LU_scaling_solutions), str(rescaled_momenta) ))
-
-                                    while LU_scaling < 0.0:
-                                        if len(LU_scaling_solutions)==0:
-                                            break
+                                    if frozen_momenta is None:
+                                        
+                                        # Now obtain the rescaling for these momenta
+                                        LU_scaling_solutions = rust_worker.get_scaling(rescaled_momenta,cut_ID)
+                                        if LU_scaling_solutions is None or len(LU_scaling_solutions)==0 or all(LU_scaling[0]<0. for LU_scaling in LU_scaling_solutions):
+                                            if args.show_warnings:
+                                                logger.warning("Could not find rescaling for IR profiling of SG '%s' and cut #%d for the E_surface intersection %s : %s\nInput LMB momenta: %s"%(
+                                                    SG_name, cut_ID, str(E_surface_combination), str(LU_scaling_solutions), str(rescaled_momenta) ))
+                                            continue
+                                        LU_scaling_solutions = list(LU_scaling_solutions)
                                         LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
+                                        if LU_scaling>0.0 and args.show_warnings:
+                                            logger.warning("Found unexpected rescaling solutions for IR profiling of SG '%s' and cut #%d for the E_surface intersection %s : %s\nInput LMB momenta: %s"%(
+                                                    SG_name, cut_ID, str(E_surface_combination), str(LU_scaling_solutions), str(rescaled_momenta) ))
+
+                                        while LU_scaling < 0.0:
+                                            if len(LU_scaling_solutions)==0:
+                                                break
+                                            LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
+                                    
+                                    else:
+
+                                        LU_scaling, LU_scaling_jacobian = 1.0, 1.0
 
                                     with utils.suppress_output(active=(not args.show_rust_warnings)):
                                         if use_f128:
@@ -2136,10 +2151,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                     results.append( (scaling, (complex(res_re, res_im)/overall_jac)*frozen_jac ) )
 
                                     # Compute the deformation vector
-                                    if CC_E_surf_id is not None:
+                                    if (frozen_momenta is not None) or (CC_E_surf_id is not None):
 
                                         t_scaling_results.append( (scaling, LU_scaling) )
-                                        cmb_deformation = rust_worker.get_cut_deformation(rescaled_momenta,cut_ID)
+                                        with utils.suppress_output(active=(not args.show_rust_warnings)):
+                                            cmb_deformation = rust_worker.get_cut_deformation([ list(v) for v in rescaled_momenta ],cut_ID)
                                         n_loops_in_subgraph = len(cmb_deformation)
                                         deformation_in_lmb = [ Vector([0.,0.,0.]) for _ in range(0,SG['n_loops']) ]
                                         for i_row, row in enumerate([cuts_info['diagram_sets'][0]['cb_to_lmb'][i:i+SG['n_loops']] 
@@ -2206,7 +2222,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                         test_passed_per_cut[cut_ID] = test_passed_per_cut[cut_ID] and (abs(deformation_norm_results[-1][1]) < args.small_deformation_threshold)
                                 if len(deformation_projection_results)>0:
                                     # Only enable the check if the deformation is enabled and if the deformation is large enough, because if it is small it may be that we are on pinched threshold
-                                    if self.hyperparameters['General']['deformation_strategy']!='none' and (abs(deformation_norm_results[-1][1]) > args.small_deformation_threshold):
+                                    if self.hyperparameters['General']['deformation_strategy']!='none' and (abs(deformation_norm_results[-1][1]) > args.small_deformation_threshold) and \
+                                        not(any(E_surface_ID_to_E_surface[E_surf_id]['pinched'] for E_surf_id in E_surface_combination if E_surf_id!=CC_E_surf_id)):
                                         test_passed_per_cut[cut_ID] = test_passed_per_cut[cut_ID] and all( projections[-1][1] < 0. for E_surf_id, projections in deformation_projection_results.items() )
 
                                 if args.verbose or (not test_passed_per_cut[cut_ID] and args.show_fails):
@@ -2427,6 +2444,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             self.hyperparameters.set_parameter('CrossSection.incoming_momenta',frozen_momenta['in'])
             self.hyperparameters.set_parameter('CrossSection.do_rescaling',False)
             self.hyperparameters.set_parameter('CrossSection.fixed_cut_momenta',frozen_momenta['out'])
+
+            # Sanity check tha the user only supplied the *indendent* frozen momenta of the LMB
+            if len(frozen_momenta['out'])-len(self.all_supergraphs[selected_SGs[0]]['cutkosky_cuts'][0]['cuts'])!=-1:
+                raise alphaLoopInvalidRunCmd("Make sure the number of frozen momenta specified in the 'external_data' of the cross_section_set yaml is only the *independent* frozen momenta.")
 
         # Built external momenta. Remember that they appear twice.
         external_momenta = [ Vector(v[1:]) for v in self.hyperparameters['CrossSection']['incoming_momenta'] ]
@@ -3038,6 +3059,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         '-mc','--multichanneling',action="store_true", dest="multichanneling", default=False,
         help="Enable multichanneling (default: as per hyperparameters)")
     integrate_parser.add_argument(
+        '-ic','--include_all_channels',action="store_true", dest="include_all_channels", default=False,
+        help="Include all channels when integrating with Vegas3 (default: %(default)s). ")
+    integrate_parser.add_argument(
         '-no_mc','--no_multichanneling',action="store_false", dest="multichanneling", default=False,
         help="Disable multichanneling (default: as per hyperparameters)")
     integrate_parser.add_argument(
@@ -3073,6 +3097,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             self.hyperparameters.set_parameter('CrossSection.incoming_momenta',frozen_momenta['in'])
             self.hyperparameters.set_parameter('CrossSection.do_rescaling',False)
             self.hyperparameters.set_parameter('CrossSection.fixed_cut_momenta',frozen_momenta['out'])
+
+            # Sanity check tha the user only supplied the *indendent* frozen momenta of the LMB
+            if len(frozen_momenta['out'])-len(self.all_supergraphs[args.SG_name]['cutkosky_cuts'][0]['cuts'])!=-1:
+                raise alphaLoopInvalidRunCmd("Make sure the number of frozen momenta specified in the 'external_data' of the cross_section_set yaml is only the *independent* frozen momenta.")
 
         self.hyperparameters.set_parameter('General.multi_channeling',args.multichanneling)
 
@@ -3252,6 +3280,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 computed_model.set_parameters_and_couplings(
                                             pjoin(self.dir_path,'Source','MODEL','param_card.dat'))
 
+                do_include_all_channels = ( args.integrator=='inspect' or (args.include_all_channels and args.integrator=='vegas3') )
                 my_integrand = sampler.AdvancedIntegrand(
                     rust_worker,
                     SG_info,
@@ -3265,7 +3294,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     selected_LMB=selected_LMB,
                     phase=self.hyperparameters['Integrator']['integrated_phase'],
                     show_warnings=args.show_warnings,
-                    return_individual_channels = (args.integrator in ['vegas3','inspect']),
+                    return_individual_channels = do_include_all_channels,
                     frozen_momenta=frozen_momenta
                 )
 
