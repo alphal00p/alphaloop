@@ -453,7 +453,13 @@ class SuperGraph(dict):
                         't_scal: %s'%('%.3e'%cut_res['t_scaling'] if cut_res['t_scaling'] is not None else 'N/A'),
                         'def_norm: %s'%('%.3e'%cut_res['deformation_norm'] if cut_res['deformation_norm'] is not None else 'N/A'),
                         'def_proj: %s'%(
-                            ' | '.join('#%d -> %s%.3e'%(E_surface_combination.index(E_surf_id),'+' if proj>0. else '',proj) for E_surf_id, proj in sorted(cut_res['deformation_projections'].items(), key=lambda el:el[0])) 
+                            ' | '.join(
+                                '%s%s%s'%(
+                                    '' if E_surface_ID_to_E_surface[E_surf_id]['pinched'] else (Colours.RED if proj>=0. else Colours.GREEN),
+                                    '#%d -> %s%.3e'%(E_surface_combination.index(E_surf_id),'+' if proj>=0. else '-',abs(proj)),
+                                    '' if E_surface_ID_to_E_surface[E_surf_id]['pinched'] else Colours.END
+                                )
+                                for E_surf_id, proj in sorted(cut_res['deformation_projections'].items(), key=lambda el:el[0])) 
                             if cut_res['deformation_projections'] is not None else 'N/A'),
                     )
                     res_list.append(
