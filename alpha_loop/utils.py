@@ -1,4 +1,7 @@
-from scipy import stats
+try:
+    from scipy import stats
+except ImportError:
+    pass
 import math
 import os
 import sys

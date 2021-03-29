@@ -486,18 +486,19 @@ class EsurfaceIntersectionFinder(object):
 
                 #pprint(self.intersection_scalar_function(scipy_seed))
                 #pprint(self.intersection_scalar_function_jac(scipy_seed))
-                warnings.filterwarnings('error')
                 scipy_res = None
                 try:
-                    scipy_res = optimize.fsolve(
-                        self.intersection_function,
-                        scipy_seed,
-                        fprime=self.intersection_function_jac, 
-                        **{
-                            'xtol'   : self.scipy_tolerance,
-                            'maxfev' : 1000*(len(scipy_seed)+1)
-                        }
-                    )
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings('error')
+                        scipy_res = optimize.fsolve(
+                            self.intersection_function,
+                            scipy_seed,
+                            fprime=self.intersection_function_jac, 
+                            **{
+                                'xtol'   : self.scipy_tolerance,
+                                'maxfev' : 1000*(len(scipy_seed)+1)
+                            }
+                        )
                     fsolve_success = True
                 except Warning as e:
                     fsolve_success = False
@@ -536,17 +537,18 @@ class EsurfaceIntersectionFinder(object):
 
                 #pprint(self.intersection_scalar_function(scipy_seed))
                 #pprint(self.intersection_scalar_function_jac(scipy_seed))
-                warnings.filterwarnings('error')
                 scipy_res = None
                 try:
-                    scipy_res = optimize.minimize(
-                        self.intersection_scalar_function,
-                        scipy_seed,
-                        tol=self.scipy_tolerance,
-                        jac=self.intersection_scalar_function_jac,
-                        hess=self.intersection_scalar_function_hessian,
-                        method='trust-ncg'#'trust-krylov'#'dogleg'#'trust-ncg'#'Newton-CG'#'BFGS'
-                    )
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings('error')
+                        scipy_res = optimize.minimize(
+                            self.intersection_scalar_function,
+                            scipy_seed,
+                            tol=self.scipy_tolerance,
+                            jac=self.intersection_scalar_function_jac,
+                            hess=self.intersection_scalar_function_hessian,
+                            method='trust-ncg'#'trust-krylov'#'dogleg'#'trust-ncg'#'Newton-CG'#'BFGS'
+                        )
                     fsolve_success = True
                 except Warning as e:
                     fsolve_success = False

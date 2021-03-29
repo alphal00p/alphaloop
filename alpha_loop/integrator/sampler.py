@@ -34,9 +34,8 @@ import alpha_loop.integrator.vegas3_integrator as vegas3
 
 try:
     import scipy.optimize as optimize
-    scipy_optimize_loaded = True
     import warnings
-    warnings.filterwarnings('error')
+    scipy_optimize_loaded = True
 except:
     scipy_optimize_loaded = False
 
@@ -793,16 +792,18 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
         scipy_res = None
         try:
-            scipy_res = optimize.minimize_scalar(
-                energy_sum_squared,
-                bounds=(0.,upper_bound),
-                #tol=1.0e-10,
-                method='bounded',
-                options={
-                    'xatol': 1.0e-16,
-                    'maxiter' : 1000
-                }
-            )
+            with warnings.catch_warnings():
+                warnings.filterwarnings('error')
+                scipy_res = optimize.minimize_scalar(
+                    energy_sum_squared,
+                    bounds=(0.,upper_bound),
+                    #tol=1.0e-10,
+                    method='bounded',
+                    options={
+                        'xatol': 1.0e-16,
+                        'maxiter' : 1000
+                    }
+                )
             fsolve_success = True
         except Warning as e:
             logger.info("Numerical Soper flow failed with Warning:\n%s"%str(e))
