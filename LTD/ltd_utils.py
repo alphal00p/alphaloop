@@ -1830,29 +1830,33 @@ class LoopTopology(object):
         # We will compute an upper bound on the expansion threshold here
         expansion_threshold = 1.0
         # Filter non-existing ellipsoids
-        for surf_id in list(ellipsoids):
+        for i_surf, surf_id in enumerate(list(ellipsoids)):
             e = ellipsoids[surf_id]
-            #print(e)
             p = cvxpy.Problem(cvxpy.Minimize(e), [])
             result = p.solve()
-            #print(result)
-            #print(E_cm)
+            # print(i_surf, result)
+            # print(e)
+            # print(surf_id)
+            # print(e)
+            # print(i_surf, E_cm)
             shift_E, shift_v, masses_squared = ellipsoid_shift_and_masses_in_cut_basis[surf_id]
             mass_term = sum(math.sqrt(m_sq) for m_sq in masses_squared)**2
             existence_equation = shift_E**2 - shift_v.square() - mass_term
-            #print(existence_equation)
-            #print(self._existence_threshold)
-            #print(self._cvxpy_threshold)
-            #print(shift_E)
+            # print(i_surf, existence_equation)
+            # print(i_surf, self._existence_threshold)
+            # print(i_surf, self._cvxpy_threshold)
+            # print(i_surf, shift_E)
+            # print((shift_E < (-1. if not allow_for_zero_shifts else +1.)*self._existence_threshold*E_cm and abs(existence_equation) < (self._existence_threshold*E_cm)**2))
             if pinched_E_surfaces is not None:
                 # Allow for shift_E = 0?
 
                 if shift_E < (-1. if not allow_for_zero_shifts else +1.)*self._existence_threshold*E_cm and abs(existence_equation) < (self._existence_threshold*E_cm)**2:
                     pinched_E_surfaces.append(surf_id)
+                    # print("PINCHED",surf_id,i_surf)
                     continue
 
             # Be loose in the condition below so as to really only keep true E-surface with non-zero volume
-            if existence_equation <= (self._existence_threshold*E_cm)**2 or shift_E >= (-1. if not allow_for_zero_shifts else +1.)*self._existence_threshold*E_cm:
+            if (existence_equation <= (self._existence_threshold*E_cm)**2 or shift_E >= (-1. if not allow_for_zero_shifts else +1.)*self._existence_threshold*E_cm):
                 if existence_equation < -(self._existence_threshold*E_cm)**2 and result < -self._cvxpy_threshold*E_cm:
                     print("WARNING: cvxpy detects the ellipsoid for the following E-surface to be existing even though it does not!")
                     print('> E-surface ID         = %s'%str(surf_id))
@@ -1876,9 +1880,9 @@ class LoopTopology(object):
                 del ellipsoids[surf_id]
                 del ellipsoid_param[surf_id]
                 continue
-            if (existence_equation > (self._existence_threshold*E_cm)**2) and \
+            if ((existence_equation > (self._existence_threshold*E_cm)**2) and \
                shift_E < (-1. if not allow_for_zero_shifts else +1.)*self._existence_threshold*E_cm and \
-               result > self._cvxpy_threshold*E_cm:
+               result > self._cvxpy_threshold*E_cm):
                 print("WARNING: cvxpy detects the ellipsoid following E-surface to be non-existent even though it does exist!")
                 print('E-surface ID         = %s'%str(surf_id))
                 print('E-surface params     = %s'%str(ellipsoid_param[surf_id]))

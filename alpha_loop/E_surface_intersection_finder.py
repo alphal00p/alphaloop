@@ -162,7 +162,7 @@ class EsurfaceIntersectionFinder(object):
 
         all_loop_sigs = list(set([ osp['loop_sig'] for E_surf in self.E_surfaces for osp in E_surf['onshell_propagators'] ]))
 
-        # Now add all possible combinations, from less likely to yield a solution to more likely
+        # Now add all possible combinations, from more likely to yield a solution to less likely
         all_possible_loop_signatures_directions = list(itertools.combinations_with_replacement(base_directions, len(all_loop_sigs)))
         if len(all_possible_loop_signatures_directions)<maximal_cvxpy_seed_point_improvement_steps:
             for additional_combinations in itertools.combinations_with_replacement(base_directions+extra_directions, len(all_loop_sigs)):
@@ -208,6 +208,8 @@ class EsurfaceIntersectionFinder(object):
             if consistency_test < self.consistency_check_threshold:
                 if self.debug: logger.info('Current solution satisfactory enough, returning now.')
                 solved = True
+                if self.frozen_momenta is not None:
+                    new_seed_point[-len(self.frozen_momenta['out']):] = self.frozen_momenta['out']
                 return new_seed_point, solved
             
             if best_consistency_test is None or consistency_test<best_consistency_test:
@@ -406,7 +408,6 @@ class EsurfaceIntersectionFinder(object):
                         E_surf['id'], self.E_surface( seed_point, E_surf['onshell_propagators'], E_surf['E_shift'] )) for E_surf in self.E_surfaces
                     )
                 ))
-
                 return seed_point
 
         if self.debug: 

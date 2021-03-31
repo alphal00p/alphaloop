@@ -399,7 +399,7 @@ class SuperGraph(dict):
                 res_str.append('%s%s%s'%(Colours.BLUE,k,Colours.END))
         return '\n'.join(res_str)
 
-    def show_IR_statistics(self, show_momenta=True):
+    def show_IR_statistics(self, show_momenta=True, external_momenta=None):
 
         res_str = []
 
@@ -437,15 +437,23 @@ class SuperGraph(dict):
                         ' '.join('(%s)'%(','.join(
                             '"%s"'%os['name'] for os in E_surface_ID_to_E_surface[E_surf_id]['onshell_propagators']
                         )) for E_surf_id in E_surface_combination),
-                        '(%s)'%(','.join('%d'%i_surf for i_surf in range(0, len(E_surface_combination)))),
-                        '(%s)'%(','.join(','.join('%.16e'%v_i for v_i in list(v) ) for v in intersection_point_for_options)),
-                        '(%s)'%(','.join(','.join('%.16e'%v_i for v_i in list(v) ) for v in approach_direction))
+                        '[%s]'%(','.join('%d'%i_surf for i_surf in range(0, len(E_surface_combination)))),
+                        '(%s)'%(','.join(','.join('%.16e'%v_i for v_i in list(v) ) for v in intersection_point_for_options )),
+                        '(%s)'%(','.join(','.join('%.16e'%v_i for v_i in list(v) ) for v in approach_direction ))
                     ))
 
-                    res_str.append( '\n'.join('\n'.join('   %s%-5s%s : %-20s'%(Colours.BLUE, osp['name'], Colours.END, 
-                            ', '.join( '%s%.10e'%('+' if vi>=0. else '', vi) for vi in list(sum( l*factor for l, factor in zip(intersection_point,osp['loop_sig']) )+Vector(osp['v_shift'])) )
-                        ) for osp in E_surface_ID_to_E_surface[E_surf_ID]['onshell_propagators']
-                    ) for E_surf_ID in E_surface_combination) )
+                    if external_momenta is None:
+                        res_str.append( '\n-----------\n'.join('\n'.join('   %s%-5s%s : %-20s'%(Colours.BLUE, osp['name'], Colours.END, 
+                                ', '.join( '%s%.10e'%('+' if vi>=0. else '', vi) for vi in list(sum( l*factor for l, factor in zip(intersection_point,osp['loop_sig']) )+Vector(osp['v_shift'])) )
+                            ) for osp in E_surface_ID_to_E_surface[E_surf_ID]['onshell_propagators']
+                        ) for E_surf_ID in E_surface_combination) )
+                    else:
+                        res_str.append( '\n'.join('   %s%-5s%s : %-20s'%(Colours.BLUE, prop_name, Colours.END, 
+                                ', '.join( '%s%.10e'%('+' if vi>=0. else '', vi) for vi in list(
+                                    sum( l*factor for l, factor in zip(intersection_point,sig[0]) )+
+                                    sum( l*factor for l, factor in zip(external_momenta,sig[1]) )
+                                    ) )
+                            ) for prop_name, sig in sorted(self['edge_signatures'].items(), key=lambda el: (-1,el[0]) if re.match('^pq\d+$',el[0]) is None else (int(el[0][2:]),el[0]) ) ) ) 
 
                 res_list = [('Complete integrand','%sPASS%s'%(Colours.GREEN, Colours.END) if results['dod_computed'][-1] else '%sFAIL%s'%(Colours.RED, Colours.END), {k:v for k,v in results.items() if k!='cut_results'},''),]
                 for cut_ID, cut_res in  sorted(list(results.get('cut_results',{}).items()),key = lambda k: k[0]):
@@ -1066,7 +1074,7 @@ class SuperGraphCollection(dict):
 
         return '\n'.join(res_str)
 
-    def show_IR_statistics(self, show_momenta=True):
+    def show_IR_statistics(self, show_momenta=True, external_momenta=None):
 
         # TODO improve rendering
         res_str = []
@@ -1076,7 +1084,8 @@ class SuperGraphCollection(dict):
         for SG_name in sorted(list(self.keys())):
             if 'E_surfaces_analysis' not in self[SG_name]:
                 continue
-            res_str.append("\nIR profile of %s%s%s:\n%s"%(Colours.GREEN,SG_name,Colours.END, self[SG_name].show_IR_statistics(show_momenta=show_momenta)))
+            res_str.append("\nIR profile of %s%s%s:\n%s"%(Colours.GREEN,SG_name,Colours.END, self[SG_name].show_IR_statistics(
+                show_momenta=show_momenta, external_momenta=external_momenta)))
 
         return '\n'.join(res_str)
 
@@ -1496,6 +1505,78 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         else:
             self.do_display('--timing')
 
+    def freeze_momenta_in_E_surfaces(self, E_surfaces, cvxpy_coordinates, n_loops, frozen_edge_names, frozen_momenta, E_cm):
+
+        import cvxpy   
+        this_cvxpy_threshold = ltd_utils.LoopTopology._cvxpy_threshold*1.0e4
+
+        # Do not Consider the E-surface corresponding to the fake Cutkosky cut
+        E_surfaces = [ E_surf for E_surf in E_surfaces if len([os['name'] for os in E_surf["onshell_propagators"] if os['name'] not in frozen_edge_names])>=2  ]
+
+        n_amplitude_loops = n_loops-len(frozen_momenta['out'])
+
+        signatures_to_substitute = {}
+        if frozen_momenta is not None:
+            loop_dofs = [0,]*n_amplitude_loops
+            for i, frozen_mom in enumerate(frozen_momenta['out']):
+                frozen_mom_sig = [0,]*len(frozen_momenta['out'])
+                frozen_mom_sig[i] = 1
+                signatures_to_substitute[ tuple(loop_dofs+frozen_mom_sig) ] = LorentzVector(frozen_mom)[0]
+            frozen_mom_sig = [-1,]*len(frozen_momenta['out'])
+            signatures_to_substitute[ tuple(loop_dofs+frozen_mom_sig) ] = (
+                sum(LorentzVector(v) for v in frozen_momenta['out'])*-1 +
+                sum(LorentzVector(v) for v in frozen_momenta['in'])
+            )[0]
+
+        new_E_surfaces = []
+        for E_surf in E_surfaces:
+
+            new_onshell_propagators = []
+            accumulated_E_shift = 0.
+            new_cvxpy_expression = None
+            new_n_loops = 0
+            for osp in E_surf['onshell_propagators']:
+                if osp['name'] in frozen_edge_names:
+                    if tuple(osp['loop_sig']) not in signatures_to_substitute:
+                        raise alphaLoopRunInterfaceError("A frozen momenta is not found. This should never happen.\nEdge %s with signature: %s and shift: %s"%(osp['name'],str(osp['loop_sig']), str(osp['v_shift'])))
+                    accumulated_E_shift += signatures_to_substitute[tuple(osp['loop_sig'])]
+                    # accumulated_E_shift += math.sqrt(signatures_to_substitute[tuple(osp['loop_sig'])].space().square()+osp['m_squared'])
+                else:
+                    mom = sum(cvxpy_coordinates[i_loop_momentum] * sig for i_loop_momentum, sig in enumerate(osp['loop_sig']) if sig!=0 and i_loop_momentum<n_amplitude_loops)
+                    additional_v_shift = sum( Vector(frozen_momenta['out'][i_loop_momentum-n_amplitude_loops][1:]) * sig for i_loop_momentum, sig in enumerate(osp['loop_sig']) 
+                                                if sig!=0 and i_loop_momentum>=n_amplitude_loops )
+                    osp['loop_sig'] = tuple( [ sig if i_loop_momentum<n_amplitude_loops else 0 for i_loop_momentum, sig in enumerate(osp['loop_sig']) ] )
+                    osp['v_shift'] = list(osp['v_shift'] + additional_v_shift)
+                    mom += osp['v_shift']
+                    delta = cvxpy.norm(cvxpy.hstack([math.sqrt(osp['m_squared']), mom]), 2)
+                    if new_cvxpy_expression is None:
+                        new_cvxpy_expression = delta
+                    else:
+                        new_cvxpy_expression += delta
+                    new_n_loops += 1
+                    # accumulated_E_shift += osp['energy_shift_sign']* sum(
+                    #     ( 0 if i_loop_momentum<n_amplitude_loops else frozen_momenta['out'][i_loop_momentum-n_amplitude_loops][0] ) 
+                    #     * sig for i_loop_momentum, sig in enumerate(osp['loop_sig']) if sig!=0)
+                    # print('B',osp['name'],osp['energy_shift_sign'],accumulated_E_shift)
+
+                    new_onshell_propagators.append(osp)
+
+            E_surf['n_loops'] = new_n_loops-1
+            E_surf['E_shift'] += accumulated_E_shift
+            new_cvxpy_expression += E_surf['E_shift']
+            E_surf['cxpy_expression'] = new_cvxpy_expression
+            # Note that ellipsoid_param is not used and does not need to be updated
+            E_surf['onshell_propagators'] = new_onshell_propagators
+
+            # Now decide if this new E-surface with frozen momenta is pinched or not
+            p = cvxpy.Problem(cvxpy.Minimize(E_surf['cxpy_expression']), [])
+            result = p.solve()
+            E_surf['pinched'] = ( (abs(result)/E_cm)< this_cvxpy_threshold)
+
+            if E_surf['pinched'] or result < -this_cvxpy_threshold*E_cm:
+                new_E_surfaces.append(E_surf)
+
+        return new_E_surfaces
 
     #### IR PROFILE COMMAND
     ir_profile_parser = ArgumentParser(prog='ir_profile')
@@ -1618,6 +1699,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # Sanity check tha the user only supplied the *indendent* frozen momenta of the LMB
             if len(frozen_momenta['out'])-len(self.all_supergraphs[selected_SGs[0]]['cutkosky_cuts'][0]['cuts'])!=-1:
                 raise alphaLoopInvalidRunCmd("Make sure the number of frozen momenta specified in the 'external_data' of the cross_section_set yaml is only the *independent* frozen momenta.")
+
+            if any(v[0]<0. for v in frozen_momenta['in']) or any(v[0]<0. for v in frozen_momenta['out']):
+                raise alphaLoopInvalidRunCmd("The ir profiler is not capable of correctly identifying amplitude E-surfaces for euclidean kinematics as of now.\n"+
+                                             "You can uncomment this hard crash and let the profiler do its best and help double-check/debug the logic for euclidean though :).")
 
         if args.selected_e_surfaces is not None:
             args.selected_e_surfaces = [
@@ -1744,15 +1829,38 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 )
                 loop_SG = ltd_utils.LoopTopology.from_flat_format(SG['topo'])
 
+                edge_signatures = SG['edge_signatures']
+
                 # We must adjust entries in the loop_SG for the specific external momenta specified
                 external_momenta = [ LorentzVector(v) for v in self.hyperparameters['CrossSection']['incoming_momenta'] ]
                 external_momenta.extend(external_momenta)
                 loop_SG.external_kinematics = LorentzVectorList([list(v) for v in external_momenta])
+                if frozen_momenta is not None:
+                    frozen_cuts_name = [c['name'] for c in self.all_supergraphs[selected_SGs[0]]['cutkosky_cuts'][0]['cuts']]
                 for i_ll, ll in enumerate(loop_SG.loop_lines):
                     for i_p, p in enumerate(ll.propagators):
-                        p.q = sum([ external_momenta[i_shift]*wgt for i_shift, wgt in enumerate(SG['edge_signatures'][p.name][1]) ])
+                        relative_signatures =  set( (s1,s2) for s1, s2 in zip(edge_signatures[p.name][0],ll.signature) )
+                        if all( sig in [(0,0),(-1,-1),(1,1)] for sig in relative_signatures ):
+                            relative_sign = 1
+                        elif all( sig in [(0,0),(1,-1),(-1,1)] for sig in relative_signatures ):
+                            relative_sign = -1
+                        else:
+                            raise alphaLoopRunInterfaceError("The relation between the propagator loop signature and SG edge signature is not just a constant sign. This should not be!\nedge %s: %s vs %s"%(
+                                p.name, edge_signatures[p.name][0],ll.signature
+                            ))
+                        p.q = sum([ external_momenta[i_shift]*wgt*float(relative_sign) for i_shift, wgt in enumerate(SG['edge_signatures'][p.name][1]) ])
 
-                edge_signatures = SG['edge_signatures']
+                        # This below does not work because if we need negative squared masses then build_existing_ellipsoids fails because it takes the square root of them at some point.
+                        # if frozen_momenta is not None:
+                        #     # Also overwrite m_squared for externals to force them onshell
+                        #     if p.name in frozen_cuts_name:
+                        #         frozen_momenta_index = frozen_cuts_name.index(p.name)
+                        #         if frozen_momenta_index < (len(frozen_cuts_name)-1):
+                        #             frozen_external = LorentzVector(frozen_momenta['out'][ frozen_momenta_index ])
+                        #         else:
+                        #             frozen_external = sum(LorentzVector(v) for v in frozen_momenta['out'])*-1
+                        #             frozen_external += sum(LorentzVector(v) for v in frozen_momenta['in'])
+                        #         p.m_squared = frozen_external.dot(frozen_external)
 
                 cvxpy_source_coordinates = [cvxpy.Variable(3) for _ in range(loop_SG.n_loops)]
 
@@ -1762,7 +1870,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 consider_pinches = pinched_E_surface_keys
                 ellipsoids, ellipsoid_param, delta_param, expansion_threshold = loop_SG.build_existing_ellipsoids(
                     cvxpy_source_coordinates, pinched_E_surfaces=consider_pinches, extra_info=extra_info,allow_for_zero_shifts=False, E_cm=E_cm)
-                
+
                 prop_id_to_name = {
                     (ll_index, p_index) : p.name for ll_index, ll in enumerate(loop_SG.loop_lines) for p_index, p in enumerate(ll.propagators)
                 }
@@ -1770,7 +1878,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 for i_ll, ll in enumerate(loop_SG.loop_lines):
                     for i_p, p in enumerate(ll.propagators):
                         delta_param_per_prop[prop_id_to_name[(i_ll,i_p)]] = delta_param[len(delta_param_per_prop)]
-
+                
                 E_surfaces = []
                 for E_surface_key, expression in ellipsoids.items():
                     E_surfaces.append({
@@ -1786,27 +1894,26 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 'm_squared': loop_SG.loop_lines[os[0][0]].propagators[os[0][1]].m_squared
                             }
                             for os in E_surface_key], 
-                                key=lambda el: el['name'] if re.match('^pq\d+$',el['name']) is None else int(el['name'][2:]) ),
+                                key=lambda el: (-1,el['name']) if re.match('^pq\d+$',el['name']) is None else (int(el['name'][2:]),el['name']) ),
                         'cxpy_expression' : expression,
                         'ellipsoid_param' : ellipsoid_param[E_surface_key],
                         'pinched' : (E_surface_key in pinched_E_surface_keys),
                         'E_shift' : sum( os[2]*loop_SG.loop_lines[os[0][0]].propagators[os[0][1]].q[0] for os in E_surface_key )
                     })
-                E_surfaces.sort(key=lambda e: (
-                    e['n_loops'],
-                    (not e['pinched']),
-                    tuple([os['name'] for os in e['onshell_propagators']]),
-                    tuple([os['square_root_sign'] for os in e['onshell_propagators']]), 
-                    tuple([os['energy_shift_sign'] for os in e['onshell_propagators']])
-                ))
-                for i_surf, E_surf in enumerate(E_surfaces):
-                    E_surf['id'] = i_surf
 
                 if frozen_momenta is not None:
                     frozen_edge_names = set([c['name'] for c in self.all_supergraphs[selected_SGs[0]]['cutkosky_cuts'][0]['cuts']])
-                    # Do not Consider the E-surface corresponding to the fake Cutkosky cut
-                    #E_surfaces = [ E_surf for E_surf in E_surfaces if set([os['name'] for os in E_surf["onshell_propagators"]]).intersection(frozen_edge_names)==set([]) ]
-                    E_surfaces = [ E_surf for E_surf in E_surfaces if set([os['name'] for os in E_surf["onshell_propagators"]]) != frozen_edge_names ]
+                    E_surfaces = self.freeze_momenta_in_E_surfaces(E_surfaces, cvxpy_source_coordinates, SG['topo']['n_loops'], frozen_edge_names, frozen_momenta, E_cm)
+
+                # E_surfaces.sort(key=lambda e: (
+                #     e['n_loops'],
+                #     (not e['pinched']),
+                #     tuple([os['name'] for os in e['onshell_propagators']]),
+                #     tuple([os['square_root_sign'] for os in e['onshell_propagators']]), 
+                #     tuple([os['energy_shift_sign'] for os in e['onshell_propagators']])
+                # ))
+                for i_surf, E_surf in enumerate(E_surfaces):
+                    E_surf['id'] = i_surf
 
                 if args.selected_e_surfaces is not None:
                     E_surfaces = [ E_surf for E_surf in E_surfaces if set([os['name'] for os in E_surf["onshell_propagators"]]) in args.selected_e_surfaces ]
@@ -1831,7 +1938,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     # assert(all(list(osp['v_shift'])==[0.,0.,0.] for osp in E_surf['onshell_propagators']))
 
                 IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces']=E_surfaces
-                if args.verbose:
+                if args.verbose or True:
                     logger.info("All %d existing E-surfaces from supergraph %s:"%(len(E_surfaces),SG_name))
                     for i_surf, E_surface in enumerate(E_surfaces):
                         logger.info("#%-3d: %s%d%s-loop E-surface %s : %s"%(E_surface['id'], Colours.GREEN,E_surface['n_loops'],Colours.END, '(pinched)' if  E_surface['pinched'] else ' '*9,
@@ -1879,8 +1986,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     if len(E_surfaces_combinations)!=1:
                         raise alphaLoopInvalidRunCmd("An intersection point can only be specified if there is a single intersection to sample.")
                     E_surfaces_combination_with_id = tuple(sorted([E_surfaces[E_surf_index]['id'] for E_surf_index in E_surfaces_combinations[0]]))
+                    user_intersection_point = [ args.intersection_point[i:i+3] for i in range(0,len(args.intersection_point),3) ]
+                    if frozen_momenta is not None:
+                        user_intersection_point += [v[1:] for v in frozen_momenta['out']]
                     IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection'][len(E_surfaces_combination_with_id)][E_surfaces_combination_with_id] = {
-                        'intersection_point' : [ args.intersection_point[i:i+3] for i in range(0,len(args.intersection_point),3) ]
+                        'intersection_point' : user_intersection_point 
                     }
                 else:
                     for i_comb, E_surfaces_combination in enumerate(E_surfaces_combinations):
@@ -1976,7 +2086,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 E_cm = SG.get_E_cm(self.hyperparameters)
 
                 if args.approach_direction is None:
-                    approach_direction = [ Vector([random.random()*E_cm for i_comp in range(0,3)]) for i_vec in range(0, SG['n_loops']) ]
+                    approach_direction = [ Vector([random.random()*E_cm for i_comp in range(0,3)]) for i_vec in range(0, SG['n_loops']-(len(frozen_momenta['out']) if frozen_momenta is not None else 0) ) ]
                 else:                    
                     approach_direction = [ Vector(list(args.approach_direction[i:i+3])) for i in range(0,len(args.approach_direction),3) ]
                     if len(approach_direction)!=(SG['n_loops']-(len(frozen_momenta['out']) if frozen_momenta is not None else 0) ):
@@ -2017,16 +2127,23 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     SG['E_surfaces_intersection_analysis'][len(E_surface_combination)][tuple(E_surface_combination)]['approach_direction'] = \
                         approach_direction if frozen_momenta is None else approach_direction[:-len(frozen_momenta['out'])]
                     intersection_point = [ Vector(v) for v in comb_info['intersection_point'] ]
-                    momenta_str = '\n'.join('\n'.join('%-5s : %-20s'%(osp['name'], 
-                            ', '.join( '%.10e'%vi for vi in list(sum( l*factor for l, factor in zip(intersection_point,osp['loop_sig']) )+Vector(osp['v_shift'])) )
-                        ) for osp in E_surface_ID_to_E_surface[E_surf_ID]['onshell_propagators']
-                    ) for E_surf_ID in E_surface_combination)
+
+                    # momenta_str = '\n'.join('\n'.join('%-5s : %-20s'%(osp['name'], 
+                    #         ', '.join( '%.10e'%vi for vi in list(sum( l*factor for l, factor in zip(intersection_point,osp['loop_sig']) )+Vector(osp['v_shift'])) )
+                    #     ) for osp in E_surface_ID_to_E_surface[E_surf_ID]['onshell_propagators']
+                    # ) for E_surf_ID in E_surface_combination)
+                    momenta_str = '\n'.join('   %s%-5s%s : %-20s'%(Colours.BLUE, prop_name, Colours.END, 
+                                ', '.join( '%s%.10e'%('+' if vi>=0. else '', vi) for vi in list(
+                                    sum( l*factor for l, factor in zip(intersection_point,sig[0]) )+
+                                    sum( l[1:]*factor for l, factor in zip(external_momenta,sig[1]) )
+                                    ) )
+                            ) for prop_name, sig in sorted(SG['edge_signatures'].items(),key=lambda el: (-1,el[0]) if re.match('^pq\d+$',el[0]) is None else (int(el[0][2:]),el[0]) ) )
 
                     rerun_str = 'This can be rerun with option -e_surfaces %s -intersections %s -intersection_point %s -approach_direction %s'%(
                         ' '.join('(%s)'%(','.join(
                                     '"%s"'%os['name'] for os in E_surface_ID_to_E_surface[E_surf_id]['onshell_propagators']
                                 )) for E_surf_id in E_surface_combination),
-                                '(%s)'%(','.join('%d'%i_surf for i_surf in range(0, len(E_surface_combination)))),
+                                '[%s]'%(','.join('%d'%i_surf for i_surf in range(0, len(E_surface_combination)))),
                                 '(%s)'%(','.join(','.join('%.16e'%v_i for v_i in list(v) ) for v in (intersection_point if frozen_momenta is None else intersection_point[:-len(frozen_momenta['out'])] ) )),
                                 '(%s)'%(','.join(','.join('%.16e'%v_i for v_i in list(v) ) for v in (approach_direction if frozen_momenta is None else approach_direction[:-len(frozen_momenta['out'])] ) ))
                     )
@@ -2042,7 +2159,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                     # Cut_ID None means running over the full supergraph
                     test_passed_per_cut = {}
-                    for cut_ID, cuts_info in list(enumerate(SG['cutkosky_cuts']))+[(None, None)]:
+
+                    runs_to_consider = [(None, None)]
+                    if frozen_momenta is None or self.hyperparameters['General']['deformation_strategy']!='none':
+                        runs_to_consider += list(enumerate(SG['cutkosky_cuts']))
+                    for cut_ID, cuts_info in runs_to_consider:
                         
                         if cut_ID is not None:
 
@@ -2915,6 +3036,18 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             self.display_parser.print_help()
             return 
 
+        # We need to detect here if we are in the amplitude-mock-up situation with frozen external momenta.
+        frozen_momenta = None
+        if 'external_data' in self.cross_section_set:
+            frozen_momenta = {
+                'in' : self.cross_section_set['external_data']['in_momenta'],
+                'out' : self.cross_section_set['external_data']['out_momenta'],
+            }
+            external_momenta = [ Vector(v[1:]) for v in self.cross_section_set['external_data']['in_momenta'] ]
+        else:
+            external_momenta = [ Vector(v[1:]) for v in self.hyperparameters['CrossSection']['incoming_momenta'] ]
+        external_momenta.extend(external_momenta)
+
         args = self.split_arg(line)
         args = self.display_parser.parse_args(args)
 
@@ -2946,11 +3079,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 sg_collection = SuperGraphCollection()
                 sg_collection[args.SG_name] = self.all_supergraphs[args.SG_name]
                 logger.info("UV profile for supergraph '%s':\n%s"%(
-                    args.SG_name, sg_collection.show_IR_statistics(show_momenta=args.show_momenta)
+                    args.SG_name, sg_collection.show_IR_statistics(show_momenta=args.show_momenta, external_momenta=external_momenta)
                 ))
             else:
                 logger.info("Overall UV profile for all supergraphs:\n%s"%(
-                    self.all_supergraphs.show_IR_statistics(show_momenta=args.show_momenta)
+                    self.all_supergraphs.show_IR_statistics(show_momenta=args.show_momenta, external_momenta=external_momenta)
                 ))
 
         # Only show general statistics when not showing anything else
