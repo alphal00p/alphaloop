@@ -346,18 +346,18 @@ def sew_amp_diags(ld, rd):
     # look at edge-map-lin
     # look at edge-name-map
     propCount=1
-    extCount=1
+    in_count=0
     for ee in sewed_graph['edges'].values():
         if ee['type'] == 'virtual':
-            ee['name']='q' + str(propCount)
+            ee['name']='p' + str(propCount)
             propCount += 1
         elif ee['type'] == 'in':
-            ee['name']='p'+str(extCount)
-            extCount += 1
+            ee['name']='q'+ee["momentum"][1:]
+            in_count += 1
     for ee in sewed_graph['edges'].values():
         if ee['type'] == 'out':
-            ee['name']='p'+str(extCount)
-            extCount += 1
+            ee['name']='q'+str(int(ee["momentum"][1:])+in_count)
+    
 
     #SET INDICES
     cc=1
@@ -390,7 +390,8 @@ def sew_amp_diags(ld, rd):
                     valdic['indices'] = valdic.get('indices',()) + (idxs[0],)
                 else:
                     valdic['indices'] = valdic.get('indices',())+ (idxs[-1],)
-    sewed_graph["diag_set"] = left_diag["diag_set"]
+    sewed_graph["diag_set"] = left_diag.get("diag_set")
+    sewed_graph["index_shift"] = left_diag.get("index_shift",0)
     return copy.deepcopy(sewed_graph)
 
 
@@ -608,6 +609,7 @@ class intefered_sgs_list():
         FORM_vars['NFINALMOMENTA']=n_loops
         FORM_vars['SGID']=SIGID
         FORM_vars['CPERGRAPH']=colpergraph
+        FORM_vars['INDSHIFT'] = graph_dict.get("index_shift",0)
         i_graph=int(FORM_vars['SGID'])
 
         form_input=graph_dict['analytic_num']

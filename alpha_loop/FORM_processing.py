@@ -465,11 +465,6 @@ class FORMSuperGraph(object):
                     nn['momenta']=tuple(mm.replace(mom, repl_mom)
                                         for mm in nn['momenta'])
 
-
-
-
-
-
         return FORMSuperGraph(
             name = name, edges = edges, nodes = nodes,
             overall_factor = '1',
@@ -831,14 +826,15 @@ aGraph=%s;
             signature = ([0 for _ in range(n_loops)], [
                          0 for _ in range(n_incoming)])
             for pa in parsed:
+               
                 if pa[1] == 'p':
                     signature[1][int(
                         pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
                 else:
                     signature[0][int(
                         pa[2]) - 1] = 1 if pa[0] == '' or pa[0] == '+' else -1
-
             edge['signature'] = signature
+        
 
     def impose_signatures(self):
 
@@ -1446,10 +1442,12 @@ CTable pfmap(0:{},0:{});
             return False
 
         # Relabel edges according to alphaLoop conventions:
-        for edge_key, edge_data in self.edges.items():            
-            edge_data['name'] = 'p' + \
-                edge_data['name'] if edge_data['type'] == 'virtual' else 'q' + \
-                    edge_data['name'][1:]
+        if not self.is_amplitude:
+            for edge_key, edge_data in self.edges.items():            
+                edge_data['name'] = 'p' + \
+                    edge_data['name'] if edge_data['type'] == 'virtual' else 'q' + \
+                        edge_data['name'][1:]
+
         # relabel the powers according to alphaloop conventions
         if self.is_amplitude:
             self.powers = {}
@@ -1460,6 +1458,10 @@ CTable pfmap(0:{},0:{});
         # TODO: sort such that the first 4 entries are external (it seems to happen by chance now every time)
         edge_map_lin = [(e['name'], e['vertices'][0], e['vertices'][1])
                          for e in self.edges.values()]
+        
+        edge_map_lin = list(sorted(edge_map_lin,key=lambda x : int(x[0][1:]) if x[0][0]=="q" else int(x[0][1:])+100))
+        
+        
         assert(e[0] != 'q' or int(e[1:]) < 5 for e in edge_map_lin)
 
         particle_ids = { e['name']: e['PDG'] for e in self.edges.values() }
@@ -2982,6 +2984,8 @@ class FORMSuperGraphList(list):
 
             # Now adust the string momenta of edges and nodes accordingly.            
             g.impose_signatures()
+            print((g.edges))
+            
 
 
         

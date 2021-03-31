@@ -112,6 +112,7 @@ Auto V p,k,c, eps,ceps, sV,sVbar,sU,sUbar;
 Auto S lm,ext,x;
 Auto I mu=D,s=D;
 
+
 Set dirac: s1,...,s80;
 Set diracdummy: sd1,...,sd80;
 Set lorentz: mu1,...,mu80;
@@ -119,13 +120,16 @@ Set lorentzdummy: mud1,...,mud80;
 
 CF gamma, spinor ,vector,g(s),delta(s), counter,color, prop;
 CF hermconjugate, pol, cpol, uSpinor, ubarSpinor, vSpinor, vbarSpinor;
+CF gam, eps,epsStar, spinorU, spinorUbar,spinorV,spinorVbar,lVec, gMetric,deltaS(s),muL,indS;
+CF  trCol,deltaA, deltaF, Tc , colA,colF, colorfct, fC, ffC,colTemp;
+
 CF  sp(s), sunA, sunF, diracInd, lorentzInd,ffC,sunTF,sunTA,vec,deltaA,deltaF;
 CF deltaS, deltaL;
 S ii,m,n,y,z,i;
 CF d,rat, num, den,numtemp;
 CF ampDenom;
 
-Auto I i1, i2, j1, j2;
+Auto I i1, i2, j1, j2, ind1, ind2;
 Polyratfun rat;
 
 #include- coltracebased.h
@@ -145,6 +149,52 @@ endif;
 id denom_(?a) = ampDenom(?a);
 * now on the left-diagram
 * extract polarizations and spinors
+
+* this is for maple input:
+id ii = i_;
+* transform indices
+Argument; 
+    id indS(x?) = indS(x+`INDSHIFT');
+    id muL(x?)  = muL(x+`INDSHIFT');
+    id colA(x?) = colA(x+`INDSHIFT');
+    id colF(x?) = colF(x+`INDSHIFT');
+    id sunA(x?) = colA(x+`INDSHIFT');
+    id sunF(x?) = colF(x+`INDSHIFT');
+    id diracInd(x?) = diracInd(x+`INDSHIFT');
+    id lorentzInd(x?) = lorentzInd(x+`INDSHIFT');
+EndArgument;
+Argument;
+    id indS(x1?) = dirac[x1];
+    id muL(x1?)  = lorentz[x1];
+    id colA(x1?) = ccolA[x1];
+    id colF(x1?) = ccolF[x1];
+    id diracInd(x?) = dirac[x];
+    id lorentzInd(x?) = lorentz[x];
+EndArgument;
+*transform functions
+id lVec(p?,mu?) = p(mu);
+id gMetric(mu1?,mu2?) = d_(mu1,mu2);
+id deltaS(s1?,s2?) = d_(s1,s2);
+id deltaA(cOlj1?,cOlj2?) = d_(cOlj1,cOlj2);
+id deltaF(cOli1?,cOli2?) = d_(cOli1,cOli2);
+id fC(cOlj1?,cOlj2?,cOlj3?) = fCol(cOlj1,cOlj2,cOlj3);
+id ffC(?aa) = ffCol(?aa);
+id Tc(?aa) = TCol(?aa);
+id trCol(?aa) = TrCol(?aa);
+B+ gam;
+.sort
+
+* chain out momenta gam(...,lVec(p1+p2),...) = gam(...,p1,...)+gam(...,p2,...)
+Keep brackets;
+repeat id gam(?aa,lVec(p?vector_),?bb) = gam(?aa,p,?bb);
+repeat; 
+    id once gam(?aa,lVec(p?!vector_),?bb) = p(mu)*gam(?aa,mu,?bb);
+    id p?(mu?)*gam(?aa,mu?,?bb) = gam(?aa,p,?bb);
+endrepeat;
+
+id gam(?a) = gamma(?a);
+.sort:chain-out-momenta;
+
 
 id deltaS(i1?,i2?) = d_(i1,i2);
 * metric
@@ -171,13 +221,7 @@ id d(i1?,i2?) = d_(i1,i2);
     repeat id gamma(?b,uSpinor(?a))*counter(i?) = uSpinor(?a,diracdummy[i])*gamma(?b,diracdummy[i])*counter(i+1);
     repeat id gamma(?b,vSpinor(?a))*counter(i?) = vSpinor(?a,diracdummy[i])*gamma(?b,diracdummy[i])*counter(i+1);
     id counter(n?) =1;
-* replace by proper indices from the corresponding set
-argument;
-    id sunA(x?) = colA[x];
-    id sunF(x?) = colF[x];
-    id diracInd(x?) = dirac[x];
-    id lorentzInd(x?) = lorentz[x];
-endargument;
+
 *Print +ss;
 .sort
 repeat; 

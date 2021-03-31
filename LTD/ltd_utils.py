@@ -1123,7 +1123,7 @@ class TopologyGenerator(object):
             external_kinematics = [ext_mom["q%d"%n] for n in sorted([int(qi.replace("q","")) for qi in ext_mom.keys()])]
         except ValueError:
             if check_external_momenta_names:
-                print("External kinematics are not labels as q1,...,qn. Their order will be random.")
+                sys.exit("External kinematics are not labels as q1,...,qn. Their order will be random.")
             external_kinematics = list(ext_mom.values())
         
         loop_topology = LoopTopology(name=name, n_loops=len(self.loop_momenta), external_kinematics=external_kinematics,

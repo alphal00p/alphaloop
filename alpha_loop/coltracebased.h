@@ -1,9 +1,9 @@
 Symbol cOlNA,cOlNF;
 AutoDeclare Index cOli=cOlNF, cOlii=cOlNF, cOlj=cOlNA, cOljj=cOlNA;
-Set colF: cOli1,...,cOli80;
-Set colA: cOlj1,...,cOlj80;
-Set colFdum: cOlii1,...,cOlii80;
-Set colAdum: cOljj1,...,cOljj80;
+Set ccolF: cOli1,...,cOli80;
+Set ccolA: cOlj1,...,cOlj80;
+Set ccolFdum: cOlii1,...,cOlii80;
+Set ccolAdum: cOljj1,...,cOljj80;
 Tensor TCol,TrCol(cyclic),fCol(antisymmetric),ffCol;
 CF countF, countA,color;
 S aa,bb,cc,dd,ii,Tf,xx;
@@ -21,6 +21,7 @@ S aa,bb,cc,dd,ii,Tf,xx;
     repeat id d_(cOlj1?,cOlj2?) * color(xx?) = color(xx*d_(cOlj1,cOlj2));
     repeat id d_(cOli1?,cOli2?) * color(xx?) = color(xx*d_(cOli1,cOli2));
     repeat id TCol(?aa)*color(xx?) = color(xx*TCol(?aa));
+    repeat id TrCol(?aa)*color(xx?) = color(xx*TrCol(?aa));
     repeat id fCol(cOlj1?,cOlj2?,cOlj3?)*color(xx?) = color(xx * fCol(cOlj1,cOlj2,cOlj3));
     repeat id ffCol(?aa)*color(xx?) = color(xx * ffCol(?aa));
     
@@ -46,7 +47,7 @@ S aa,bb,cc,dd,ii,Tf,xx;
             repeat id TCol(cOli1?,?aa,cOli2?)*TCol(cOli2?,?bb,cOli3?) = TCol(cOli1,?aa,?bb,cOli3);
             id  TCol(cOli1?,?aa,cOli1?) = TrCol(?aa);
             id  TrCol(cOlj1?) = 0;
-            repeat id ffCol(cOlj1?,cOlj2?,cOlj3?,cOlj4?)*countA(ii?) = fCol(colAdum[ii], cOlj1,cOlj2)*fCol(colAdum[ii],cOlj3,cOlj4)*countA(ii+1);
+            repeat id ffCol(cOlj1?,cOlj2?,cOlj3?,cOlj4?)*countA(ii?) = fCol(ccolAdum[ii], cOlj1,cOlj2)*fCol(ccolAdum[ii],cOlj3,cOlj4)*countA(ii+1);
             repeat id fCol(cOlj1?,cOlj2?,cOlj3?)= 2*i_*(TrCol(cOlj1,cOlj3,cOlj2)-TrCol(cOlj1,cOlj2,cOlj3));
 * actual reduction
 * 0. case: Outside of trace
