@@ -609,13 +609,11 @@ class EsurfaceIntersectionFinder(object):
     def delta(cls, loop_momenta, loop_sig, shift, m_squared):
         
         k = [ sum( l[i]*factor for l, factor in zip(loop_momenta,loop_sig)) for i in range(0,3) ]
-
-        return math.sqrt(
-             (k[0]**2+k[1]**2+k[2]**2)+
+        delta_arg = ((k[0]**2+k[1]**2+k[2]**2)+
             +2*(k[0]*shift[0]+k[1]*shift[1]+k[2]*shift[2])
             +shift[0]**2+shift[1]**2+shift[2]**2
-            +m_squared
-        )
+            +m_squared)
+        return math.sqrt(max(delta_arg,0.))
     
     @classmethod
     def ddelta(cls, loop_momenta, loop_sig, shift, m_squared, loop_index, component_index):
@@ -627,7 +625,7 @@ class EsurfaceIntersectionFinder(object):
 
         k_not_derived = sum( l[component_index]*factor for i_loop_mom, (l, factor) in enumerate(zip(loop_momenta,loop_sig)) if i_loop_mom!=loop_index )
 
-        return loop_sig[loop_index]*(k_derived + k_not_derived + shift[component_index])/cls.delta(loop_momenta, loop_sig, shift, m_squared)
+        return loop_sig[loop_index]*(k_derived + k_not_derived + shift[component_index])/max(cls.delta(loop_momenta, loop_sig, shift, m_squared),1.0e-99)
 
     @classmethod
     def dddelta(cls, loop_momenta, loop_sig, shift, m_squared, loop_indexA, component_indexA,loop_indexB, component_indexB):
