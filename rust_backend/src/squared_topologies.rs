@@ -28,7 +28,7 @@ use std::time::Instant;
 use utils::Signum;
 
 #[cfg(not(feature = "higher_loops"))]
-pub const MAX_SG_LOOP: usize = 4;
+pub const MAX_SG_LOOP: usize = 5;
 #[cfg(feature = "higher_loops")]
 pub const MAX_SG_LOOP: usize = 10;
 
@@ -1900,7 +1900,14 @@ impl SquaredTopology {
                 &cut.signature.1,
                 &external_momenta[..self.external_momenta.len()],
             );
-            *cut_mom = k * scaling + shift;
+
+            if self.settings.cross_section.do_rescaling
+                && self.settings.cross_section.fixed_cut_momenta.is_empty()
+            {
+                *cut_mom = k * scaling + shift;
+            } else {
+                *cut_mom = k + shift;
+            }
 
             if self.settings.cross_section.fixed_cut_momenta.is_empty() {
                 let energy = (cut_mom.spatial_squared() + Into::<T>::into(cut.m_squared)).sqrt();

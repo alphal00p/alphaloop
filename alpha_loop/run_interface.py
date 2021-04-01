@@ -1756,6 +1756,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                 SG = self.all_supergraphs[SG_name]
 
+                external_momenta = [ LorentzVector(v) for v in self.hyperparameters['CrossSection']['incoming_momenta'] ]
+                external_momenta.extend(external_momenta)
+
                 if not args.reanalyze_E_surfaces and all(entry in SG for entry in ['E_surfaces','E_surfaces_intersection']):
                     
                     user_E_surfaces = []
@@ -1832,8 +1835,6 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 edge_signatures = SG['edge_signatures']
 
                 # We must adjust entries in the loop_SG for the specific external momenta specified
-                external_momenta = [ LorentzVector(v) for v in self.hyperparameters['CrossSection']['incoming_momenta'] ]
-                external_momenta.extend(external_momenta)
                 loop_SG.external_kinematics = LorentzVectorList([list(v) for v in external_momenta])
                 if frozen_momenta is not None:
                     frozen_cuts_name = [c['name'] for c in self.all_supergraphs[selected_SGs[0]]['cutkosky_cuts'][0]['cuts']]
@@ -2089,7 +2090,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     approach_direction = [ Vector([random.random()*E_cm for i_comp in range(0,3)]) for i_vec in range(0, SG['n_loops']-(len(frozen_momenta['out']) if frozen_momenta is not None else 0) ) ]
                 else:                    
                     approach_direction = [ Vector(list(args.approach_direction[i:i+3])) for i in range(0,len(args.approach_direction),3) ]
-                    if len(approach_direction)!=(SG['n_loops']-(len(frozen_momenta['out']) if frozen_momenta is not None else 0) ):
+                    if len(approach_direction)!=( SG['n_loops']-(len(frozen_momenta['out']) if frozen_momenta is not None else 0) ):
                         raise alphaLoopInvalidRunCmd("The specified approach direction does not specify %d*3 components."%SG['n_loops'])
 
                 if frozen_momenta is not None:
@@ -2281,8 +2282,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                     if (frozen_momenta is not None) or (CC_E_surf_id is not None):
 
                                         t_scaling_results.append( (scaling, LU_scaling) )
+                                        energies = [0.]*SG['n_loops']
+                                        if frozen_momenta is not None:
+                                            energies[-len(frozen_momenta['out']):] =[ v[0] for v  in frozen_momenta['out'] ]
                                         with utils.suppress_output(active=(not args.show_rust_warnings)):
-                                            cmb_deformation = rust_worker.get_cut_deformation([ list(v) for v in rescaled_momenta ],cut_ID)
+                                            cmb_deformation = rust_worker.get_cut_deformation([ [energy,]+list(v) for energy, v in zip(energies,rescaled_momenta) ],cut_ID)
                                         n_loops_in_subgraph = len(cmb_deformation)
                                         deformation_in_lmb = [ Vector([0.,0.,0.]) for _ in range(0,SG['n_loops']) ]
                                         for i_row, row in enumerate([cuts_info['diagram_sets'][0]['cb_to_lmb'][i:i+SG['n_loops']] 
