@@ -1306,6 +1306,9 @@ impl SquaredTopology {
             }
         }
 
+        // save memory by removing the SOCP allocations for the supergraph
+        squared_topo.topo.socp_problem = SOCPProblem::default();
+
         squared_topo.settings = settings.clone();
         for cutkosky_cuts in &mut squared_topo.cutkosky_cuts {
             for cut in &mut cutkosky_cuts.cuts {
@@ -2750,6 +2753,15 @@ impl SquaredTopology {
         let mut rotated_topology = self.clone();
         rotated_topology.name += "_rot";
         rotated_topology.rotation_matrix = rot_matrix.clone();
+
+        // remove the SOCP problem allocations from the rotated topology as we will always inherit them
+        for cc in &mut rotated_topology.cutkosky_cuts {
+            for ds in &mut cc.diagram_sets {
+                for di in &mut ds.diagram_info {
+                    di.graph.socp_problem = SOCPProblem::default();
+                }
+            }
+        }
 
         for e in &mut rotated_topology.external_momenta {
             let old_x = float::from_f64(e.x).unwrap();

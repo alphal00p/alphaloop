@@ -88,7 +88,7 @@ impl Topology {
 
             print!("+{})", prop.m_squared);
         }
-        println!("{:+} exists={} pinched={:?}", s.shift.t, s.exists, s.surface_type);
+        println!("{:+} exists={} pinched={:?}", s.shift.t.multiply_sign(s.delta_sign).t, s.exists, s.surface_type);
     }
 }
 
