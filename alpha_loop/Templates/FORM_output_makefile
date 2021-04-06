@@ -5,18 +5,10 @@ GCC=gcc
 GPP=g++
 endif
 LIBBPATH=../lib
-SRC=$(wildcard numerator*.c)
-OBJ=$(patsubst %.c,%.o, $(SRC))
-INTEGRANDSRC=$(wildcard integrand*.c)
-INTEGRANDOBJ=$(patsubst %.c,%.o, $(INTEGRANDSRC))
-INTEGRANDFMPRSRC=$(wildcard integrand*.cpp)
-INTEGRANDFMPROBJ=$(patsubst %.cpp,%.o, $(INTEGRANDFMPRSRC))
-LIBRARY=libFORM_numerators.so
-INTEGRANDLIBRARY=libFORM_integrands.so
+FILES=$(wildcard integrand_PF_*_f64.c)
+SGWC=$(patsubst integrand_PF_%_f64.c,../lib/libFORM_sg_%.so, $(FILES))
 
-all: $(LIBBPATH)/$(LIBRARY) $(LIBBPATH)/$(INTEGRANDLIBRARY)
-numerator: $(LIBBPATH)/$(LIBRARY)
-integrand: $(LIBBPATH)/$(INTEGRANDLIBRARY)
+all: $(SGWC)
 
 OPTIMIZATION_LVL = 3
 CFLAGS=-Wconversion -O$(OPTIMIZATION_LVL) -fcx-fortran-rules -fcx-limited-range -lm -lquadmath -lmpfr -lgmp
@@ -33,15 +25,20 @@ CFLAGSFMPR=-Wconversion -O$(OPTIMIZATION_LVL_f128) -fcx-fortran-rules -fcx-limit
 %_f128.o: %_f128.c
 	$(GCC) -c $(CFLAGSf128) $< -o $@
 
-%_fmpr.o: %_fmpr.c
+%_fmpr.o: %_fmpr.cpp
 	$(GPP) -c $(CFLAGSFMPR) $< -o $@
 
-$(LIBBPATH)/$(LIBRARY): $(OBJ)
-	$(GCC) --shared -fPIC $(CFLAGS) -o $@ $^
+../lib/libFORM_sg_%.so: integrand_PF_%_f64.o integrand_PF_%_f128.o integrand_PF_%_mpfr.o integrand_LTD_%_f64.o integrand_LTD_%_f128.o integrand_LTD_%_mpfr.o
+	$(GPP) --shared -fPIC $(CFLAGS) -o $@ $^
 
-$(LIBBPATH)/$(INTEGRANDLIBRARY): $(INTEGRANDOBJ) $(INTEGRANDFMPROBJ)
+../lib/libFORM_sg_%.so: integrand_PF_%_f64.o integrand_PF_%_f128.o integrand_LTD_%_f64.o integrand_LTD_%_f128.o
+	$(GPP) --shared -fPIC $(CFLAGS) -o $@ $^
+
+../lib/libFORM_sg_%.so: integrand_PF_%_f64.o integrand_PF_%_f128.o integrand_PF_%_mpfr.o
+	$(GPP) --shared -fPIC $(CFLAGS) -o $@ $^
+
+../lib/libFORM_sg_%.so: integrand_PF_%_f64.o integrand_PF_%_f128.o
 	$(GPP) --shared -fPIC $(CFLAGS) -o $@ $^
 
 clean:
-	rm -f $(LIBBPATH)/$(LIBRARY)
-	rm -f $(LIBBPATH)/$(INTEGRANDLIBRARY)
+	rm -f $(LIBBPATH)/$(SGWC)

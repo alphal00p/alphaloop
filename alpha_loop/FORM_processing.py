@@ -2711,7 +2711,8 @@ using mpfr::mpcomplex;
                         integrand_mpfr_main_code += \
 """
 extern "C" {{
-void %(header)sevaluate_{}_{}_mpfr(__complex128 lm[], __complex128 params[], int conf, __complex128* out) {{
+void %(header)sevaluate_{}_{}_mpfr(__complex128 lm[], __complex128 params[], int conf, int prec, __complex128* out) {{
+   mpfr_set_default_prec((mpfr_prec_t)(ceil(prec * 3.3219280948873624)));
    switch(conf) {{
 {}
     }}
@@ -2731,90 +2732,6 @@ void %(header)sevaluate_{}_{}_mpfr(__complex128 lm[], __complex128 params[], int
 
                         if FORM_processing_options["generate_arb_prec_output"]:
                             writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand_{}_{}_mpfr.cpp'%header_map).format(itype, i)).write((numerator_header + integrand_mpfr_main_code)%header_map)
-
-
-
-        integrand_code = \
-"""
-#include <tgmath.h>
-#include <quadmath.h>
-#include <signal.h>
-#include <mpfr.h>
-
-{}
-{}
-{}
-
-void %(header)sevaluate_PF(double complex lm[], double complex params[], int diag, int conf, double complex* out) {{
-    switch(diag) {{
-{}
-    }}
-}}
-
-void %(header)sevaluate_PF_f128(__complex128 lm[], __complex128 params[], int diag, int conf, __complex128* out) {{
-    switch(diag) {{
-{}
-    }}
-}}
-
-void %(header)sevaluate_PF_mpfr(__complex128 lm[], __complex128 params[], int diag, int conf, int prec, __complex128* out) {{
-    mpfr_set_default_prec((mpfr_prec_t)(ceil(prec * 3.3219280948873624)));
-
-    switch(diag) {{
-{}
-    }}
-}}
-
-void %(header)sevaluate_LTD(double complex lm[], double complex params[], int diag, int conf, double complex* out) {{
-    switch(diag) {{
-{}
-    }}
-}}
-
-void %(header)sevaluate_LTD_f128(__complex128 lm[], __complex128 params[], int diag, int conf, __complex128* out) {{
-    switch(diag) {{
-{}
-    }}
-}}
-
-void %(header)sevaluate_LTD_mpfr(__complex128 lm[], __complex128 params[], int diag, int conf, int prec, __complex128* out) {{
-    mpfr_set_default_prec((mpfr_prec_t)(ceil(prec * 3.3219280948873624)));
-
-    switch(diag) {{
-{}
-    }}
-}}
-
-""".format(
-    '\n'.join('void %(header)sevaluate_{}_{}(double complex[], double complex[], int conf, double complex* out);'.format(itype, i) for itype in integrand_type_list for i in all_numerator_ids[itype]),
-    '\n'.join('void %(header)sevaluate_{}_{}_f128(__complex128[], __complex128[], int conf, __complex128* out);'.format(itype, i) for itype in integrand_type_list for i in all_numerator_ids[itype]), 
-    '' if not FORM_processing_options["generate_arb_prec_output"] else '\n'.join('void %(header)sevaluate_{}_{}_mpfr(__complex128[], __complex128[], int conf, __complex128* out);'.format(itype, i) for itype in integrand_type_list for i in all_numerator_ids[itype]),
-    '\n'.join(
-    ['\t\tcase {}: %(header)sevaluate_PF_{}(lm, params, conf, out); return;'.format(i, i) for i in all_numerator_ids['PF']]+
-    ['\t\tdefault: raise(SIGABRT);']
-    ),
-    '\n'.join(
-    ['\t\tcase {}: %(header)sevaluate_PF_{}_f128(lm, params, conf, out); return;'.format(i, i) for i in all_numerator_ids['PF']]+
-    ['\t\tdefault: raise(SIGABRT);']
-    ),
-    '\n'.join(
-    ([] if not FORM_processing_options["generate_arb_prec_output"] else ['\t\tcase {}: %(header)sevaluate_PF_{}_mpfr(lm, params, conf, out); return;'.format(i, i) for i in all_numerator_ids['PF']]) +
-    ['\t\tdefault: raise(SIGABRT);']
-    ),
-    '\n'.join(
-    ['\t\tcase {}: %(header)sevaluate_LTD_{}(lm, params, conf, out); return;'.format(i, i) for i in all_numerator_ids['LTD']]+
-    ['\t\tdefault: raise(SIGABRT);']
-    ),
-    '\n'.join(
-    ['\t\tcase {}: %(header)sevaluate_LTD_{}_f128(lm, params, conf, out); return;'.format(i, i) for i in all_numerator_ids['LTD']]+
-    ['\t\tdefault: raise(SIGABRT);']
-    ),
-    '\n'.join(
-    ([] if not FORM_processing_options["generate_arb_prec_output"] else ['\t\tcase {}: %(header)sevaluate_LTD_{}_mpfr(lm, params, conf, out); return;'.format(i, i) for i in all_numerator_ids['LTD']]) +
-    ['\t\tdefault: raise(SIGABRT);']
-    )
-    )
-        writers.CPPWriter(pjoin(root_output_path, '%(header)sintegrand.c'%header_map)).write(integrand_code%header_map)
 
         integrand_C_source_size = 0.
         for fpath in glob_module.glob(pjoin(root_output_path,'*integrand*')):

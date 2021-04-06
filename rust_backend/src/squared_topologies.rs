@@ -4,16 +4,15 @@ use crate::observables::EventManager;
 use crate::topologies::FixedDeformationLimit;
 use crate::topologies::{Cut, LTDCache, LTDNumerator, Topology};
 use crate::utils;
-use crate::{
-    float, DeformationStrategy, FloatLike, IRHandling, IntegrandType, NormalisingFunction, Settings,
-};
+use crate::{float, DeformationStrategy, FloatLike, IntegrandType, NormalisingFunction, Settings};
 use arrayvec::ArrayVec;
 use color_eyre::{Help, Report};
-use dlopen::wrapper::Container;
+use dlopen::raw::Library;
 use eyre::WrapErr;
 use f128::f128;
 use havana::{ContinuousGrid, DiscreteGrid, Grid};
 use itertools::Itertools;
+use libc::{c_double, c_int};
 use lorentz_vector::{LorentzVector, RealNumberLike};
 use num::Complex;
 use num_traits::{Float, FloatConst, FromPrimitive, Inv, NumCast, One, ToPrimitive, Zero};
@@ -21,7 +20,6 @@ use rand::{thread_rng, Rng};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::File;
-use std::mem;
 use std::path::Path;
 use std::time::Instant;
 use utils::Signum;
@@ -32,37 +30,32 @@ pub const MAX_SG_LOOP: usize = 4;
 pub const MAX_SG_LOOP: usize = 10;
 
 mod form_integrand {
-    use dlopen::wrapper::{Container, WrapperApi};
-    use libc::{c_double, c_int};
+    use super::FORMIntegrandCallSignature;
     use num::Complex;
-    use std::path::PathBuf;
 
     pub trait GetIntegrand {
         fn get_integrand_ltd(
-            api_container: &mut Container<FORMIntegrandAPI>,
+            api_container: &FORMIntegrandCallSignature,
             p: &[Self],
             params: &[Self],
-            diag: usize,
             conf: usize,
         ) -> Complex<Self>
         where
             Self: std::marker::Sized;
 
         fn get_integrand_pf(
-            api_container: &mut Container<FORMIntegrandAPI>,
+            api_container: &FORMIntegrandCallSignature,
             p: &[Self],
             params: &[Self],
-            diag: usize,
             conf: usize,
         ) -> Complex<Self>
         where
             Self: std::marker::Sized;
 
         fn get_integrand_mpfr(
-            api_container: &mut Container<FORMIntegrandAPI>,
+            api_container: &FORMIntegrandCallSignature,
             p: &[Self],
             params: &[Self],
-            diag: usize,
             conf: usize,
             prec: usize,
         ) -> Complex<Self>
@@ -72,50 +65,49 @@ mod form_integrand {
 
     impl GetIntegrand for f64 {
         fn get_integrand_ltd(
-            api_container: &mut Container<FORMIntegrandAPI>,
+            api_container: &FORMIntegrandCallSignature,
             p: &[f64],
             params: &[f64],
-            diag: usize,
             conf: usize,
         ) -> Complex<f64> {
             unsafe {
                 let mut c = Complex::default();
-                api_container.evaluate_ltd(
-                    &p[0] as *const f64,
-                    &params[0] as *const f64,
-                    diag as i32,
-                    conf as i32,
-                    &mut c as *mut Complex<f64>,
-                );
+                if let Some(eval) = api_container.evaluate_ltd {
+                    eval(
+                        &p[0] as *const f64,
+                        &params[0] as *const f64,
+                        conf as i32,
+                        &mut c as *mut Complex<f64>,
+                    );
+                }
                 c
             }
         }
 
         fn get_integrand_pf(
-            api_container: &mut Container<FORMIntegrandAPI>,
+            api_container: &FORMIntegrandCallSignature,
             p: &[f64],
             params: &[f64],
-            diag: usize,
             conf: usize,
         ) -> Complex<f64> {
             unsafe {
                 let mut c = Complex::default();
-                api_container.evaluate_pf(
-                    &p[0] as *const f64,
-                    &params[0] as *const f64,
-                    diag as i32,
-                    conf as i32,
-                    &mut c as *mut Complex<f64>,
-                );
+                if let Some(eval) = api_container.evaluate_pf {
+                    eval(
+                        &p[0] as *const f64,
+                        &params[0] as *const f64,
+                        conf as i32,
+                        &mut c as *mut Complex<f64>,
+                    );
+                }
                 c
             }
         }
 
         fn get_integrand_mpfr(
-            _api_container: &mut Container<FORMIntegrandAPI>,
+            _api_container: &FORMIntegrandCallSignature,
             _p: &[f64],
             _params: &[f64],
-            _diag: usize,
             _conf: usize,
             _prec: usize,
         ) -> Complex<f64> {
@@ -125,120 +117,66 @@ mod form_integrand {
 
     impl GetIntegrand for f128::f128 {
         fn get_integrand_ltd(
-            api_container: &mut Container<FORMIntegrandAPI>,
+            api_container: &FORMIntegrandCallSignature,
             p: &[f128::f128],
             params: &[f128::f128],
-            diag: usize,
             conf: usize,
         ) -> Complex<f128::f128> {
             unsafe {
                 let mut c = Box::new(Complex::default());
-                api_container.evaluate_ltd_f128(
-                    &p[0] as *const f128::f128,
-                    &params[0] as *const f128::f128,
-                    diag as i32,
-                    conf as i32,
-                    c.as_mut() as *mut Complex<f128::f128>,
-                );
+                if let Some(eval) = api_container.evaluate_ltd_f128 {
+                    eval(
+                        &p[0] as *const f128::f128,
+                        &params[0] as *const f128::f128,
+                        conf as i32,
+                        c.as_mut() as *mut Complex<f128::f128>,
+                    );
+                }
                 *c
             }
         }
 
         fn get_integrand_pf(
-            api_container: &mut Container<FORMIntegrandAPI>,
+            api_container: &FORMIntegrandCallSignature,
             p: &[f128::f128],
             params: &[f128::f128],
-            diag: usize,
             conf: usize,
         ) -> Complex<f128::f128> {
             unsafe {
                 let mut c = Box::new(Complex::default());
-                api_container.evaluate_pf_f128(
-                    &p[0] as *const f128::f128,
-                    &params[0] as *const f128::f128,
-                    diag as i32,
-                    conf as i32,
-                    c.as_mut() as *mut Complex<f128::f128>,
-                );
+                if let Some(eval) = api_container.evaluate_pf_f128 {
+                    eval(
+                        &p[0] as *const f128::f128,
+                        &params[0] as *const f128::f128,
+                        conf as i32,
+                        c.as_mut() as *mut Complex<f128::f128>,
+                    );
+                }
                 *c
             }
         }
 
         fn get_integrand_mpfr(
-            api_container: &mut Container<FORMIntegrandAPI>,
+            api_container: &FORMIntegrandCallSignature,
             p: &[f128::f128],
             params: &[f128::f128],
-            diag: usize,
             conf: usize,
             prec: usize,
         ) -> Complex<f128::f128> {
             unsafe {
                 let mut c = Box::new(Complex::default());
-                api_container.evaluate_pf_mpfr(
-                    &p[0] as *const f128::f128,
-                    &params[0] as *const f128::f128,
-                    diag as i32,
-                    conf as i32,
-                    prec as i32,
-                    c.as_mut() as *mut Complex<f128::f128>,
-                );
+                if let Some(eval) = api_container.evaluate_pf_mpfr {
+                    eval(
+                        &p[0] as *const f128::f128,
+                        &params[0] as *const f128::f128,
+                        conf as i32,
+                        prec as i32,
+                        c.as_mut() as *mut Complex<f128::f128>,
+                    );
+                }
                 *c
             }
         }
-    }
-
-    #[derive(WrapperApi)]
-    pub struct FORMIntegrandAPI {
-        #[dlopen_name = "evaluate_LTD"]
-        evaluate_ltd: unsafe extern "C" fn(
-            p: *const c_double,
-            params: *const c_double,
-            diag: c_int,
-            conf: c_int,
-            out: *mut Complex<c_double>,
-        ),
-        #[dlopen_name = "evaluate_LTD_f128"]
-        evaluate_ltd_f128: unsafe extern "C" fn(
-            p: *const f128::f128,
-            params: *const f128::f128,
-            diag: c_int,
-            conf: c_int,
-            out: *mut Complex<f128::f128>,
-        ),
-        #[dlopen_name = "evaluate_PF"]
-        evaluate_pf: unsafe extern "C" fn(
-            p: *const c_double,
-            params: *const c_double,
-            diag: c_int,
-            conf: c_int,
-            out: *mut Complex<c_double>,
-        ),
-        #[dlopen_name = "evaluate_PF_f128"]
-        evaluate_pf_f128: unsafe extern "C" fn(
-            p: *const f128::f128,
-            params: *const f128::f128,
-            diag: c_int,
-            conf: c_int,
-            out: *mut Complex<f128::f128>,
-        ),
-        #[dlopen_name = "evaluate_PF_mpfr"]
-        evaluate_pf_mpfr: unsafe extern "C" fn(
-            p: *const f128::f128,
-            params: *const f128::f128,
-            diag: c_int,
-            conf: c_int,
-            prec: c_int,
-            out: *mut Complex<f128::f128>,
-        ),
-    }
-
-    pub fn load(base_path: &str) -> Container<FORMIntegrandAPI> {
-        let mut lib_path = PathBuf::from(&base_path);
-        lib_path.push("lib/libFORM_integrands.so");
-        let container: Container<FORMIntegrandAPI> =
-            unsafe { Container::load(lib_path) }.expect("Could not open library or load symbols");
-
-        container
     }
 }
 
@@ -269,14 +207,6 @@ pub struct CutkoskyCutDiagramSet {
     #[serde(skip_deserializing)]
     pub numerator: LTDNumerator,
     pub cb_to_lmb: Option<Vec<i8>>,
-    #[serde(skip_deserializing)]
-    pub energy_polynomial_matrix: Vec<Vec<f64>>,
-    #[serde(skip_deserializing)]
-    pub energy_polynomial_map: Vec<usize>,
-    #[serde(skip_deserializing)]
-    pub energy_polynomial_samples: Vec<Vec<f64>>,
-    #[serde(skip_deserializing)]
-    pub energy_polynomial_coefficients: Vec<Complex<f64>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -297,36 +227,130 @@ pub struct FORMNumeratorCallSignature {
     pub id: usize,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Deserialize)]
 pub struct FORMIntegrandCallSignature {
+    #[serde(default)]
+    pub base_path: String,
     pub id: usize,
+    #[serde(skip_deserializing)]
+    pub form_integrand: Option<Library>,
+    #[serde(skip_deserializing)]
+    pub evaluate_pf: Option<
+        unsafe extern "C" fn(*const c_double, *const c_double, c_int, *mut Complex<c_double>),
+    >,
+    #[serde(skip_deserializing)]
+    pub evaluate_ltd: Option<
+        unsafe extern "C" fn(*const c_double, *const c_double, c_int, *mut Complex<c_double>),
+    >,
+    #[serde(skip_deserializing)]
+    pub evaluate_pf_f128:
+        Option<unsafe extern "C" fn(*const f128, *const f128, c_int, *mut Complex<f128>)>,
+    #[serde(skip_deserializing)]
+    pub evaluate_ltd_f128:
+        Option<unsafe extern "C" fn(*const f128, *const f128, c_int, *mut Complex<f128>)>,
+    #[serde(skip_deserializing)]
+    pub evaluate_pf_mpfr:
+        Option<unsafe extern "C" fn(*const f128, *const f128, c_int, c_int, *mut Complex<f128>)>,
     #[serde(default)]
     pub prec: usize, // will be set by the precision checker
     #[serde(default)]
     pub extra_calls: Vec<(usize, usize)>,
-}
-
-#[derive(Deserialize)]
-pub struct FORMIntegrand {
-    call_signature: Option<FORMIntegrandCallSignature>,
     #[serde(skip_deserializing)]
-    pub form_integrand: Option<Container<form_integrand::FORMIntegrandAPI>>,
-    #[serde(default)]
-    pub base_path: String,
+    pub extra_form_integrands: Vec<Library>,
 }
 
-impl Clone for FORMIntegrand {
+impl FORMIntegrandCallSignature {
+    pub fn initialise(&mut self, base_path: String) {
+        self.base_path = base_path;
+
+        let a = format!("{}/lib/libFORM_sg_{}.so", self.base_path, self.id);
+        self.form_integrand =
+            Some(Library::open(a).expect("Could not open library or load symbols"));
+
+        self.evaluate_pf = Some(
+            unsafe {
+                self.form_integrand
+                    .as_ref()
+                    .unwrap()
+                    .symbol(&format!("evaluate_PF_{}", self.id))
+            }
+            .unwrap(),
+        );
+
+        self.evaluate_pf_f128 = unsafe {
+            self.form_integrand
+                .as_ref()
+                .unwrap()
+                .symbol(&format!("evaluate_PF_{}_f128", self.id))
+        }
+        .ok();
+
+        self.evaluate_pf_mpfr = unsafe {
+            self.form_integrand
+                .as_ref()
+                .unwrap()
+                .symbol(&format!("evaluate_PF_{}_mpfr", self.id))
+        }
+        .ok();
+
+        self.evaluate_ltd = unsafe {
+            self.form_integrand
+                .as_ref()
+                .unwrap()
+                .symbol(&format!("evaluate_LTD_{}", self.id))
+        }
+        .ok();
+
+        self.evaluate_ltd_f128 = unsafe {
+            self.form_integrand
+                .as_ref()
+                .unwrap()
+                .symbol(&format!("evaluate_LTD_{}_f128", self.id))
+        }
+        .ok();
+
+        self.extra_form_integrands = self
+            .extra_calls
+            .iter()
+            .map(|(diag, _)| {
+                Library::open(&format!("{}/lib/libFORM_sg_{}.so", self.base_path, diag))
+                    .expect("Could not open library or load symbols")
+            })
+            .collect();
+    }
+}
+
+impl Clone for FORMIntegrandCallSignature {
     fn clone(&self) -> Self {
-        FORMIntegrand {
-            call_signature: self.call_signature.clone(),
+        FORMIntegrandCallSignature {
             base_path: self.base_path.clone(),
-            form_integrand: if self.form_integrand.is_some() {
-                Some(form_integrand::load(&self.base_path))
-            } else {
-                None
-            },
+            id: self.id,
+            form_integrand: self.form_integrand.as_ref().map(|_| {
+                Library::open(&format!("{}/lib/libFORM_sg_{}.so", self.base_path, self.id))
+                    .expect("Could not open library or load symbols")
+            }),
+            evaluate_pf: self.evaluate_pf.clone(), // FIXME: is this safe?
+            evaluate_ltd: self.evaluate_ltd.clone(),
+            evaluate_pf_f128: self.evaluate_pf_f128.clone(),
+            evaluate_ltd_f128: self.evaluate_ltd_f128.clone(),
+            evaluate_pf_mpfr: self.evaluate_pf_mpfr.clone(),
+            prec: self.prec,
+            extra_calls: self.extra_calls.clone(),
+            extra_form_integrands: self
+                .extra_calls
+                .iter()
+                .map(|(diag, _)| {
+                    Library::open(&format!("{}/lib/libFORM_sg_{}.so", self.base_path, diag))
+                        .expect("Could not open library or load symbols")
+                })
+                .collect(),
         }
     }
+}
+
+#[derive(Clone, Deserialize)]
+pub struct FORMIntegrand {
+    call_signature: Option<FORMIntegrandCallSignature>,
 }
 
 #[derive(Clone, Deserialize)]
@@ -1339,8 +1363,9 @@ impl SquaredTopology {
             })
             .expect("Cannot determine base folder from filename. Use MG_NUMERATOR_PATH");
 
-        squared_topo.form_integrand.base_path = base_path.clone();
-        squared_topo.form_integrand.form_integrand = Some(form_integrand::load(&base_path));
+        if let Some(cs) = &mut squared_topo.form_integrand.call_signature {
+            cs.initialise(base_path);
+        }
 
         Ok(squared_topo)
     }
@@ -2178,8 +2203,6 @@ impl SquaredTopology {
                 }
             }
 
-            let mut form_integrand = mem::replace(&mut self.form_integrand.form_integrand, None);
-
             if let Some(em) = event_manager {
                 if em.time_integrand_evaluation {
                     em.integrand_evaluation_timing_start = Some(Instant::now());
@@ -2198,31 +2221,34 @@ impl SquaredTopology {
                     },
                 );
 
-                for &(diag, conf) in [(d, c)].iter().chain(&call_signature.extra_calls) {
+                // FIXME: extra_calls not supported atm!
+                assert!(call_signature.extra_calls.is_empty());
+
+                for &(_diag, conf) in [(d, c)].iter().chain(&call_signature.extra_calls) {
                     let res_bare = match self.settings.cross_section.integrand_type {
                         // TODO: mpfr
                         IntegrandType::LTD => T::get_integrand_ltd(
-                            form_integrand.as_mut().unwrap(),
+                            call_signature,
                             &cache.scalar_products,
                             &params,
-                            diag,
                             conf,
                         ),
                         IntegrandType::PF => {
-                            if call_signature.prec == 0 || call_signature.prec == 16 || call_signature.prec == 32 {
+                            if call_signature.prec == 0
+                                || call_signature.prec == 16
+                                || call_signature.prec == 32
+                            {
                                 T::get_integrand_pf(
-                                    form_integrand.as_mut().unwrap(),
+                                    call_signature,
                                     &cache.scalar_products,
                                     &params,
-                                    diag,
                                     conf,
                                 )
                             } else {
                                 T::get_integrand_mpfr(
-                                    form_integrand.as_mut().unwrap(),
+                                    call_signature,
                                     &cache.scalar_products,
                                     &params,
-                                    diag,
                                     conf,
                                     call_signature.prec,
                                 )
@@ -2242,8 +2268,6 @@ impl SquaredTopology {
                     em.integrand_evaluation_timing += Instant::now().duration_since(s).as_nanos();
                 }
             }
-
-            mem::swap(&mut form_integrand, &mut self.form_integrand.form_integrand);
 
             res *= def_jacobian;
 

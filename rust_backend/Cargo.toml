@@ -34,7 +34,6 @@ color-eyre = {version = "^0.3", default-features = false}
 colored = "1.8"
 cuba = "^0.2.3"
 dlopen = "*"
-dlopen_derive = "*"
 dual_num = {git = "https://github.com/benruijl/dual_num", branch = "dualn"}
 ecos-rs = "*"
 eyre = "^0.4"

@@ -2,8 +2,6 @@
 extern crate itertools;
 #[cfg(feature = "python_api")]
 use pyo3::prelude::*;
-#[macro_use]
-extern crate dlopen_derive;
 extern crate nalgebra as na;
 
 use color_eyre::{Help, Report};
