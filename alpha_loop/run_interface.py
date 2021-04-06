@@ -164,7 +164,7 @@ class RunHyperparameters(HyperParameters):
                 {
                     # number of samples to take for the numerical stability check
                     'n_samples': 3,
-                    'use_f128': False,
+                    'prec': 16,
                     'use_pf': True,
                     # number of digits that should be the same between rotated versions
                     'relative_precision': 4.0,
@@ -174,7 +174,7 @@ class RunHyperparameters(HyperParameters):
                 },
                 {
                     'n_samples': 3,
-                    'use_f128': True,
+                    'prec': 32,
                     'use_pf': True,
                     'relative_precision': 8.0,
                     'escalate_for_large_weight_threshold': -1.,
@@ -1398,7 +1398,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         logger.info("Starting timing profile...")
         # WARNING it is important that the rust workers instantiated only go out of scope when this function terminates
         self.hyperparameters['General']['stability_checks']=[self.hyperparameters['General']['stability_checks'][0],]
-        self.hyperparameters['General']['stability_checks'][0]['use_f128']=False
+        self.hyperparameters['General']['stability_checks'][0]['prec']=16
         self.hyperparameters['General']['stability_checks'][0]['n_samples']=1
         self.hyperparameters['General']['stability_checks'][0]['relative_precision']=1.0e-99
         self.hyperparameters['General']['stability_checks'][0]['escalate_for_large_weight_threshold']=-1.0
@@ -1407,7 +1407,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if args.f128:
             hyperparameters_backup=copy.deepcopy(self.hyperparameters)
             for entry in self.hyperparameters['General']['stability_checks']:
-                entry['use_f128'] = True
+                entry['prec'] = 32
             rust_workers_f128 = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
             self.hyperparameters = hyperparameters_backup
 
@@ -2051,7 +2051,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if args.f128 or not args.no_f128:
             hyperparameters_backup=copy.deepcopy(self.hyperparameters)
             for entry in self.hyperparameters['General']['stability_checks']:
-                entry['use_f128'] = True
+                entry['prec'] = 32
             rust_workers_f128 = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
             self.hyperparameters = hyperparameters_backup
         t_start_profile = time.time()
@@ -2702,7 +2702,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if args.f128 or not args.no_f128:
             hyperparameters_backup=copy.deepcopy(self.hyperparameters)
             for entry in self.hyperparameters['General']['stability_checks']:
-                entry['use_f128'] = True
+                entry['prec'] = 32
             rust_workers_f128 = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
             self.hyperparameters = hyperparameters_backup
         t_start_profile = time.time()
