@@ -19,6 +19,7 @@ import math
 import shutil
 import numpy as np
 import random
+from multiprocessing import Value, Array
 
 import madgraph
 MADEVENT= False
@@ -135,14 +136,47 @@ class DimensionList(list):
 class VirtualIntegrand(object):
     """A mother base class that specifies the feature that any integrand should implement."""
     
-    def __init__(self, dimensions=DimensionList()):
+    def __init__(self, dimensions=None):
+
+        if dimensions is None:
+            dimensions = DimensionList()
+
         self.continuous_dimensions      = dimensions.get_continuous_dimensions()
         self.discrete_dimensions        = dimensions.get_discrete_dimensions()
         self.apply_observables          = True
         self.observable_list            = observables.ObservableList()
         self.function_list              = functions.FunctionList()
+
+        self.n_evals = Value('i', 0)
+        self.n_evals_failed = Value('i', 0)
+        self.max_eval_positive = Value('d', 0.)
+        self.max_eval_positive_xs = Array('d', [-1. for _ in range(len(dimensions))])
+        self.max_eval_negative = Value('d', 0.)
+        self.max_eval_negative_xs = Array('d', [-1. for _ in range(len(dimensions))])
+        self.n_zero_evals = Value('i', 0)
+
         pass
     
+    def update_evaluation_statistics(self, xs, wgt):
+        """ Record the evaluation and update corresponding statistics."""
+
+        self.n_evals.value += 1
+
+        if wgt is None:
+            self.n_evals_failed.value += 1
+            return
+
+        if wgt>0. and wgt > self.max_eval_positive.value:
+            self.max_eval_positive.value = wgt
+            self.max_eval_positive_xs[:] = xs
+
+        if wgt<0. and wgt < self.max_eval_negative.value:
+            self.max_eval_negative.value = wgt
+            self.max_eval_negative_xs[:] = xs
+        
+        if wgt == 0.:
+            self.n_zero_evals.value += 1
+
     def get_dimensions(self):
         """ Return all dimensions characterizing this integrand."""
         return DimensionList(self.continuous_dimensions + self.discrete_dimensions)

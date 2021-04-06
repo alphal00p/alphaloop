@@ -1,4 +1,7 @@
-from scipy import stats
+try:
+    from scipy import stats
+except ImportError:
+    pass
 import math
 import os
 import sys
@@ -22,10 +25,10 @@ class bcolors:
     RED = '\033[91m'
     END = ENDC
 
-def compute_dod(sequence):
+def compute_dod(sequence, threshold=0.01):
     """ from a sequence of results in the format (scaling, complex(result)), determine the asymptotic scaling."""
 
-    _THRESHOLD = 0.01
+    _THRESHOLD = threshold
 
     # First filer zeros for the sequence
     sequence = [s for s in sequence if abs(s[1])>0.]
@@ -129,13 +132,13 @@ class suppress_output:
         self._stdout = None 
         self._stderr = None
     def __enter__(self): 
-        devnull = open(os.devnull, "w") 
-        if self.suppress_stdout: 
-            self._stdout = sys.stdout 
-            sys.stdout = devnull        
-        if self.suppress_stderr: 
-            self._stderr = sys.stderr 
-            sys.stderr = devnull 
+        with open(os.devnull, "w") as devnull:
+            if self.suppress_stdout: 
+                self._stdout = sys.stdout 
+                sys.stdout = devnull        
+            if self.suppress_stderr: 
+                self._stderr = sys.stderr 
+                sys.stderr = devnull 
     def __exit__(self, *args): 
         if self.suppress_stdout: 
             sys.stdout = self._stdout 

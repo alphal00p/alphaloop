@@ -25,7 +25,7 @@ use std::time::Instant;
 use utils::Signum;
 
 #[cfg(not(feature = "higher_loops"))]
-pub const MAX_SG_LOOP: usize = 4;
+pub const MAX_SG_LOOP: usize = 5;
 #[cfg(feature = "higher_loops")]
 pub const MAX_SG_LOOP: usize = 10;
 
@@ -1037,7 +1037,7 @@ impl SquaredTopologySet {
                     *xi = xi.max(0.).min(1.0);
                 }
             }
-
+            
             let (l_energy, (l_space, jac)) = if i < n_loops - n_fixed {
                 // set the loop index to i + 1 so that we can also shift k
                 (
@@ -1074,7 +1074,6 @@ impl SquaredTopologySet {
                     + <T as NumCast>::from(rot[2][1]).unwrap() * l_space[1]
                     + <T as NumCast>::from(rot[2][2]).unwrap() * l_space[2],
             );
-
             jac_para *= jac;
             para_jacs[i] = jac_para;
         }
@@ -1246,6 +1245,9 @@ impl SquaredTopology {
                 }
             }
         }
+
+        // save memory by removing the SOCP allocations for the supergraph
+        squared_topo.topo.socp_problem = SOCPProblem::default();
 
         squared_topo.settings = settings.clone();
         for cutkosky_cuts in &mut squared_topo.cutkosky_cuts {
@@ -1780,7 +1782,14 @@ impl SquaredTopology {
                 &cut.signature.1,
                 &external_momenta[..self.external_momenta.len()],
             );
-            *cut_mom = k * scaling + shift;
+
+            if self.settings.cross_section.do_rescaling
+                && self.settings.cross_section.fixed_cut_momenta.is_empty()
+            {
+                *cut_mom = k * scaling + shift;
+            } else {
+                *cut_mom = k + shift;
+            }
 
             if self.settings.cross_section.fixed_cut_momenta.is_empty() {
                 let energy = (cut_mom.spatial_squared() + Into::<T>::into(cut.m_squared)).sqrt();
@@ -1835,8 +1844,10 @@ impl SquaredTopology {
                         ) * (Float::powi(scaling, 2) + T::one())
                             / scaling))
                             .exp(),
+                            // Float::powi(scaling, 12),
                         if self.settings.cross_section.normalising_function.spread == 1. {
                             Into::<T>::into(0.27973176363304485456919761407082)
+                            // Into::<T>::into(3.6462924162048315061277675650969e7)
                         } else {
                             Into::<T>::into(
                                 2. * rgsl::bessel::K1(
@@ -1866,6 +1877,7 @@ impl SquaredTopology {
                 }
                 NormalisingFunction::None => (Into::<T>::into(1.0), Into::<T>::into(1.0)),
             };
+
             scaling_result *=
                 scaling_jac * Float::powi(scaling, self.n_loops as i32 * 3) * h / h_norm;
 
@@ -2324,6 +2336,15 @@ impl SquaredTopology {
         let mut rotated_topology = self.clone();
         rotated_topology.name += "_rot";
         rotated_topology.rotation_matrix = rot_matrix.clone();
+
+        // remove the SOCP problem allocations from the rotated topology as we will always inherit them
+        for cc in &mut rotated_topology.cutkosky_cuts {
+            for ds in &mut cc.diagram_sets {
+                for di in &mut ds.diagram_info {
+                    di.graph.socp_problem = SOCPProblem::default();
+                }
+            }
+        }
 
         for e in &mut rotated_topology.external_momenta {
             let old_x = float::from_f64(e.x).unwrap();
