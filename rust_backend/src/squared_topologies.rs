@@ -1,8 +1,9 @@
 use crate::dashboard::{StatusUpdate, StatusUpdateSender};
 use crate::integrand::{IntegrandImplementation, IntegrandSample};
 use crate::observables::EventManager;
-use crate::topologies::FixedDeformationLimit;
-use crate::topologies::{Cut, LTDCache, LTDNumerator, Topology};
+use crate::topologies::{
+    Cut, FixedDeformationLimit, LTDCache, LTDNumerator, SOCPProblem, Topology,
+};
 use crate::utils;
 use crate::{float, DeformationStrategy, FloatLike, IntegrandType, NormalisingFunction, Settings};
 use arrayvec::ArrayVec;
