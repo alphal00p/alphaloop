@@ -125,7 +125,7 @@ CF  trCol,deltaA, deltaF, Tc , colA,colF, colorfct, fC, ffC,colTemp;
 
 CF  sp(s), sunA, sunF, diracInd, lorentzInd,ffC,sunTF,sunTA,vec,deltaA,deltaF;
 CF deltaS, deltaL;
-S ii,m,n,y,z,i;
+S ii,m,n,y,z;
 CF d,rat, num, den,numtemp;
 CF ampDenom;
 
@@ -256,7 +256,7 @@ endargument;
 #enddo
 
 #do i = 1,50
-    id uSpinor(`i',?a,i1?) = spinor(sV`i',i1);
+    id vSpinor(`i',?a,i1?) = spinor(sV`i',i1);
     if ( count(vSpinor,1)==0 ) redefine i "50";
     .sort        
 #enddo
