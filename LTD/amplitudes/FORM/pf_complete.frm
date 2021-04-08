@@ -7,7 +7,7 @@ CF a;
 
 set onshellenergies:E0,...,E1000;
 
-*--#[ partial_fractioning:
+#procedure partial-fractioning
 multiply norm(1)*num();
 repeat id norm(E?)*prop(y0?,y1?) = norm(2*E*y1)*(den(y0-y1)-den(y0+y1)); 
 .sort
@@ -96,16 +96,12 @@ repeat id norm(E?)*prop(y0?,y1?) = norm(2*E*y1)*(den(y0-y1)-den(y0+y1));
 *    id Echain(y0?)= 1;
 *    .sort:terminate-k`i';
 #enddo
-*--#] partial_fractioning:
-
-*id norm(?y) = 1;
-*multiply k0^3;
-*id num(ncmd(y1?,y2?,?y)) = 0;
-*print +s ;
 .sort 
+#endprocedure partial-fractioning
+
 
 * Read out the numerator instructions
-#procedure NumUnfold
+#procedure unfold-numerator 
 Auto S z,r,s,invden;
 * Start unfoding the numerator instructions loop by loop
 #do i = 0,{`LOOPS'-1}
@@ -133,42 +129,4 @@ endif;
 .sort:rm-num;
 #endprocedure
 
-* Expand numerator
-#message "Start expanding the numerator"
-#redefine oldextrasymbols "`extrasymbols_'"
-ExtraSymbols, underscore, den;
-argtoextrasymbol den;
-id den(y?) = y;
-
-.sort:den;
-off statistics;
-#call NumUnfold;
-on statistics; 
-
-*multiply replace_(<den{`oldextrasymbols'+1}_,den(extrasymbol_({`oldextrasymbols'+1}))>\
-*                  ,...,<den`extrasymbols_'_,den(extrasymbol_(`extrasymbols_'))>);
-multiply replace_(<den{`oldextrasymbols'+1}_,invden{1}>
-                  ,...,<den`extrasymbols_'_,invden{`extrasymbols_'-`oldextrasymbols'}>);
-#do i={`oldextrasymbols'+1},`extrasymbols_'
-    #$y = extrasymbol_(`i');
-    #write<out.txt> "\tinvden{`i'-`oldextrasymbols'} = 1/(%$);" $y
-#enddo
-
-.sort:end-numerator;
-
-**Format 255;
-*#clearoptimize;
-*ExtraSymbols, underscore, Z;
-*Format C;
-*Format O1,stats=on, saIter=1000;
-*#Optimize F
-*#write "%O"
-*.sort
-*print +s;
-*.sort
-*#write<pf_form.out> "      F = %e",F
-
-**print +s;
-*.end
-*
 

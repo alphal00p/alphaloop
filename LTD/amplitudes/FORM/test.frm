@@ -1,10 +1,11 @@
 #-
+#include ./pf_complete.frm 
 CF sprop, prop, sqrt, penergy, spatial, onshellenergy;
 Auto S E, m, energyk, y;
 Auto V k,p, q, mom, armin;
 Auto I mu;
 
-L F = sprop(k1+q1,m1)*sprop(k1+k2+q5,m5)*sprop(k2+p4,m4);
+L F = penergy(k1)*sprop(k1+q1,m1)*sprop(k1+k2+q5,m5)*sprop(k2+p4,m4);
 print +s;
 
 id sprop(mom?,y2?) = prop(penergy(mom), sqrt(mom.mom + y2^2));
@@ -14,9 +15,9 @@ argument prop;
 endargument;
 .sort 
 
-*** TODO: check that there are no E variables ***
-ExtraSymbols, underscore, E;
+* Extract energies
 #redefine oldextrasymbols "`extrasymbols_'"
+ExtraSymbols, underscore, E;
 argtoextrasymbol prop, 2;
 id onshellenergy(y?) = y;
 .sort:onshell-enegies;
@@ -30,7 +31,7 @@ multiply replace_(<E{`oldextrasymbols'+1}_,E{`oldextrasymbols'+1}>\
 #write<out.txt> ""
 
 
-* Map to k0,k1,..,k3
+* Map loop momenta energies
 #define LOOPS "2";
 #define LoopSymbol "k";
 #define LoopSymbolStart "1";
@@ -42,9 +43,29 @@ multiply replace_(<E{`oldextrasymbols'+1}_,E{`oldextrasymbols'+1}>\
 #enddo
 .sort
 
-* Get cLTD expression
-#include ./pf_complete.frm 
 
+* Get cLTD expression
+#call partial-fractioning
+
+* Expand numerator
+ExtraSymbols, underscore, den;
+argtoextrasymbol den;
+id den(y?) = y;
+.sort:den;
+off statistics;
+#call unfold-numerator;
+on statistics; 
+
+* Store inverse denominators
+multiply replace_(<den{`oldextrasymbols'+1}_,invden{1}>
+                  ,...,<den`extrasymbols_'_,invden{`extrasymbols_'-`oldextrasymbols'}>);
+#do i={`oldextrasymbols'+1},`extrasymbols_'
+    #$y = extrasymbol_(`i');
+    #write<out.txt> "\tinvden{`i'-`oldextrasymbols'} = 1/(%$);" $y
+#enddo
+.sort:end-numerator;
+
+* Optimize
 ExtraSymbols, underscore, Z;
 Format C;
 Format O1,stats=on, saIter=1000;
