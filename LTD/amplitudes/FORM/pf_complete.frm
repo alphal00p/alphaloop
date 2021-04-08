@@ -151,7 +151,7 @@ multiply replace_(<den{`oldextrasymbols'+1}_,invden{1}>
                   ,...,<den`extrasymbols_'_,invden{`extrasymbols_'-`oldextrasymbols'}>);
 #do i={`oldextrasymbols'+1},`extrasymbols_'
     #$y = extrasymbol_(`i');
-    #write<out.txt> "\tinvden{`i'-`oldextrasymbols'} = %$;" $y
+    #write<out.txt> "\tinvden{`i'-`oldextrasymbols'} = 1/(%$);" $y
 #enddo
 
 .sort:end-numerator;
