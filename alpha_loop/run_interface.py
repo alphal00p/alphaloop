@@ -2800,10 +2800,12 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         # Here we are in x-space, so the dod read is already the one we want.
                         dod, standard_error, number_of_points_considered, successful_fit = utils.compute_dod(results)
                         dod += 3*float(len(UV_edge_indices))
-
+                        if all(abs(res[1])==0. for res in results[-3:]):
+                            # Then make sure this test is passed as the integrand is exactly zeor
+                            dod = -99.0
 
                         # We expect dod of at most five sigma above 0.0 for the integral to be convergent.
-                        test_passed = (dod < float(args.target_scaling)+min(max(5.0*abs(standard_error),0.005),0.1) )
+                        test_passed = (dod < float(args.target_scaling)+min(max(10.0*abs(standard_error),0.05),0.2) )
 
                         if (successful_fit and test_passed) or use_f128:
                             break
@@ -2908,9 +2910,12 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                         dod, standard_error, number_of_points_considered, successful_fit = utils.compute_dod(results)
                         dod += 3*float(len(UV_edge_indices))
+                        if all(abs(res[1])==0. for res in results[-3:]):
+                            # Then make sure this test is passed as the integrand is exactly zeor
+                            dod = -99.0
 
                         # We expect dod of at most five sigma above 0.0 for the integral to be convergent.
-                        test_passed = (dod < float(args.target_scaling)+min(max(5.0*abs(standard_error),0.005),0.1) )
+                        test_passed = (dod < float(args.target_scaling)+min(max(10.0*abs(standard_error),0.05),0.2) )
 
                         if (successful_fit and test_passed) or use_f128:
                             break
