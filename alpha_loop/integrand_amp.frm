@@ -53,7 +53,7 @@ CF ampDenom;
 CF LmbToCmbSubs;
 
 * for components
-CF penergy, spatial(s),spatialComp,spatialCompTmp;
+CF penergy, spatial(s), spatialComp, spatialCompTmp;
 
 *for clTD
 CF sprop, prop, sqrt, penergy, spatial, onshellenergy, toCLTD;
@@ -62,7 +62,7 @@ Auto S E, m, energyk, y, sqrt;
 S ii,aa,bb,cc,dd,m,n,y,z;
 
 S yT,mT;
-
+#include ./pf_complete.frm 
 
 #define NCUTMOMENTA "`NFINALMOMENTA'+`NLOOPMOMENTA'"
 
@@ -112,10 +112,11 @@ endargument;
 argument prop;
     argument sqrt;
         id spatial(p?!vector_,p1?) = p(mu1)*spatial(mu1,p1);
-        id spatial(p1?,p?!vector_) = p(mu2)*spatial(mu3,p1);
-        id spatial(p?!vector_,k?!vector_) = p(mu3)*k(mu4)*spatial(mu3,mu4);
-        id p?(mu?) * spatial(mu?,p1?) = spatial(p,p1);
+        id spatial(p1?,p?!vector_) = p(mu2)*spatial(mu2,p1);
+        id spatial(p?!vector_,k?!vector_) = p(mu3)*k(mu4)*spatial(mu3,mu4);        
         id p?(mu1?)*k?(mu2?)* spatial(mu1?,mu2?) = spatial(p,k);
+        id p?(mu?) * spatial(mu?,p1?) = spatial(p,p1);
+        symmetrize spatial;
     endargument;
 endargument;
 .sort 
@@ -263,7 +264,9 @@ if (count(gamma,1) || count(gam,1));
         print "Some gammas are not replaced: %t";
         exit "Critical ERROR";
 endif;
-
+* I have to ask ben why that is not done by default
+symmetrize spatial;
+.sort:gamma-chain-final;
 
 
 
@@ -289,6 +292,13 @@ endif;
 #$OFFSET = 0;
 #do i=1,`$MAXP'
     id penergy(p`i') = lm`$OFFSET';
+    argument;
+        id penergy(p`i') = lm`$OFFSET';
+        argument;
+            id penergy(p`i') = lm`$OFFSET';
+        endargument;
+    endargument;
+
     #$OFFSET = $OFFSET + 1;
     #do j=`i',`$MAXP'
         id p`i'.p`j' = lm`$OFFSET';
@@ -315,6 +325,9 @@ endif;
         id penergy(c`i') = lm`$OFFSET';
         argument;
             id penergy(c`i') = lm`$OFFSET';
+            argument;
+                id penergy(c`i') = lm`$OFFSET';
+            endargument;
         endargument;
     #endif
     #$OFFSET = $OFFSET + 1;
@@ -481,13 +494,13 @@ multiply replace_(<E{`oldextrasymbols'+1}_,E{`oldextrasymbols'+1}>\
     #write<out`SGID'.txt> "\tE{`i'-`oldextrasymbols'} = %$;" $y
 #enddo
 #write<out`SGID'.txt> ""
-B+ prop;
+
 .sort:replace-energies;
 **** REPLACE cut-energies by cLTD loop energy symbols (energyk`i')
 #define LOOPS "`NLOOPMOMENTA'"
 #define LoopSymbol "c";
 #define LoopSymbolStart "`NFINALMOMENTA'+1";
-Keep brackets;
+
 #do i=0,`NLOOPMOMENTA'-1
     id penergy(`LoopSymbol'{`LoopSymbolStart'+`i'}) = prop(energyk`i');
     argument prop;
@@ -505,11 +518,28 @@ B+ prop;
 Keep brackets;
 * replace back energies
 id prop(x?) = x;
-.sort;
-Keep brackets;
-*call cLTD
-#include ./pf_complete.frm 
+* Get cLTD expression
+#call partial-fractioning
 
+* Expand numerator
+ExtraSymbols, underscore, den;
+argtoextrasymbol den;
+id den(y?) = y;
+.sort:den;
+off statistics;
+#call unfold-numerator;
+on statistics; 
+
+* Store inverse denominators
+multiply replace_(<den{`oldextrasymbols'+1}_,invden{1}>
+                  ,...,<den`extrasymbols_'_,invden{`extrasymbols_'-`oldextrasymbols'}>);
+#do i={`oldextrasymbols'+1},`extrasymbols_'
+    #$y = extrasymbol_(`i');
+    #write<out`SGID'.txt> "\tinvden{`i'-`oldextrasymbols'} = 1/(%$);" $y
+#enddo
+.sort:end-numerator;
+
+* Optimize
 ExtraSymbols, underscore, Z;
 Format C;
 Format O1,stats=on, saIter=1000;
@@ -517,5 +547,8 @@ Format O1,stats=on, saIter=1000;
 .sort
 #write<out`SGID'.txt> "%O"
 #write<out`SGID'.txt> "\treturn %e" F;
+
 .sort
+*#write "%X"
+.end
 .end
