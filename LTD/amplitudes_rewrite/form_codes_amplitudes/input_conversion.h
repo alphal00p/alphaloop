@@ -71,5 +71,7 @@
     id lVec(p?,mu?) = p(mu);
     id gMetric(mu1?,mu2?) = d_(mu1,mu2);
     id deltaS(s1?,s2?) = d_(s1,s2);
-    id sp(p1?,p2?) = p1.p2;
+    argument;
+        id sp(p1?,p2?) = p1.p2;
+    endargument;
 #endprocedure

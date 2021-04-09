@@ -48,16 +48,18 @@ Auto S x;
 CF hermconjugate, pol, cpol, uSpinor, ubarSpinor, vSpinor, vbarSpinor, sp(s);
 CF gamma, gam, spinorU, spinorUbar,spinorV,spinorVbar,lVec, gMetric(s),deltaS(s),muL,indS;
 CF spinor;
-CT gammatensor;
-CF GGstring, NN, gammatrace(c);
-
 CF ampDenom;
+
+* for components
+CF penergy, spatial(s), spatialComp, spatialCompTmp;
+
+* for gamma-algebra
+CF GGstring, NN, gammatrace(c);
+CT gammatensor;
 
 * for replacements
 CF LmbToCmbSubs;
 
-* for components
-CF penergy, spatial(s), spatialComp, spatialCompTmp;
 
 *for clTD
 CF sprop, prop, sqrt, penergy, onshellenergy, toCLTD;
@@ -79,7 +81,7 @@ S yT,mT;
 
 * Load the diagrams
 *#include- input_`SGID'.h
-L F = sprop(-k1, mT)*sprop(-k1 + p1, mT)*sprop(-k1 - p2, mT)*sprop(-k1 + p1 - k2, mT)*sprop(-k1 - p2 + k3, mT)*LmbToCmbSubs(k2,c1)*LmbToCmbSubs(k3,c2)*LmbToCmbSubs(k1,c3)*(1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*(gam(indS(1),lVec(-k1),indS(2))+deltaS(indS(1),indS(2))*mT)*(gam(indS(3),lVec(-k1+p1),indS(4))+deltaS(indS(3),indS(4))*mT)*(gam(indS(5),lVec(-k1-p2),indS(6))+deltaS(indS(5),indS(6))*mT)*(gam(indS(7),lVec(-k1+p1-k2),indS(8))+deltaS(indS(7),indS(8))*mT)*(gam(indS(9),lVec(-k1-p2+k3),indS(10))+deltaS(indS(9),indS(10))*mT)*1^2*gam(indS(4),muL(-1),indS(1))*gam(indS(2),muL(-3),indS(5))*yT^3*2^(1/2)*deltaS(indS(8),indS(3))*deltaS(indS(6),indS(9))*deltaS(indS(10),indS(7)))*(hermconjugate(1));
+L F = 1/(sp(k3,p1)+sp(k2,p1))^3*sprop(-k1, mT)*sprop(-k1 + p1, mT)*sprop(-k1 - p2, mT)*sprop(-k1 + p1 - k2, mT)*sprop(-k1 - p2 + k3, mT)*LmbToCmbSubs(k2,c1)*LmbToCmbSubs(k3,c2)*LmbToCmbSubs(k1,c3)*(1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*(gam(indS(1),lVec(-k1),indS(2))+deltaS(indS(1),indS(2))*mT)*(gam(indS(3),lVec(-k1+p1),indS(4))+deltaS(indS(3),indS(4))*mT)*(gam(indS(5),lVec(-k1-p2),indS(6))+deltaS(indS(5),indS(6))*mT)*(gam(indS(7),lVec(-k1+p1-k2),indS(8))+deltaS(indS(7),indS(8))*mT)*(gam(indS(9),lVec(-k1-p2+k3),indS(10))+deltaS(indS(9),indS(10))*mT)*1^2*gam(indS(4),muL(-1),indS(1))*gam(indS(2),muL(-3),indS(5))*yT^3*2^(1/2)*deltaS(indS(8),indS(3))*deltaS(indS(6),indS(9))*deltaS(indS(10),indS(7)))*(hermconjugate(1));
 .sort
 
 
@@ -98,11 +100,14 @@ if ( count(hermconjugate,1)>0 );
     Print "Only hermconjugat(1) is allowed: %t";
     exit "Critical error";
 endif;
+* overall denominators of external kinematics
 id denom_(?aa) = ampDenom(?aa);
 if ( count(ampDenom,1)==0 ); 
-    Print "I have not yet implemented denominators properly (ampDenom is not allowed): %t";
-    exit "Critical error";
+    #define TREATAMDENOM "0"
+else;
+    #define TREATAMDENOM "1"
 endif;
+
 * apply mapping of external and loop-momenta to the cmb
 * from form manual  "one should not use more than a single one at the same time inside a term"
 #do i=0,1
@@ -150,8 +155,40 @@ symmetrize spatial;
 .sort
 #call introduce-lms
 .sort:introduce-lm;
-
-
+print;
+.sort
+* treatement of overall denominators: optimize and export
+#if `TREATAMDENOM'
+    #redefine oldextrasymbols "`extrasymbols_'"
+    argtoextrasymbol tonumber ampDenom;
+    .sort:define-ampDenom;
+    
+    #do i={`oldextrasymbols'+1},`extrasymbols_'
+        L globalDenom`i' = extrasymbol_(`i');
+    #enddo
+    .sort
+    Hide F;
+    print;
+    .sort
+    ExtraSymbols, underscore, Z;
+    #do i={`oldextrasymbols'+1},`extrasymbols_'    
+        Format C;
+        Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
+        #Optimize globalDenom`i'
+        .sort
+        #write<out`SGID'.txt> "ampDenom`i'\n"
+        #write<out`SGID'.txt> "%O"
+        #write<out`SGID'.txt> "\treturn %e" globalDenom`i';
+        #write<out`SGID'.txt> "\n"
+        #clearoptimize
+        Drop globalDenom`i';
+        .sort
+    #enddo
+    delete  extrasymbols>`oldextrasymbols';
+    .sort
+    Unhide F;
+#endif
+.sort
 
 *** replace on-shell energies by energy symbols (E) for the cltd-code
 ExtraSymbols, underscore, E;
