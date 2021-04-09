@@ -170,15 +170,16 @@ print;
     Hide F;
     print;
     .sort
-    ExtraSymbols, underscore, Z;
-    #do i={`oldextrasymbols'+1},`extrasymbols_'    
+
+    #do i={`oldextrasymbols'+1},`extrasymbols_'   
+        ExtraSymbols, underscore, AD`i'Z; 
         Format C;
         Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
         #Optimize globalDenom`i'
         .sort
-        #write<out`SGID'.txt> "ampDenom`i'\n"
+        #write<out`SGID'.txt> "//ampDenom`i'\n"
         #write<out`SGID'.txt> "%O"
-        #write<out`SGID'.txt> "\treturn %e" globalDenom`i';
+        #write<out`SGID'.txt> "ampDenom`i' = %e" globalDenom`i';
         #write<out`SGID'.txt> "\n"
         #clearoptimize
         Drop globalDenom`i';
@@ -199,7 +200,7 @@ id onshellenergy(y?) = y;
 multiply replace_(<E{`oldextrasymbols'+1}_,E{`oldextrasymbols'+1}>\
 	                  ,...,<E`extrasymbols_'_,E`extrasymbols_'>);
 .sort
-#write<out`SGID'.txt> "energies \n"
+#write<out`SGID'.txt> "//energies \n"
 #do i={`oldextrasymbols'+1},`extrasymbols_'
     #$y = extrasymbol_(`i');
     #write<out`SGID'.txt> "\tE{`i'-`oldextrasymbols'} = %$;" $y
@@ -266,7 +267,7 @@ on statistics;
 * Store inverse denominators
 multiply replace_(<den{`oldextrasymbols'+1}_,invden{1}>
                   ,...,<den`extrasymbols_'_,invden{`extrasymbols_'-`oldextrasymbols'}>);
-#write<out`SGID'.txt> "denoms \n"
+#write<out`SGID'.txt> "//denoms cLTD \n"
 #do i={`oldextrasymbols'+1},`extrasymbols_'
     #$y = extrasymbol_(`i');
     #write<out`SGID'.txt> "\tinvden{`i'-`oldextrasymbols'} = 1/(%$);" $y
@@ -280,15 +281,16 @@ delete  extrasymbols>`oldextrasymbols';
 
 
 * Optimize and export the diags1,...,diagsN
-ExtraSymbols, underscore, Z;
+
 #do i=1,`NDIAGS'    
+    ExtraSymbols, underscore, DIA`i'Z;
     Format C;
     Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
     #Optimize diag`i'
     .sort
-    #write<out`SGID'.txt> "diag`i'\n"
+    #write<out`SGID'.txt> "//diag`i'\n"
     #write<out`SGID'.txt> "%O"
-    #write<out`SGID'.txt> "\treturn %e" diag`i';
+    #write<out`SGID'.txt> "\tdiag`i' = %e" diag`i';
     #write<out`SGID'.txt> "\n"
     #clearoptimize
     Drop diag`i';
@@ -303,7 +305,7 @@ Format C;
 Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
 #Optimize F
 .sort
-#write<out`SGID'.txt> "integrand\n"
+#write<out`SGID'.txt> "//integrand\n"
 #write<out`SGID'.txt> "%O"
 #write<out`SGID'.txt> "\treturn %e" F;
 .end
