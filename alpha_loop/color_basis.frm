@@ -125,7 +125,7 @@ CF  trCol,deltaA, deltaF, Tc , colA,colF, colorfct, fC, ffC,colTemp;
 
 CF  sp(s), sunA, sunF, diracInd, lorentzInd,ffC,sunTF,sunTA,vec,deltaA,deltaF;
 CF deltaS, deltaL;
-S ii,m,n,y,z;
+S ii,m,n,y,z,i;
 CF d,rat, num, den,numtemp;
 CF ampDenom;
 
