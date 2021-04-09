@@ -27,7 +27,10 @@
 #define NSPINUBAR "0"
 #define INDSHIFT "4"
 #define SGID "0"
-
+#define NCUTMOMENTA "`NFINALMOMENTA'+`NLOOPMOMENTA'"
+#define OPTIMISATIONSTRATEGY "CSEgreedy"
+#define OPTIMLVL "4"
+#define OPTIMITERATIONS "1000"
 
 * defintions for the computation
 V p1,...,p40,k1,...,k40,c1,...,c40; * force this internal ordering in FORM
@@ -57,7 +60,7 @@ CF LmbToCmbSubs;
 CF penergy, spatial(s), spatialComp, spatialCompTmp;
 
 *for clTD
-CF sprop, prop, sqrt, penergy, spatial, onshellenergy, toCLTD;
+CF sprop, prop, sqrt, penergy, onshellenergy, toCLTD;
 Auto S E, m, energyk, y, sqrt;
 
 S ii,aa,bb,cc,dd,m,n,y,z;
@@ -65,14 +68,11 @@ S ii,aa,bb,cc,dd,m,n,y,z;
 S yT,mT;
 
 
-#define NCUTMOMENTA "`NFINALMOMENTA'+`NLOOPMOMENTA'"
 
 
 
 
 
-#include pf_complete.h 
-.sort
 
 
 * code for the computation
@@ -129,7 +129,7 @@ symmetrize spatial;
 * I have to ask ben why that is not done by default
 * load relevant procedures
 #include translate_to_lms.h
-symmetrize spatial;
+#write `'
 #call introduce-lms
 .sort:introduce-lm;
 
@@ -144,13 +144,15 @@ id onshellenergy(y?) = y;
 multiply replace_(<E{`oldextrasymbols'+1}_,E{`oldextrasymbols'+1}>\
 	                  ,...,<E`extrasymbols_'_,E`extrasymbols_'>);
 .sort
+#write<out`SGID'.txt> "energies \n"
 #do i={`oldextrasymbols'+1},`extrasymbols_'
     #$y = extrasymbol_(`i');
     #write<out`SGID'.txt> "\tE{`i'-`oldextrasymbols'} = %$;" $y
 #enddo
 #write<out`SGID'.txt> ""
-
+delete  extrasymbols>`oldextrasymbols';
 .sort:replace-energies;
+
 **** REPLACE cut-energies by cLTD loop energy symbols (energyk`i')
 #define LOOPS "`NLOOPMOMENTA'"
 #define LoopSymbol "c";
@@ -166,13 +168,34 @@ multiply replace_(<E{`oldextrasymbols'+1}_,E{`oldextrasymbols'+1}>\
 B+ prop;
 .sort-prep-cltd-final;
 
+CF diag;
+Keep brackets;
+
+multiply diag(1);
+repeat id prop(?aa)*diag(bb?) = diag(prop(?aa)*bb);
+argument diag;
+* replace back energies
+    id prop(x?) = x;
+endargument;
+#redefine oldextrasymbols "`extrasymbols_'"
+argtoextrasymbol tonumber diag;
+.sort:diag-replacements;
+#do i={`oldextrasymbols'+1},`extrasymbols_'
+    L diag`i' = extrasymbol_(`i');
+#enddo
+.sort
+#define NDIAGS "`extrasymbols_'"
+delete  extrasymbols>`oldextrasymbols';
+Hide F;
+.sort
 
 *********************************************************************************
 *****************       PART IV: CLTD            ********************************
 *********************************************************************************
+#redefine oldextrasymbols "`extrasymbols_'"
+#include pf_complete.h 
 Keep brackets;
-* replace back energies
-id prop(x?) = x;
+
 * Get cLTD expression
 #call partial-fractioning
 
@@ -188,27 +211,44 @@ on statistics;
 * Store inverse denominators
 multiply replace_(<den{`oldextrasymbols'+1}_,invden{1}>
                   ,...,<den`extrasymbols_'_,invden{`extrasymbols_'-`oldextrasymbols'}>);
+#write<out`SGID'.txt> "denoms \n"
 #do i={`oldextrasymbols'+1},`extrasymbols_'
     #$y = extrasymbol_(`i');
     #write<out`SGID'.txt> "\tinvden{`i'-`oldextrasymbols'} = 1/(%$);" $y
 #enddo
 .sort:end-numerator;
-
+delete  extrasymbols>`oldextrasymbols';
+.sort
 *********************************************************************************
 *****************       PART V: EXPORT            *******************************
 *********************************************************************************
 
 
-* Optimize
+* Optimize and export the diags1,...,diagsN
+ExtraSymbols, underscore, Z;
+#do i=1,`NDIAGS'    
+    Format C;
+    Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
+    #Optimize diag`i'
+    .sort
+    #write<out`SGID'.txt> "diag`i'\n"
+    #write<out`SGID'.txt> "%O"
+    #write<out`SGID'.txt> "\treturn %e" diag`i';
+    #write<out`SGID'.txt> "\n"
+    #clearoptimize
+    Drop diag`i';
+    .sort
+#enddo
+.sort
+Unhide F;
+.sort
+* Optimize and export complete expression
 ExtraSymbols, underscore, Z;
 Format C;
-Format O1,stats=on, saIter=1000;
+Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
 #Optimize F
 .sort
+#write<out`SGID'.txt> "integrand\n"
 #write<out`SGID'.txt> "%O"
 #write<out`SGID'.txt> "\treturn %e" F;
-
-.sort
-*#write "%X"
-.end
 .end

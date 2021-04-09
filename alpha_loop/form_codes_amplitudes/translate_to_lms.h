@@ -1,11 +1,13 @@
 #procedure introduce-lms
 * REPLACE EVERYTHING APART FROM LOOP-MOMENTA BY lm's
 * the argument environments nesting is needed for replacing the props
-* replace scalar products involving loop-momenta
+* replace scalar products involving loop-momenta    
     #do i=`NFINALMOMENTA'+1,`NCUTMOMENTA'
         id c`i'.p1? = penergy(c`i')*penergy(p1) - spatial(c`i',p1);
+        symmetrize spatial;
         argument;
             id c`i'.p1? = penergy(c`i')*penergy(p1) - spatial(c`i',p1);
+            symmetrize spatial;
         endargument;
     #enddo
     .sort:expand-sps-loop-mom;
