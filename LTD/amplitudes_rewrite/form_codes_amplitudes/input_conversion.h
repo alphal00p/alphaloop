@@ -1,24 +1,3 @@
-#procedure lmb-to-cmb
-* We only allow for the numerator of the effective vertex to be 1 :> no squaring/interferences
-    id hermconjugate(1) = 1;
-    if ( count(hermconjugate,1)>0 ); 
-        Print "Only hermconjugat(1) is allowed: %t";
-        exit "Critical error";
-    endif;
-    id denom_(?aa) = ampDenom(?aa);
-    if ( count(ampDenom,1)>0 ); 
-        Print "I have not yet implemented denominators properly (ampDenom is not allowed): %t";
-        exit "Critical error";
-    endif;
-* apply mapping of external and loop-momenta to the cmb
-* from form manual  "one should not use more than a single one at the same time inside a term"
-    #do i=0,1
-        id once LmbToCmbSubs(?aa) = replace_(?aa);
-        if ( count(LmbToCmbSubs,1)>0 ) redefine i "0";
-        .sort        
-    #enddo
-#endprocedure
-
 #procedure scalar-prop-to-clTD-prop
 *replace propagator
     id sprop(p?,y2?) = prop(penergy(p), sqrt(spatial(p,p) + y2^2) );

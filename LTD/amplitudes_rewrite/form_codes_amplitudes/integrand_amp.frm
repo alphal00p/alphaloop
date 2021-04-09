@@ -92,7 +92,25 @@ L F = sprop(-k1, mT)*sprop(-k1 + p1, mT)*sprop(-k1 - p2, mT)*sprop(-k1 + p1 - k2
 
 * this is for maple input:
 id ii = i_;
-#call lmb-to-cmb
+* We only allow for the numerator of the effective vertex to be 1 :> no squaring/interferences
+id hermconjugate(1) = 1;
+if ( count(hermconjugate,1)>0 ); 
+    Print "Only hermconjugat(1) is allowed: %t";
+    exit "Critical error";
+endif;
+id denom_(?aa) = ampDenom(?aa);
+if ( count(ampDenom,1)==0 ); 
+    Print "I have not yet implemented denominators properly (ampDenom is not allowed): %t";
+    exit "Critical error";
+endif;
+* apply mapping of external and loop-momenta to the cmb
+* from form manual  "one should not use more than a single one at the same time inside a term"
+#do i=0,1
+    id once LmbToCmbSubs(?aa) = replace_(?aa);
+    if ( count(LmbToCmbSubs,1)>0 ) redefine i "0";
+    .sort        
+#enddo
+
 .sort:lmb-to-cmb;
 #call scalar-prop-to-clTD-prop
 .sort:bilinear-sp; 
