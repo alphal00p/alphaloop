@@ -129,7 +129,6 @@ symmetrize spatial;
 * I have to ask ben why that is not done by default
 * load relevant procedures
 #include translate_to_lms.h
-#write `'
 #call introduce-lms
 .sort:introduce-lm;
 
