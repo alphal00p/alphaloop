@@ -74,4 +74,5 @@
     argument;
         id sp(p1?,p2?) = p1.p2;
     endargument;
+    id sp(p1?,p2?) = p1.p2;
 #endprocedure

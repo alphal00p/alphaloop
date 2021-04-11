@@ -1,4 +1,5 @@
 #-
+Off statistics;
 * I expect the following input:
 * OPTIMISATIONSTRATEGY=CSEgreedy 
 * SGID=0 
@@ -34,7 +35,7 @@
 
 * defintions for the computation
 V p1,...,p40,k1,...,k40,c1,...,c40; * force this internal ordering in FORM
-Auto V p,k,eps,ceps, sV,sVbar,sU,sUbar;
+Auto V p,k,eps,ceps, sV,sVbar,sU,sUbar,c;
 Auto S lm;
 
 AutoDeclare Index s=4, mu=4, ind;
@@ -102,6 +103,7 @@ if ( count(hermconjugate,1)>0 );
 endif;
 * overall denominators of external kinematics
 id denom_(?aa) = ampDenom(?aa);
+id ampDenom(1) = 1;
 if ( count(ampDenom,1)==0 ); 
     #define TREATAMDENOM "0"
 else;
@@ -155,10 +157,11 @@ symmetrize spatial;
 .sort
 #call introduce-lms
 .sort:introduce-lm;
-print;
-.sort
 * treatement of overall denominators: optimize and export
 #if `TREATAMDENOM'
+    Hide F;
+    .sort
+
     #redefine oldextrasymbols "`extrasymbols_'"
     argtoextrasymbol tonumber ampDenom;
     .sort:define-ampDenom;
@@ -166,9 +169,6 @@ print;
     #do i={`oldextrasymbols'+1},`extrasymbols_'
         L globalDenom`i' = extrasymbol_(`i');
     #enddo
-    .sort
-    Hide F;
-    print;
     .sort
 
     #do i={`oldextrasymbols'+1},`extrasymbols_'   
@@ -220,6 +220,15 @@ delete  extrasymbols>`oldextrasymbols';
         id penergy(`LoopSymbol'{`LoopSymbolStart'+`i'}) = energyk`i';
     endargument;
 #enddo
+.sort:replace_loop_energies;
+
+* safety check
+*at this point, there should be no vectors. If there are still vectors, it means the input is not valid
+if (match(p?));
+    Print "Vector without replacement: %t";
+    exit "Critical error";
+endif;
+
 *notice: we also put energies in prop
 B+ prop;
 .sort-prep-cltd-final;
