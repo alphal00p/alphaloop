@@ -201,7 +201,4 @@
             #$OFFSET = $OFFSET + 1;
         #enddo
     #enddo
-    argument prop;
-        id sqrt(x?) = (x)^(1/2);
-    endargument;
 #endprocedure

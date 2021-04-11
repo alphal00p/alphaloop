@@ -179,7 +179,7 @@ print;
         .sort
         #write<out`SGID'.txt> "//ampDenom`i'\n"
         #write<out`SGID'.txt> "%O"
-        #write<out`SGID'.txt> "ampDenom`i' = %e" globalDenom`i';
+        #write<out`SGID'.txt> "%%(numbertype)s ampDenom`i' = 1/(%E);" globalDenom`i'
         #write<out`SGID'.txt> "\n"
         #clearoptimize
         Drop globalDenom`i';
@@ -203,7 +203,7 @@ multiply replace_(<E{`oldextrasymbols'+1}_,E{`oldextrasymbols'+1}>\
 #write<out`SGID'.txt> "//energies \n"
 #do i={`oldextrasymbols'+1},`extrasymbols_'
     #$y = extrasymbol_(`i');
-    #write<out`SGID'.txt> "\tE{`i'-`oldextrasymbols'} = %$;" $y
+    #write<out`SGID'.txt> "%%(numbertype)s E{`i'-`oldextrasymbols'} = %$;" $y
 #enddo
 #write<out`SGID'.txt> ""
 delete  extrasymbols>`oldextrasymbols';
@@ -270,7 +270,7 @@ multiply replace_(<den{`oldextrasymbols'+1}_,invden{1}>
 #write<out`SGID'.txt> "//denoms cLTD \n"
 #do i={`oldextrasymbols'+1},`extrasymbols_'
     #$y = extrasymbol_(`i');
-    #write<out`SGID'.txt> "\tinvden{`i'-`oldextrasymbols'} = 1/(%$);" $y
+    #write<out`SGID'.txt> "%%(numbertype)s invden{`i'-`oldextrasymbols'} = 1/(%$);" $y
 #enddo
 .sort:end-numerator;
 delete  extrasymbols>`oldextrasymbols';
@@ -288,9 +288,9 @@ delete  extrasymbols>`oldextrasymbols';
     Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
     #Optimize diag`i'
     .sort
-    #write<out`SGID'.txt> "//diag`i'\n"
+    #write<out`SGID'.txt> "\n//energy config `i'\n"
     #write<out`SGID'.txt> "%O"
-    #write<out`SGID'.txt> "\tdiag`i' = %e" diag`i';
+    #write<out`SGID'.txt> "%%(numbertype)s diag`i' = %e" diag`i';
     #write<out`SGID'.txt> "\n"
     #clearoptimize
     Drop diag`i';
@@ -307,5 +307,5 @@ Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATION
 .sort
 #write<out`SGID'.txt> "//integrand\n"
 #write<out`SGID'.txt> "%O"
-#write<out`SGID'.txt> "\treturn %e" F;
+#write<out`SGID'.txt> "\t*out = %e" F;
 .end

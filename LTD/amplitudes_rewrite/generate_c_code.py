@@ -39,7 +39,7 @@ FORM_processing_options = {
         #   'Workspace':'1G'
     }
 }
-
+mode = "f64"
 
 # TODO Remove once FORM will have fixed its C output bug
 
@@ -63,25 +63,55 @@ def temporary_fix_FORM_output(FORM_output):
 
     return '\n'.join(new_output)
 
-with open("./form_codes_amplitudes/out0.txt",'r') as f:
+
+with open("./form_codes_amplitudes/out0.txt", 'r') as f:
     form_output = f.read()
 form_output = temporary_fix_FORM_output(form_output)
 
+
+# regular expressions to be replaced in proto_c
 var_pattern = re.compile(r'Z\d*_')
 var_pattern_rest = re.compile(r'\b\w+Z\d*_')
 input_pattern = re.compile(r'lm(\d*)')
 norm_pattern = re.compile(r'norm')
 divide_pattern = re.compile(r'1/')
 wrapper_function_pattern = re.compile(r'\((\d*)\)')
-
 float_pattern = re.compile(r'((\d+\.\d*)|(\.\d+))')
 
 
 temp_vars = list(set(var_pattern.findall(form_output)))
-temp_vars +=list(set(var_pattern_rest.findall(form_output)))
+temp_vars += list(set(var_pattern_rest.findall(form_output)))
 temp_vars = list(sorted(temp_vars))
+
+# eval function (we will always have one config )
+eval_fct = """ void evaluate_PF_%(diagID)s(%(numbertype)s lm[], %(numbertype)s params[], int conf, %(numbertype)s* out) {
+   switch(conf) {
+		case 0: evaluate_PF_%(diagID)s_0%(mode)s(lm, params, out); return;
+		default: *out = 0.;
+    }
+}"""
+
+# prepend, header, function declarations and tempvar definition
+form_output = '\n%(header)s\n\nstatic inline void evaluate_PF_%(diagID)s_0%(mode)s\
+( %(numbertype)s lm, %(numbertype)s params[], %(numbertype)s* out)' \
+    + '{{\n\t{}\n\n{}\n}}'.format('%(numbertype)s {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', form_output
+                                  )
 form_output = input_pattern.sub(r'lm[\1]', form_output)
 form_output = divide_pattern.sub(r'1./', form_output)
 form_output = norm_pattern.sub(r'1./', form_output)
-form_output = wrapper_function_pattern.sub(r'\1',form_output)
-print(form_output)
+form_output = wrapper_function_pattern.sub(r'\1', form_output)
+# append eval:
+form_output += '\n\n'+eval_fct
+
+diagID = 1;
+# header ="""#include <tgmath.h>
+# # include <quadmath.h>
+# # include <signal.h>
+# # include \"numerator.h\""""
+header = ""
+f64_code = form_output % {'mode':'',
+                          'numbertype':'double complex', 'diagID':str(diagID),'header':header}
+f128_code = form_output % {'mode': '_f128',
+                           'numbertype': '__complex128', 'diagID': diagID,'header':header}
+f128_code = float_pattern.sub(r'\1q', f128_code)
+print(f128_code)
