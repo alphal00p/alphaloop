@@ -1,0 +1,76 @@
+name: "amplitude"
+
+directories:
+  alphaloop: "PATH_TO_ALPHALOOP"
+  out_dir: "./"
+
+form_options: # Will also put the rest of the options
+  # Define the extra aguments for the compilation
+  compilation-options: []
+  cores: 2
+  extra-options:
+    OPTIMITERATIONS: 1000
+  optimisation_strategy: "CSEgreedy"
+
+amplitude_options:
+  # if true: the color structure per graph will be factorized: e.g. Tr[T^a T^b T^c]-Tr[T^a T^c T^b] will be treated as ``independent'' color-structure
+  # if false: every structure is treated independently
+  #   Example
+  #  q q~ > g g:    True:     3 color-structures appear {T^a T^b T^c,T^a T^c T^b,T^a T^b T^c-T^a T^c T^b} where the last one is due to the 3g-vertex
+  #                 False:    2 color-structures for all diagrams {T^a T^b T^c,T^a T^c T^b}
+  color_per_graph: False
+  integrand_per_diag: False
+
+diagram_list:
+  # path_to_diagrams for .py import
+  - diag1:
+      propagators:
+        - loop_signature: [1] #k1
+          outgoing_signature: [0, 0] #linear comb of INDEPENDENT outgoing momenta 
+          incoming_signature: [0, 0] #linear comb of incoming 
+          mass: "m1"
+          power: 1
+          name: "l1"
+        - loop_signature: [1] #k1
+          outgoing_signature: [0, 0] #linear comb of INDEPENDENT outgoing momenta 
+          incoming_signature: [1, 0] #linear comb of incoming 
+          mass: "m1"
+          power: 1
+          name: "l2"
+      analytic_num: "sp(p1,p2)"
+  - diag2:
+      propagators:
+        - loop_signature: [1] #k1
+          outgoing_signature: [0, 0] #linear comb of INDEPENDENT outgoing momenta 
+          incoming_signature: [0, 0] #linear comb of incoming 
+          mass: "m1"
+          power: 1
+          name: "l1"
+        - loop_signature: [1] #k1
+          outgoing_signature: [0, 0] #linear comb of INDEPENDENT outgoing momenta 
+          incoming_signature: [1, 0] #linear comb of incoming
+          mass: "m1"
+          power: 1
+          name: "l2"
+      analytic_num: "ana1"
+
+
+masses:
+  m1: 1
+
+# The constants have to be real and start with x to be understood by FORM as symbols
+constants:
+  ana1: 0.00536501
+
+external_data:
+  n_in: 2
+  n_out: 3
+  in_momenta: [[1, 0, 0, 1], [-1, 0, 0, 1]]
+  out_momenta: [[0., 2.3, 0.2, 1.1], [0., 0.2, 1.3, 3.123]]
+  # The following are complex valued: compenents are [Real part, Imaginary part]
+  spinor_v: []
+  spinor_vbar: []
+  spinor_u: []
+  spinor_ubar: []
+  pol: []
+  cpol: []

@@ -26,81 +26,106 @@ from warnings import catch_warnings
 import yaml
 from yaml import Loader, Dumper
 
+
 class AmpExporter():
-    def __init__(self,runcard_options):
+    def __init__(self, runcard_options):
         self.dirs = runcard_options.get('dirs')
         self.process_name = runcard_options.get('name')
         self.amplitude_data = runcard_options.get('amplitude_data')
 
     @classmethod
-    def from_runcard(self,amplitude_runcard_path):
+    def from_runcard(self, amplitude_runcard_path):
         with open(amplitude_runcard_path) as f:
             runcard_options = yaml.load(f, Loader=yaml.FullLoader)
-        self.dirs = runcard_options.get('dirs')
+        # make proper path
+        self.out_dir = runcard_options.get('dirs').get('out_dir') + '/name'
+        self.alphaloop_dir = runcard_options.get('dirs').get('alphaloop_dir')
         self.process_name = runcard_options.get('name')
-        self.amplitude_data = runcard_options.get('amplitude_data')
+        self.amplitude_data = runcard_options.get('amplitude')
+        self.amplitude_options = runcard_options.get('amplitude_options', '')
+        self.form_options = runcard_options.get('form_options', '')
 
-    def generate_dir_structure(self):
-        out_dir = self.dirs.get('output','./')
+    def generate_dir_structure(self, add_out_dir='', mode=''):
+        # make proper path
+        out_dir = self.out_dir+add_out_dir
+        if not mode == 'full':
+            pass
+            # create only top_dir
+        else:
+            # full blown
+            pass
         # TODO: set up directories
-        pass
+        return out_dir
 
-    def export(self,amplitude):
-        # TODO: do a proper export
-        topo_gen = DariosYamlFileGenerator(amplitude)
-        topo_gen.export_yaml()
-        form_processor = FormProcessorAmp(amplitude)
-        form_processor.generate_output
+    def export(self):
+        alphaloop_dir = self.alphaloop_dir
+        out_dir = self.generate_dir_structure()
+        amplitude = Amplitude.import_amplitude(self.amplitude_data)
+        amplitude_list = amplitude.perform_color(
+            out_dir=out_dir, alpha_dir=alphaloop_dir)
 
-
-
-
+        for i, amp in amplitude_list:
+            # TODO: do a proper export
+            out_dir = self.generate_dir_structure(
+                add_out_dir='color_struc_'+str(i), mode='full')
+            topo_gen = DariosYamlFileGenerator(amp)
+            topo_gen.export_yaml(out_dir)
+            form_processor = FormProcessorAmp(amp)
+            form_processor.generate_output(alphaloop_dir, out_dir)
 
 
 class DariosYamlFileGenerator():
     def __init__(self):
         pass
+
     def export_yaml(self):
         pass
 
 
-class amplitueList():
+class AmplitueList():
     """ Holds a list of amplitudes, e.g. neccesary if we split by color
-    """    
-    def __init__(self):
-        pass
+    """
+
+    def __init__(self, amplitudes):
+        self.amplitudes = amplitudes
+
+    @classmethod
+    def from_amp(amp):
+        return AmplitueList([amp])
+
+    def append_amp(self, amp):
+        self.amplitudes += [amp]
 
 
-
-class amplitude():
+class Amplitude():
     """This class holds amplitudes which consist of propagators and numerators
     """
 
-    def __init__(self, name=None, diag_list=None, runcard_data=None):
+    def __init__(self, name=None, diag_list=None, additional_options=None):
         self.name = name
         self.diag_list = diag_list
-        self.runcard_data = runcard_data
+        self.additional_options = additional_options
+        self.color_struc = None
 
     @classmethod
-    def import_amplitude(AmpExporter):
+    def import_amplitude(self, amp, additional_options):
         # TODO: define proper runcard.
         # TODO: maybe 2 options: everything in yaml and yaml+.py
         pass
 
-    def perform_color(self):
+    def perform_color(self, out_dir='', alphaloop_dir=''):
         # TODO: implement. Is supposed to give amplitudeList
-        pass
-
-
+        self.color_struc = 'color(1)'
+        return AmplitueList.from_amp(self)
 
 
 class FormProcessorAmp():
     """This class allows for the generation of c-code for amplitude integrand evaluation
     """
 
-    def __init__(self, amplitude, additional_options={}):
+    def __init__(self, amplitude,alphaloop_path, form_options={}):
 
-        plugin_path = amplitude.runcard_data.get('dirs',{}).get('alphaloop','')
+        plugin_path = alphaloop_path
 
         FORM_processing_options = {
             'FORM_path': str(Path(plugin_path).parent.joinpath('libraries', 'form', 'sources', 'form').resolve()),
@@ -117,11 +142,8 @@ class FormProcessorAmp():
         }
 
         if isinstance(amplitude, amplitude):
-            form_params = amplitude.runcard_data.get("FORM_OPTIONS", {})
             self.form_options = copy(
-                FORM_processing_options).update(form_params)
-            self.form_options = self.form_options.update(additional_options)
-            self.runcard_data = amplitude.runcard_data
+                FORM_processing_options).update(form_options)
             self.diag_list = amplitude.diag_list
 
         else:
@@ -148,7 +170,7 @@ class FormProcessorAmp():
 
         return '\n'.join(new_output)
 
-    def generate_c_files_from_proto_c(self, protoc_file, diagID, out_dir="../"):
+    def generate_c_files_from_proto_c(self, protoc_file, diagID, out_dir):
         """Generates from a proto-c file obtained from FORM a valid c-routine for the evaluation of the integrand
 
         Args:
@@ -215,7 +237,7 @@ class FormProcessorAmp():
 
         # TODO: export the c-code
 
-    def generate_c_header(self, additional_variables: dict, out_dir="../"):
+    def generate_c_header(self, additional_variables: dict, out_dir):
         """generates the c-header for amplitude integrands
 
         Args:
@@ -235,57 +257,48 @@ class FormProcessorAmp():
         header_file += '\n'+'# endif'
         # export
 
-
-    def generate_integrand_c_file(self):
+    def generate_integrand_c_file(self, out_dir):
         #TODO: implement
         pass
 
-
-
-    def generate_form_integrand_files(self):
+    def generate_form_integrand_files(self, out_dir):
         """ generates input.h files used in integrand_amp.frm
-        """        
+        """
 
         # set additional symbols (dario assumes masses as part of the external data)
-        additional_constants =format('\nS {};'.format(','.join(list(self.runcard_data.get('masses',{}).keys())) if len(list(self.runcard_data.get('masses',{}).keys())) > 0 else ''))
-        additional_constants +=format('\nS {};'.format(','.join(list(self.runcard_data.get('constants',{}).keys())) if len(list(self.runcard_data.get('constants',{}).keys())) > 0 else ''))
-        
+        additional_constants = format('\nS {};'.format(','.join(list(self.runcard_data.get(
+            'masses', {}).keys())) if len(list(self.runcard_data.get('masses', {}).keys())) > 0 else ''))
+        additional_constants += format('\nS {};'.format(','.join(list(self.runcard_data.get(
+            'constants', {}).keys())) if len(list(self.runcard_data.get('constants', {}).keys())) > 0 else ''))
+
         integrand = additional_constants + "L F ="
-        if self.form_options.get("integrand_per_diag",False):
+        if self.form_options.get("integrand_per_diag", False):
             for diag in self.diag_list:
-                integrand += '\n\t'+diag.get('analytic_num','0')
-            integrand +=';'
+                integrand += '\n\t'+diag.get('analytic_num', '0')
+            integrand += ';'
             # TODO: export integrand
         else:
             for SGID, diag in self.diag_list:
-                dia_integrand = integrand + diag.get('analytic_num','0') + ';'
+                dia_integrand = integrand + diag.get('analytic_num', '0') + ';'
             # TODO: export integrand with SGID
-    
-    def run_form(self):
+
+    def run_form(self, out_dir):
         # TODO: derive form command and run
         pass
 
-    def compile_integrand(self):
+    def compile_integrand(self, out_dir):
         # TODO: write routine for compilation
         pass
 
-
-    def create_form_dir(self):
+    def create_form_dir(self, alpha_loop_path, out_dir):
         # TODO: implement copying of neccessary files, given alphaloop path
         pass
 
-    def generate_output(self):
+    def generate_output(self, alpha_loop_path, out_dir):
         # TODO: make this a sensible functions with some statistics similar to FORMPROCESSOR
-        self.create_form_dir
-        self.generate_form_integrand_files
-        self.generate_c_header
-        self.generate_c_files_from_proto_c
-        self.generate_integrand_c_file
-        self.compile_integrand
-    
-
-
-
-
-
-
+        self.create_form_dir(out_dir)
+        self.generate_form_integrand_files(out_dir)
+        self.generate_c_header(out_dir)
+        self.generate_c_files_from_proto_c(out_dir)
+        self.generate_integrand_c_file(out_dir)
+        self.compile_integrand(out_dir)
