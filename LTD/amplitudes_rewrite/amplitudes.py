@@ -101,17 +101,61 @@ class Amplitude():
     """This class holds amplitudes which consist of propagators and numerators
     """
 
-    def __init__(self, name=None, diag_list=None, additional_options=None):
+    def __init__(self, name=None, diag_list=None, external_data=None, masses=None, additional_options={}):
         self.name = name
         self.diag_list = diag_list
+        self.external_data = external_data
         self.additional_options = additional_options
         self.color_struc = None
 
     @classmethod
     def import_amplitude(self, amp, additional_options):
-        # TODO: define proper runcard.
-        # TODO: maybe 2 options: everything in yaml and yaml+.py
-        pass
+        if isinstance(amp.get('diag_list'), dict):
+            return Amplitude(name=amp.get('name', 'myamp'),
+                             diag_list=amp.get('diag_list'),
+                             masses=amp.get('masses', {}),
+                             external_data=amp.get('external_data'),
+                             constants=amp.get('constants', {}),
+                             additional_options = additional_options
+                             )
+        else:
+            from pathlib import Path
+            p = Path(amp.get('diag_list'))
+            sys.path.insert(0, str(p.parent))
+            m = __import__(p.stem)
+            print("Imported {} diagrams.".format(len(m.diag_list)))
+            
+            try:
+                amp["diag_list"]=m.diag_list
+            except AttributeError:
+                sys.exit("{} has no diag_list".format(amp.get('diag_list')))            
+            try:
+                amp["masses"]=m.masses
+            except AttributeError:
+                pass
+            try:
+                amp["external_data"]=m.external_data
+            except AttributeError:
+                pass
+            try:
+                amp["constants"]=m.constants
+            except AttributeError:
+                pass
+            try:
+                amp["name"]=m.name
+            except AttributeError:
+                pass
+
+            return Amplitude(
+                    name=amp.get('name', 'myamp'),
+                    diag_list=amp.get('diag_list'),
+                    masses=amp.get('masses', {}),
+                    external_data=amp.get('external_data'),
+                    constants=amp.get('constants', {}),
+                    additional_options = additional_options
+                    )
+
+
 
     def perform_color(self, out_dir='', alphaloop_dir=''):
         # TODO: implement. Is supposed to give amplitudeList
@@ -123,7 +167,7 @@ class FormProcessorAmp():
     """This class allows for the generation of c-code for amplitude integrand evaluation
     """
 
-    def __init__(self, amplitude,alphaloop_path, form_options={}):
+    def __init__(self, amplitude, alphaloop_path, form_options={}):
 
         plugin_path = alphaloop_path
 
