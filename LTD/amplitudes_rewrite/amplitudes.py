@@ -23,10 +23,44 @@ import py_compile
 import sympy as sp
 from sympy.simplify.simplify import simplify
 from warnings import catch_warnings
+import yaml
+from yaml import Loader, Dumper
+
+class AmpExporter():
+    def __init__(self,runcard_options):
+        self.dirs = runcard_options.get('dirs')
+        self.process_name = runcard_options.get('name')
+        self.amplitude_data = runcard_options.get('amplitude_data')
+
+    @classmethod
+    def from_runcard(self,amplitude_runcard_path):
+        with open(amplitude_runcard_path) as f:
+            runcard_options = yaml.load(f, Loader=yaml.FullLoader)
+        self.dirs = runcard_options.get('dirs')
+        self.process_name = runcard_options.get('name')
+        self.amplitude_data = runcard_options.get('amplitude_data')
+
+    def generate_dir_structure(self):
+        out_dir = self.dirs.get('output','./')
+        # TODO: set up directories
+        pass
+
+    def export(self,amplitude):
+        # TODO: do a proper export
+        topo_gen = DariosYamlFileGenerator(amplitude)
+        topo_gen.export_yaml()
+        form_processor = FormProcessorAmp(amplitude)
+        form_processor.generate_output
+
+
+
+
 
 
 class DariosYamlFileGenerator():
-    def __init__(amplitude):
+    def __init__(self):
+        pass
+    def export_yaml(self):
         pass
 
 
@@ -48,7 +82,7 @@ class amplitude():
         self.runcard_data = runcard_data
 
     @classmethod
-    def from_amp_runcard(runcard_yaml):
+    def import_amplitude(AmpExporter):
         # TODO: define proper runcard.
         # TODO: maybe 2 options: everything in yaml and yaml+.py
         pass
@@ -57,10 +91,7 @@ class amplitude():
         # TODO: implement. Is supposed to give amplitudeList
         pass
 
-    def generate_dir_structure(self):
-        out_dir = self.runcard_data.get('dirs',{}).get('output','./')
-        # TODO: set up directories
-        pass
+
 
 
 class FormProcessorAmp():
