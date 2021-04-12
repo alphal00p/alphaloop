@@ -13,18 +13,19 @@ form_options: # Will also put the rest of the options
   optimisation_strategy: "CSEgreedy"
 
 amplitude_options:
+  integrand_per_diag: False # if true, every integrand will get its own c-routine
   # if true: the color structure per graph will be factorized: e.g. Tr[T^a T^b T^c]-Tr[T^a T^c T^b] will be treated as ``independent'' color-structure
   # if false: every structure is treated independently
   #   Example
   #  q q~ > g g:    True:     3 color-structures appear {T^a T^b T^c,T^a T^c T^b,T^a T^b T^c-T^a T^c T^b} where the last one is due to the 3g-vertex
   #                 False:    2 color-structures for all diagrams {T^a T^b T^c,T^a T^c T^b}
   color_per_graph: False
-  integrand_per_diag: False
-  
+
+
 amplitude:
   name: "amplitude"
   diagram_list:
-    # path_to_diagrams for .py import
+    # Alternative: path_to_diagrams for .py import
     - diag1:
         propagators:
           - loop_signature: [1] #k1
@@ -39,7 +40,7 @@ amplitude:
             mass: "m1"
             power: 1
             name: "l2"
-        analytic_num: "sp(p1,p2)"
+        analytic_integrand: "sp(p1,p2)*sprop(k1,m1)*sprop(k1,m1)"
     - diag2:
         propagators:
           - loop_signature: [1] #k1
@@ -49,12 +50,12 @@ amplitude:
             power: 1
             name: "l1"
           - loop_signature: [1] #k1
-            outgoing_signature: [0, 0] #linear comb of INDEPENDENT outgoing momenta 
-            incoming_signature: [1, 0] #linear comb of incoming
+            outgoing_signature: [1, 0] #linear comb of INDEPENDENT outgoing momenta 
+            incoming_signature: [0, 0] #linear comb of incoming
             mass: "m1"
-            power: 1
+            power: 2
             name: "l2"
-        analytic_num: "ana1"
+        analytic_integrand: "ana1*sprop(k1,m1)*sprop(k1+q1,m1)^2"
 
 
   masses:
