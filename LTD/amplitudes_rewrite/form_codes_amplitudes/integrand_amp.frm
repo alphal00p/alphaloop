@@ -1,37 +1,24 @@
 #-
 Off statistics;
+
 * I expect the following input:
-* OPTIMISATIONSTRATEGY=CSEgreedy 
-* SGID=0 
-* NINITIALMOMENTA=2 
-* really means final independent final momenta!
-* NFINALMOMENTA=3 -D 
-* really means loop-momenta!
-* NLOOPMOMENTA
-* NPOL=2 
-* NCPOL=0 
-* NSPINV=0 
-* NSPINU=0 
-* NSPINVBAR=0 
-* NSPINUBAR=0 
-* OPTIMITERATIONS=1000 
-* OPTIMLVL=4 -M -l -C numerator_0.log
-* INDSHIFT
-#define NINITIALMOMENTA "2" 
-#define NFINALMOMENTA "2" 
-#define NPOL "2"
-#define NCPOL "0"
-#define NSPINV "0"
-#define NSPINU "0"
-#define NSPINVBAR "0" 
-#define NLOOPMOMENTA "1"
-#define NSPINUBAR "0"
-#define INDSHIFT "4"
-#define SGID "0"
-#define NCUTMOMENTA "`NFINALMOMENTA'+`NLOOPMOMENTA'"
-#define OPTIMISATIONSTRATEGY "CSEgreedy"
-#define OPTIMLVL "4"
-#define OPTIMITERATIONS "1000"
+*
+*#define NINITIALMOMENTA "2" 
+*#define NFINALMOMENTA "2" 
+*#define NPOL "2"
+*#define NCPOL "0"
+*#define NSPINV "0"
+*#define NSPINU "0"
+*#define NSPINVBAR "0" 
+*#define NLOOPMOMENTA "1"
+*#define NSPINUBAR "0"
+*#define INDSHIFT "4"
+*#define SGID "0"
+*#define NCUTMOMENTA "`NFINALMOMENTA'+`NLOOPMOMENTA'"
+*#define OPTIMISATIONSTRATEGY "CSEgreedy"
+*#define OPTIMLVL "4"
+*#define OPTIMITERATIONS "1000"
+*
 
 * defintions for the computation
 V p1,...,p40,k1,...,k40,c1,...,c40; * force this internal ordering in FORM
@@ -68,21 +55,14 @@ Auto S E, m, energyk, y, sqrt;
 
 S ii,aa,bb,cc,dd,m,n,y,z;
 
-S yT,mT;
-
-
-
-
-
-
 
 
 
 * code for the computation
 
 * Load the diagrams
-*#include- input_`SGID'.h
-L F = 1/(sp(k3,p1)+sp(k2,p1))^3*sprop(-k1, mT)*sprop(-k1 + p1, mT)*sprop(-k1 - p2, mT)*sprop(-k1 + p1 - k2, mT)*sprop(-k1 - p2 + k3, mT)*LmbToCmbSubs(k2,c1)*LmbToCmbSubs(k3,c2)*LmbToCmbSubs(k1,c3)*(1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*(gam(indS(1),lVec(-k1),indS(2))+deltaS(indS(1),indS(2))*mT)*(gam(indS(3),lVec(-k1+p1),indS(4))+deltaS(indS(3),indS(4))*mT)*(gam(indS(5),lVec(-k1-p2),indS(6))+deltaS(indS(5),indS(6))*mT)*(gam(indS(7),lVec(-k1+p1-k2),indS(8))+deltaS(indS(7),indS(8))*mT)*(gam(indS(9),lVec(-k1-p2+k3),indS(10))+deltaS(indS(9),indS(10))*mT)*1^2*gam(indS(4),muL(-1),indS(1))*gam(indS(2),muL(-3),indS(5))*yT^3*2^(1/2)*deltaS(indS(8),indS(3))*deltaS(indS(6),indS(9))*deltaS(indS(10),indS(7)))*(hermconjugate(1));
+#include- input_`SGID'.h
+*L F = 1/(sp(k3,p1)+sp(k2,p1))^3*sprop(-k1, mT)*sprop(-k1 + p1, mT)*sprop(-k1 - p2, mT)*sprop(-k1 + p1 - k2, mT)*sprop(-k1 - p2 + k3, mT)*LmbToCmbSubs(k2,c1)*LmbToCmbSubs(k3,c2)*LmbToCmbSubs(k1,c3)*(1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*(gam(indS(1),lVec(-k1),indS(2))+deltaS(indS(1),indS(2))*mT)*(gam(indS(3),lVec(-k1+p1),indS(4))+deltaS(indS(3),indS(4))*mT)*(gam(indS(5),lVec(-k1-p2),indS(6))+deltaS(indS(5),indS(6))*mT)*(gam(indS(7),lVec(-k1+p1-k2),indS(8))+deltaS(indS(7),indS(8))*mT)*(gam(indS(9),lVec(-k1-p2+k3),indS(10))+deltaS(indS(9),indS(10))*mT)*1^2*gam(indS(4),muL(-1),indS(1))*gam(indS(2),muL(-3),indS(5))*yT^3*2^(1/2)*deltaS(indS(8),indS(3))*deltaS(indS(6),indS(9))*deltaS(indS(10),indS(7)))*(hermconjugate(1));
 .sort
 
 
@@ -177,10 +157,10 @@ symmetrize spatial;
         Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
         #Optimize globalDenom`i'
         .sort
-        #write<out`SGID'.txt> "//ampDenom`i'\n"
-        #write<out`SGID'.txt> "%O"
-        #write<out`SGID'.txt> "%%(numbertype)s ampDenom`i' = 1/(%E);" globalDenom`i'
-        #write<out`SGID'.txt> "\n"
+        #write<out_integrand_PF_`SGID'.proto_c> "//ampDenom`i'\n"
+        #write<out_integrand_PF_`SGID'.proto_c> "%O"
+        #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s ampDenom`i' = 1/(%E);" globalDenom`i'
+        #write<out_integrand_PF_`SGID'.proto_c> "\n"
         #clearoptimize
         Drop globalDenom`i';
         .sort
@@ -200,12 +180,12 @@ id onshellenergy(y?) = y;
 multiply replace_(<E{`oldextrasymbols'+1}_,E{`oldextrasymbols'+1}>\
 	                  ,...,<E`extrasymbols_'_,E`extrasymbols_'>);
 .sort
-#write<out`SGID'.txt> "//energies \n"
+#write<out_integrand_PF_`SGID'.proto_c> "//energies \n"
 #do i={`oldextrasymbols'+1},`extrasymbols_'
     #$y = extrasymbol_(`i');
-    #write<out`SGID'.txt> "%%(numbertype)s E{`i'-`oldextrasymbols'} = %$;" $y
+    #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s E{`i'-`oldextrasymbols'} = %$;" $y
 #enddo
-#write<out`SGID'.txt> ""
+#write<out_integrand_PF_`SGID'.proto_c> ""
 delete  extrasymbols>`oldextrasymbols';
 .sort:replace-energies;
 
@@ -276,10 +256,10 @@ on statistics;
 * Store inverse denominators
 multiply replace_(<den{`oldextrasymbols'+1}_,invden{1}>
                   ,...,<den`extrasymbols_'_,invden{`extrasymbols_'-`oldextrasymbols'}>);
-#write<out`SGID'.txt> "//denoms cLTD \n"
+#write<out_integrand_PF_`SGID'.proto_c> "//denoms cLTD \n"
 #do i={`oldextrasymbols'+1},`extrasymbols_'
     #$y = extrasymbol_(`i');
-    #write<out`SGID'.txt> "%%(numbertype)s invden{`i'-`oldextrasymbols'} = 1/(%$);" $y
+    #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s invden{`i'-`oldextrasymbols'} = 1/(%$);" $y
 #enddo
 .sort:end-numerator;
 delete  extrasymbols>`oldextrasymbols';
@@ -297,10 +277,10 @@ delete  extrasymbols>`oldextrasymbols';
     Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
     #Optimize diag`i'
     .sort
-    #write<out`SGID'.txt> "\n//energy config `i'\n"
-    #write<out`SGID'.txt> "%O"
-    #write<out`SGID'.txt> "%%(numbertype)s diag`i' = %e" diag`i';
-    #write<out`SGID'.txt> "\n"
+    #write<out_integrand_PF_`SGID'.proto_c> "\n//energy config `i'\n"
+    #write<out_integrand_PF_`SGID'.proto_c> "%O"
+    #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s diag`i' = %e" diag`i';
+    #write<out_integrand_PF_`SGID'.proto_c> "\n"
     #clearoptimize
     Drop diag`i';
     .sort
@@ -314,7 +294,7 @@ Format C;
 Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
 #Optimize F
 .sort
-#write<out`SGID'.txt> "//integrand\n"
-#write<out`SGID'.txt> "%O"
-#write<out`SGID'.txt> "\t*out = %e" F;
+#write<out_integrand_PF_`SGID'.proto_c> "//integrand\n"
+#write<out_integrand_PF_`SGID'.proto_c> "%O"
+#write<out_integrand_PF_`SGID'.proto_c> "\t*out = %e" F;
 .end

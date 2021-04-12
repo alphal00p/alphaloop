@@ -196,10 +196,25 @@ class FormProcessorAmp():
             }
         }
         
+        
         self.FORM_workspace = form_wrk_space
         self.alphaloop_dir = alphaloop_path
 
         if isinstance(amplitude, amplitude):
+            # FORM variables
+            ext_data = amplitude.external_data
+            self.FORM_variables = {
+                'NINITIALMOMENTA': ext_data.get("n_in"),
+                'NFINALMOMENTA': ext_data.get("n_out")-1,
+                'NLOOPMOMENTA':  ext_data.get("n_loop"),
+                'NPOL': len(ext_data.get("pol",[])),
+                'NCPOL': len(ext_data.get("cpol",[])),
+                'NSPINV': len(ext_data.get("spinor_v",[])),
+                'NSPINU': len(ext_data.get("spinor_u",[])),
+                'NSPINVBAR': len(ext_data.get("spinor_vbar",[])),
+                'NSPINUBAR': len(ext_data.get("spinor_ubar",[])),
+                'INDSHIFT_LIST':[]
+            }
             self.additional_options = amplitude.additional_options
             # update FORM options
             self.form_options = copy(
@@ -208,15 +223,24 @@ class FormProcessorAmp():
             if self.additional_options.get('integrand_per_diag'):
                 self.integrands = [diag.get('analytic_integrand')
                                    for diag in (amplitude.diag_list)]
+                for diag in (amplitude.diag_list):
+                    self.FORM_variables['INDSHIFT_LIST']=self.FORM_variables['INDSHIFT_LIST'] + [diag.get('index_shift',0)]
+                
+                
             else:
                 self.integrands = ''
+                ind_shift = 0
                 for diag in (amplitude.diag_list):
                     self.integrands += '+'+diag.get('analytic_integrand')
+                    if self.diag.get('index_shift',0) > ind_shift:
+                        ind_shift = self.diag.get('index_shift',0)
                 self.integrands = [self.integrands]
+                self.FORM_variables['INDSHIFT_LIST'] = [ind_shift]
             # constants
             self.additional_constants = copy.copy(amplitude.masses)
             self.additional_constants = self.additional_constants.update(
                 amplitude.constants)
+
         else:
             sys.exit("not an amp")
 
@@ -241,7 +265,7 @@ class FormProcessorAmp():
 
         return '\n'.join(new_output)
 
-    def generate_c_files_from_proto_c(self, protoc_file, diagID):
+    def generate_c_files_from_proto_c(self, diagID):
         """Generates from a proto-c file obtained from FORM a valid c-routine for the evaluation of the integrand
 
         Args:
@@ -276,6 +300,7 @@ class FormProcessorAmp():
 
         # GENERATION OF C-CODE in f64 and f128
         # read in
+        protoc_file = pjoin(self.FORM_workspace,'out_integrand_PF_'+str(diagID)+".proto_c")
         with open(protoc_file, 'r') as f:
             form_output = f.read()
         form_output = self.temporary_fix_FORM_output(form_output)
@@ -329,24 +354,48 @@ class FormProcessorAmp():
         # export
 
     def generate_integrand_c_file(self):
-        #TODO: implement
-        pass
+        out_file = pjoin("../",self.FORM_workspace)
+        out_file = pjoin(out_file,'numerator.c')
+
+        header ="# include <tgmath.h>\n# include <quadmath.h>\# include <signal.h>\n\n // integrands \n"
+        c_routines_f64 = '\n\\ f64 routines ';
+        c_routines_f128 = '\n\\ f64 routines ';
+        eval_f64="void evaluate_PF(double complex lm[], double complex params[], int diag, int conf, double complex* out) {\n\tswitch(diag) {"
+        eval_f128="void evaluate_PF_f128(__complex128 lm[], __complex128 params[], int diag, int conf, __complex128* out) {\n\tswitch(diag) {"
+
+        for i in range(len(self.integrands)):
+            c_routines_f64+="\nvoid evaluate_PF_{}(double complex[], double complex[], int conf, double complex* out);".format(i)
+            c_routines_f128+="\nvoid evaluate_PF_{}_f128(__complex128[], __complex128[], int conf, __complex128* out);".format(i)
+            eval_f64+="\n\t\tcase {}: evaluate_PF_{}(lm, params, conf, out); return;".format(i)
+            eval_f128+="\n\t\tcase {}: evaluate_PF_{}_f128(lm, params, conf, out); return;".format(i)
+        eval_f64+="\n\t\tdefault: raise(SIGABRT);\n\t}\n}"
+        eval_f128+="\n\t\tdefault: raise(SIGABRT);\n\t}\n}"
+
+        full_integrand = header + c_routines_f64 + c_routines_f128 + eval_f64 + eval_f128
+        with open(out_file,"w") as c_code:
+            c_code.write(full_integrand)
+    
+
+
 
     def generate_form_integrand_files(self):
-        """ generates input.h files used in integrand_amp.frm
+        """ generates input_`SGID'.h files used in integrand_amp.frm
         """
 
         # set additional symbols
         additional_constants = format('\nS {};'.format(','.join(list(
             self.additional_constants.keys())) if len(self.additional_constants) > 0 else ''))
 
-        integrand = additional_constants + "L F ="
+        integrand = additional_constants + "\n\nL F ="
         for SGID, inte in self.integrands:
             dia_integrand = integrand + inte + ';'
-            # TODO: export integrand with SGID
+            filename =pjoin(self.FORM_workspace, "input_"+str(SGID)+".h")
+            with open(filename,"w") as form_file:
+                form_file.write(dia_integrand)
 
-    def run_form(self):
-        # TODO: derive form command and run
+
+    def run_form(self,diagID):
+        
         pass
 
     def compile_integrand(self):
@@ -366,9 +415,9 @@ class FormProcessorAmp():
 
     def generate_output(self, alpha_loop_path, out_dir):
         # TODO: make this a sensible functions with some statistics similar to FORMPROCESSOR
-        self.create_form_dir(out_dir)
-        self.generate_form_integrand_files(out_dir)
-        self.generate_c_header(out_dir)
-        self.generate_c_files_from_proto_c(out_dir)
-        self.generate_integrand_c_file(out_dir)
-        self.compile_integrand(out_dir)
+        self.create_form_dir(alpha_loop_path=alpha_loop_path)
+        self.generate_form_integrand_files()
+        self.generate_c_header()
+        self.generate_c_files_from_proto_c()
+        self.generate_integrand_c_file()
+        self.compile_integrand()
