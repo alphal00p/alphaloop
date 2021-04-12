@@ -59,7 +59,7 @@ S ii,aa,bb,cc,dd,m,n,y,z;
 
 
 * code for the computation
-
+#define NCUTMOMENTA "`NFINALMOMENTA'+`NLOOPMOMENTA'"
 * Load the diagrams
 #include- input_`SGID'.h
 *L F = 1/(sp(k3,p1)+sp(k2,p1))^3*sprop(-k1, mT)*sprop(-k1 + p1, mT)*sprop(-k1 - p2, mT)*sprop(-k1 + p1 - k2, mT)*sprop(-k1 - p2 + k3, mT)*LmbToCmbSubs(k2,c1)*LmbToCmbSubs(k3,c2)*LmbToCmbSubs(k1,c3)*(1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*(gam(indS(1),lVec(-k1),indS(2))+deltaS(indS(1),indS(2))*mT)*(gam(indS(3),lVec(-k1+p1),indS(4))+deltaS(indS(3),indS(4))*mT)*(gam(indS(5),lVec(-k1-p2),indS(6))+deltaS(indS(5),indS(6))*mT)*(gam(indS(7),lVec(-k1+p1-k2),indS(8))+deltaS(indS(7),indS(8))*mT)*(gam(indS(9),lVec(-k1-p2+k3),indS(10))+deltaS(indS(9),indS(10))*mT)*1^2*gam(indS(4),muL(-1),indS(1))*gam(indS(2),muL(-3),indS(5))*yT^3*2^(1/2)*deltaS(indS(8),indS(3))*deltaS(indS(6),indS(9))*deltaS(indS(10),indS(7)))*(hermconjugate(1));
@@ -84,11 +84,14 @@ endif;
 * overall denominators of external kinematics
 id denom_(?aa) = ampDenom(?aa);
 id ampDenom(1) = 1;
-if ( count(ampDenom,1)==0 ); 
-    #define TREATAMDENOM "0"
-else;
-    #define TREATAMDENOM "1"
+.sort
+
+* treat overall numerator
+#define TREATAMDENOM "0"
+if ( count(ampDenom,1) ); 
+    #redefine TREATAMDENOM "1"
 endif;
+.sort
 
 * apply mapping of external and loop-momenta to the cmb
 * from form manual  "one should not use more than a single one at the same time inside a term"
@@ -139,11 +142,12 @@ symmetrize spatial;
 .sort:introduce-lm;
 * treatement of overall denominators: optimize and export
 #if `TREATAMDENOM'
-    Hide F;
-    .sort
+    
 
     #redefine oldextrasymbols "`extrasymbols_'"
     argtoextrasymbol tonumber ampDenom;
+    .sort
+    Hide F;
     .sort:define-ampDenom;
     
     #do i={`oldextrasymbols'+1},`extrasymbols_'

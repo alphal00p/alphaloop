@@ -53,14 +53,15 @@ class AmpExporter():
 
         with open(amplitude_runcard_path) as f:
             runcard_options = yaml.load(f, Loader=yaml.FullLoader)
+
         amplitude = runcard_options.get('amplitude')
         process_name = amplitude.get('name', 'my_amp')
         amplitude_options = runcard_options.get('amplitude_options', '')
         form_options = runcard_options.get('form_options', '')
         out_dir = os.path.abspath(pjoin(runcard_options.get(
-            'dirs').get('out_dir', './'), process_name))
+            'directories').get('out_dir', './'), process_name))
         alphaloop_dir = os.path.abspath(
-            runcard_options.get('dirs').get('alphaloop_dir'))
+            runcard_options.get('directories').get('alphaloop'))
         amp_exporter = AmpExporter(out_dir=out_dir, amplitude_dict=amplitude, process_name=process_name,
                                    form_options=form_options, amplitude_options=amplitude_options, alphaloop_dir=alphaloop_dir)
         return amp_exporter
@@ -74,7 +75,7 @@ class AmpExporter():
 
         Returns:
             out_path (str): path to output directory
-        """        
+        """
         out_dir = pjoin(self.out_dir, add_out_dir)
         Path(out_dir).mkdir(parents=True, exist_ok=True)
         if not mode == 'full':
@@ -90,20 +91,22 @@ class AmpExporter():
 
     def export(self):
         """ Produces the output for an amplitude
-        """        
+        """
         alphaloop_dir = self.alphaloop_dir
         out_dir = self.generate_dir_structure()
 
-        amplitude = Amplitude.import_amplitude(self.amplitude_dict,self.amplitude_options)
+        amplitude = Amplitude.import_amplitude(
+            self.amplitude_dict, self.amplitude_options)
         amplitude_list = amplitude.perform_color(
-            out_dir=out_dir, alpha_dir=alphaloop_dir)
+            out_dir=out_dir, alphaloop_dir=alphaloop_dir)
 
-        for i, amp in amplitude_list:
+        for i, amp in enumerate(amplitude_list.amplitudes):
             out_dir = self.generate_dir_structure(
                 add_out_dir='color_struc_'+str(i), mode='full')
             # topo_gen = DariosYamlFileGenerator(amp)
             # topo_gen.export_yaml(out_dir)
-            form_processor = FormProcessorAmp(amp, alphaloop_dir, form_options=self.form_options, form_wrk_space=pjoin(out_dir,'FORM','workspace'))
+            form_processor = FormProcessorAmp(
+                amp, alphaloop_dir, form_options=self.form_options, form_wrk_space=pjoin(out_dir, 'FORM', 'workspace'))
             form_processor.generate_output()
 
 
@@ -115,7 +118,7 @@ class DariosYamlFileGenerator():
         pass
 
 
-class AmplitueList():
+class AmplitudeList():
     """ Holds a list of amplitudes, e.g. neccesary if we split by color
     """
 
@@ -123,8 +126,8 @@ class AmplitueList():
         self.amplitudes = amplitudes
 
     @classmethod
-    def from_amp(amp):
-        return AmplitueList([amp])
+    def from_amp(AmplitudeList, amp):
+        return AmplitudeList([amp])
 
     def append_amp(self, amp):
         self.amplitudes += [amp]
@@ -134,12 +137,13 @@ class Amplitude():
     """This class holds amplitudes which consist of propagators and numerators
     """
 
-    def __init__(self, name=None, diag_list=None, external_data=None, masses=None, additional_options={}):
+    def __init__(self, name=None, diagram_list=[], external_data={}, masses={}, additional_options={}, constants={}):
         self.name = name
-        self.diag_list = diag_list
+        self.diagram_list = diagram_list
         self.external_data = external_data
         self.additional_options = additional_options
         self.color_struc = None
+        self.constants = constants
         self.masses = masses
 
     @classmethod
@@ -152,28 +156,29 @@ class Amplitude():
 
         Returns:
             the imported amplitude
-        """        
-        #import directly from ymal
-        if isinstance(amp.get('diag_list'), dict):
+        """
+        # import directly from ymal
+        if isinstance(amp.get('diagram_list'), list):
             return Amplitude(name=amp.get('name', 'myamp'),
-                             diag_list=amp.get('diag_list'),
+                             diagram_list=amp.get('diagram_list'),
                              masses=amp.get('masses', {}),
                              external_data=amp.get('external_data'),
                              constants=amp.get('constants', {}),
                              additional_options=additional_options
                              )
-        #import from .py
+        # import from .py
         else:
             from pathlib import Path
-            p = Path(amp.get('diag_list'))
+            p = Path(amp.get('diagram_list'))
             sys.path.insert(0, str(p.parent))
             m = __import__(p.stem)
-            print("Imported {} diagrams.".format(len(m.diag_list)))
+            print("Imported {} diagrams.".format(len(m.diagram_list)))
 
             try:
-                amp["diag_list"] = m.diag_list
+                amp["diagram_list"] = m.diagram_list
             except AttributeError:
-                sys.exit("{} has no diag_list".format(amp.get('diag_list')))
+                sys.exit("{} has no diagram_list".format(
+                    amp.get('diagram_list')))
             try:
                 amp["masses"] = m.masses
             except AttributeError:
@@ -193,7 +198,7 @@ class Amplitude():
 
             return Amplitude(
                 name=amp.get('name', 'myamp'),
-                diag_list=amp.get('diag_list'),
+                diagram_list=amp.get('diagram_list'),
                 masses=amp.get('masses', {}),
                 external_data=amp.get('external_data'),
                 constants=amp.get('constants', {}),
@@ -203,7 +208,7 @@ class Amplitude():
     def perform_color(self, out_dir='', alphaloop_dir=''):
         # TODO: implement. Is supposed to give amplitudeList: needs implementing
         self.color_struc = 'color(1)'
-        return AmplitueList.from_amp(self)
+        return AmplitudeList.from_amp(self)
 
 
 class FormProcessorAmp():
@@ -215,12 +220,13 @@ class FormProcessorAmp():
         plugin_path = alphaloop_path
 
         FORM_processing_options = {
-            'FORM_path': str(Path(plugin_path).parent.joinpath('libraries', 'form', 'sources', 'form').resolve()),
-            'tFORM_path': str(Path(plugin_path).parent.joinpath('libraries', 'form', 'sources', 'tform').resolve()),
+            'FORM_path': str(Path(plugin_path).joinpath('libraries', 'form', 'sources', 'form').resolve()),
+            'tFORM_path': str(Path(plugin_path).joinpath('libraries', 'form', 'sources', 'tform').resolve()),
             # Define the extra aguments for the compilation
             'cores': multiprocessing.cpu_count(),
             'extra-options': {'OPTIMITERATIONS': 1000},
             'OPTIMISATIONSTRATEGY': 'CSEgreedy',
+            'OPTIMLVL': 3,
             'FORM_setup': {
                 #   'MaxTermSize':'100K',
                 #   'Workspace':'1G'
@@ -230,7 +236,7 @@ class FormProcessorAmp():
         self.FORM_workspace = form_wrk_space
         self.alphaloop_dir = alphaloop_path
 
-        if isinstance(amplitude, amplitude):
+        if isinstance(amplitude, Amplitude):
             # FORM variables
             ext_data = amplitude.external_data
             self.FORM_variables = {
@@ -246,30 +252,31 @@ class FormProcessorAmp():
                 'INDSHIFT_LIST': []
             }
             self.additional_options = amplitude.additional_options
+
             # update FORM options
-            self.form_options = copy(
-                FORM_processing_options).update(form_options)
+            self.form_options = copy.copy(
+                FORM_processing_options)
+            self.form_options.update(copy.copy(form_options))
             # integrand list
             if self.additional_options.get('integrand_per_diag'):
                 self.integrands = [diag.get('analytic_integrand')
-                                   for diag in (amplitude.diag_list)]
-                for diag in (amplitude.diag_list):
+                                   for diag in (amplitude.diagram_list)]
+                for diag in (amplitude.diagram_list):
                     self.FORM_variables['INDSHIFT_LIST'] = self.FORM_variables['INDSHIFT_LIST'] + [
                         diag.get('index_shift', 0)]
 
             else:
                 self.integrands = ''
                 ind_shift = 0
-                for diag in (amplitude.diag_list):
+                for diag in (amplitude.diagram_list):
                     self.integrands += '+'+diag.get('analytic_integrand')
-                    if self.diag.get('index_shift', 0) > ind_shift:
-                        ind_shift = self.diag.get('index_shift', 0)
+                    if diag.get('index_shift', 0) > ind_shift:
+                        ind_shift = diag.get('index_shift', 0)
                 self.integrands = [self.integrands]
                 self.FORM_variables['INDSHIFT_LIST'] = [ind_shift]
             # constants
-            self.additional_constants = copy.copy(amplitude.masses)
-            self.additional_constants = self.additional_constants.update(
-                amplitude.constants)
+            self.additional_constants = copy.copy(amplitude.constants)
+            self.additional_constants.update(copy.copy(amplitude.masses))
 
         else:
             sys.exit("not an amp")
@@ -318,7 +325,7 @@ class FormProcessorAmp():
 # include \"numerator.h\""""
 
         # eval function (we will always have one config )
-        eval_fct = """ void evaluate_PF_%(diagID)s(%(numbertype)s lm[], %(numbertype)s params[], int conf, %(numbertype)s* out) {
+        eval_fct = """ void evaluate_PF_%(diagID)s%(mode)s(%(numbertype)s lm[], %(numbertype)s params[], int conf, %(numbertype)s* out) {
         switch(conf) {
             case 0: evaluate_PF_%(diagID)s_0%(mode)s(lm, params, out); return;
             default: *out = 0.;
@@ -352,6 +359,7 @@ class FormProcessorAmp():
 
         f64_code = form_output % {'mode': '',
                                   'numbertype': 'double complex', 'diagID': str(diagID), 'header': header}
+
         # f128 needs function replacements
         f128_code = form_output % {'mode': '_f128',
                                    'numbertype': '__complex128', 'diagID': diagID, 'header': header}
@@ -404,9 +412,10 @@ class FormProcessorAmp():
             c_routines_f128 += "\nvoid evaluate_PF_{}_f128(__complex128[], __complex128[], int conf, __complex128* out);".format(
                 i)
             eval_f64 += "\n\t\tcase {}: evaluate_PF_{}(lm, params, conf, out); return;".format(
+                i,i)
+            eval_f128 += "\n\t\tcase {}: evaluate_PF_{}_f128(lm, params, conf, out); return;".format(i,
                 i)
-            eval_f128 += "\n\t\tcase {}: evaluate_PF_{}_f128(lm, params, conf, out); return;".format(
-                i)
+
         eval_f64 += "\n\t\tdefault: raise(SIGABRT);\n\t}\n}"
         eval_f128 += "\n\t\tdefault: raise(SIGABRT);\n\t}\n}"
 
@@ -424,7 +433,7 @@ class FormProcessorAmp():
             self.additional_constants.keys())) if len(self.additional_constants) > 0 else ''))
 
         integrand = additional_constants + "\n\nL F ="
-        for SGID, inte in self.integrands:
+        for SGID, inte in enumerate(self.integrands):
             dia_integrand = integrand + inte + ';'
             filename = pjoin(self.FORM_workspace, "input_"+str(SGID)+".h")
             with open(filename, "w") as form_file:
@@ -447,6 +456,12 @@ class FormProcessorAmp():
 
         form_vars = copy.deepcopy(self.FORM_variables)
         form_vars.update(self.form_options["extra-options"])
+        form_vars['OPTIMISATIONSTRATEGY'] = self.form_options['OPTIMISATIONSTRATEGY']
+        form_vars['OPTIMLVL'] = self.form_options['OPTIMLVL']
+        del form_vars['INDSHIFT_LIST']
+        form_vars['INDSHIFT'] = self.FORM_variables['INDSHIFT_LIST'][diagID]
+        form_vars['SGID'] = diagID
+
         workers = self.form_options['cores']
         if workers > 1:
             form_exec = self.form_options['tFORM_path']
@@ -454,7 +469,7 @@ class FormProcessorAmp():
                 form_exec,
             ] +
                 ['-D %s=%s' % (k, v) for k, v in form_vars.items()] +
-                ['-w %s' % workers] +
+                ['-w%s' % workers] +
                 ['-M', '-l', '-C', 'numerator_%s.log' % diagID] +
                 [FORM_source, ]
             )
@@ -475,7 +490,7 @@ class FormProcessorAmp():
                            shell=True,
                            cwd=self.FORM_workspace,
                            capture_output=True)
-        if r.returncode != 0 or not os.path.isfile(pjoin(self.FORM_workspace, 'out_%d.proto_c' % diagID)):
+        if r.returncode != 0 and not os.path.isfile(pjoin(self.FORM_workspace, 'out_%d.proto_c' % diagID)):
             error_message = "FORM processing failed with error:\n%s\nFORM command to reproduce:\ncd %s; %s" % (
                 r.stdout.decode('UTF-8'),
                 self.FORM_workspace, FORM_cmd)
@@ -485,56 +500,58 @@ class FormProcessorAmp():
         """compiles the c-library for rust
         """
 
-        root_output_path = pjoin(self.FORM_workspace,'../')
+        root_output_path = abspath(pjoin(self.FORM_workspace, '../'))
 
-        if os.path.isfile(pjoin(root_output_path,'Makefile')):
+        if os.path.isfile(pjoin(root_output_path, 'Makefile')):
             try:
-                print("Now compiling FORM-generated numerators with options: %s ..."%(' '.join(self.form_options['compilation-options'])))
-
+                print("Now compiling FORM-generated integrands")
                 t = time.time()
                 cmd = 'make'
-                arg = ' all'
-                nb_core=self.form_options["cores"]
-                cwd=root_output_path,mode='cpp'
+                nb_core = self.form_options["cores"]
+                cwd = root_output_path
                 try:
-                    if  nb_core > 1:
-                        cmd.append('-j%s' % nb_core)
-                    cmd += arg
-                    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, 
-                                        stderr=subprocess.STDOUT, cwd=cwd)
+                    if nb_core > 1:
+                        cmd + '-j%s'%nb_core
+                    
+                    p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                         stderr=subprocess.STDOUT, cwd=cwd)
                     (out, err) = p.communicate()
                 except OSError as error:
-                    raise OSError('Directory %s doesn\'t exists. Impossible to run make' % cwd)
+                    raise OSError(
+                        'make all failed with\n: %s \n. Could not compile integrand.' % error)
                 print("Compilation time: {:.2}s".format(time.time() - t))
             except OSError as e:
-                print("Compilation of FORM-generated numerator failed:\n%s"%(str(e)))        
-        
+                print("Compilation of FORM-generated numerator failed:\n%s" % (str(e)))
+        else:
+            raise OSError(
+                        'Makefile in: \n %s \n does not exist. Compilation failure.' % root_output_path)
+
+
     def create_form_dir(self):
         """copies the neccessary files for form
-        """        
+        """
         Path(self.FORM_workspace).mkdir(parents=True, exist_ok=True)
         src_path = pjoin(self.alphaloop_dir, 'LTD',
-                         'amplitude_rewrite', 'form_codes_amplitudes')
+                         'amplitudes_rewrite', 'form_codes_amplitudes')
         form_endings = [".h", ".frm", ".prc"]
         for ending in form_endings:
             flist = glob.glob(src_path + "/*"+ending)
             for ff in flist:
                 shutil.copy(ff, self.FORM_workspace)
-        src_path = pjoin(src_path,'FORM_output_makefile')
-        target = pjoin(pjoin(self.FORM_workspace,'../'),'Makefile')
-        shutil.copy2(src_path,target)
+        src_path = pjoin(src_path, 'FORM_output_makefile')
+        target = pjoin(pjoin(self.FORM_workspace, '../'), 'Makefile')
+        shutil.copy2(src_path, target)
 
     def generate_output(self):
         """generates a compiled c-integrand
-        """                
+        """
         self.create_form_dir()
         self.generate_form_integrand_files()
         self.generate_c_header()
         # TODO: include with some statistics similar to FORMPROCESSOR
         for int_id in range(len(self.integrands)):
-            print("form on integrand %s"%int_id)
+            print("form on integrand %s" % int_id)
             self.run_form(int_id)
             self.generate_c_files_from_proto_c(int_id)
         self.generate_integrand_c_files()
         self.compile_integrand()
-

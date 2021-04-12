@@ -6,7 +6,7 @@ SRC=$(wildcard numerator*.c)
 OBJ=$(patsubst %.c,%.o, $(SRC))
 INTEGRANDSRC=$(wildcard integrand*.c)
 INTEGRANDOBJ=$(patsubst %.c,%.o, $(INTEGRANDSRC))
-LIBRARY=libFORM_numerators.so
+INTEGRANDLIBRARY=libFORM_integrands.so
 
 all:$(LIBBPATH)/$(INTEGRANDLIBRARY)
 integrand: $(LIBBPATH)/$(INTEGRANDLIBRARY)

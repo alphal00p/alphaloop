@@ -25,38 +25,36 @@ amplitude:
   name: "amplitude"
   diagram_list:
     # Alternative: path_to_diagrams for .py import
-    - diag1:
-        propagators:
-          - loop_signature: [1] #k1
-            outgoing_signature: [0, 0] #linear comb of INDEPENDENT outgoing momenta 
-            incoming_signature: [0, 0] #linear comb of incoming 
-            mass: "m1"
-            power: 1
-            name: "l1"
-          - loop_signature: [1] #k1
-            outgoing_signature: [0, 0] #linear comb of INDEPENDENT outgoing momenta 
-            incoming_signature: [1, 0] #linear comb of incoming 
-            mass: "m1"
-            power: 1
-            name: "l2"
-        analytic_integrand: "sp(p1,p2)*sprop(k1,m1)*sprop(k1,m1)"
-        index_shift: 5 # optional
-    - diag2:
-        propagators:
-          - loop_signature: [1] #k1
-            outgoing_signature: [0, 0] #linear comb of INDEPENDENT outgoing momenta 
-            incoming_signature: [0, 0] #linear comb of incoming 
-            mass: "m1"
-            power: 1
-            name: "l1"
-          - loop_signature: [1] #k1
-            outgoing_signature: [1, 0] #linear comb of INDEPENDENT outgoing momenta 
-            incoming_signature: [0, 0] #linear comb of incoming
-            mass: "m1"
-            power: 2
-            name: "l2"
-        analytic_integrand: "ana1*sprop(k1,m1)*sprop(k1+q1,m1)^2"
-        index_shift: 0
+  - propagators:
+      - loop_signature: [1] #k1
+        outgoing_signature: [0, 0] #linear comb of INDEPENDENT outgoing momenta 
+        incoming_signature: [0, 0] #linear comb of incoming 
+        mass: "m1"
+        power: 1
+        name: "l1"
+      - loop_signature: [1] #k1
+        outgoing_signature: [0, 0] #linear comb of INDEPENDENT outgoing momenta 
+        incoming_signature: [1, 0] #linear comb of incoming 
+        mass: "m1"
+        power: 1
+        name: "l2"
+    analytic_integrand: "sp(p1,p2)*sprop(k1,m1)*sprop(k1,m1)"
+    index_shift: 5 # optional
+  - propagators:
+      - loop_signature: [1] #k1
+        outgoing_signature: [0, 0] #linear comb of INDEPENDENT outgoing momenta 
+        incoming_signature: [0, 0] #linear comb of incoming 
+        mass: "m1"
+        power: 1
+        name: "l1"
+      - loop_signature: [1] #k1
+        outgoing_signature: [1, 0] #linear comb of INDEPENDENT outgoing momenta 
+        incoming_signature: [0, 0] #linear comb of incoming
+        mass: "m1"
+        power: 2
+        name: "l2"
+    analytic_integrand: "ana1*sprop(k1,m1)*sprop(k1+q1,m1)^2"
+    index_shift: 0
 
 
   masses:
