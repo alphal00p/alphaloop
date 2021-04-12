@@ -28,6 +28,7 @@ from yaml import Loader, Dumper
 import glob
 
 src_path = os.path.dirname(os.path.realpath(__file__))
+abspath = os.path.abspath
 pjoin = os.path.join
 
 
@@ -60,7 +61,7 @@ class AmpExporter():
             'dirs').get('out_dir', './'), process_name))
         alphaloop_dir = os.path.abspath(
             runcard_options.get('dirs').get('alphaloop_dir'))
-        amp_exporter = AmpExporter(out_dir=out_dir, amplitude=amplitude, process_name=process_name,
+        amp_exporter = AmpExporter(out_dir=out_dir, amplitude_dict=amplitude, process_name=process_name,
                                    form_options=form_options, amplitude_options=amplitude_options, alphaloop_dir=alphaloop_dir)
         return amp_exporter
 
@@ -92,18 +93,18 @@ class AmpExporter():
         """        
         alphaloop_dir = self.alphaloop_dir
         out_dir = self.generate_dir_structure()
-        amplitude = Amplitude.import_amplitude(self.amplitude_data)
+
+        amplitude = Amplitude.import_amplitude(self.amplitude_dict,self.amplitude_options)
         amplitude_list = amplitude.perform_color(
             out_dir=out_dir, alpha_dir=alphaloop_dir)
 
         for i, amp in amplitude_list:
-            # TODO: do a proper export
             out_dir = self.generate_dir_structure(
                 add_out_dir='color_struc_'+str(i), mode='full')
-            topo_gen = DariosYamlFileGenerator(amp)
-            topo_gen.export_yaml(out_dir)
-            form_processor = FormProcessorAmp(amp)
-            form_processor.generate_output(alphaloop_dir, out_dir)
+            # topo_gen = DariosYamlFileGenerator(amp)
+            # topo_gen.export_yaml(out_dir)
+            form_processor = FormProcessorAmp(amp, alphaloop_dir, form_options=self.form_options, form_wrk_space=pjoin(out_dir,'FORM','workspace'))
+            form_processor.generate_output()
 
 
 class DariosYamlFileGenerator():
@@ -217,10 +218,9 @@ class FormProcessorAmp():
             'FORM_path': str(Path(plugin_path).parent.joinpath('libraries', 'form', 'sources', 'form').resolve()),
             'tFORM_path': str(Path(plugin_path).parent.joinpath('libraries', 'form', 'sources', 'tform').resolve()),
             # Define the extra aguments for the compilation
-            'compilation-options': [],
             'cores': multiprocessing.cpu_count(),
             'extra-options': {'OPTIMITERATIONS': 1000},
-            'optimisation_strategy': 'CSEgreedy',
+            'OPTIMISATIONSTRATEGY': 'CSEgreedy',
             'FORM_setup': {
                 #   'MaxTermSize':'100K',
                 #   'Workspace':'1G'
@@ -388,7 +388,7 @@ class FormProcessorAmp():
         with open(out_file, "w") as numfile:
             numfile.write(header_file)
 
-    def generate_integrand_c_file(self):
+    def generate_integrand_c_files(self):
         out_file = pjoin("../", self.FORM_workspace)
         out_file = pjoin(out_file, 'numerator.c')
 
@@ -482,9 +482,33 @@ class FormProcessorAmp():
             sys.exit(error_message)
 
     def compile_integrand(self):
-        # TODO: write routine for compilation
-        pass
+        """compiles the c-library for rust
+        """
 
+        root_output_path = pjoin(self.FORM_workspace,'../')
+
+        if os.path.isfile(pjoin(root_output_path,'Makefile')):
+            try:
+                print("Now compiling FORM-generated numerators with options: %s ..."%(' '.join(self.form_options['compilation-options'])))
+
+                t = time.time()
+                cmd = 'make'
+                arg = ' all'
+                nb_core=self.form_options["cores"]
+                cwd=root_output_path,mode='cpp'
+                try:
+                    if  nb_core > 1:
+                        cmd.append('-j%s' % nb_core)
+                    cmd += arg
+                    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, 
+                                        stderr=subprocess.STDOUT, cwd=cwd)
+                    (out, err) = p.communicate()
+                except OSError as error:
+                    raise OSError('Directory %s doesn\'t exists. Impossible to run make' % cwd)
+                print("Compilation time: {:.2}s".format(time.time() - t))
+            except OSError as e:
+                print("Compilation of FORM-generated numerator failed:\n%s"%(str(e)))        
+        
     def create_form_dir(self):
         """copies the neccessary files for form
         """        
@@ -496,14 +520,21 @@ class FormProcessorAmp():
             flist = glob.glob(src_path + "/*"+ending)
             for ff in flist:
                 shutil.copy(ff, self.FORM_workspace)
+        src_path = pjoin(src_path,'FORM_output_makefile')
+        target = pjoin(pjoin(self.FORM_workspace,'../'),'Makefile')
+        shutil.copy2(src_path,target)
 
     def generate_output(self):
         """generates a compiled c-integrand
-        """        
-        # TODO: make this a sensible functions with some statistics similar to FORMPROCESSOR
+        """                
         self.create_form_dir()
         self.generate_form_integrand_files()
         self.generate_c_header()
-        self.generate_c_files_from_proto_c()
-        self.generate_integrand_c_file()
+        # TODO: include with some statistics similar to FORMPROCESSOR
+        for int_id in range(len(self.integrands)):
+            print("form on integrand %s"%int_id)
+            self.run_form(int_id)
+            self.generate_c_files_from_proto_c(int_id)
+        self.generate_integrand_c_files()
         self.compile_integrand()
+

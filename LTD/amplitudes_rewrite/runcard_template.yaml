@@ -6,11 +6,10 @@ directories:
 
 form_options: # Will also put the rest of the options
   # Define the extra aguments for the compilation
-  compilation-options: []
   cores: 2
   extra-options:
     OPTIMITERATIONS: 1000
-  optimisation_strategy: "CSEgreedy"
+  OPTIMISATIONSTRATEGY: "CSEgreedy"
 
 amplitude_options:
   integrand_per_diag: False # if true, every integrand will get its own c-routine
