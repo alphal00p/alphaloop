@@ -29,6 +29,8 @@ from yaml import Loader, Dumper
 import glob
 import json
 
+from topology_generator import SquaredTopologyGeneratorForAmplitudes
+
 src_path = os.path.dirname(os.path.realpath(__file__))
 abspath = os.path.abspath
 pjoin = os.path.join
@@ -111,20 +113,11 @@ class AmpExporter():
         for i, amp in enumerate(amplitude_list.amplitudes):
             out_dir = self.generate_dir_structure(
                 add_out_dir='color_struc_'+str(i), mode='full')
-            # topo_gen = DariosYamlFileGenerator(amp)
-            # topo_gen.export_yaml(out_dir)
+            topo_gen = SquaredTopologyGeneratorForAmplitudes.from_amplitude(amp)
+            topo_gen.export_yaml(out_dir+'/Rust_inputs')
             form_processor = FormProcessorAmp(
                 amp, alphaloop_dir, form_options=self.form_options, form_wrk_space=pjoin(out_dir, 'FORM', 'workspace'))
             form_processor.generate_output()
-
-
-class DariosYamlFileGenerator():
-    def __init__(self):
-        pass
-
-    def export_yaml(self):
-        pass
-
 
 class AmplitudeList():
     """ Holds a list of amplitudes, e.g. neccesary if we split by color

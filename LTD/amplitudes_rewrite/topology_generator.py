@@ -1,8 +1,8 @@
 import os, sys
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-print(sys.path)
 import yaml
 import numpy
+import amplitudes
 from ltd_utils import *
 
 class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
@@ -19,18 +19,17 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
 		self.n_loops = None #don't change, this is an member of TopologyGeneratorFromPropagators that will be used later
 
 	@classmethod
-	def from_runcard(cls, amplitude_runcard_path):
-		with open(amplitude_runcard_path) as f:
-			runcard_options = yaml.load(f, Loader=yaml.FullLoader)
-		amplitude = runcard_options.get("amplitude")
-		name = amplitude.get('name')
-		external_data = amplitude.get("external_data")
+	def from_amplitude(cls, amplitude):
+		assert(isinstance(amplitude,amplitudes.Amplitude))
+		name = amplitude.name
+		#amplitude.get('name')
+		external_data = amplitude.external_data
 		incoming_momenta = [['p%i'%(i+1),numpy.array(p)] for i,p in enumerate(external_data["in_momenta"])]
 		outgoing_momenta = [['q%i'%(i+1),numpy.array(q)] for i,q in enumerate(external_data["out_momenta"])]
 		if external_data["n_out"]==len(external_data["out_momenta"])+1:
 			q_sum = numpy.sum([p[1] for p in incoming_momenta]+[-q[1] for q in outgoing_momenta],axis=0)
 			outgoing_momenta += [['q%i'%external_data["n_out"], q_sum]]
-		diagram_list = amplitude.get("diagram_list")
+		diagram_list = amplitude.diagram_list
 		all_propagators_set = []
 		for diagram in diagram_list:
 			diag_props = diagram["propagators"]
@@ -39,7 +38,7 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
 									tuple(prop["incoming_signature"]),
 									prop["mass"]) for prop in diag_props]
 		all_propagators_set = set(all_propagators_set)
-		masses = amplitude.get("masses")
+		masses = amplitude.masses
 		propagators = [{"loop_signature": list(props[0]),
 						"outgoing_signature": list(props[1]),
 						"incoming_signature": list(props[2]),
@@ -183,7 +182,25 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
 						}]
 		return diagram_sets
 
-	def export(self, output_path):
+	def get_cross_section_set(self):
+		cross_section_set = {}
+		cross_section_set["color_struc"] = "color(1)"
+		cross_section_set["external_data"] = {"cpol": [],
+											"in_momenta": [[float(v) for v in p[1]] for p in self.incoming_momenta],
+											"out_momenta": [[float(v) for v in p[1]] for p in self.outgoing_momenta[:-1]],
+											"n_in": self.n_incoming,
+											"n_out": self.n_outgoing,
+											"pol": [],
+											"spinor_u": [],
+											"spinor_ubar": [],
+											"spinor_v": [],
+											"spinor_vbar": [],
+											}
+		cross_section_set["name"] = self.name
+		cross_section_set["topologies"] = [{"additional_LMBs": [], "multiplicity": 1, "name": self.name+'_0'}]
+		return cross_section_set
+
+	def export_yaml(self, output_path):
 		out = {}
 		out["topo"] = self.get_supergraph_topology().to_flat_format()
 		cuts = self.get_cuts()
@@ -224,8 +241,8 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
 			from yaml import Loader, Dumper
 		except ImportError:
 			raise BaseException("Install yaml python module in order to import topologies from yaml.")
-
-		open(output_path,'w').write(yaml.dump(out, Dumper=Dumper, default_flow_style=None))
+		open(output_path+'/'+self.name+'.yaml','w').write(yaml.dump(self.get_cross_section_set(), Dumper=Dumper, default_flow_style=None))
+		open(output_path+'/'+self.name+'_0.yaml','w').write(yaml.dump(out, Dumper=Dumper, default_flow_style=None))
 
 
 if __name__ == "__main__":
