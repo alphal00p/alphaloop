@@ -233,7 +233,7 @@ class Amplitude():
         for i, cc in enumerate(self.color_strucs):
             color_ordered_amps[cc] = color_ordered_amps[cc] + \
                 [self.diagram_list[i]]
-        amp_list = [Amplitude(name=self.name + col,
+        amp_list = [Amplitude(name=self.name + '_color_'+str(i),
                        diagram_list=dia_list,
                        external_data=self.external_data,
                        additional_options=self.additional_options,
