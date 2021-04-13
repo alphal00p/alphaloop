@@ -1,9 +1,12 @@
+import os, sys
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+print(sys.path)
 import yaml
 import numpy
 from ltd_utils import *
 
-class SquaredTopologyFromLoopTopologyGenerator(TopologyGeneratorFromPropagators):
-	def __init__(self, incoming_momenta, outgoing_momenta, masses, propagators, name="test"):
+class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
+	def __init__(self, incoming_momenta, outgoing_momenta, masses, propagators, name):
 		self.name = name
 		self.incoming_momenta = incoming_momenta
 		self.outgoing_momenta = outgoing_momenta
@@ -14,6 +17,37 @@ class SquaredTopologyFromLoopTopologyGenerator(TopologyGeneratorFromPropagators)
 		self.n_outgoing = len(self.outgoing_momenta)
 		self.n_incoming = len(self.incoming_momenta)
 		self.n_loops = None #don't change, this is an member of TopologyGeneratorFromPropagators that will be used later
+
+	@classmethod
+	def from_runcard(cls, amplitude_runcard_path):
+		with open(amplitude_runcard_path) as f:
+			runcard_options = yaml.load(f, Loader=yaml.FullLoader)
+		amplitude = runcard_options.get("amplitude")
+		name = amplitude.get('name')
+		external_data = amplitude.get("external_data")
+		incoming_momenta = [['p%i'%(i+1),numpy.array(p)] for i,p in enumerate(external_data["in_momenta"])]
+		outgoing_momenta = [['q%i'%(i+1),numpy.array(q)] for i,q in enumerate(external_data["out_momenta"])]
+		if external_data["n_out"]==len(external_data["out_momenta"])+1:
+			q_sum = numpy.sum([p[1] for p in incoming_momenta]+[-q[1] for q in outgoing_momenta],axis=0)
+			outgoing_momenta += [['q%i'%external_data["n_out"], q_sum]]
+		diagram_list = amplitude.get("diagram_list")
+		all_propagators_set = []
+		for diagram in diagram_list:
+			diag_props = diagram["propagators"]
+			all_propagators_set += [(tuple(prop["loop_signature"]),
+									tuple(prop["outgoing_signature"]),
+									tuple(prop["incoming_signature"]),
+									prop["mass"]) for prop in diag_props]
+		all_propagators_set = set(all_propagators_set)
+		masses = amplitude.get("masses")
+		propagators = [{"loop_signature": list(props[0]),
+						"outgoing_signature": list(props[1]),
+						"incoming_signature": list(props[2]),
+						"mass": props[3],
+						"power": 1, #irrelevant for detection of E-surfaces
+						"name": 'l%i'%(i+1)
+						} for i,props in enumerate(all_propagators_set)]
+		return SquaredTopologyGeneratorForAmplitudes(incoming_momenta,outgoing_momenta,masses,propagators,name)
 
 	def get_supergraph_topology(self):
 		supergraph_loop_lines = self.get_supergraph_loop_lines()
@@ -149,7 +183,7 @@ class SquaredTopologyFromLoopTopologyGenerator(TopologyGeneratorFromPropagators)
 						}]
 		return diagram_sets
 
-	def export(self, output_path="./squared_topology.yaml"):
+	def export(self, output_path):
 		out = {}
 		out["topo"] = self.get_supergraph_topology().to_flat_format()
 		cuts = self.get_cuts()
@@ -195,19 +229,7 @@ class SquaredTopologyFromLoopTopologyGenerator(TopologyGeneratorFromPropagators)
 
 
 if __name__ == "__main__":
-	# test topology
-	"""
-	ext1 = numpy.array([-89.8527, 69.4484, -96.305, 14.4755])
-	ext2 = numpy.array([-81.6178, 6.89065, 1.76775, 18.3983])
-	ext3 = numpy.array([-89.8079, 24.3249, 48.7334, 0.74094])
-	ext4 = numpy.array([-43.202, -85.3464, 92.3815, 93.848])
-	ext5 = -ext1-ext2-ext3-ext4
-	incoming_momenta = [["p1",ext1],
-						["p2",ext2]]
-	outgoing_momenta = [["q1",-ext3],
-						["q2",-ext4],
-						["q3",-ext5]]
-	"""
+	# example explicit
 	p1 = numpy.array([1, 0, 0, 1])
 	p2 = numpy.array([-1, 0, 0, 1])
 	q1 = numpy.array([0.0, 2.3, 0.2, 1.1])
@@ -250,39 +272,11 @@ if __name__ == "__main__":
 					"mass": "m5",
 					"power": 1,
 					"name": "l5"}]
-
-	topo = SquaredTopologyFromLoopTopologyGenerator(incoming_momenta, outgoing_momenta, masses, propagators)
-	topo.export()
+	name = "test"
+	topo = SquaredTopologyGeneratorForAmplitudes(incoming_momenta, outgoing_momenta, masses, propagators, name)
+	topo.export("./"+topo.name+".yaml")
 	
-	"""
-	# ordered
-	incoming_momenta = [["p1", LorentzVector([500,0,0,500])],
-						["p2", LorentzVector([500,0,0,-500])]]
-	outgoing_momenta = [["q1", LorentzVector([349.76387887, 197.3970875, 277.2935156, -4.06480273])],
-						["q2", LorentzVector([274.3666484, 94.14456732, -156.29256755, -183.49625453])],
-						["q3", LorentzVector([375.86947273, -291.54165482, -121.00094805,  187.56105726])]]
-						# q3 = p1+p2-q1-q2
-	masses = {"m1": 1.0, "m2": 2.0, "m3": 3.0}
-	propagators = []
-	propagators += [{"loop_signature": [1], #k1
-					"outgoing_signature": [0,0], #linear comb of INDEPENDENT outgoing momenta q1-q2
-					"incoming_signature": [0,0], #linear comb of incoming p2
-					"mass": "m1",
-					"power": 1,
-					"name": "l1"}]
-	propagators += [{"loop_signature": [1], #k1
-					"outgoing_signature": [0,0], #linear comb of INDEPENDENT outgoing momenta q1-q2
-					"incoming_signature": [1,0], #linear comb of incoming p2
-					"mass": "m1",
-					"power": 1,
-					"name": "l2"}]
-	propagators += [{"loop_signature": [1], #k1
-					"outgoing_signature": [0,0], #linear comb of INDEPENDENT outgoing momenta q1-q2
-					"incoming_signature": [0,-1], #linear comb of incoming p2
-					"mass": "m1",
-					"power": 1,
-					"name": "l3"}]
-
-	topo = SquaredTopologyFromLoopTopologyGenerator(incoming_momenta, outgoing_momenta, masses, propagators)
-	topo.export()
-	"""
+	# example from runcard
+	runcard_path = "/Users/Dario/Desktop/PhD/Code/alphaloop/LTD/amplitudes_rewrite/runcard_template_scalar.yaml"
+	topo = SquaredTopologyGeneratorForAmplitudes.from_runcard(runcard_path)
+	topo.export("./"+topo.name+".yaml")
