@@ -97,7 +97,7 @@ class AmpExporter():
 
         amplitude = Amplitude.import_amplitude(
             self.amplitude_dict, self.amplitude_options)
-        amplitude_list = amplitude.perform_color(
+        amplitude_list = amplitude.split_color(
             out_dir=out_dir, alphaloop_dir=alphaloop_dir)
 
         for i, amp in enumerate(amplitude_list.amplitudes):
@@ -122,8 +122,12 @@ class AmplitudeList():
     """ Holds a list of amplitudes, e.g. neccesary if we split by color
     """
 
-    def __init__(self, amplitudes):
-        self.amplitudes = amplitudes
+    def __init__(self, amp_list):
+        for amp in amp_list:
+            if not isinstance(amp, Amplitude):
+                sys.exit(
+                    "Can not initialize AmplitudeList. Not all elements in list are of type Amplitude")
+        self.amplitudes = amp_list
 
     @classmethod
     def from_amp(AmplitudeList, amp):
@@ -137,16 +141,31 @@ class Amplitude():
     """This class holds amplitudes which consist of propagators and numerators
     """
 
-    def __init__(self, name=None, diagram_list=[], external_data={}, masses={}, additional_options={}, constants={}):
+    def __init__(self, name='my_amp', diagram_list=[], external_data={}, masses={}, additional_options={}, constants={}):
         self.name = name
         self.diagram_list = diagram_list
-        self.external_data = external_data
-        self.additional_options = additional_options
-        self.color_struc = None
-        self.constants = constants
-        self.masses = masses
+        self.external_data = copy.copy(external_data)
+        self.additional_options = copy.copy(additional_options)
+        self.color_strucs = []
 
-    @classmethod
+        # treat color:
+        if self.additional_options.get('colorless', 'False'):
+            for diag in self.diagram_list:
+                diag.update({'color_struc': 'color(1)'})
+                self.color_strucs += ['color(1)']
+        else:
+            for diag in self.diagram_list:
+                if not 'color_struc' in diag.keys():
+                    diag.update({'color_struc': 'derive'})
+                self.color_strucs += [diag.get('color_struc')]
+            if len(set(self.color_strucs) > 1) and 'derive' in set(self.color_strucs):
+                sys.exit(
+                    'The color-structures of the amplitude: \n %s \n contain a mix of determined and undetermined color structures' % self.color_strucs)
+
+        self.constants = copy.copy(constants)
+        self.masses = copy.copy(masses)
+
+    @ classmethod
     def import_amplitude(Amplitude, amp, additional_options):
         """Defines an amplitude by importing either directly form the runcard or alternatively from a specified .py file
 
@@ -205,10 +224,22 @@ class Amplitude():
                 additional_options=additional_options
             )
 
-    def perform_color(self, out_dir='', alphaloop_dir=''):
-        # TODO: implement. Is supposed to give amplitudeList: needs implementing
-        self.color_struc = 'color(1)'
-        return AmplitudeList.from_amp(self)
+    def split_color(self, out_dir='', alphaloop_dir=''):
+
+        color_ordered_amps = {cc: [] for cc in set(self.color_strucs)}
+
+        # TODO: implement 'derive' option.
+        for i, cc in enumerate(self.color_strucs):
+            color_ordered_amps[cc] = color_ordered_amps[cc] + \
+                [self.diagram_list[i]]
+        amp_list = [Amplitude(name=self.name + col,
+                       diagram_list=dia_list,
+                       external_data=self.external_data,
+                       additional_options=self.additional_options,
+                       masses=self.masses,
+                       constants=self.constants)
+             for col, dia_list in color_ordered_amps.items()]
+        return AmplitudeList(amp_list)
 
 
 class FormProcessorAmp():
@@ -384,10 +415,10 @@ class FormProcessorAmp():
         header_file = """# ifndef NUM_H
 # define NUM_H
 
-#define  pi M_PI
-#define  mUV params[0]
-#define  mu params[1]
-#define  small_mass_sq params[3]
+# define  pi M_PI
+# define  mUV params[0]
+# define  mu params[1]
+# define  small_mass_sq params[3]
 """
         for key, value in self.additional_constants.items():
             header_file += '\n'+'#define '+key+' '+str(value)
@@ -412,9 +443,9 @@ class FormProcessorAmp():
             c_routines_f128 += "\nvoid evaluate_PF_{}_f128(__complex128[], __complex128[], int conf, __complex128* out);".format(
                 i)
             eval_f64 += "\n\t\tcase {}: evaluate_PF_{}(lm, params, conf, out); return;".format(
-                i,i)
+                i, i)
             eval_f128 += "\n\t\tcase {}: evaluate_PF_{}_f128(lm, params, conf, out); return;".format(i,
-                i)
+                                                                                                     i)
 
         eval_f64 += "\n\t\tdefault: raise(SIGABRT);\n\t}\n}"
         eval_f128 += "\n\t\tdefault: raise(SIGABRT);\n\t}\n}"
@@ -511,8 +542,8 @@ class FormProcessorAmp():
                 cwd = root_output_path
                 try:
                     if nb_core > 1:
-                        cmd + '-j%s'%nb_core
-                    
+                        cmd + '-j%s' % nb_core
+
                     p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                          stderr=subprocess.STDOUT, cwd=cwd)
                     (out, err) = p.communicate()
@@ -524,8 +555,7 @@ class FormProcessorAmp():
                 print("Compilation of FORM-generated numerator failed:\n%s" % (str(e)))
         else:
             raise OSError(
-                        'Makefile in: \n %s \n does not exist. Compilation failure.' % root_output_path)
-
+                'Makefile in: \n %s \n does not exist. Compilation failure.' % root_output_path)
 
     def create_form_dir(self):
         """copies the neccessary files for form

@@ -17,6 +17,7 @@ amplitude_options:
   #  q q~ > g g:    True:     3 color-structures appear {T^a T^b T^c,T^a T^c T^b,T^a T^b T^c-T^a T^c T^b} where the last one is due to the 3g-vertex
   #                 False:    2 color-structures for all diagrams {T^a T^b T^c,T^a T^c T^b}
   color_per_graph: False
+  color_less: True
 
 amplitude:
   name: "test_integrand"
