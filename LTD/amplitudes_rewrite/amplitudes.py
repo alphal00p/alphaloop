@@ -466,7 +466,6 @@ class FormProcessorAmp():
 
     def generate_integrand_c_files(self):
         out_file = abspath(pjoin(self.FORM_workspace,"../"))
-        print(out_file);
         out_file = pjoin(out_file, 'integrand.c')
 
         header = "# include <tgmath.h>\n# include <quadmath.h>\n# include <signal.h>\n\n // integrands \n"

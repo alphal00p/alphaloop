@@ -12,6 +12,7 @@ form_options: # Will also put the rest of the options
   OPTIMISATIONSTRATEGY: "CSEgreedy"
 
 amplitude_options:
+  colorless: True
   integrand_per_diag: False # if true, every integrand will get its own c-routine
   # if true: the color structure per graph will be factorized: e.g. Tr[T^a T^b T^c]-Tr[T^a T^c T^b] will be treated as ``independent'' color-structure
   # if false: every structure is treated independently
