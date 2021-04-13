@@ -464,30 +464,31 @@ class FormProcessorAmp():
             numfile.write(header_file)
 
     def generate_integrand_c_files(self):
-        out_file = pjoin("../", self.FORM_workspace)
-        out_file = pjoin(out_file, 'numerator.c')
+        out_file = abspath(pjoin(self.FORM_workspace,"../"))
+        print(out_file);
+        out_file = pjoin(out_file, 'integrand.c')
 
-        header = "# include <tgmath.h>\n# include <quadmath.h>\# include <signal.h>\n\n // integrands \n"
-        c_routines_f64 = '\n\\ f64 routines '
-        c_routines_f128 = '\n\\ f64 routines '
-        eval_f64 = "void evaluate_PF(double complex lm[], double complex params[], int diag, int conf, double complex* out) {\n\tswitch(diag) {"
-        eval_f128 = "void evaluate_PF_f128(__complex128 lm[], __complex128 params[], int diag, int conf, __complex128* out) {\n\tswitch(diag) {"
+        header = "# include <tgmath.h>\n# include <quadmath.h>\n# include <signal.h>\n\n // integrands \n"
+        c_routines_f64 = '\n // f64 routines \n'
+        c_routines_f128 = '\n// f128 routines \n'
+        eval_f64 = "\nvoid evaluate_PF(double complex lm[], double complex params[], int diag, int conf, double complex* out) {\n\tswitch(diag) {"
+        eval_f128 = "\nvoid evaluate_PF_f128(__complex128 lm[], __complex128 params[], int diag, int conf, __complex128* out) {\n\tswitch(diag) {"
 
         for i in range(len(self.integrands)):
-            c_routines_f64 += "\nvoid evaluate_PF_{}(double complex[], double complex[], int conf, double complex* out);".format(
+            c_routines_f64 += "\nvoid evaluate_PF_{}(double complex[], double complex[], int conf, double complex* out);\n".format(
                 i)
-            c_routines_f128 += "\nvoid evaluate_PF_{}_f128(__complex128[], __complex128[], int conf, __complex128* out);".format(
+            c_routines_f128 += "\nvoid evaluate_PF_{}_f128(__complex128[], __complex128[], int conf, __complex128* out);\n".format(
                 i)
-            eval_f64 += "\n\t\tcase {}: evaluate_PF_{}(lm, params, conf, out); return;".format(
+            eval_f64 += "\n\t\tcase {}: evaluate_PF_{}(lm, params, conf, out); return;\n".format(
                 i, i)
-            eval_f128 += "\n\t\tcase {}: evaluate_PF_{}_f128(lm, params, conf, out); return;".format(i,
+            eval_f128 += "\n\t\tcase {}: evaluate_PF_{}_f128(lm, params, conf, out); return;\n".format(i,
                                                                                                      i)
 
-        eval_f64 += "\n\t\tdefault: raise(SIGABRT);\n\t}\n}"
-        eval_f128 += "\n\t\tdefault: raise(SIGABRT);\n\t}\n}"
+        eval_f64 += "\n\t\tdefault: raise(SIGABRT);\n\t}\n}\n"
+        eval_f128 += "\n\t\tdefault: raise(SIGABRT);\n\t}\n}\n"
 
-        full_integrand = header + c_routines_f64 + \
-            c_routines_f128 + eval_f64 + eval_f128
+        full_integrand = header + c_routines_f64 +  eval_f64 \
+            + c_routines_f128 + eval_f128
         with open(out_file, "w") as c_code:
             c_code.write(full_integrand)
 
