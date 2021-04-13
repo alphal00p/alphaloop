@@ -6,7 +6,7 @@ import amplitudes
 from ltd_utils import *
 
 class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
-	def __init__(self, incoming_momenta, outgoing_momenta, masses, propagators, name):
+	def __init__(self, incoming_momenta, outgoing_momenta, masses, propagators, name, spinors = {}, polarsations = {}, color_struc = 'color(1)'):
 		self.name = name
 		self.incoming_momenta = incoming_momenta
 		self.outgoing_momenta = outgoing_momenta
@@ -17,6 +17,13 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
 		self.n_outgoing = len(self.outgoing_momenta)
 		self.n_incoming = len(self.incoming_momenta)
 		self.n_loops = None #don't change, this is an member of TopologyGeneratorFromPropagators that will be used later
+		self.spinor_v = spinors.get("v",[])
+		self.spinor_u = spinors.get("u",[])
+		self.spinor_ubar = spinors.get("ubar",[])
+		self.spinor_vbar = spinors.get("vbar",[])
+		self.cpol = polarsations.get("cpol",[])
+		self.pol = polarsations.get("pol",[])
+		self.color_struc = color_struc
 
 	@classmethod
 	def from_amplitude(cls, amplitude):
@@ -26,6 +33,15 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
 		external_data = amplitude.external_data
 		incoming_momenta = [['p%i'%(i+1),numpy.array(p)] for i,p in enumerate(external_data["in_momenta"])]
 		outgoing_momenta = [['q%i'%(i+1),numpy.array(q)] for i,q in enumerate(external_data["out_momenta"])]
+		spinors = {}
+		spinors["v"] = external_data.get("spinor_v",[])
+		spinors["u"] = external_data.get("spinor_u",[])
+		spinors["vbar"] = external_data.get("spinor_vbar",[])
+		spinors["ubar"] = external_data.get("spinor_ubar",[])
+		polarsations = {}
+		polarsations["cpol"] = external_data.get("cpol",[])
+		polarsations["pol"] = external_data.get("pol",[])
+		color_struc = amplitude.color_strucs[0]
 		if external_data["n_out"]==len(external_data["out_momenta"])+1:
 			q_sum = numpy.sum([p[1] for p in incoming_momenta]+[-q[1] for q in outgoing_momenta],axis=0)
 			outgoing_momenta += [['q%i'%external_data["n_out"], q_sum]]
@@ -46,7 +62,7 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
 						"power": 1, #irrelevant for detection of E-surfaces
 						"name": 'l%i'%(i+1)
 						} for i,props in enumerate(all_propagators_set)]
-		return SquaredTopologyGeneratorForAmplitudes(incoming_momenta,outgoing_momenta,masses,propagators,name)
+		return SquaredTopologyGeneratorForAmplitudes(incoming_momenta,outgoing_momenta,masses,propagators,name,spinors=spinors,polarsations=polarsations,color_struc=color_struc)
 
 	def get_supergraph_topology(self):
 		supergraph_loop_lines = self.get_supergraph_loop_lines()
@@ -184,17 +200,17 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
 
 	def get_cross_section_set(self):
 		cross_section_set = {}
-		cross_section_set["color_struc"] = "color(1)"
-		cross_section_set["external_data"] = {"cpol": [],
+		cross_section_set["color_struc"] = self.color_struc
+		cross_section_set["external_data"] = {"cpol": self.cpol,
 											"in_momenta": [[float(v) for v in p[1]] for p in self.incoming_momenta],
 											"out_momenta": [[float(v) for v in p[1]] for p in self.outgoing_momenta[:-1]],
 											"n_in": self.n_incoming,
 											"n_out": self.n_outgoing,
-											"pol": [],
-											"spinor_u": [],
-											"spinor_ubar": [],
-											"spinor_v": [],
-											"spinor_vbar": [],
+											"pol": self.pol,
+											"spinor_u": self.spinor_u,
+											"spinor_ubar": self.spinor_ubar,
+											"spinor_v": self.spinor_v,
+											"spinor_vbar": self.spinor_vbar,
 											}
 		cross_section_set["name"] = self.name
 		cross_section_set["topologies"] = [{"additional_LMBs": [], "multiplicity": 1, "name": self.name+'_0'}]
@@ -209,7 +225,7 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
 		out["FORM_integrand"] = {"call_signature": {"extra_calls": [], "id": 0}}
 		out["FORM_numerator"] = {"call_signature": {"id": 0}}
 		out["MG_numerator"] = {}
-		out["color_struc"] = "color(1)" #??
+		out["color_struc"] = self.color_struc
 		out["default_fixed_cut_momenta"] = [[],[]]
 											#[[[float(v) for v in q[1]] for q in self.incoming_momenta], #incoming
 											#[[float(v) for v in q[1]] for q in self.outgoing_momenta]] #outgoing
