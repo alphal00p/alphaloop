@@ -8,6 +8,7 @@ from pprint import pprint, pformat
 import math
 import igraph
 import time
+from jedi.api import file_name
 import numpy as np
 from itertools import combinations_with_replacement
 from collections import OrderedDict
@@ -26,6 +27,7 @@ from warnings import catch_warnings
 import yaml
 from yaml import Loader, Dumper
 import glob
+import json
 
 src_path = os.path.dirname(os.path.realpath(__file__))
 abspath = os.path.abspath
@@ -50,9 +52,15 @@ class AmpExporter():
         Returns:
             Class: AmpExporter
         """
-
+        filename, file_extension = os.path.splitext(amplitude_runcard_path)
+        
         with open(amplitude_runcard_path) as f:
-            runcard_options = yaml.load(f, Loader=yaml.FullLoader)
+            if file_extension == '.yaml':
+                runcard_options = yaml.load(f, Loader=yaml.FullLoader)
+            elif file_extension == '.json':
+                runcard_options =  json.load(f)
+            
+
 
         amplitude = runcard_options.get('amplitude')
         process_name = amplitude.get('name', 'my_amp')
@@ -185,7 +193,7 @@ class Amplitude():
                              constants=amp.get('constants', {}),
                              additional_options=additional_options
                              )
-        # import from .py
+        # import from .py: 
         else:
             from pathlib import Path
             p = Path(amp.get('diagram_list'))
@@ -290,7 +298,8 @@ class FormProcessorAmp():
             self.form_options.update(copy.copy(form_options))
             # integrand list
             if self.additional_options.get('integrand_per_diag'):
-                self.integrands = [diag.get('analytic_integrand')
+                self.integrands = [
+                        self.derive_integrand_from_diag(diag).get('analytic_integrand')
                                    for diag in (amplitude.diagram_list)]
                 for diag in (amplitude.diagram_list):
                     self.FORM_variables['INDSHIFT_LIST'] = self.FORM_variables['INDSHIFT_LIST'] + [
@@ -300,8 +309,8 @@ class FormProcessorAmp():
                 self.integrands = ''
                 ind_shift = 0
                 for diag in (amplitude.diagram_list):
-                    self.integrands += '+'+diag.get('analytic_integrand')
-                    if diag.get('index_shift', 0) > ind_shift:
+                    self.integrands += '+'+self.derive_integrand_from_diag(diag).get('analytic_integrand')
+                    if diag.get('index_integrand', 0) > ind_shift:
                         ind_shift = diag.get('index_shift', 0)
                 self.integrands = [self.integrands]
                 self.FORM_variables['INDSHIFT_LIST'] = [ind_shift]
@@ -311,6 +320,40 @@ class FormProcessorAmp():
 
         else:
             sys.exit("not an amp")
+
+    def derive_integrand_from_diag(self,diag):
+        """Takes a diagram and computes the integrand
+
+        Args:
+            diag (dict): contains propagators and analytic numerator
+        """
+        my_diag = copy.deepcopy(diag)
+        num = my_diag.get('analytic_num','1')
+        prop_list = []
+
+        # determine propagators       
+        for prop in my_diag.get('propagators'):
+            mom_strg = ''
+            ext_sig = prop.get('incoming_signature')+prop.get('outgoing_signature')
+
+            for ii,sig in enumerate(prop.get('loop_signature')):
+                if sig!=0:
+                    mom_strg+='+('+str(sig)+')*'+'k'+str(ii+1)
+            for ii,sig in enumerate(ext_sig):
+                if sig!=0:
+                    mom_strg+='+('+str(sig)+')*'+'p'+str(ii+1)
+            prop_list += ['(sprop({},{}))^{}'.format(mom_strg,prop.get('mass','0'),prop.get('power','1'))]
+
+        integrand = '('+num+')*'+'{}'.format(format('*'.join(prop_list)))
+        my_diag.update({'analytic_integrand':integrand})
+
+        return my_diag
+            
+                
+                                
+            
+
+
 
     # TODO Remove once FORM will have fixed its C output bug
     def temporary_fix_FORM_output(self, FORM_output):
@@ -547,6 +590,11 @@ class FormProcessorAmp():
                     p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                          stderr=subprocess.STDOUT, cwd=cwd)
                     (out, err) = p.communicate()
+                    
+                    if 'Error' in str(out) or not str(err)=='None':
+                        sys.exit(
+                            'Could not compile integrand. \n make failed with\n: {} .'.format(str(out))
+                        )
                 except OSError as error:
                     raise OSError(
                         'make all failed with\n: %s \n. Could not compile integrand.' % error)

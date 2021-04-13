@@ -38,7 +38,7 @@ amplitude:
         mass: "m1"
         power: 1
         name: "l2"
-    analytic_integrand: "sp(p1,p2)*sprop(k1,m1)*sprop(k1,m1)"
+    analytic_num: "sp(p1,p2)" # no propagators
     index_shift: 5 # optional
   - propagators:
       - loop_signature: [1] #k1
@@ -53,7 +53,7 @@ amplitude:
         mass: "m1"
         power: 2
         name: "l2"
-    analytic_integrand: "ana1*sprop(k1,m1)*sprop(k1+q1,m1)^2"
+    analytic_num: "ana1" # no propagators
     index_shift: 0
 
 

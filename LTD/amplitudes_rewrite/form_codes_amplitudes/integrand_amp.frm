@@ -3,7 +3,7 @@ Off statistics;
 
 * I expect the following input:
 *
-*#define NINITIALMOMENTA "2" 
+*#define NINITIALMOMENTA "2" (number of INDEPENDENT outgoing momenta)
 *#define NFINALMOMENTA "2" 
 *#define NPOL "2"
 *#define NCPOL "0"
@@ -45,8 +45,7 @@ CF penergy, spatial(s), spatialComp, spatialCompTmp;
 CF GGstring, NN, gammatrace(c);
 CT gammatensor;
 
-* for replacements
-CF LmbToCmbSubs;
+
 
 
 *for clTD
@@ -62,7 +61,7 @@ S ii,aa,bb,cc,dd,m,n,y,z;
 #define NCUTMOMENTA "`NFINALMOMENTA'+`NLOOPMOMENTA'"
 * Load the diagrams
 #include- input_`SGID'.h
-*L F = 1/(sp(k3,p1)+sp(k2,p1))^3*sprop(-k1, mT)*sprop(-k1 + p1, mT)*sprop(-k1 - p2, mT)*sprop(-k1 + p1 - k2, mT)*sprop(-k1 - p2 + k3, mT)*LmbToCmbSubs(k2,c1)*LmbToCmbSubs(k3,c2)*LmbToCmbSubs(k1,c3)*(1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*(gam(indS(1),lVec(-k1),indS(2))+deltaS(indS(1),indS(2))*mT)*(gam(indS(3),lVec(-k1+p1),indS(4))+deltaS(indS(3),indS(4))*mT)*(gam(indS(5),lVec(-k1-p2),indS(6))+deltaS(indS(5),indS(6))*mT)*(gam(indS(7),lVec(-k1+p1-k2),indS(8))+deltaS(indS(7),indS(8))*mT)*(gam(indS(9),lVec(-k1-p2+k3),indS(10))+deltaS(indS(9),indS(10))*mT)*1^2*gam(indS(4),muL(-1),indS(1))*gam(indS(2),muL(-3),indS(5))*yT^3*2^(1/2)*deltaS(indS(8),indS(3))*deltaS(indS(6),indS(9))*deltaS(indS(10),indS(7)))*(hermconjugate(1));
+
 .sort
 
 
@@ -94,14 +93,16 @@ endif;
 .sort
 
 * apply mapping of external and loop-momenta to the cmb
-* from form manual  "one should not use more than a single one at the same time inside a term"
-#do i=0,1
-    id once LmbToCmbSubs(?aa) = replace_(?aa);
-    if ( count(LmbToCmbSubs,1)>0 ) redefine i "0";
+#do i=1,`NFINALMOMENTA'
+    multiply replace_(p{`i'+`NINITIALMOMENTA'},c`i');
     .sort        
 #enddo
-
+#do i=1,`NLOOPMOMENTA'
+    multiply replace_(k{`i'},c{`i'+`NFINALMOMENTA'});
+    .sort        
+#enddo
 .sort:lmb-to-cmb;
+
 #call scalar-prop-to-clTD-prop
 .sort:bilinear-sp; 
 #call translate-inds-and-ext-data
@@ -184,6 +185,8 @@ id onshellenergy(y?) = y;
 multiply replace_(<E{`oldextrasymbols'+1}_,E{`oldextrasymbols'+1}>\
 	                  ,...,<E`extrasymbols_'_,E`extrasymbols_'>);
 .sort
+
+Format C;
 #write<out_integrand_PF_`SGID'.proto_c> "//energies \n"
 #do i={`oldextrasymbols'+1},`extrasymbols_'
     #$y = extrasymbol_(`i');
