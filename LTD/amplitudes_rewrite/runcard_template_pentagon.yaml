@@ -1,0 +1,79 @@
+
+
+directories:
+  alphaloop: "/home/armin/my_programs/MG5_py_3_alphaloop_master/PLUGIN/alphaloop"
+  out_dir: "/home/armin/my_programs/MG5_py_3_alphaloop_master/PLUGIN/alphaloop/LTD/amplitudes_rewrite"
+
+form_options: # Will also put the rest of the options
+  # Define the extra aguments for the compilation
+  cores: 1
+  extra-options:
+    OPTIMITERATIONS: 1000
+  OPTIMISATIONSTRATEGY: "CSEgreedy"
+
+amplitude_options:
+  integrand_per_diag: False # if true, every integrand will get its own c-routine
+  # if true: the color structure per graph will be factorized: e.g. Tr[T^a T^b T^c]-Tr[T^a T^c T^b] will be treated as ``independent'' color-structure
+  # if false: every structure is treated independently
+  #   Example
+  #  q q~ > g g:    True:     3 color-structures appear {T^a T^b T^c,T^a T^c T^b,T^a T^b T^c-T^a T^c T^b} where the last one is due to the 3g-vertex
+  #                 False:    2 color-structures for all diagrams {T^a T^b T^c,T^a T^c T^b}
+  color_per_graph: False
+
+
+amplitude:
+  name: "pentagon_zeno"
+  diagram_list:
+    # Alternative: path_to_diagrams for .py import
+  - propagators:
+      - loop_signature: [1] #k1
+        outgoing_signature: [0, 0] #linear comb of INDEPENDENT outgoing momenta 
+        incoming_signature: [0, 0] #linear comb of incoming 
+        mass: 0
+        power: 1
+        name: "l1"
+      - loop_signature: [1] #k1
+        outgoing_signature: [0, 0] #linear comb of INDEPENDENT outgoing momenta 
+        incoming_signature: [1,0] #linear comb of incoming 
+        mass: 0
+        power: 1
+        name: "l2"
+      - loop_signature: [1] #k1
+        outgoing_signature: [-1, 0] #linear comb of INDEPENDENT outgoing momenta 
+        incoming_signature: [1, 0] #linear comb of incoming 
+        mass: 0
+        power: 1
+        name: "l3"
+      - loop_signature: [1] #k1
+        outgoing_signature: [-1, -1] #linear comb of INDEPENDENT outgoing momenta 
+        incoming_signature: [1, 0] #linear comb of incoming 
+        mass: 0
+        power: 1
+        name: "l4"
+      - loop_signature: [1] #k1
+        outgoing_signature: [0, 0] #linear comb of INDEPENDENT outgoing momenta 
+        incoming_signature: [0, -1] #linear comb of incoming 
+        mass: 0
+        power: 1
+        name: "l5"
+    analytic_num: "1 - ((sp(k1, k1) + 2*sp(k1, p1) - 2*sp(k1, p3) + sp(p1, p1) - 2*sp(p3, p1) + sp(p3, p3))*(sp(k1, k1) + 2*sp(k1, p1) - 2*sp(k1, p3) + sp(p1, p1) - 2*sp(p3, p1) + sp(p3, p3) - 2*sp(p4, k1) - 2*sp(p4, p1) + 2*sp(p4, p3) + sp(p4, p4)))/((-2*sp(p1, p3) + sp(p3, p3))*(-2*sp(p1, p3) - 2*sp(p1, p4) + sp(p3, p3) + 2*sp(p3, p4) + sp(p4, p4))) + ((sp(p1, p3) + sp(p1, p4))^2*(sp(k1, k1) - 2*sp(k1, p2) + sp(p2, p2))*(sp(k1, k1) + 2*sp(k1, p1) - 2*sp(k1, p3) + sp(p1, p1) - 2*sp(p3, p1) + sp(p3, p3)))/(sp(p1, p2)*(-2*sp(p1, p3) - 2*sp(p1, p4) + sp(p3, p3) + 2*sp(p3, p4) + sp(p4, p4))*(sp(p1, p4)*sp(p3, p3) - sp(p1, p3)*(2*sp(p3, p4) + sp(p4, p4)))) - (sp(p1, p3)^2*(sp(k1, k1) - 2*sp(k1, p2) + sp(p2, p2))*(sp(k1, k1) + 2*sp(k1, p1) - 2*sp(k1, p3) + sp(p1, p1) - 2*sp(p3, p1) + sp(p3, p3) - 2*sp(p4, k1) - 2*sp(p4, p1) + 2*sp(p4, p3) + sp(p4, p4)))/(sp(p1, p2)*(-2*sp(p1, p3) + sp(p3, p3))*(sp(p1, p4)*sp(p3, p3) - sp(p1, p3)*(2*sp(p3, p4) + sp(p4, p4)))) - ((sp(k1, k1) + 2*sp(k1, p1) + sp(p1, p1))*(-sp(p1, p2) + sp(p2, p3) + sp(p2, p4))^2*(sp(k1, k1) + 2*sp(k1, p1) - 2*sp(k1, p3) + sp(p1, p1) - 2*sp(p3, p1) + sp(p3, p3)))/(sp(p1, p2)*(-2*sp(p1, p3) - 2*sp(p1, p4) + sp(p3, p3) + 2*sp(p3, p4) + sp(p4, p4))*(sp(p2, p4)*(-2*sp(p1, p3) + sp(p3, p3)) + sp(p1, p2)*(-2*sp(p1, p4) + 2*sp(p3, p4) + sp(p4, p4)) - sp(p2, p3)*(-2*sp(p1, p4) + 2*sp(p3, p4) + sp(p4, p4)))) + ((sp(k1, k1) + 2*sp(k1, p1) + sp(p1, p1))*(sp(p1, p2) - sp(p2, p3))^2*(sp(k1, k1) + 2*sp(k1, p1) - 2*sp(k1, p3) + sp(p1, p1) - 2*sp(p3, p1) + sp(p3, p3) - 2*sp(p4, k1) - 2*sp(p4, p1) + 2*sp(p4, p3) + sp(p4, p4)))/(sp(p1, p2)*(-2*sp(p1, p3) + sp(p3, p3))*(sp(p2, p4)*(-2*sp(p1, p3) + sp(p3, p3)) + sp(p1, p2)*(-2*sp(p1, p4) + 2*sp(p3, p4) + sp(p4, p4)) - sp(p2, p3)*(-2*sp(p1, p4) + 2*sp(p3, p4) + sp(p4, p4))))"
+    index_shift: 0 # optional
+
+
+  external_data:
+      n_in: 2
+      n_out: 3
+      n_loop: 1 # need to go
+      in_momenta: [[500.0, 0, 0, 500], [500.0, 0, 0, -500.0]]
+      out_momenta:
+          [
+              [349.76387887, 197.3970875, 277.2935156, -4.06480273],
+              [274.3666484, 94.14456732, -156.29256755, -183.49625453],
+          ]
+      # The following are complex valued: compenents are [Real part, Imaginary part]
+      spinor_v: []
+      spinor_vbar: []
+      spinor_u: []
+      spinor_ubar: []
+      pol: []
+      cpol: []
