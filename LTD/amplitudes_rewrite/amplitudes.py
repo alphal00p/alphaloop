@@ -464,7 +464,7 @@ class FormProcessorAmp():
 # define  small_mass_sq params[3]
 """
         for key, value in self.additional_constants.items():
-            header_file += '\n'+'#define '+key+' '+str(value)
+            header_file += '\n'+'#define '+key+' '+str(float(value))
         header_file += '\n'+'# endif'
         out_file = pjoin(pjoin(self.FORM_workspace, '../'), 'numerator.h')
         with open(out_file, "w") as numfile:
