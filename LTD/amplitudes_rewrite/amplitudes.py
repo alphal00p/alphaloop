@@ -488,13 +488,11 @@ class FormProcessorAmp():
         eval_f128 += "\n\t\tdefault: raise(SIGABRT);\n\t}\n}\n"
 
         dummy_fcts ="""void evaluate_LTD_f128(__complex128 lm[], __complex128 params[], int diag, int conf, __complex128* out) {
-        switch(diag) {                
-                default: raise(SIGABRT);
-        }\n}\n
+        abort();
+        }\n
         void evaluate_LTD(__complex128 lm[], __complex128 params[], int diag, int conf, __complex128* out) {
-        switch(diag) {                
-                default: raise(SIGABRT);
-        }\n}\n"""
+        abort();
+        }\n"""
 
 
         full_integrand = header + c_routines_f64 +  eval_f64 \
