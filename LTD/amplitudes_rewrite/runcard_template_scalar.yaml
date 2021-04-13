@@ -1,0 +1,74 @@
+
+
+directories:
+  alphaloop: "/Users/Dario/Desktop/PhD/Code/alphaloop/"
+  out_dir: "/Users/Dario/Desktop/PhD/Code/alphaloop/LTD/amplitudes_rewrite"
+
+form_options: # Will also put the rest of the options
+  # Define the extra aguments for the compilation
+  cores: 1
+  extra-options:
+    OPTIMITERATIONS: 1000
+  OPTIMISATIONSTRATEGY: "CSEgreedy"
+
+amplitude_options:
+  integrand_per_diag: False # if true, every integrand will get its own c-routine
+  # if true: the color structure per graph will be factorized: e.g. Tr[T^a T^b T^c]-Tr[T^a T^c T^b] will be treated as ``independent'' color-structure
+  # if false: every structure is treated independently
+  #   Example
+  #  q q~ > g g:    True:     3 color-structures appear {T^a T^b T^c,T^a T^c T^b,T^a T^b T^c-T^a T^c T^b} where the last one is due to the 3g-vertex
+  #                 False:    2 color-structures for all diagrams {T^a T^b T^c,T^a T^c T^b}
+  color_per_graph: False
+
+
+amplitude:
+  name: "pentagon"
+  diagram_list:
+    # Alternative: path_to_diagrams for .py import
+  - propagators:
+      - loop_signature: [1] #k1
+        outgoing_signature: [0, 0] #linear comb of INDEPENDENT outgoing momenta 
+        incoming_signature: [1, 0] #linear comb of incoming 
+        mass: "m1"
+        power: 1
+        name: "l1"
+      - loop_signature: [1] #k1
+        outgoing_signature: [0, 0] #linear comb of INDEPENDENT outgoing momenta 
+        incoming_signature: [1, 1] #linear comb of incoming 
+        mass: "m2"
+        power: 1
+        name: "l2"
+      - loop_signature: [1] #k1
+        outgoing_signature: [-1, 0] #linear comb of INDEPENDENT outgoing momenta 
+        incoming_signature: [1, 1] #linear comb of incoming 
+        mass: "m3"
+        power: 1
+        name: "l3"
+      - loop_signature: [1] #k1
+        outgoing_signature: [-1, -1] #linear comb of INDEPENDENT outgoing momenta 
+        incoming_signature: [1, 1] #linear comb of incoming 
+        mass: "m4"
+        power: 1
+        name: "l4"
+      - loop_signature: [1] #k1
+        outgoing_signature: [0, 0] #linear comb of INDEPENDENT outgoing momenta 
+        incoming_signature: [0, 0] #linear comb of incoming 
+        mass: "m5"
+        power: 1
+        name: "l5"
+    analytic_integrand: "LmbToCmbSubs(p3,c1)*LmbToCmbSubs(p4,c2)*LmbToCmbSubs(k1,c3)*sprop(k1+p1,m1)*sprop(k1+p1+p2,m2)*sprop(k1+p1+p2-p3,m3)*sprop(k1+p1+p2-p3-p4,m4)*sprop(k1,m5)"
+    index_shift: 0 # optional
+
+  masses:
+    m1: 1
+    m2: 1
+    m3: 1
+    m4: 1
+    m5: 1
+
+  external_data:
+    n_in: 2   # need to go
+    n_out: 3  # need to go
+    n_loop: 1 # need to go
+    in_momenta: [[1, 0, 0, 1], [-1, 0, 0, 1]]
+    out_momenta: [[0., 2.3, 0.2, 1.1], [0., 0.2, 1.3, 3.123]]
