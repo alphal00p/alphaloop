@@ -505,8 +505,11 @@ class FormProcessorAmp():
         """
 
         # set additional symbols
-        additional_constants = format('\nS {};'.format(','.join(list(
-            self.additional_constants.keys())) if len(self.additional_constants) > 0 else ''))
+        if len(self.additional_constants)>0:
+            additional_constants = format('\nS {};'.format(','.join(list(
+                self.additional_constants.keys())) if len(self.additional_constants) > 0 else ''))
+        else:
+            additional_constants = ''
 
         integrand = additional_constants + "\n\nL F ="
         for SGID, inte in enumerate(self.integrands):
