@@ -406,7 +406,7 @@ class FormProcessorAmp():
         with open(protoc_file, 'r') as f:
             form_output = f.read()
         form_output = self.temporary_fix_FORM_output(form_output)
-
+        form_output=form_output.replace('pi_','pi').replace('i_','I')
         # determine temp vars from optimization
         temp_vars = list(set(var_pattern.findall(form_output)))
         temp_vars += list(set(var_pattern_rest.findall(form_output)))
@@ -426,6 +426,7 @@ class FormProcessorAmp():
 
         f64_code = form_output % {'mode': '',
                                   'numbertype': 'double complex', 'diagID': str(diagID), 'header': header}
+        f64_code = f64_code.replace('pi','M_PI')
 
         # f128 needs function replacements
         f128_code = form_output % {'mode': '_f128',

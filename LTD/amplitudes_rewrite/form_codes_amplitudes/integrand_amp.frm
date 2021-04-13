@@ -99,6 +99,7 @@ endif;
 #enddo
 #do i=1,`NLOOPMOMENTA'
     multiply replace_(k{`i'},c{`i'+`NFINALMOMENTA'});
+    multiply (2*pi_*i_);
     .sort        
 #enddo
 .sort:lmb-to-cmb;
