@@ -78,6 +78,5 @@ S aa,bb,cc,dd,ii,xx, cfCol,caCol, Tf;
         id countF(ii?) = 1;
     EndArgument;
     
-    id color(xx?) = xx;
 
 #endprocedure
