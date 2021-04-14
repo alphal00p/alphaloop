@@ -158,8 +158,8 @@ class Amplitude():
         }
         _AMP_OPTS_DEFAULT.update(additional_options)
 
-        _DERIVABLE_EXT_DATA = {"n_in":0,"n_out":0,"n_loop":0}
-        _MANDATORY_EXT_DATA =["in_momenta","out_momenta"]
+        _DERIVABLE_EXT_DATA = {"n_in": 0, "n_out": 0, "n_loop": 0}
+        _MANDATORY_EXT_DATA = ["in_momenta", "out_momenta"]
         _NON_MANDATORY_EXT_DATA = {
             "spinor_v": [],
             "spinor_vbar": [],
@@ -168,18 +168,18 @@ class Amplitude():
             "pol": [],
             "cpol": []}
 
-        for wavefct,val in _NON_MANDATORY_EXT_DATA.items():
+        for wavefct, val in _NON_MANDATORY_EXT_DATA.items():
             if wavefct not in external_data:
-                external_data.update({wavefct:val})
+                external_data.update({wavefct: val})
         for manda in _MANDATORY_EXT_DATA:
-            assert manda in external_data, "missing mandatory entry %s in external_data"%manda
-        
-        if len(diagram_list)>0:
+            assert manda in external_data, "missing mandatory entry %s in external_data" % manda
+
+        if len(diagram_list) > 0:
             _DERIVABLE_EXT_DATA.update({
-            "n_in":len(((diagram_list[0].get('propagators'))[0]).get('incoming_signature')),
-            "n_out":len(((diagram_list[0].get('propagators'))[0]).get('outgoing_signature'))+1,
-            "n_loop":len(((diagram_list[0].get('propagators'))[0]).get('loop_signature'))})
-        
+                "n_in": len(((diagram_list[0].get('propagators'))[0]).get('incoming_signature')),
+                "n_out": len(((diagram_list[0].get('propagators'))[0]).get('outgoing_signature'))+1,
+                "n_loop": len(((diagram_list[0].get('propagators'))[0]).get('loop_signature'))})
+
         external_data.update(_DERIVABLE_EXT_DATA)
 
         self.name = name
@@ -227,52 +227,60 @@ class Amplitude():
                              )
         # import from .py:
         else:
-            from pathlib import Path
             p = Path(amp.get('diagram_list'))
-            sys.path.insert(0, str(p.parent))
-            m = __import__(p.stem)
-            print("Imported {} diagrams.".format(len(m.diagram_list)))
+            filename, file_extension = os.path.splitext(p)
+            if file_extension == '.json':
+                with open(p) as f:
+                    amp_json = json.load(f)
+                    amp.update(amp_json)
+            elif file_extension == '.py':
 
-            try:
-                amp["diagram_list"] = m.diagram_list
-            except AttributeError:
-                sys.exit("{} has no diagram_list".format(
-                    amp.get('diagram_list')))
-            try:
-                amp["masses"] = m.masses
-            except AttributeError:
-                pass
-            try:
-                amp["external_data"] = m.external_data
-            except AttributeError:
-                pass
-            try:
-                amp["constants"] = m.constants
-            except AttributeError:
-                pass
-            try:
-                amp["name"] = m.name
-            except AttributeError:
-                pass
+                sys.path.insert(0, str(p.parent))
+                m = __import__(p.stem)
+                print("Imported {} diagrams.".format(len(m.diagram_list)))
 
-            return Amplitude(
-                name=amp.get('name', 'myamp'),
-                diagram_list=amp.get('diagram_list'),
-                masses=amp.get('masses', {}),
-                external_data=amp.get('external_data'),
-                constants=amp.get('constants', {}),
-                additional_options=additional_options
-            )
+                try:
+                    amp["diagram_list"] = m.diagram_list
+                except AttributeError:
+                    sys.exit("{} has no diagram_list".format(
+                        amp.get('diagram_list')))
+                try:
+                    amp["masses"] = m.masses
+                except AttributeError:
+                    pass
+                try:
+                    amp["external_data"] = m.external_data
+                except AttributeError:
+                    pass
+                try:
+                    amp["constants"] = m.constants
+                except AttributeError:
+                    pass
+                try:
+                    amp["name"] = m.name
+                except AttributeError:
+                    pass
+            else:
+                sys.exit("Unknown extension for diagram list import in: %s" % p)
+
+        return Amplitude(
+            name=amp.get('name', 'myamp'),
+            diagram_list=amp.get('diagram_list'),
+            masses=amp.get('masses', {}),
+            external_data=amp.get('external_data'),
+            constants=amp.get('constants', {}),
+            additional_options=additional_options
+        )
 
     def append_diagram_list(self, diag_list):
         self.diagram_list = self.diagram_list + diag_list
         self.color_strucs = self.color_strucs + \
             [diag.get('color_struc', 'derive') for diag in diag_list]
-        if len(diag_list)>0:
+        if len(diag_list) > 0:
             self.external_data.update({
-            "n_in":len(((diag_list[0].get('propagators'))[0]).get('incoming_signature')),
-            "n_out":len(((diag_list[0].get('propagators'))[0]).get('outgoing_signature'))+1,
-            "n_loop":len(((diag_list[0].get('propagators'))[0]).get('loop_signature'))})
+                "n_in": len(((diag_list[0].get('propagators'))[0]).get('incoming_signature')),
+                "n_out": len(((diag_list[0].get('propagators'))[0]).get('outgoing_signature'))+1,
+                "n_loop": len(((diag_list[0].get('propagators'))[0]).get('loop_signature'))})
 
     def split_color(self, out_dir='', alphaloop_dir=''):
 
@@ -655,7 +663,8 @@ class FormProcessorAmp():
                            shell=True,
                            cwd=self.FORM_workspace,
                            capture_output=True)
-        if r.returncode != 0 and os.path.isfile(pjoin(self.FORM_workspace, 'out_%d.proto_c' % diagID)):
+        # r.returncode != 0 seems to happen at random.
+        if not os.path.isfile(pjoin(self.FORM_workspace, 'out_%d.proto_c' % diagID)):
             error_message = "FORM processing failed with error:\n%s\nFORM command to reproduce:\ncd %s; %s" % (
                 r.stdout.decode('UTF-8'),
                 self.FORM_workspace, FORM_cmd)
@@ -741,9 +750,9 @@ class FormProcessorAmp():
         self.create_form_dir()
         self.generate_form_integrand_files()
         color_dicts = []
-        for i, inte in enumerate(self.integrands):
-            self.run_color_form(i, color_option=color_option)
-            with open(pjoin(self.FORM_workspace, 'SG_'+str(i)+'_color_decomp.txt'), 'r') as f:
+        for diagID, inte in enumerate(self.integrands):
+            self.run_color_form(diagID, color_option=color_option)
+            with open(pjoin(self.FORM_workspace, 'SG_%d_color_decomp.txt' % diagID), 'r') as f:
                 color_dicts += [copy.deepcopy(
                     eval((f.read()).replace('\n', '')))]
         return color_dicts
@@ -783,8 +792,8 @@ class FormProcessorAmp():
                            shell=True,
                            cwd=self.FORM_workspace,
                            capture_output=True)
-        if r.returncode != 0 and os.path.isfile(pjoin(self.FORM_workspace, 'SG_%d_color_decomp.txt' % diagID)):
-            error_message = "FORM processing failed with error:\n%s\nFORM command to reproduce:\ncd %s; %s" % (
-                r.stdout.decode('UTF-8'),
-                self.FORM_workspace, FORM_cmd)
+        # r.returncode != 0 seems to happen at random.
+        if not os.path.isfile(pjoin(self.FORM_workspace, 'SG_%d_color_decomp.txt' % diagID)):
+            error_message = "FORM processing failed with error:\n%s\nFORM command to reproduce:\ncd %s; %s" % (r.stdout.decode('UTF-8'),
+                                                                                                               self.FORM_workspace, FORM_cmd)
             sys.exit(error_message)
