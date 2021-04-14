@@ -107,7 +107,7 @@ class AmpExporter():
         amplitude = Amplitude.import_amplitude(
             self.amplitude_dict, self.amplitude_options)
         amplitude_list = amplitude.split_color(
-            out_dir=pjoin(out_dir,'color_computation'), alphaloop_dir=alphaloop_dir)
+            out_dir=pjoin(out_dir, 'color_computation'), alphaloop_dir=alphaloop_dir)
 
         for i, amp in enumerate(amplitude_list.amplitudes):
             out_dir = self.generate_dir_structure(
@@ -156,8 +156,31 @@ class Amplitude():
             "color_per_graph": False,
             "colorless": False
         }
-
         _AMP_OPTS_DEFAULT.update(additional_options)
+
+        _DERIVABLE_EXT_DATA = {"n_in":0,"n_out":0,"n_loop":0}
+        _MANDATORY_EXT_DATA =["in_momenta","out_momenta"]
+        _NON_MANDATORY_EXT_DATA = {
+            "spinor_v": [],
+            "spinor_vbar": [],
+            "spinor_u": [],
+            "spinor_ubar": [],
+            "pol": [],
+            "cpol": []}
+
+        for wavefct,val in _NON_MANDATORY_EXT_DATA.items():
+            if wavefct not in external_data:
+                external_data.update({wavefct:val})
+        for manda in _MANDATORY_EXT_DATA:
+            assert manda in external_data, "missing mandatory entry %s in external_data"%manda
+        
+        if len(diagram_list)>0:
+            _DERIVABLE_EXT_DATA.update({
+            "n_in":len(((diagram_list[0].get('propagators'))[0]).get('incoming_signature')),
+            "n_out":len(((diagram_list[0].get('propagators'))[0]).get('outgoing_signature'))+1,
+            "n_loop":len(((diagram_list[0].get('propagators'))[0]).get('loop_signature'))})
+        
+        external_data.update(_DERIVABLE_EXT_DATA)
 
         self.name = name
         self.diagram_list = diagram_list
@@ -245,6 +268,11 @@ class Amplitude():
         self.diagram_list = self.diagram_list + diag_list
         self.color_strucs = self.color_strucs + \
             [diag.get('color_struc', 'derive') for diag in diag_list]
+        if len(diag_list)>0:
+            self.external_data.update({
+            "n_in":len(((diag_list[0].get('propagators'))[0]).get('incoming_signature')),
+            "n_out":len(((diag_list[0].get('propagators'))[0]).get('outgoing_signature'))+1,
+            "n_loop":len(((diag_list[0].get('propagators'))[0]).get('loop_signature'))})
 
     def split_color(self, out_dir='', alphaloop_dir=''):
 
@@ -258,44 +286,47 @@ class Amplitude():
             color_ordered_amp = Amplitude(name=self.name, external_data=self.external_data,
                                           masses=self.masses, additional_options=amp_options, constants=self.constants)
             form_processor_color = FormProcessorAmp(
-                self, alphaloop_path=alphaloop_dir, form_wrk_space=pjoin(out_dir,'FORM','workspace'))
-            color_decomp = form_processor_color.compute_color({'color_per_graph':self.additional_options.get('color_per_graph')})
+                self, alphaloop_path=alphaloop_dir, form_wrk_space=pjoin(out_dir, 'FORM', 'workspace'))
+            color_decomp = form_processor_color.compute_color(
+                {'color_per_graph': self.additional_options.get('color_per_graph')})
             diag_list = self.diagram_list
 
-            for diagID,colorsplit_integrand in enumerate(color_decomp):
-                for color,numerator in colorsplit_integrand.items():
+            for diagID, colorsplit_integrand in enumerate(color_decomp):
+                for color, numerator in colorsplit_integrand.items():
                     diag = copy.deepcopy(diag_list[diagID])
-                    diag.update({'color_struc':color,'analytic_num':numerator})
+                    diag.update(
+                        {'color_struc': color, 'analytic_num': numerator})
                     color_ordered_amp.append_diagram_list(
                         diag_list=[diag])
-            
+
             # create amplitude list:
-            color_ordered_amps = {cc: [] for cc in set(color_ordered_amp.color_strucs)}
+            color_ordered_amps = {cc: []
+                                  for cc in set(color_ordered_amp.color_strucs)}
             for i, cc in enumerate(color_ordered_amp.color_strucs):
                 color_ordered_amps[cc] = color_ordered_amps[cc] + \
                     [color_ordered_amp.diagram_list[i]]
             amp_list = [Amplitude(name=color_ordered_amp.name + '_color_'+str(i),
-                                diagram_list=dia_list,
-                                external_data=color_ordered_amp.external_data,
-                                additional_options=color_ordered_amp.additional_options,
-                                masses=color_ordered_amp.masses,
-                                constants=color_ordered_amp.constants)
+                                  diagram_list=dia_list,
+                                  external_data=color_ordered_amp.external_data,
+                                  additional_options=color_ordered_amp.additional_options,
+                                  masses=color_ordered_amp.masses,
+                                  constants=color_ordered_amp.constants)
                         for col, dia_list in color_ordered_amps.items()]
 
-        # no color-computation    
+        # no color-computation
         else:
             color_ordered_amps = {cc: [] for cc in set(self.color_strucs)}
             for i, cc in enumerate(self.color_strucs):
                 color_ordered_amps[cc] = color_ordered_amps[cc] + \
                     [self.diagram_list[i]]
             amp_list = [Amplitude(name=self.name + '_color_'+str(i),
-                                diagram_list=dia_list,
-                                external_data=self.external_data,
-                                additional_options=self.additional_options,
-                                masses=self.masses,
-                                constants=self.constants)
+                                  diagram_list=dia_list,
+                                  external_data=self.external_data,
+                                  additional_options=self.additional_options,
+                                  masses=self.masses,
+                                  constants=self.constants)
                         for col, dia_list in color_ordered_amps.items()]
-        
+
         return AmplitudeList(amp_list)
 
 
@@ -695,7 +726,7 @@ class FormProcessorAmp():
         self.generate_integrand_c_files()
         self.compile_integrand()
 
-    def compute_color(self,color_option={'color_per_graph': False}):
+    def compute_color(self, color_option={'color_per_graph': False}):
         """Takes an integrand and performs color on it
 
         Args:
@@ -711,11 +742,11 @@ class FormProcessorAmp():
         self.generate_form_integrand_files()
         color_dicts = []
         for i, inte in enumerate(self.integrands):
-            self.run_color_form(i,color_option=color_option)
+            self.run_color_form(i, color_option=color_option)
             with open(pjoin(self.FORM_workspace, 'SG_'+str(i)+'_color_decomp.txt'), 'r') as f:
-                color_dicts+=[copy.deepcopy(eval((f.read()).replace('\n', '')))]
+                color_dicts += [copy.deepcopy(
+                    eval((f.read()).replace('\n', '')))]
         return color_dicts
-
 
     def run_color_form(self, diagID, color_option={'color_per_graph': False}):
         """Runs form to compute the color_structure for the integrand of diagram diagID
@@ -735,7 +766,7 @@ class FormProcessorAmp():
             self.create_form_dir()
         if not os.path.isfile(FORM_target):
             self.generate_form_integrand_files()
-        
+
         form_exec = self.form_options['FORM_path']
         FORM_cmd = ' '.join([
             form_exec,
@@ -757,4 +788,3 @@ class FormProcessorAmp():
                 r.stdout.decode('UTF-8'),
                 self.FORM_workspace, FORM_cmd)
             sys.exit(error_message)
-        

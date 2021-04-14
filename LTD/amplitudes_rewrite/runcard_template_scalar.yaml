@@ -67,8 +67,5 @@ amplitude:
     m5: 1
 
   external_data:
-    n_in: 2   # need to go
-    n_out: 3  # need to go
-    n_loop: 1 # need to go
     in_momenta: [[1, 0, 0, 1], [-1, 0, 0, 1]]
     out_momenta: [[0., 2.3, 0.2, 1.1], [0., 0.2, 1.3, 3.123]]
