@@ -21,6 +21,7 @@ import subprocess
 import argparse
 import shutil
 import py_compile
+from pyparsing import col
 import sympy as sp
 from sympy.simplify.simplify import simplify
 from warnings import catch_warnings
@@ -55,14 +56,12 @@ class AmpExporter():
             Class: AmpExporter
         """
         filename, file_extension = os.path.splitext(amplitude_runcard_path)
-        
+
         with open(amplitude_runcard_path) as f:
             if file_extension == '.yaml':
                 runcard_options = yaml.load(f, Loader=yaml.FullLoader)
             elif file_extension == '.json':
-                runcard_options =  json.load(f)
-            
-
+                runcard_options = json.load(f)
 
         amplitude = runcard_options.get('amplitude')
         process_name = amplitude.get('name', 'my_amp')
@@ -108,16 +107,18 @@ class AmpExporter():
         amplitude = Amplitude.import_amplitude(
             self.amplitude_dict, self.amplitude_options)
         amplitude_list = amplitude.split_color(
-            out_dir=out_dir, alphaloop_dir=alphaloop_dir)
+            out_dir=pjoin(out_dir,'color_computation'), alphaloop_dir=alphaloop_dir)
 
         for i, amp in enumerate(amplitude_list.amplitudes):
             out_dir = self.generate_dir_structure(
                 add_out_dir='color_struc_'+str(i), mode='full')
-            topo_gen = SquaredTopologyGeneratorForAmplitudes.from_amplitude(amp)
+            topo_gen = SquaredTopologyGeneratorForAmplitudes.from_amplitude(
+                amp)
             topo_gen.export_yaml(out_dir+'/Rust_inputs')
             form_processor = FormProcessorAmp(
                 amp, alphaloop_dir, form_options=self.form_options, form_wrk_space=pjoin(out_dir, 'FORM', 'workspace'))
             form_processor.generate_output()
+
 
 class AmplitudeList():
     """ Holds a list of amplitudes, e.g. neccesary if we split by color
@@ -143,10 +144,25 @@ class Amplitude():
     """
 
     def __init__(self, name='my_amp', diagram_list=[], external_data={}, masses={}, additional_options={}, constants={}):
+
+        _AMP_OPTS_DEFAULT = {
+            # if true, every integrand will get its own c-routine, else one integrand for the complete amplitude
+            "integrand_per_diag": True,
+            # if true: the color structure per graph will be factorized: e.g. Tr[T^a T^b T^c]-Tr[T^a T^c T^b] will be treated as ``independent'' color-structure
+            # if false: every structure is treated independently
+            #   Example
+            #  q q~ > g g:    True:     3 color-structures appear {T^a T^b T^c,T^a T^c T^b,T^a T^b T^c-T^a T^c T^b} where the last one is due to the 3g-vertex
+            #                 False:    2 color-structures for all diagrams {T^a T^b T^c,T^a T^c T^b}
+            "color_per_graph": False,
+            "colorless": False
+        }
+
+        _AMP_OPTS_DEFAULT.update(additional_options)
+
         self.name = name
         self.diagram_list = diagram_list
         self.external_data = copy.copy(external_data)
-        self.additional_options = copy.copy(additional_options)
+        self.additional_options = copy.deepcopy(_AMP_OPTS_DEFAULT)
         self.color_strucs = []
 
         # treat color:
@@ -159,7 +175,7 @@ class Amplitude():
                 if not 'color_struc' in diag.keys():
                     diag.update({'color_struc': 'derive'})
                 self.color_strucs += [diag.get('color_struc')]
-            if len(set(self.color_strucs) > 1) and 'derive' in set(self.color_strucs):
+            if len(set(self.color_strucs)) > 1 and 'derive' in set(self.color_strucs):
                 sys.exit(
                     'The color-structures of the amplitude: \n %s \n contain a mix of determined and undetermined color structures' % self.color_strucs)
 
@@ -186,7 +202,7 @@ class Amplitude():
                              constants=amp.get('constants', {}),
                              additional_options=additional_options
                              )
-        # import from .py: 
+        # import from .py:
         else:
             from pathlib import Path
             p = Path(amp.get('diagram_list'))
@@ -225,21 +241,61 @@ class Amplitude():
                 additional_options=additional_options
             )
 
+    def append_diagram_list(self, diag_list):
+        self.diagram_list = self.diagram_list + diag_list
+        self.color_strucs = self.color_strucs + \
+            [diag.get('color_struc', 'derive') for diag in diag_list]
+
     def split_color(self, out_dir='', alphaloop_dir=''):
 
-        color_ordered_amps = {cc: [] for cc in set(self.color_strucs)}
+        # with color-computation
+        if 'derive' in self.color_strucs:
+            # we need that, since we are going to initialize a Form processor which needs to compute color per integrand
+            amp_options = copy.deepcopy(self.additional_options)
+            self.additional_options.update({"integrand_per_diag": True})
 
-        # TODO: implement 'derive' option.
-        for i, cc in enumerate(self.color_strucs):
-            color_ordered_amps[cc] = color_ordered_amps[cc] + \
-                [self.diagram_list[i]]
-        amp_list = [Amplitude(name=self.name + '_color_'+str(i),
-                       diagram_list=dia_list,
-                       external_data=self.external_data,
-                       additional_options=self.additional_options,
-                       masses=self.masses,
-                       constants=self.constants)
-             for col, dia_list in color_ordered_amps.items()]
+            # initialize empty amplitude: we will append diagrams and color-strucs to it
+            color_ordered_amp = Amplitude(name=self.name, external_data=self.external_data,
+                                          masses=self.masses, additional_options=amp_options, constants=self.constants)
+            form_processor_color = FormProcessorAmp(
+                self, alphaloop_path=alphaloop_dir, form_wrk_space=pjoin(out_dir,'FORM','workspace'))
+            color_decomp = form_processor_color.compute_color({'color_per_graph':self.additional_options.get('color_per_graph')})
+            diag_list = self.diagram_list
+
+            for diagID,colorsplit_integrand in enumerate(color_decomp):
+                for color,numerator in colorsplit_integrand.items():
+                    diag = copy.deepcopy(diag_list[diagID])
+                    diag.update({'color_struc':color,'analytic_num':numerator})
+                    color_ordered_amp.append_diagram_list(
+                        diag_list=[diag])
+            
+            # create amplitude list:
+            color_ordered_amps = {cc: [] for cc in set(color_ordered_amp.color_strucs)}
+            for i, cc in enumerate(color_ordered_amp.color_strucs):
+                color_ordered_amps[cc] = color_ordered_amps[cc] + \
+                    [color_ordered_amp.diagram_list[i]]
+            amp_list = [Amplitude(name=color_ordered_amp.name + '_color_'+str(i),
+                                diagram_list=dia_list,
+                                external_data=color_ordered_amp.external_data,
+                                additional_options=color_ordered_amp.additional_options,
+                                masses=color_ordered_amp.masses,
+                                constants=color_ordered_amp.constants)
+                        for col, dia_list in color_ordered_amps.items()]
+
+        # no color-computation    
+        else:
+            color_ordered_amps = {cc: [] for cc in set(self.color_strucs)}
+            for i, cc in enumerate(self.color_strucs):
+                color_ordered_amps[cc] = color_ordered_amps[cc] + \
+                    [self.diagram_list[i]]
+            amp_list = [Amplitude(name=self.name + '_color_'+str(i),
+                                diagram_list=dia_list,
+                                external_data=self.external_data,
+                                additional_options=self.additional_options,
+                                masses=self.masses,
+                                constants=self.constants)
+                        for col, dia_list in color_ordered_amps.items()]
+        
         return AmplitudeList(amp_list)
 
 
@@ -251,7 +307,7 @@ class FormProcessorAmp():
 
         plugin_path = alphaloop_path
 
-        FORM_processing_options = {
+        _FORM_OPTS_DEFAULT = {
             'FORM_path': str(Path(plugin_path).joinpath('libraries', 'form', 'sources', 'form').resolve()),
             'tFORM_path': str(Path(plugin_path).joinpath('libraries', 'form', 'sources', 'tform').resolve()),
             # Define the extra aguments for the compilation
@@ -286,23 +342,27 @@ class FormProcessorAmp():
             self.additional_options = amplitude.additional_options
 
             # update FORM options
-            self.form_options = copy.copy(
-                FORM_processing_options)
+            self.form_options = copy.deepcopy(
+                _FORM_OPTS_DEFAULT)
             self.form_options.update(copy.copy(form_options))
+
             # integrand list
             if self.additional_options.get('integrand_per_diag'):
                 self.integrands = [
-                        self.derive_integrand_from_diag(diag).get('analytic_integrand')
-                                   for diag in (amplitude.diagram_list)]
+                    self.derive_integrand_from_diag(
+                        diag).get('analytic_integrand')
+                    for diag in (amplitude.diagram_list)]
                 for diag in (amplitude.diagram_list):
                     self.FORM_variables['INDSHIFT_LIST'] = self.FORM_variables['INDSHIFT_LIST'] + [
                         diag.get('index_shift', 0)]
-
             else:
                 self.integrands = ''
                 ind_shift = 0
                 for diag in (amplitude.diagram_list):
-                    self.integrands += '+'+self.derive_integrand_from_diag(diag).get('analytic_integrand')
+                    self.integrands += '+' + \
+                        self.derive_integrand_from_diag(
+                            diag).get('analytic_integrand')
+                    # this would conflict for color. However, we initialize with 'integrand_per_diag':False when computing color
                     if diag.get('index_integrand', 0) > ind_shift:
                         ind_shift = diag.get('index_shift', 0)
                 self.integrands = [self.integrands]
@@ -314,39 +374,35 @@ class FormProcessorAmp():
         else:
             sys.exit("not an amp")
 
-    def derive_integrand_from_diag(self,diag):
+    def derive_integrand_from_diag(self, diag):
         """Takes a diagram and computes the integrand
 
         Args:
             diag (dict): contains propagators and analytic numerator
         """
         my_diag = copy.deepcopy(diag)
-        num = my_diag.get('analytic_num','1')
+        num = my_diag.get('analytic_num', '1')
         prop_list = []
 
-        # determine propagators       
+        # determine propagators
         for prop in my_diag.get('propagators'):
             mom_strg = ''
-            ext_sig = prop.get('incoming_signature')+prop.get('outgoing_signature')
+            ext_sig = prop.get('incoming_signature') + \
+                prop.get('outgoing_signature')
 
-            for ii,sig in enumerate(prop.get('loop_signature')):
-                if sig!=0:
-                    mom_strg+='+('+str(sig)+')*'+'k'+str(ii+1)
-            for ii,sig in enumerate(ext_sig):
-                if sig!=0:
-                    mom_strg+='+('+str(sig)+')*'+'p'+str(ii+1)
-            prop_list += ['(sprop({},{}))^{}'.format(mom_strg,prop.get('mass','0'),prop.get('power','1'))]
+            for ii, sig in enumerate(prop.get('loop_signature')):
+                if sig != 0:
+                    mom_strg += '+('+str(sig)+')*'+'k'+str(ii+1)
+            for ii, sig in enumerate(ext_sig):
+                if sig != 0:
+                    mom_strg += '+('+str(sig)+')*'+'p'+str(ii+1)
+            prop_list += ['(sprop({},{}))^{}'.format(mom_strg,
+                                                     prop.get('mass', '0'), prop.get('power', '1'))]
 
         integrand = '('+num+')*'+'{}'.format(format('*'.join(prop_list)))
-        my_diag.update({'analytic_integrand':integrand})
+        my_diag.update({'analytic_integrand': integrand})
 
         return my_diag
-            
-                
-                                
-            
-
-
 
     # TODO Remove once FORM will have fixed its C output bug
     def temporary_fix_FORM_output(self, FORM_output):
@@ -406,7 +462,7 @@ class FormProcessorAmp():
         with open(protoc_file, 'r') as f:
             form_output = f.read()
         form_output = self.temporary_fix_FORM_output(form_output)
-        form_output=form_output.replace('pi_','pi').replace('i_','I')
+        form_output = form_output.replace('pi_', 'pi').replace('i_', 'I')
         # determine temp vars from optimization
         temp_vars = list(set(var_pattern.findall(form_output)))
         temp_vars += list(set(var_pattern_rest.findall(form_output)))
@@ -426,7 +482,7 @@ class FormProcessorAmp():
 
         f64_code = form_output % {'mode': '',
                                   'numbertype': 'double complex', 'diagID': str(diagID), 'header': header}
-        f64_code = f64_code.replace('pi','M_PI')
+        f64_code = f64_code.replace('pi', 'M_PI')
 
         # f128 needs function replacements
         f128_code = form_output % {'mode': '_f128',
@@ -465,7 +521,7 @@ class FormProcessorAmp():
             numfile.write(header_file)
 
     def generate_integrand_c_files(self):
-        out_file = abspath(pjoin(self.FORM_workspace,"../"))
+        out_file = abspath(pjoin(self.FORM_workspace, "../"))
         out_file = pjoin(out_file, 'integrand.c')
 
         header = "# include <tgmath.h>\n# include <quadmath.h>\n# include <signal.h>\n\n // integrands \n"
@@ -482,20 +538,19 @@ class FormProcessorAmp():
             eval_f64 += "\n\t\tcase {}: evaluate_PF_{}(lm, params, conf, out); return;\n".format(
                 i, i)
             eval_f128 += "\n\t\tcase {}: evaluate_PF_{}_f128(lm, params, conf, out); return;\n".format(i,
-                                                                                                     i)
+                                                                                                       i)
 
         eval_f64 += "\n\t\tdefault: raise(SIGABRT);\n\t}\n}\n"
         eval_f128 += "\n\t\tdefault: raise(SIGABRT);\n\t}\n}\n"
 
-        dummy_fcts ="""void evaluate_LTD_f128(__complex128 lm[], __complex128 params[], int diag, int conf, __complex128* out) {
+        dummy_fcts = """void evaluate_LTD_f128(__complex128 lm[], __complex128 params[], int diag, int conf, __complex128* out) {
         abort();
         }\n
         void evaluate_LTD(__complex128 lm[], __complex128 params[], int diag, int conf, __complex128* out) {
         abort();
         }\n"""
 
-
-        full_integrand = header + c_routines_f64 +  eval_f64 \
+        full_integrand = header + c_routines_f64 + eval_f64 \
             + c_routines_f128 + eval_f128 + '\n\n\n//dummies \n'+dummy_fcts
         with open(out_file, "w") as c_code:
             c_code.write(full_integrand)
@@ -505,7 +560,7 @@ class FormProcessorAmp():
         """
 
         # set additional symbols
-        if len(self.additional_constants)>0:
+        if len(self.additional_constants) > 0:
             additional_constants = format('\nS {};'.format(','.join(list(
                 self.additional_constants.keys())) if len(self.additional_constants) > 0 else ''))
         else:
@@ -569,7 +624,7 @@ class FormProcessorAmp():
                            shell=True,
                            cwd=self.FORM_workspace,
                            capture_output=True)
-        if r.returncode != 0 and not os.path.isfile(pjoin(self.FORM_workspace, 'out_%d.proto_c' % diagID)):
+        if r.returncode != 0 and os.path.isfile(pjoin(self.FORM_workspace, 'out_%d.proto_c' % diagID)):
             error_message = "FORM processing failed with error:\n%s\nFORM command to reproduce:\ncd %s; %s" % (
                 r.stdout.decode('UTF-8'),
                 self.FORM_workspace, FORM_cmd)
@@ -595,10 +650,11 @@ class FormProcessorAmp():
                     p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                          stderr=subprocess.STDOUT, cwd=cwd)
                     (out, err) = p.communicate()
-                    
-                    if 'Error' in str(out) or not str(err)=='None':
+
+                    if 'Error' in str(out) or not str(err) == 'None':
                         sys.exit(
-                            'Could not compile integrand. \n make failed with\n: {} .'.format(str(out))
+                            'Could not compile integrand. \n make failed with\n: {} .'.format(
+                                str(out))
                         )
                 except OSError as error:
                     raise OSError(
@@ -638,3 +694,67 @@ class FormProcessorAmp():
             self.generate_c_files_from_proto_c(int_id)
         self.generate_integrand_c_files()
         self.compile_integrand()
+
+    def compute_color(self,color_option={'color_per_graph': False}):
+        """Takes an integrand and performs color on it
+
+        Args:
+            color_option (dict, optional): Mode of color-treatment. Defaults to {'color_per_graph': False}.
+
+        Returns:
+            List: List of dictionaries. 
+            Every element has the form: {color_struc1:numerator1,...,color_strucN:numeratorN}
+            where color_struc denotes one of the independent color structures. The decomposition is trace based.
+        """
+
+        self.create_form_dir()
+        self.generate_form_integrand_files()
+        color_dicts = []
+        for i, inte in enumerate(self.integrands):
+            self.run_color_form(i,color_option=color_option)
+            with open(pjoin(self.FORM_workspace, 'SG_'+str(i)+'_color_decomp.txt'), 'r') as f:
+                color_dicts+=[copy.deepcopy(eval((f.read()).replace('\n', '')))]
+        return color_dicts
+
+
+    def run_color_form(self, diagID, color_option={'color_per_graph': False}):
+        """Runs form to compute the color_structure for the integrand of diagram diagID
+
+        Args:
+            diagID (int): identifier of diagram
+        """
+
+        form_vars = {
+            'INDSHIFT': self.FORM_variables['INDSHIFT_LIST'][diagID],
+            'SGID': diagID,
+            'CPERGRAPH': 1 if color_option.get('color_per_graph') else 0}
+        # verify file integrity
+        FORM_source = pjoin(self.FORM_workspace, "color_basis.frm")
+        FORM_target = pjoin(self.FORM_workspace, "input_"+str(diagID)+".h")
+        if not os.path.isfile(FORM_source):
+            self.create_form_dir()
+        if not os.path.isfile(FORM_target):
+            self.generate_form_integrand_files()
+        
+        form_exec = self.form_options['FORM_path']
+        FORM_cmd = ' '.join([
+            form_exec,
+        ] +
+            ['-D %s=%s' % (k, v) for k, v in form_vars.items()] +
+            ['-M', '-l', '-C', 'color_computation_%s.log' % diagID] +
+            [FORM_source, ]
+        )
+
+        with open(pjoin(self.FORM_workspace, 'FORM_run_cmd_%d.exe' % diagID), 'w') as f:
+            f.write(FORM_cmd)
+
+        r = subprocess.run(FORM_cmd,
+                           shell=True,
+                           cwd=self.FORM_workspace,
+                           capture_output=True)
+        if r.returncode != 0 and os.path.isfile(pjoin(self.FORM_workspace, 'SG_%d_color_decomp.txt' % diagID)):
+            error_message = "FORM processing failed with error:\n%s\nFORM command to reproduce:\ncd %s; %s" % (
+                r.stdout.decode('UTF-8'),
+                self.FORM_workspace, FORM_cmd)
+            sys.exit(error_message)
+        
