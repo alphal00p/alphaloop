@@ -301,7 +301,6 @@ class Amplitude():
 
             for diagID, colorsplit_integrand in enumerate(color_decomp):
                 for color, numerator in colorsplit_integrand.items():
-                    print("here %s"%color,"diag %s"%diagID)
                     diag = copy.deepcopy(diag_list[diagID])
                     diag.update(
                         {'color_struc': color, 'analytic_num': numerator})
