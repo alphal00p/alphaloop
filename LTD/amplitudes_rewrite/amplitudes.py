@@ -301,6 +301,7 @@ class Amplitude():
 
             for diagID, colorsplit_integrand in enumerate(color_decomp):
                 for color, numerator in colorsplit_integrand.items():
+                    print("here %s"%color,"diag %s"%diagID)
                     diag = copy.deepcopy(diag_list[diagID])
                     diag.update(
                         {'color_struc': color, 'analytic_num': numerator})
@@ -664,7 +665,7 @@ class FormProcessorAmp():
                            cwd=self.FORM_workspace,
                            capture_output=True)
         # r.returncode != 0 seems to happen at random.
-        if not os.path.isfile(pjoin(self.FORM_workspace, 'out_%d.proto_c' % diagID)):
+        if not os.path.isfile(pjoin(self.FORM_workspace, 'out_integrand_PF_%s.proto_c' % diagID)):
             error_message = "FORM processing failed with error:\n%s\nFORM command to reproduce:\ncd %s; %s" % (
                 r.stdout.decode('UTF-8'),
                 self.FORM_workspace, FORM_cmd)

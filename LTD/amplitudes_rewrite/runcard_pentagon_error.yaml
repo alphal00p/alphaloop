@@ -1,0 +1,63 @@
+directories:
+  alphaloop: "/home/armin/my_programs/MG5_py_3_alphaloop_master/PLUGIN/alphaloop"
+  out_dir: "/home/armin/my_programs/MG5_py_3_alphaloop_master/PLUGIN/alphaloop/LTD/amplitudes_rewrite"
+
+amplitude_options:
+  colorless: True
+
+amplitude:
+  name: "pentagon_error"
+  diagram_list:
+    # Alternative: path_to_diagrams for .py import
+  - propagators:
+      - loop_signature: [-1] #k1
+        outgoing_signature: [0, 0] #linear comb of INDEPENDENT outgoing momenta 
+        incoming_signature: [0, -1] #linear comb of incoming 
+        mass: 1
+        power: 1
+        name: "l1"
+      - loop_signature: [-1] #k1
+        outgoing_signature: [-1, 0] #linear comb of INDEPENDENT outgoing momenta 
+        incoming_signature: [-1,0] #linear comb of incoming 
+        mass: 1
+        power: 1
+        name: "l2"
+      - loop_signature: [-1] #k1
+        outgoing_signature: [0, 0] #linear comb of INDEPENDENT outgoing momenta 
+        incoming_signature: [1, 0] #linear comb of incoming 
+        mass: 1
+        power: 1
+        name: "l3"
+      - loop_signature: [-1] #k1
+        outgoing_signature: [0, 1] #linear comb of INDEPENDENT outgoing momenta 
+        incoming_signature: [0, -1] #linear comb of incoming 
+        mass: 1
+        power: 1
+        name: "l4"
+      - loop_signature: [-1] #k1
+        outgoing_signature: [0, 0] #linear comb of INDEPENDENT outgoing momenta 
+        incoming_signature: [0, 0] #linear comb of incoming 
+        mass: 1
+        power: 1
+        name: "l5"
+    analytic_num: "1"
+    
+
+
+  external_data:
+      n_in: 2
+      n_out: 3
+      n_loop: 1 # need to go
+      in_momenta: [[500.0, 0, 0, 500], [500.0, 0, 0, -500.0]]
+      out_momenta:
+          [
+              [349.76387887, 197.3970875, 277.2935156, -4.06480273],
+              [274.3666484, 94.14456732, -156.29256755, -183.49625453],
+          ]
+      # The following are complex valued: compenents are [Real part, Imaginary part]
+      spinor_v: []
+      spinor_vbar: []
+      spinor_u: []
+      spinor_ubar: []
+      pol: []
+      cpol: []
