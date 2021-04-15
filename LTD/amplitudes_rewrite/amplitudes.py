@@ -727,11 +727,11 @@ class FormProcessorAmp():
         self.create_form_dir()
         self.generate_form_integrand_files()
         self.generate_c_header()
-        # TODO: include with some statistics similar to FORMPROCESSOR
-        for int_id in range(len(self.integrands)):
-            print("form on integrand %s" % int_id)
-            self.run_form(int_id)
-            self.generate_c_files_from_proto_c(int_id)
+        with progressbar.ProgressBar(prefix='process integrand: ',max_value=len(self.integrands)) as bar:
+            for int_id in range(len(self.integrands)):
+                self.run_form(int_id)
+                self.generate_c_files_from_proto_c(int_id)
+                bar.update(int_id+1)
         self.generate_integrand_c_files()
         self.compile_integrand()
 
@@ -750,11 +750,13 @@ class FormProcessorAmp():
         self.create_form_dir()
         self.generate_form_integrand_files()
         color_dicts = []
-        for diagID, inte in enumerate(self.integrands):
-            self.run_color_form(diagID, color_option=color_option)
-            with open(pjoin(self.FORM_workspace, 'SG_%d_color_decomp.txt' % diagID), 'r') as f:
-                color_dicts += [copy.deepcopy(
-                    eval((f.read()).replace('\n', '')))]
+        with progressbar.ProgressBar(prefix='process color: ',max_value=len(self.integrands)) as bar:
+            for diagID, inte in enumerate(self.integrands):
+                self.run_color_form(diagID, color_option=color_option)
+                with open(pjoin(self.FORM_workspace, 'SG_%d_color_decomp.txt' % diagID), 'r') as f:
+                    color_dicts += [copy.deepcopy(
+                        eval((f.read()).replace('\n', '')))]
+                bar.update(diagID+1)
         return color_dicts
 
     def run_color_form(self, diagID, color_option={'color_per_graph': False}):
