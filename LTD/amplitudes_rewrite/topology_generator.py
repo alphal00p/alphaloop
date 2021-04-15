@@ -1,9 +1,9 @@
 
 import numpy
+from numpy.lib.arraysetops import unique
 import yaml
 import os
 import sys
-import sympy as sp
 if True:
     sys.path.append(os.path.join(
         os.path.dirname(os.path.abspath(__file__)), '..'))
@@ -59,53 +59,35 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
         diagram_list = amplitude.diagram_list
 
         all_propagators_dict = {}
-        primes = [5, 11, 17, 23, 29, 41, 47, 53, 59, 71, 83, 89, 101, 107, 113, 131,
-                  137, 149, 167, 173, 179, 191, 197, 227, 233, 239, 251, 257, 263, 269, 281]
         for diagram in diagram_list:
             diag_props = diagram["propagators"]
             prop_id = 1
             for prop in diag_props:
                 # assign a unique id to the same props
-                for i, sig in enumerate(prop["loop_signature"]+prop["outgoing_signature"]+prop["incoming_signature"]):
-                    prop_id *= sp.Pow(primes[i], sig)
-                unique_id = tuple(
-                    set([prop_id, sp.Pow(prop_id, -1), prop["mass"]]))
+                combined_sig = prop["loop_signature"]+prop["outgoing_signature"] + prop["incoming_signature"]
+                unique_id = {tuple(combined_sig),tuple(-s for s in combined_sig),prop["mass"]}
+
                 # do the merging
-                all_propagators_dict.update({unique_id: (
-                    prop["loop_signature"],
+                all_propagators_dict.update({tuple(unique_id): (
+                    # enforce positive signatures
+                    [abs(s) if sum(abs(sig) for sig in combined_sig) == 1 else s for s in prop["loop_signature"]],
                     prop["outgoing_signature"],
                     prop["incoming_signature"],
-                    prop["mass"],
-                    prop["loop_signature"]+prop["outgoing_signature"] +
-                    prop["incoming_signature"]
+                    prop["mass"]
                 )})
+       
 
-        propagators = []
-        for i, prop in enumerate(all_propagators_dict.values()):
-            # enforce positive signatures
-            if sum(abs(s) for s in prop[-1]) == 1:
-                propagators += [
-                    {
-                        "loop_signature": [abs(s) for s in prop[0]],
-                        "outgoing_signature": prop[1],
-                        "incoming_signature": prop[2],
-                        "mass": prop[3],
-                        "power": 1,  # irrelevant for detection of E-surfaces
-                        "name": 'l%i' % (i+1)
-                    }
-                ]
-            else:
-                propagators += [
-                    {
-                        "loop_signature": prop[0],
-                        "outgoing_signature": prop[1],
-                        "incoming_signature": prop[2],
-                        "mass": prop[3],
-                        "power": 1,  # irrelevant for detection of E-surfaces
-                        "name": 'l%i' % (i+1)
-                    }
-                ]
-
+        propagators = [
+            {
+                "loop_signature": prop[0],
+                "outgoing_signature": prop[1],
+                "incoming_signature": prop[2],
+                "mass": prop[3],
+                "power": 1,  # irrelevant for detection of E-surfaces
+                "name": 'l%i' % (i+1)
+            }
+        for i, prop in enumerate(all_propagators_dict.values()) ]
+            
         masses = amplitude.masses
         
 
