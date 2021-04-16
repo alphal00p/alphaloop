@@ -305,4 +305,5 @@ Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATION
 #write<out_integrand_PF_`SGID'.proto_c> "//integrand\n"
 #write<out_integrand_PF_`SGID'.proto_c> "%O"
 #write<out_integrand_PF_`SGID'.proto_c> "\t*out = %e" F;
+#write<success_`SGID'.proto_c> "1";
 .end

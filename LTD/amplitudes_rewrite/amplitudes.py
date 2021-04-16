@@ -664,9 +664,10 @@ class FormProcessorAmp():
                            cwd=self.FORM_workspace,
                            capture_output=True)
         # r.returncode != 0 seems to happen at random.
-        if not os.path.isfile(pjoin(self.FORM_workspace, 'out_integrand_PF_%s.proto_c' % diagID)):
-            error_message = "FORM processing failed with error:\n%s\nFORM command to reproduce:\ncd %s; %s" % (
-                r.stdout.decode('UTF-8'),
+        # sometimes there is an error even though success exists. I suppose thats due to the not having enough time between write and read
+        time.sleep(0.1)
+        if not os.path.isfile(pjoin(self.FORM_workspace, 'success_%s.proto_c' % diagID)):
+            error_message = "FORM processing failed with error:\n\nFORM command to reproduce:\ncd %s; %s" % (
                 self.FORM_workspace, FORM_cmd)
             sys.exit(error_message)
 
@@ -727,7 +728,7 @@ class FormProcessorAmp():
         self.create_form_dir()
         self.generate_form_integrand_files()
         self.generate_c_header()
-        with progressbar.ProgressBar(prefix='process integrand: ',max_value=len(self.integrands)) as bar:
+        with progressbar.ProgressBar(prefix='process integrand: ', max_value=len(self.integrands)) as bar:
             for int_id in range(len(self.integrands)):
                 self.run_form(int_id)
                 self.generate_c_files_from_proto_c(int_id)
@@ -750,7 +751,7 @@ class FormProcessorAmp():
         self.create_form_dir()
         self.generate_form_integrand_files()
         color_dicts = []
-        with progressbar.ProgressBar(prefix='process color: ',max_value=len(self.integrands)) as bar:
+        with progressbar.ProgressBar(prefix='process color: ', max_value=len(self.integrands)) as bar:
             for diagID, inte in enumerate(self.integrands):
                 self.run_color_form(diagID, color_option=color_option)
                 with open(pjoin(self.FORM_workspace, 'SG_%d_color_decomp.txt' % diagID), 'r') as f:
