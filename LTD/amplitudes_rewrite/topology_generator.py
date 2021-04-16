@@ -100,10 +100,13 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
         assert(self.n_loops == None)
         # required to call get_cut_structure
         self.n_loops = len(supergraph_loop_lines[0].signature)
-        supergraph_cut_structure = self.get_cut_structures(
-            supergraph_loop_lines)
+        #supergraph_cut_structure = self.get_cut_structures(
+        #    supergraph_loop_lines)
+        pure_signatures = [[int(value) for value in line] for line in numpy.identity(3)]
+        dummy_supergraph_cut_structure = [[1 if ll.signature in pure_signatures else 0 for ll in supergraph_loop_lines]]
+        #print(dummy_supergraph_cut_structure)
         supergraph_topology = LoopTopology(
-            supergraph_cut_structure,
+            dummy_supergraph_cut_structure,
             supergraph_loop_lines,
             2*[in_mom[1] for in_mom in self.incoming_momenta],
             n_loops=self.n_loops,
