@@ -1,0 +1,2614 @@
+{
+  "diagram_list": [
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^9*deltaA(colA(1),colA(2))*gMetric(muL(1),muL(2))*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(-k1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(-k1-p3),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(-k1+p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(-k1-p1-p2+p4),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*fC(colA(-1),colA(-3),colA(1))*(gMetric(muL(-1),muL(-3))*lVec(p1-p2,muL(1))+gMetric(muL(-3),muL(1))*lVec(2*p2+p1,muL(-1))+gMetric(muL(1),muL(-1))*lVec(-2*p1-p2,muL(-3)))*yt^3*2^(1/2)*deltaF(colF(6),colF(3))*deltaS(indS(6),indS(3))*deltaF(colF(4),colF(7))*deltaS(indS(4),indS(7))*deltaF(colF(10),colF(5))*deltaS(indS(10),indS(5))*Tc(colF(8),colA(2),colF(9))*gam(indS(8),muL(2),indS(9))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            -1,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag1_prop1",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag1_prop2",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag1_prop3",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag1_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            -1
+          ],
+          "loop_signature": [
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag1_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^9*deltaA(colA(1),colA(2))*gMetric(muL(1),muL(2))*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(k1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(k1+p3),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(k1-p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(k1+p1+p2-p4),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*fC(colA(-1),colA(-3),colA(1))*(gMetric(muL(-1),muL(-3))*lVec(p1-p2,muL(1))+gMetric(muL(-3),muL(1))*lVec(2*p2+p1,muL(-1))+gMetric(muL(1),muL(-1))*lVec(-2*p1-p2,muL(-3)))*yt^3*2^(1/2)*deltaF(colF(4),colF(5))*deltaS(indS(4),indS(5))*deltaF(colF(8),colF(3))*deltaS(indS(8),indS(3))*deltaF(colF(6),colF(9))*deltaS(indS(6),indS(9))*Tc(colF(10),colA(2),colF(7))*gam(indS(10),muL(2),indS(7))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            1,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag2_prop1",
+          "outgoing_signature": [
+            0,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag2_prop2",
+          "outgoing_signature": [
+            0,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag2_prop3",
+          "outgoing_signature": [
+            1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag2_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            -1
+          ],
+          "loop_signature": [
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag2_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^9*deltaA(colA(1),colA(2))*gMetric(muL(1),muL(2))*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(-k1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(-k1-p4),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(-k1+p3),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(-k1-p1-p2+p3),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*fC(colA(-1),colA(-3),colA(1))*(gMetric(muL(-1),muL(-3))*lVec(p1-p2,muL(1))+gMetric(muL(-3),muL(1))*lVec(2*p2+p1,muL(-1))+gMetric(muL(1),muL(-1))*lVec(-2*p1-p2,muL(-3)))*yt^3*2^(1/2)*deltaF(colF(6),colF(3))*deltaS(indS(6),indS(3))*deltaF(colF(4),colF(7))*deltaS(indS(4),indS(7))*deltaF(colF(10),colF(5))*deltaS(indS(10),indS(5))*Tc(colF(8),colA(2),colF(9))*gam(indS(8),muL(2),indS(9))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            -1,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag3_prop1",
+          "outgoing_signature": [
+            1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag3_prop2",
+          "outgoing_signature": [
+            1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag3_prop3",
+          "outgoing_signature": [
+            0,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag3_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            -1
+          ],
+          "loop_signature": [
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag3_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^9*deltaA(colA(1),colA(2))*gMetric(muL(1),muL(2))*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(k1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(k1+p4),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(k1-p3),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(k1+p1+p2-p3),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*fC(colA(-1),colA(-3),colA(1))*(gMetric(muL(-1),muL(-3))*lVec(p1-p2,muL(1))+gMetric(muL(-3),muL(1))*lVec(2*p2+p1,muL(-1))+gMetric(muL(1),muL(-1))*lVec(-2*p1-p2,muL(-3)))*yt^3*2^(1/2)*deltaF(colF(4),colF(5))*deltaS(indS(4),indS(5))*deltaF(colF(8),colF(3))*deltaS(indS(8),indS(3))*deltaF(colF(6),colF(9))*deltaS(indS(6),indS(9))*Tc(colF(10),colA(2),colF(7))*gam(indS(10),muL(2),indS(7))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            1,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag4_prop1",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag4_prop2",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag4_prop3",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag4_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            -1
+          ],
+          "loop_signature": [
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag4_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^9*deltaA(colA(1),colA(2))*gMetric(muL(1),muL(2))*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(-k1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(-k1-p1-p2+p3+p4),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(-k1+p3),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(-k1-p1-p2+p3),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*fC(colA(-1),colA(-3),colA(1))*(gMetric(muL(-1),muL(-3))*lVec(p1-p2,muL(1))+gMetric(muL(-3),muL(1))*lVec(2*p2+p1,muL(-1))+gMetric(muL(1),muL(-1))*lVec(-2*p1-p2,muL(-3)))*yt^3*2^(1/2)*deltaF(colF(6),colF(3))*deltaS(indS(6),indS(3))*deltaF(colF(4),colF(7))*deltaS(indS(4),indS(7))*deltaF(colF(10),colF(5))*deltaS(indS(10),indS(5))*Tc(colF(8),colA(2),colF(9))*gam(indS(8),muL(2),indS(9))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            -1,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag5_prop1",
+          "outgoing_signature": [
+            1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag5_prop2",
+          "outgoing_signature": [
+            1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag5_prop3",
+          "outgoing_signature": [
+            1,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag5_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            -1
+          ],
+          "loop_signature": [
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag5_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^9*deltaA(colA(1),colA(2))*gMetric(muL(1),muL(2))*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(k1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(k1+p1+p2-p3-p4),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(k1-p3),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(k1+p1+p2-p3),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*fC(colA(-1),colA(-3),colA(1))*(gMetric(muL(-1),muL(-3))*lVec(p1-p2,muL(1))+gMetric(muL(-3),muL(1))*lVec(2*p2+p1,muL(-1))+gMetric(muL(1),muL(-1))*lVec(-2*p1-p2,muL(-3)))*yt^3*2^(1/2)*deltaF(colF(4),colF(5))*deltaS(indS(4),indS(5))*deltaF(colF(8),colF(3))*deltaS(indS(8),indS(3))*deltaF(colF(6),colF(9))*deltaS(indS(6),indS(9))*Tc(colF(10),colA(2),colF(7))*gam(indS(10),muL(2),indS(7))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            1,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag6_prop1",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag6_prop2",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag6_prop3",
+          "outgoing_signature": [
+            -1,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag6_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            -1
+          ],
+          "loop_signature": [
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag6_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(-k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(-k1+p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(-k1-p2),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(-k1+p1-p3),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(-k1-p2+p4),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(4),colA(-1),colF(1))*gam(indS(4),muL(-1),indS(1))*Tc(colF(2),colA(-3),colF(5))*gam(indS(2),muL(-3),indS(5))*yt^3*2^(1/2)*deltaF(colF(8),colF(3))*deltaS(indS(8),indS(3))*deltaF(colF(6),colF(9))*deltaS(indS(6),indS(9))*deltaF(colF(10),colF(7))*deltaS(indS(10),indS(7))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag7_prop1",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag7_prop2",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag7_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag7_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag7_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(k1-p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(k1+p2),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(k1-p1+p3),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(k1+p2-p4),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(2),colA(-1),colF(3))*gam(indS(2),muL(-1),indS(3))*Tc(colF(6),colA(-3),colF(1))*gam(indS(6),muL(-3),indS(1))*yt^3*2^(1/2)*deltaF(colF(4),colF(7))*deltaS(indS(4),indS(7))*deltaF(colF(10),colF(5))*deltaS(indS(10),indS(5))*deltaF(colF(8),colF(9))*deltaS(indS(8),indS(9))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag8_prop1",
+          "outgoing_signature": [
+            0,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag8_prop2",
+          "outgoing_signature": [
+            1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag8_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag8_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag8_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(-k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(-k1+p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(-k1-p2),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(-k1+p1-p3),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(-k1+p1-p3-p4),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(4),colA(-1),colF(1))*gam(indS(4),muL(-1),indS(1))*Tc(colF(2),colA(-3),colF(5))*gam(indS(2),muL(-3),indS(5))*yt^3*2^(1/2)*deltaF(colF(8),colF(3))*deltaS(indS(8),indS(3))*deltaF(colF(6),colF(9))*deltaS(indS(6),indS(9))*deltaF(colF(10),colF(7))*deltaS(indS(10),indS(7))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag9_prop1",
+          "outgoing_signature": [
+            -1,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag9_prop2",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag9_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag9_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag9_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(k1-p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(k1+p2),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(k1-p1+p3),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(k1-p1+p3+p4),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(2),colA(-1),colF(3))*gam(indS(2),muL(-1),indS(3))*Tc(colF(6),colA(-3),colF(1))*gam(indS(6),muL(-3),indS(1))*yt^3*2^(1/2)*deltaF(colF(4),colF(7))*deltaS(indS(4),indS(7))*deltaF(colF(10),colF(5))*deltaS(indS(10),indS(5))*deltaF(colF(8),colF(9))*deltaS(indS(8),indS(9))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            -1,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag10_prop1",
+          "outgoing_signature": [
+            1,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag10_prop2",
+          "outgoing_signature": [
+            1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag10_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag10_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag10_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(-k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(-k1+p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(-k1-p2),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(-k1+p1-p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(-k1-p2+p3),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(4),colA(-1),colF(1))*gam(indS(4),muL(-1),indS(1))*Tc(colF(2),colA(-3),colF(5))*gam(indS(2),muL(-3),indS(5))*yt^3*2^(1/2)*deltaF(colF(8),colF(3))*deltaS(indS(8),indS(3))*deltaF(colF(6),colF(9))*deltaS(indS(6),indS(9))*deltaF(colF(10),colF(7))*deltaS(indS(10),indS(7))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag11_prop1",
+          "outgoing_signature": [
+            1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag11_prop2",
+          "outgoing_signature": [
+            0,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag11_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag11_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag11_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(k1-p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(k1+p2),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(k1-p1+p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(k1+p2-p3),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(2),colA(-1),colF(3))*gam(indS(2),muL(-1),indS(3))*Tc(colF(6),colA(-3),colF(1))*gam(indS(6),muL(-3),indS(1))*yt^3*2^(1/2)*deltaF(colF(4),colF(7))*deltaS(indS(4),indS(7))*deltaF(colF(10),colF(5))*deltaS(indS(10),indS(5))*deltaF(colF(8),colF(9))*deltaS(indS(8),indS(9))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag12_prop1",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag12_prop2",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag12_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag12_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag12_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(-k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(-k1+p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(-k1-p2),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(-k1+p1-p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(-k1+p1-p3-p4),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(4),colA(-1),colF(1))*gam(indS(4),muL(-1),indS(1))*Tc(colF(2),colA(-3),colF(5))*gam(indS(2),muL(-3),indS(5))*yt^3*2^(1/2)*deltaF(colF(8),colF(3))*deltaS(indS(8),indS(3))*deltaF(colF(6),colF(9))*deltaS(indS(6),indS(9))*deltaF(colF(10),colF(7))*deltaS(indS(10),indS(7))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag13_prop1",
+          "outgoing_signature": [
+            -1,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag13_prop2",
+          "outgoing_signature": [
+            0,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag13_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag13_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag13_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(k1-p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(k1+p2),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(k1-p1+p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(k1-p1+p3+p4),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(2),colA(-1),colF(3))*gam(indS(2),muL(-1),indS(3))*Tc(colF(6),colA(-3),colF(1))*gam(indS(6),muL(-3),indS(1))*yt^3*2^(1/2)*deltaF(colF(4),colF(7))*deltaS(indS(4),indS(7))*deltaF(colF(10),colF(5))*deltaS(indS(10),indS(5))*deltaF(colF(8),colF(9))*deltaS(indS(8),indS(9))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            -1,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag14_prop1",
+          "outgoing_signature": [
+            1,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag14_prop2",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag14_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag14_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag14_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(-k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(-k1+p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(-k1-p2),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(-k1-p2+p3+p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(-k1-p2+p3),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(4),colA(-1),colF(1))*gam(indS(4),muL(-1),indS(1))*Tc(colF(2),colA(-3),colF(5))*gam(indS(2),muL(-3),indS(5))*yt^3*2^(1/2)*deltaF(colF(8),colF(3))*deltaS(indS(8),indS(3))*deltaF(colF(6),colF(9))*deltaS(indS(6),indS(9))*deltaF(colF(10),colF(7))*deltaS(indS(10),indS(7))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag15_prop1",
+          "outgoing_signature": [
+            1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag15_prop2",
+          "outgoing_signature": [
+            1,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag15_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag15_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag15_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(k1-p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(k1+p2),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(k1+p2-p3-p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(k1+p2-p3),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(2),colA(-1),colF(3))*gam(indS(2),muL(-1),indS(3))*Tc(colF(6),colA(-3),colF(1))*gam(indS(6),muL(-3),indS(1))*yt^3*2^(1/2)*deltaF(colF(4),colF(7))*deltaS(indS(4),indS(7))*deltaF(colF(10),colF(5))*deltaS(indS(10),indS(5))*deltaF(colF(8),colF(9))*deltaS(indS(8),indS(9))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag16_prop1",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag16_prop2",
+          "outgoing_signature": [
+            -1,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag16_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag16_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag16_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(-k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(-k1+p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(-k1-p2),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(-k1-p2+p3+p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(-k1-p2+p4),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(4),colA(-1),colF(1))*gam(indS(4),muL(-1),indS(1))*Tc(colF(2),colA(-3),colF(5))*gam(indS(2),muL(-3),indS(5))*yt^3*2^(1/2)*deltaF(colF(8),colF(3))*deltaS(indS(8),indS(3))*deltaF(colF(6),colF(9))*deltaS(indS(6),indS(9))*deltaF(colF(10),colF(7))*deltaS(indS(10),indS(7))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag17_prop1",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag17_prop2",
+          "outgoing_signature": [
+            1,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag17_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag17_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag17_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(k1-p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(k1+p2),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(k1+p2-p3-p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(k1+p2-p4),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(2),colA(-1),colF(3))*gam(indS(2),muL(-1),indS(3))*Tc(colF(6),colA(-3),colF(1))*gam(indS(6),muL(-3),indS(1))*yt^3*2^(1/2)*deltaF(colF(4),colF(7))*deltaS(indS(4),indS(7))*deltaF(colF(10),colF(5))*deltaS(indS(10),indS(5))*deltaF(colF(8),colF(9))*deltaS(indS(8),indS(9))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag18_prop1",
+          "outgoing_signature": [
+            0,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag18_prop2",
+          "outgoing_signature": [
+            -1,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag18_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag18_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag18_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(-k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(-k1+p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(-k1+p3),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(-k1+p1-p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(-k1-p2+p3),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(4),colA(-1),colF(1))*gam(indS(4),muL(-1),indS(1))*yt^3*2^(1/2)*deltaF(colF(2),colF(5))*deltaS(indS(2),indS(5))*deltaF(colF(8),colF(3))*deltaS(indS(8),indS(3))*Tc(colF(6),colA(-3),colF(9))*gam(indS(6),muL(-3),indS(9))*deltaF(colF(10),colF(7))*deltaS(indS(10),indS(7))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag19_prop1",
+          "outgoing_signature": [
+            1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag19_prop2",
+          "outgoing_signature": [
+            0,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag19_prop3",
+          "outgoing_signature": [
+            1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag19_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag19_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(k1-p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(k1-p3),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(k1-p1+p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(k1+p2-p3),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(2),colA(-1),colF(3))*gam(indS(2),muL(-1),indS(3))*yt^3*2^(1/2)*deltaF(colF(6),colF(1))*deltaS(indS(6),indS(1))*deltaF(colF(4),colF(7))*deltaS(indS(4),indS(7))*Tc(colF(10),colA(-3),colF(5))*gam(indS(10),muL(-3),indS(5))*deltaF(colF(8),colF(9))*deltaS(indS(8),indS(9))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag20_prop1",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag20_prop2",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag20_prop3",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag20_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag20_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(-k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(-k1+p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(-k1+p3),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(-k1+p1-p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(-k1+p1+p2-p4),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(4),colA(-1),colF(1))*gam(indS(4),muL(-1),indS(1))*yt^3*2^(1/2)*deltaF(colF(2),colF(5))*deltaS(indS(2),indS(5))*deltaF(colF(8),colF(3))*deltaS(indS(8),indS(3))*deltaF(colF(6),colF(9))*deltaS(indS(6),indS(9))*Tc(colF(10),colA(-3),colF(7))*gam(indS(10),muL(-3),indS(7))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            1,
+            1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag21_prop1",
+          "outgoing_signature": [
+            0,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag21_prop2",
+          "outgoing_signature": [
+            0,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag21_prop3",
+          "outgoing_signature": [
+            1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag21_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag21_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(k1-p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(k1-p3),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(k1-p1+p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(k1-p1-p2+p4),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(2),colA(-1),colF(3))*gam(indS(2),muL(-1),indS(3))*yt^3*2^(1/2)*deltaF(colF(6),colF(1))*deltaS(indS(6),indS(1))*deltaF(colF(4),colF(7))*deltaS(indS(4),indS(7))*deltaF(colF(10),colF(5))*deltaS(indS(10),indS(5))*Tc(colF(8),colA(-3),colF(9))*gam(indS(8),muL(-3),indS(9))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            -1,
+            -1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag22_prop1",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag22_prop2",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag22_prop3",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag22_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag22_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(-k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(-k1+p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(-k1+p3),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(-k1-p2+p3+p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(-k1-p2+p3),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(4),colA(-1),colF(1))*gam(indS(4),muL(-1),indS(1))*yt^3*2^(1/2)*deltaF(colF(2),colF(5))*deltaS(indS(2),indS(5))*deltaF(colF(8),colF(3))*deltaS(indS(8),indS(3))*Tc(colF(6),colA(-3),colF(9))*gam(indS(6),muL(-3),indS(9))*deltaF(colF(10),colF(7))*deltaS(indS(10),indS(7))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag23_prop1",
+          "outgoing_signature": [
+            1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag23_prop2",
+          "outgoing_signature": [
+            1,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag23_prop3",
+          "outgoing_signature": [
+            1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag23_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag23_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(k1-p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(k1-p3),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(k1+p2-p3-p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(k1+p2-p3),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(2),colA(-1),colF(3))*gam(indS(2),muL(-1),indS(3))*yt^3*2^(1/2)*deltaF(colF(6),colF(1))*deltaS(indS(6),indS(1))*deltaF(colF(4),colF(7))*deltaS(indS(4),indS(7))*Tc(colF(10),colA(-3),colF(5))*gam(indS(10),muL(-3),indS(5))*deltaF(colF(8),colF(9))*deltaS(indS(8),indS(9))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag24_prop1",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag24_prop2",
+          "outgoing_signature": [
+            -1,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag24_prop3",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag24_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag24_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(-k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(-k1+p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(-k1+p3),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(-k1-p2+p3+p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(-k1+p3+p4),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(4),colA(-1),colF(1))*gam(indS(4),muL(-1),indS(1))*yt^3*2^(1/2)*deltaF(colF(2),colF(5))*deltaS(indS(2),indS(5))*deltaF(colF(8),colF(3))*deltaS(indS(8),indS(3))*deltaF(colF(6),colF(9))*deltaS(indS(6),indS(9))*Tc(colF(10),colA(-3),colF(7))*gam(indS(10),muL(-3),indS(7))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag25_prop1",
+          "outgoing_signature": [
+            1,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag25_prop2",
+          "outgoing_signature": [
+            1,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag25_prop3",
+          "outgoing_signature": [
+            1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag25_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag25_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(k1-p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(k1-p3),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(k1+p2-p3-p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(k1-p3-p4),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(2),colA(-1),colF(3))*gam(indS(2),muL(-1),indS(3))*yt^3*2^(1/2)*deltaF(colF(6),colF(1))*deltaS(indS(6),indS(1))*deltaF(colF(4),colF(7))*deltaS(indS(4),indS(7))*deltaF(colF(10),colF(5))*deltaS(indS(10),indS(5))*Tc(colF(8),colA(-3),colF(9))*gam(indS(8),muL(-3),indS(9))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag26_prop1",
+          "outgoing_signature": [
+            -1,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag26_prop2",
+          "outgoing_signature": [
+            -1,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag26_prop3",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag26_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag26_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(-k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(-k1+p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(-k1+p4),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(-k1-p2+p3+p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(-k1-p2+p4),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(4),colA(-1),colF(1))*gam(indS(4),muL(-1),indS(1))*yt^3*2^(1/2)*deltaF(colF(2),colF(5))*deltaS(indS(2),indS(5))*deltaF(colF(8),colF(3))*deltaS(indS(8),indS(3))*Tc(colF(6),colA(-3),colF(9))*gam(indS(6),muL(-3),indS(9))*deltaF(colF(10),colF(7))*deltaS(indS(10),indS(7))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag27_prop1",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag27_prop2",
+          "outgoing_signature": [
+            1,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag27_prop3",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag27_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag27_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(k1-p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(k1-p4),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(k1+p2-p3-p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(k1+p2-p4),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(2),colA(-1),colF(3))*gam(indS(2),muL(-1),indS(3))*yt^3*2^(1/2)*deltaF(colF(6),colF(1))*deltaS(indS(6),indS(1))*deltaF(colF(4),colF(7))*deltaS(indS(4),indS(7))*Tc(colF(10),colA(-3),colF(5))*gam(indS(10),muL(-3),indS(5))*deltaF(colF(8),colF(9))*deltaS(indS(8),indS(9))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag28_prop1",
+          "outgoing_signature": [
+            0,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag28_prop2",
+          "outgoing_signature": [
+            -1,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag28_prop3",
+          "outgoing_signature": [
+            0,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag28_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag28_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(-k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(-k1+p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(-k1+p4),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(-k1-p2+p3+p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(-k1+p3+p4),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(4),colA(-1),colF(1))*gam(indS(4),muL(-1),indS(1))*yt^3*2^(1/2)*deltaF(colF(2),colF(5))*deltaS(indS(2),indS(5))*deltaF(colF(8),colF(3))*deltaS(indS(8),indS(3))*deltaF(colF(6),colF(9))*deltaS(indS(6),indS(9))*Tc(colF(10),colA(-3),colF(7))*gam(indS(10),muL(-3),indS(7))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag29_prop1",
+          "outgoing_signature": [
+            1,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag29_prop2",
+          "outgoing_signature": [
+            1,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag29_prop3",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag29_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1
+          ],
+          "mass": "mT",
+          "name": "lp_diag29_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1/4*pol(1,muL(-1))*pol(2,muL(-3))*ii^10*deltaF(colF(1),colF(2))*(gam(indS(1),lVec(k1),indS(2))+deltaS(indS(1),indS(2))*mT)*deltaF(colF(3),colF(4))*(gam(indS(3),lVec(k1-p1),indS(4))+deltaS(indS(3),indS(4))*mT)*deltaF(colF(5),colF(6))*(gam(indS(5),lVec(k1-p4),indS(6))+deltaS(indS(5),indS(6))*mT)*deltaF(colF(7),colF(8))*(gam(indS(7),lVec(k1+p2-p3-p4),indS(8))+deltaS(indS(7),indS(8))*mT)*deltaF(colF(9),colF(10))*(gam(indS(9),lVec(k1-p3-p4),indS(10))+deltaS(indS(9),indS(10))*mT)*gS^2*Tc(colF(2),colA(-1),colF(3))*gam(indS(2),muL(-1),indS(3))*yt^3*2^(1/2)*deltaF(colF(6),colF(1))*deltaS(indS(6),indS(1))*deltaF(colF(4),colF(7))*deltaS(indS(4),indS(7))*deltaF(colF(10),colF(5))*deltaS(indS(10),indS(5))*Tc(colF(8),colA(-3),colF(9))*gam(indS(8),muL(-3),indS(9))",
+      "color_struc": "derive",
+      "index_shift": 4,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag30_prop1",
+          "outgoing_signature": [
+            -1,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            1
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag30_prop2",
+          "outgoing_signature": [
+            -1,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag30_prop3",
+          "outgoing_signature": [
+            0,
+            -1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            -1,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag30_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1
+          ],
+          "mass": "mT",
+          "name": "lp_diag30_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    }
+  ]
+}
