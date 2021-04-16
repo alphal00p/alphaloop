@@ -12,7 +12,7 @@ if True:
 
 
 class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
-    def __init__(self, incoming_momenta, outgoing_momenta, masses, propagators, name, spinors={}, polarsations={}, color_struc='color(1)'):
+    def __init__(self, incoming_momenta, outgoing_momenta, masses, propagators, name, spinors={}, polarsations={}, color_struc='color(1)',extra_calls=[]):
         self.name = name
         self.incoming_momenta = incoming_momenta
         self.outgoing_momenta = outgoing_momenta
@@ -32,6 +32,7 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
         self.cpol = polarsations.get("cpol", [])
         self.pol = polarsations.get("pol", [])
         self.color_struc = color_struc
+        self.extra_calls = extra_calls
 
     @classmethod
     def from_amplitude(cls, amplitude):
@@ -90,8 +91,12 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
             
         masses = amplitude.masses
         
-
-        return SquaredTopologyGeneratorForAmplitudes(incoming_momenta, outgoing_momenta, masses, propagators, name, spinors=spinors, polarsations=polarsations, color_struc=color_struc)
+        additional_options = amplitude.additional_options
+        if additional_options["integrand_per_diag"]:
+            extra_calls = [[i+1,0] for i in range(len(diagram_list)-1)]
+        else:
+            extra_calls = []
+        return SquaredTopologyGeneratorForAmplitudes(incoming_momenta, outgoing_momenta, masses, propagators, name, spinors=spinors, polarsations=polarsations, color_struc=color_struc, extra_calls=extra_calls)
 
     def get_supergraph_topology(self):
         supergraph_loop_lines = self.get_supergraph_loop_lines()
@@ -281,7 +286,7 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
         diagram_sets = self.get_diagram_sets(cuts)
         out["cutkosky_cuts"] = [{"cuts": cuts, "diagram_sets": diagram_sets}]
         out["FORM_integrand"] = {
-            "call_signature": {"extra_calls": [], "id": 0}}
+            "call_signature": {"extra_calls": self.extra_calls, "id": 0}}
         out["FORM_numerator"] = {"call_signature": {"id": 0}}
         out["MG_numerator"] = {}
         out["color_struc"] = self.color_struc
