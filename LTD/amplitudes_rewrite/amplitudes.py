@@ -384,9 +384,9 @@ class FormProcessorAmp():
             self.form_options = copy.deepcopy(
                 _FORM_OPTS_DEFAULT)
             self.form_options.update(copy.copy(form_options))
-
+            
             # integrand list
-            if self.additional_options.get('integrand_per_diag'):
+            if self.additional_options.get('integrand_per_diag')==True:
                 self.integrands = [
                     self.derive_integrand_from_diag(
                         diag).get('analytic_integrand')
@@ -402,9 +402,10 @@ class FormProcessorAmp():
                         self.derive_integrand_from_diag(
                             diag).get('analytic_integrand')
                     # this would conflict for color. However, we initialize with 'integrand_per_diag':False when computing color
-                    if diag.get('index_integrand', 0) > ind_shift:
+                    if diag.get('index_shift', 0) > ind_shift:
                         ind_shift = diag.get('index_shift', 0)
                 self.integrands = [self.integrands]
+                
                 self.FORM_variables['INDSHIFT_LIST'] = [ind_shift]
             # constants
             self.additional_constants = copy.copy(amplitude.constants)
