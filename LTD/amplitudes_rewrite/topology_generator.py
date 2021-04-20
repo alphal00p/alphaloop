@@ -107,8 +107,9 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
         self.n_loops = len(supergraph_loop_lines[0].signature)
         #supergraph_cut_structure = self.get_cut_structures(
         #    supergraph_loop_lines)
-        pure_signatures = [[int(value) for value in line] for line in numpy.identity(3)]
+        pure_signatures = [[int(value) for value in line] for line in numpy.identity(self.n_loops)]
         dummy_supergraph_cut_structure = [[1 if ll.signature in pure_signatures else 0 for ll in supergraph_loop_lines]]
+        assert(sum(dummy_supergraph_cut_structure[0])==self.n_loops)
         #print(dummy_supergraph_cut_structure)
         supergraph_topology = LoopTopology(
             dummy_supergraph_cut_structure,
@@ -305,10 +306,11 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
         # find the propagators that have the basis siganature and no shift
         basis_loop_momentum_name = [[[prop["name"]
                                       for prop in ll["propagators"]
-                                      if all([value == 0 for value in prop["parametric_shift"][0]+prop["parametric_shift"][1]])]
+                                      #with [0] select first element (in case two props of the same loop line have no shifts)
+                                      if all([value == 0 for value in prop["parametric_shift"][0]+prop["parametric_shift"][1]])][0]
                                      for ll in diagram_sets[0]["diagram_info"][0]["graph"]["loop_lines"]
                                      if ll["signature"] == basis_signature]
-                                    for basis_signature in basis_signatures]
+                                    for basis_signature in basis_signatures]                
         basis_loop_momentum_name = [str(name) for name in numpy.array(
             basis_loop_momentum_name).flatten()]
         assert(len(basis_loop_momentum_name) == self.n_loops_subgraph)
