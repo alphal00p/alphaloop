@@ -18,7 +18,7 @@ Off statistics;
 *#define OPTIMISATIONSTRATEGY "CSEgreedy"
 *#define OPTIMLVL "4"
 *#define OPTIMITERATIONS "1000"
-*
+*#define DEBUGLVL "1"
 
 * defintions for the computation
 V p1,...,p40,k1,...,k40,c1,...,c40; * force this internal ordering in FORM
@@ -80,6 +80,7 @@ if ( count(hermconjugate,1)>0 );
     Print "Only hermconjugat(1) is allowed: %t";
     exit "Critical error";
 endif;
+
 * overall denominators of external kinematics
 id denom_(?aa) = ampDenom(?aa);
 id ampDenom(1) = 1;
@@ -103,6 +104,11 @@ endif;
     .sort        
 #enddo
 .sort:lmb-to-cmb;
+Format Mathematica;
+#if (`DEBUGLVL'>0)
+    #write<debug_diag_`SGID'.m> "diag`SGID'=%e" F
+#endif
+.sort-debug-output;
 
 #call scalar-prop-to-clTD-prop
 .sort:bilinear-sp; 

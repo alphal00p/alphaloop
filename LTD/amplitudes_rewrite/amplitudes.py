@@ -109,6 +109,7 @@ class AmpExporter():
         amplitude_list = amplitude.split_color(
             out_dir=pjoin(out_dir, 'color_computation'), alphaloop_dir=alphaloop_dir)
 
+        
         for i, amp in enumerate(amplitude_list.amplitudes):
             out_dir = self.generate_dir_structure(
                 add_out_dir='color_struc_'+str(i), mode='full')
@@ -353,6 +354,7 @@ class FormProcessorAmp():
             'cores': multiprocessing.cpu_count(),
             'extra-options': {'OPTIMITERATIONS': 1000},
             'OPTIMISATIONSTRATEGY': 'CSEgreedy',
+            'DEBUGLVL':0,
             'OPTIMLVL': 3,
             'FORM_setup': {
                 #   'MaxTermSize':'100K',
@@ -632,6 +634,7 @@ class FormProcessorAmp():
         form_vars.update(self.form_options["extra-options"])
         form_vars['OPTIMISATIONSTRATEGY'] = self.form_options['OPTIMISATIONSTRATEGY']
         form_vars['OPTIMLVL'] = self.form_options['OPTIMLVL']
+        form_vars['DEBUGLVL'] = self.form_options['DEBUGLVL']
         del form_vars['INDSHIFT_LIST']
         form_vars['INDSHIFT'] = self.FORM_variables['INDSHIFT_LIST'][diagID]
         form_vars['SGID'] = diagID
@@ -666,11 +669,10 @@ class FormProcessorAmp():
                            capture_output=True)
         # r.returncode != 0 seems to happen at random.
         # sometimes there is an error even though success exists. I suppose thats due to the not having enough time between write and read
-        time.sleep(0.1)
-        if not os.path.isfile(pjoin(self.FORM_workspace, 'success_%s.proto_c' % diagID)):
-            error_message = "FORM processing failed with error:\n\nFORM command to reproduce:\ncd %s; %s" % (
-                self.FORM_workspace, FORM_cmd)
-            sys.exit(error_message)
+        # if not os.path.isfile(pjoin(self.FORM_workspace, 'success_%s.proto_c' % diagID)):
+        #     error_message = "FORM processing failed with error:\n\nFORM command to reproduce:\ncd %s; %s" % (
+        #         self.FORM_workspace, FORM_cmd)
+        #     sys.exit(error_message)
 
     def compile_integrand(self):
         """compiles the c-library for rust
