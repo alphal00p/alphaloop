@@ -1,0 +1,39 @@
+{
+  "amplitude": {
+    "diagram_list": "/home/armin/my_programs/MG5_py_3_alphaloop_master/PLUGIN/alphaloop/LTD/amplitudes_rewrite/WW_diags.json",
+    "external_data": {
+      "cpol": [],
+      "in_momenta": [
+        [
+          5.000000000000000E+002,
+          0.0,
+          0.0,
+          5.000000000000000E+002
+        ],
+        [
+          5.000000000000000E+002,
+          0.0,
+          0.0,
+          -5.000000000000000E+002
+        ]
+      ],
+      "out_momenta": [
+        [
+          4.999999999999998E+002,
+          1.094801410572723E+002,
+          4.390394567245279E+002,
+          -1.969549141269151E+002
+        ]
+      ]
+    },
+    "masses": {"mUV":10},
+    "name": "WW",
+    "constants": {}
+  },
+  "directories": {
+    "alphaloop": "/home/armin/my_programs/MG5_py_3_alphaloop_master/PLUGIN/alphaloop",
+    "out_dir": "/home/armin/my_programs/MG5_py_3_alphaloop_master/PLUGIN/alphaloop/LTD/amplitudes_rewrite"
+  },
+  "form_options": {"DEBUGLVL": 1},
+  "amplitude_options": {"colorless": true, "integrand_per_diag": false}
+}
