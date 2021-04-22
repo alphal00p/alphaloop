@@ -30,11 +30,17 @@ from yaml import Loader, Dumper
 import glob
 import json
 
-from topology_generator import SquaredTopologyGeneratorForAmplitudes
 
-src_path = os.path.dirname(os.path.realpath(__file__))
-abspath = os.path.abspath
-pjoin = os.path.join
+if True:
+    abspath = os.path.abspath
+    pjoin = os.path.join
+    src_path = os.path.dirname(os.path.realpath(__file__))    
+    sys.path.append(src_path)
+    sys.path.append(pjoin(src_path,'..'))
+    import topology_generator 
+    from topology_generator import SquaredTopologyGeneratorForAmplitudes
+
+
 
 
 class AmpExporter():
@@ -669,10 +675,10 @@ class FormProcessorAmp():
                            capture_output=True)
         # r.returncode != 0 seems to happen at random.
         # sometimes there is an error even though success exists. I suppose thats due to the not having enough time between write and read
-        # if not os.path.isfile(pjoin(self.FORM_workspace, 'success_%s.proto_c' % diagID)):
-        #     error_message = "FORM processing failed with error:\n\nFORM command to reproduce:\ncd %s; %s" % (
-        #         self.FORM_workspace, FORM_cmd)
-        #     sys.exit(error_message)
+        if not os.path.isfile(pjoin(self.FORM_workspace, 'success_%s.proto_c' % diagID)):
+            error_message = "FORM processing failed with error:\n\nFORM command to reproduce:\ncd %s; %s" % (
+                self.FORM_workspace, FORM_cmd)
+            sys.exit(error_message)
 
     def compile_integrand(self):
         """compiles the c-library for rust

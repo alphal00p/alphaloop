@@ -4,11 +4,14 @@ from numpy.lib.arraysetops import unique
 import yaml
 import os
 import sys
+
 if True:
+    src_path = os.path.dirname(os.path.realpath(__file__))    
+    sys.path.append(src_path)
     sys.path.append(os.path.join(
         os.path.dirname(os.path.abspath(__file__)), '..'))
     from ltd_utils import *
-    import amplitudes
+    from amplitudes_rewrite import amplitudes
 
 
 class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
