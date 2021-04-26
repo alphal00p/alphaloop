@@ -1,7 +1,5 @@
 
 import numpy
-from numpy.lib.arraysetops import unique
-import yaml
 import os
 import sys
 
@@ -11,7 +9,7 @@ if True:
     sys.path.append(os.path.join(
         os.path.dirname(os.path.abspath(__file__)), '..'))
     from ltd_utils import *
-    from amplitudes_rewrite import amplitudes
+    from amplitudes_rewrite.amplitudes import Amplitude
 
 
 class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
@@ -39,7 +37,7 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
 
     @classmethod
     def from_amplitude(cls, amplitude):
-        assert(isinstance(amplitude, amplitudes.Amplitude))
+        assert(isinstance(amplitude, Amplitude))
         name = amplitude.name
         # amplitude.get('name')
         external_data = amplitude.external_data
