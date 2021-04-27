@@ -138,7 +138,7 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
                         numpy.sum([sign*in_mom[1] for sign, in_mom in zip(
                             propagator["incoming_signature"], self.incoming_momenta)], axis=0),
                         self.masses[propagator["mass"]]**2 if isinstance(
-                            propagator["mass"], str) else propagator["mass"],  # needed
+                            propagator["mass"], str) else propagator["mass"]**2,  # needed
                         power=propagator["power"],  # needed
                         name=propagator["name"],  # needed
                     )]
@@ -175,8 +175,8 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
                     ll_propagators += [Propagator(
                         # q is always zero because parametric_shift is supplied
                         numpy.array([0., 0., 0., 0.]),
-                        self.masses[propagator["mass"]] if isinstance(
-                            propagator["mass"], str) else propagator["mass"],  # needed
+                        self.masses[propagator["mass"]]**2 if isinstance(
+                            propagator["mass"], str) else propagator["mass"]**2,  # needed
                         # parametric_shift signature is in cut basis, i.e. [out1,..,outm-1,k1,...kn], the ki entries must be zero
                         # parametric_shift incomming signature in terms of "in1,..inl,0,..,0" (l-times 0)
                         parametric_shift=[propagator["outgoing_signature"]+[0]*self.n_loops_subgraph,
