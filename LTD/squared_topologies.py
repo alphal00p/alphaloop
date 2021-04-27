@@ -320,12 +320,12 @@ class SquaredTopologyGenerator:
                             loops = [r[len(c) - 1:] for r in fmb_in_cb]
                             # filter out all columns with zeroes as these are cmb momenta belonging to another amplitude
                             loops = [[a for i, a in enumerate(r) if any(b[i] != 0 for b in loops) ] for r in loops]
-                            loops = Matrix(loops)**-1
-                            shift = loops * shift
+                            loopsi = Matrix(loops)**-1
+                            shifti = loopsi * shift
 
-                            uv_structure['forest_to_cb_matrix'] = (loops.tolist() , shift.tolist())
+                            uv_structure['forest_to_cb_matrix'] = (loopsi.tolist() , shifti.tolist(), loops, shift.tolist())
                         else:
-                            uv_structure['forest_to_cb_matrix'] = ([[]], [[]])
+                            uv_structure['forest_to_cb_matrix'] = ([[]], [[]], [[]], [[]])
 
             #from pprint import pprint
             #pprint(cut_info)

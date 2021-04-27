@@ -24,7 +24,7 @@ On nospacesinnumbers;
 
 S vev, pi;
 
-Auto S mass;
+Auto S mass, mUV;
 Auto S yukawa;
 CTable masses(-99:1338);
 CTable gyq(-30:30);
@@ -39,21 +39,21 @@ CTable charges(-30:30);
     #define OPTIMITERATIONS "100"
 #endif
 
-Fill gyq(1) = yukawa_d; * d
-Fill gyq(2) = yukawa_u; * u
-Fill gyq(3) = yukawa_s; * s
-Fill gyq(4) = yukawa_c; * c
-Fill gyq(5) = yukawa_b; * b
-Fill gyq(6) = yukawa_t; * t
+Fill gyq(1) = yukawad; * d
+Fill gyq(2) = yukawau; * u
+Fill gyq(3) = yukawas; * s
+Fill gyq(4) = yukawac; * c
+Fill gyq(5) = yukawab; * b
+Fill gyq(6) = yukawat; * t
 Fill gyq(11) = 0; * e-
 Fill gyq(12) = 0; * mu-
 Fill gyq(13) = 0; * ta-
-Fill gyq(-1) = yukawa_d; * d
-Fill gyq(-2) = yukawa_u; * u
-Fill gyq(-3) = yukawa_s; * s
-Fill gyq(-4) = yukawa_c; * c
-Fill gyq(-5) = yukawa_b; * b
-Fill gyq(-6) = yukawa_t; * t
+Fill gyq(-1) = yukawad; * d
+Fill gyq(-2) = yukawau; * u
+Fill gyq(-3) = yukawas; * s
+Fill gyq(-4) = yukawac; * c
+Fill gyq(-5) = yukawab; * b
+Fill gyq(-6) = yukawat; * t
 Fill gyq(-11) = 0; * e+
 Fill gyq(-12) = 0; * mu+
 Fill gyq(-13) = 0; * ta+
@@ -63,14 +63,14 @@ Fill masses(1) = 0;
 Fill masses(2) = 0;
 Fill masses(3) = 0;
 Fill masses(4) = 0;
-Fill masses(5) = mass_b;
-Fill masses(6) = mass_t;
+Fill masses(5) = massb;
+Fill masses(6) = masst;
 Fill masses(-1) = 0;
 Fill masses(-2) = 0;
 Fill masses(-3) = 0;
 Fill masses(-4) = 0;
-Fill masses(-5) = mass_b;
-Fill masses(-6) = mass_t;
+Fill masses(-5) = massb;
+Fill masses(-6) = masst;
 Fill masses(11) = 0;
 Fill masses(12) = 0;
 Fill masses(13) = 0;
@@ -78,32 +78,35 @@ Fill masses(-11) = 0;
 Fill masses(-12) = 0;
 Fill masses(-13) = 0;
 #else
-Fill masses(1) = mass_d;
-Fill masses(2) = mass_u;
-Fill masses(3) = mass_c;
-Fill masses(4) = mass_s;
-Fill masses(5) = mass_b;
-Fill masses(6) = mass_t;
-Fill masses(-1) = mass_d;
-Fill masses(-2) = mass_u;
-Fill masses(-3) = mass_c;
-Fill masses(-4) = mass_s;
-Fill masses(-5) = mass_b;
-Fill masses(-6) = mass_t;
-Fill masses(11) = mass_e;
-Fill masses(12) = mass_mu;
-Fill masses(13) = mass_tau;
-Fill masses(-11) = mass_e;
-Fill masses(-12) = mass_mu;
-Fill masses(-13) = mass_tau;
+Fill masses(1) = massd;
+Fill masses(2) = massu;
+Fill masses(3) = massc;
+Fill masses(4) = masss;
+Fill masses(5) = massb;
+Fill masses(6) = masst;
+Fill masses(-1) = massd;
+Fill masses(-2) = massu;
+Fill masses(-3) = massc;
+Fill masses(-4) = masss;
+Fill masses(-5) = massb;
+Fill masses(-6) = masst;
+Fill masses(11) = masse;
+Fill masses(12) = massmu;
+Fill masses(13) = masstau;
+Fill masses(-11) = masse;
+Fill masses(-12) = massmu;
+Fill masses(-13) = masstau;
 #endif
 
 Fill masses(-82) = 0;
 Fill masses(82) = 0;
 Fill masses(21) = 0;
 Fill masses(22) = 0;
-Fill masses(25) = mass_h;
+Fill masses(25) = massh;
 Fill masses(1337) = 0;
+
+* note: this set needs to be complete for the UV expansion
+Set allmasses: massu, massd, massc, masss, masst, massb, masse, massmu, masstau, massh, massw, massz, mUV;
 
 Fill charges(1) = -1/3; * d
 Fill charges(2) = 2/3; * u
@@ -121,7 +124,7 @@ Fill charges(-6) = -2/3; * t
 Fill charges(-11) = 1; * e
 
 S D, ep(:3);
-V p1,...,p40,k1,...,k40,c1,...,c40,fmb1,...,fmb40; * force this internal ordering in FORM
+V energyselector,p1,...,p40,ps1,...,ps40,k1,...,k40,c1,...,c40,cs1,...,cs40,fmb1,...,fmb40,fmbs1,...,fmbs40; * force this internal ordering in FORM
 Auto V p,k,c;
 Auto S lm,ext;
 #ifdef `FOURDIM'
@@ -132,6 +135,7 @@ Auto S lm,ext;
 Symbol ge, gs, ghhh, type, in, out, virtual;
 Auto S x, idx, t, n;
 
+Set spatialparts:ps1,...,ps40,cs1,...,cs40,fmbs1,...,fmbs40;
 Set fmbs: fmb1,...,fmb40;
 
 Set dirac: s1,...,s40;
@@ -140,9 +144,9 @@ Set lorentzdummy: mud1,...,mud40;
 
 CF gamma, gammatrace(c), GGstring, NN, vector,g(s),delta(s),T, counter,color, prop, replace;
 CF f, vx, vxs(s), vec, vec1;
-CF subs, configurations, conf, cmb, forestmb, diag, forestid, der, energy, spatial(s);
+CF subs, configurations, conf, cmb, cbtofmb, fmbtocb, diag, forestid, der, energy, spatial(s);
 CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, integrateduv;
-CT gammatracetensor(c);
+CT gammatracetensor(c),opengammastring;
 
 S UVRenormFINITE;
 S ICT, mUV, logmu, logmUV, logmt, mi1L1, alarmMi1L1;
@@ -177,9 +181,13 @@ Hide CONF;
 
 *--#[ feynman-rules :
 
+#procedure FeynmanRules()
 ************************************************
 * Substitute the Feynman rules for the numerator
 ************************************************
+
+* strip momentum tags
+repeat id f?{vx,prop}(?a,p?) = f(?a);
 
 * Fix a quirk where 0 does not match to a vector
 * The only 0 in a propagator or vertex is when a momentum is 0
@@ -303,11 +311,6 @@ id D^n? = rat(D^n, 1);
 repeat id gamma(s1?,?a,s2?)*gamma(s2?,?b,s3?) = gamma(s1,?a,?b,s3);
 id gamma(s1?,?a,s1?) = gammatrace(?a)*delta_(mod_(nargs_(?a), 2));
 
-if (count(gamma, 1));
-    Print "Unsubstituted gamma string: %t";
-    exit "Critical error";
-endif;
-
 .sort:gamma-filter;
 
 * TODO: use momentum conservation to reduce the number of different terms
@@ -368,10 +371,13 @@ repeat id cOlTr(?a)*color(x?) = color(x * cOlTr(?a));
 repeat id cOlf(cOlj1?,cOlj2?,cOlj3?)*color(x?) = color(x * cOlf(cOlj1,cOlj2,cOlj3));
 repeat id cOlNA*color(x?) = color(x * cOlNA);
 repeat id cOlNR*color(x?) = color(x * cOlNR);
+
 B+ color;
 .sort:color-prep;
 Keep brackets;
+
 * TODO: do we need to set the dimension?
+* FIXME: open colour structures may drop terms?
 * Only evaluate this part per unique color by bracketing
 Argument color;
     #call color
@@ -443,9 +449,11 @@ id color(x?) = x;
 
 id pzero = 0; * Substitute the 0-momentum by 0
 .sort:feynman-rules-final;
+#endprocedure
 *--#] feynman-rules :
 
 * If the expression is empty (due to color), we still write a file
+* FIXME: needs to be moved!
 #if ( termsin(F) == 0 )
     #write<out_`SGID'.proto_c> "#0 due to color\n"
     #write<out_integrand_`SGID'.proto_c> "#0 due to color\n"
@@ -461,8 +469,14 @@ L F = F * CONF;
 Drop CONF;
 
 * multiply the numerator contribution of derivatives
+* FIXME: this is not global
 id conf(?a,p?) = conf(?a) * penergy(p);
 id conf(?a,x?) = conf(?a) * x; * note the type difference
+
+* FIXME: needs to be moved!
+AB+ forestid,subs,conf,cmb;
+.sort:bubble-treatment-prep;
+Keep brackets;
 
 * Take a single derivative in pbubble_i^0
 * FIXME: if the number of terms is 0 after differentiating, this configuration will not be created
@@ -472,17 +486,14 @@ repeat;
     id x = 1;
     id pzero.p? = penergy(p);
     id penergy(pzero) = 1; * d/dpbubble_i^0 pbubble_i^0 = 1
-
-    argument subs;
-        id x = 0; * undo the replacement in subs
-    endargument;
 endrepeat;
 label bubbleend;
+.sort:bubble-treatment-derivative;
 
 id subs(p1?,p2?) = replace_(p1, p2);
-.sort:bubble-treatment;
+.sort:bubble-treatment-replacement;
 
-* convert the polynomial to the cut momentum basis
+* transform the graph to the cut basis
 * store a copy for the integrand routine in cmb
 id conf(x?,x1?,cmb(?a),?b) = conf(x,x1,?b)*replace(?a)*cmb(?a);
 
@@ -497,8 +508,172 @@ id conf(x?,x1?,cmb(?a),?b) = conf(x,x1,?b)*replace(?a)*cmb(?a);
 
     id replace(p1?,p2?,?a) = replace_(p1,p2)*replace(?a);
 #enddo
+
 .sort:cmb-2;
 
+* collect the edges and vertices belonging to the forests
+id forestid(?a) = forestid(?a,1);
+repeat id forestid(?a,k1?,?b,x?)*f?{prop,vx}(?c,k1?,?d) = forestid(?a,k1,?b,x*f(?c,k1,?d));
+repeat id cmb(?a)*forestid(?b,x?) = f(forestid(?b,x*cmb(?a)))*cmb(?a);
+id cmb(?a) = 1;
+id f(?a) = forestid(?a);
+argtoextrasymbol tonumber,forestid,1;
+#redefine tensorforeststart "`extrasymbols_'"
+
+.sort:tensorforest-splitoff-1;
+#redefine tensorforestend "`extrasymbols_'"
+#do ext={`tensorforeststart'+1},`tensorforestend'
+    L tensorforest{`ext'-`tensorforeststart'} = extrasymbol_(`ext');
+#enddo
+#define tensorforestcount "{`tensorforestend'-`tensorforeststart'}"
+
+id forestid(x1?,?a,x3?) = forestid(?a)*forest(x1)*x3*conf(-1,x1);
+
+.sort:tensorforest-splitoff-2;
+Hide F;
+
+id forestid(?a) = 1;
+id conf(?a) = 1;
+
+* Apply cmb to the uv subgraph
+id cmb(?a) = cmb(?a)*replace(?a);
+AB+ cmb;
+.sort:cmb-replace;
+Keep brackets;
+id replace(?a) = replace_(?a);
+
+* convert to the forest mb
+id cbtofmb(?a) = replace_(?a);
+
+* move the vertices and propagators into a subgraph
+repeat id subgraph(?a,uvconf(?b,fmb1?,?c,x?,?d,x1?))*f?{prop,vx}(?e,fmb1?,?f) = subgraph(?a,uvconf(?b,fmb1,?c,x,?d,x1*f(?e,fmb1,?f)));
+
+* Create the local UV counterterm
+
+#do i = 1,1
+* substitute Fenyman rules one by one
+    id subgraph(x1?, x2?) = -uvconf1(x1, x2);
+    argtoextrasymbol tonumber,uvconf1,2;
+    #redefine uvdiagstart "`extrasymbols_'"
+
+    .sort:uvdiag-1;
+    #redefine uvdiagend "`extrasymbols_'"
+    #do ext={`uvdiagstart'+1},`uvdiagend'
+        L uvdiag`ext' = extrasymbol_(`ext');
+    #enddo
+    #define uvdiagcount "{`uvdiagend'-`uvdiagstart'}"
+    .sort:uvdiag-2;
+* TODO: hide all other expressions
+
+    id uvconf(?a,x2?,x3?) = tmax^x2*x3;
+
+* Apply Feynman rules to the UV subgraph
+    #call FeynmanRules()
+
+* linearize the gamma matrices and convert them to tensors
+* this makes them suitable for differentiation
+    repeat id gamma(s1?,?a,p?!vector_,?b,s2?) = p(mudummy)*gamma(s1,?a,mudummy,?b,s2);
+    id gamma(?a) = opengammastring(?a);
+
+    id uvprop(k?,t1?,p?,m?) = uvprop(k,t1,p,m)*uvconf2(p);
+
+    splitarg uvconf2;
+    chainout uvconf2;
+    id uvconf2(-p?vector_) = uvconf2(p);
+    repeat id uvconf2(p?)*uvconf2(p?) = uvconf2(p);
+
+    id uvconf2(p?) = replace_(p, t * p);
+
+    argument uvprop,1,vxs,uvtopo,diag;
+        id t = 1;
+    endargument;
+
+    id m?allmasses = t*m; * rescale all masses in the numerator
+
+* Taylor expand the propagators to the right depth
+* p carries a t dependence that determines the order
+* t1 determines the powers of the UV propagator
+
+* expand the propagators without loop momentum dependence
+    id uvprop(k?,t1?,0,m?) = uvprop(k,t1,1,m) * (1 - (mUV^2*t^2-m^2*t^2) * t1 + (mUV^2*t^2-m^2*t^2)^2 * t1^2 + ALARM * t^5);
+    id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
+    repeat;
+        id once ifnomatch->skiptruncation uvprop(k?,t1?,p?,m?)*t^x1?*tmax^x2? = uvprop(k,t1,1,m) * t^x1*tmax^x2 * theta_(x2-x1) *
+            (1 +
+                (-2*p.k-(p.p+mUV^2*t^2-m^2*t^2)) * t1 +
+                (+4*p.k^2+4*p.k*(p.p+mUV^2*t^2-m^2*t^2)+(p.p+mUV^2*t^2-m^2*t^2)^2) * t1^2 +
+                (-8*p.k^3-12*p.k^2*(p.p+mUV^2*t^2-m^2*t^2)) * t1^3 +
+                (16*p.k^4) * t1^4 +
+                ALARM * t^5);
+        id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
+        label skiptruncation;
+    endrepeat;
+
+    id t = 1;
+    id tmax = 1;
+
+    if (count(ALARM, 1));
+        Print "UV Taylor expansion depth exceeded.";
+        exit "";
+    endif;
+
+* match the denominator structure to a diagram
+    id uvprop(?a,m?) = uvprop(?a);
+    repeat id t1?ts^n2? = tmp(t1,n2);
+    repeat id uvprop(k?,t1?,n1?)*uvprop(k?,t1?,n2?) = uvprop(k,t1,n1+n2); 
+    repeat id uvprop(k?,t1?,n1?)*uvtopo(x?,x1?,?a)*tmp(t1?,n2?) = uvprop(k,n1 + n2)*uvtopo(x,x1*t1^n2,?a);
+    id uvprop(k?,t1?ts,n?) = uvprop(k, n);
+
+    #call uvmap()
+    if (count(uvtopo, 1, tmp, 1));
+        Print "Unsubstituted UV topology: %t";
+        exit "Critical error";
+    endif;
+    
+* collect all uv propagators of the subgraph
+    Multiply replace_(vxs, vx);
+    if (count(ICT, 1) == 0);
+        id uvprop(?a) = 1;
+        id vx(?a) = 1;
+    else;
+        id 1/ICT = ICT;
+    endif;
+
+    chainin uvprop;
+    id uvprop(?a) = uvprop(?a, 1);
+    repeat id vx(?a)*uvprop(?b,x?) = uvprop(?b, x*vx(?a));
+    Multiply replace_(vx, vxs);
+    id uvprop(?a) = integrateduv(?a);
+
+    .sort:uv-subgraph-done;
+    Drop uvdiag{`uvdiagstart'+1},uvdiag`uvdiagend';
+
+    #do ext={`uvdiagstart'+1},`uvdiagend'
+        id uvconf1(x1?,`ext') = uvconf1(x1,uvdiag`ext');
+    #enddo 
+
+    id uvconf1(?a) = uvconf(?a);
+
+* now fill in the subgraph evaluation into the supergraph
+    repeat id subgraph(x1?,?a,n?,?b,uvconf(?c,x2?))*uvconf(n?,x3?) = subgraph(x1,?a,?b,uvconf(?c,x2*x3));
+
+    if (count(subgraph, 1)) redefine i "0";
+    .sort:uv3;
+#enddo
+
+id uvconf(x?,x1?) = x1;
+if (count(subgraph, 1));
+    Print "Unsubstituted UV subgraph: %t";
+    exit "Critical error";
+endif;
+
+* Apply Feynman rules to remaining graph
+#call FeynmanRules()
+
+* Simplify all open gamma strings
+#call Gstring(opengammastring,0)
+
+* TODO: do integrated counterterm here
 #if 0
 * TODO: move
 * compute the integrated UV counterterm
@@ -563,6 +738,61 @@ id UVRenormFINITE^n? = 1;
 
 #endif
 
+* split off the energy part: energyselector=(1,0,0,0,..), fmbs = spatial part
+AB+ energy,diag,fmbtocb;
+.sort:energy-splitoff-1;
+Keep brackets;
+#do i=1,40
+    Multiply replace_(fmb`i', energy(fmb`i')*energyselector - fmbs`i');
+#enddo
+id energyselector.energyselector = 1;
+id energyselector.p?spatialparts = 0;
+.sort:energy-splitoff-2;
+
+* TODO: study grouping and effects on term size
+Multiply f(1);
+repeat id f(x?)*f1?{cmb,diag,energy}(?a) = f(x*f1(?a));
+.sort:tensorforest-0;
+
+argtoextrasymbol tonumber,f,1;
+#redefine foreststart "`extrasymbols_'"
+
+.sort:tensorforest-1;
+#redefine forestend "`extrasymbols_'"
+#do ext={`foreststart'+1},`forestend'
+    L forest{`ext'-`foreststart'} = extrasymbol_(`ext');
+#enddo
+#define forestcount "{`forestend'-`foreststart'}"
+
+* convert fmb spatial part back to cmb in the forest
+id fmbtocb(?a) = replace_(?a);
+
+.sort:temsprforest-2;
+Drop tensorforest1,...,tensorforest`tensorforestcount';
+UnHide F;
+
+* fill in the tensor forest into F and fill in the Feynman rules
+#do i=1,`forestcount'
+    id forestid(`i') = tensorforest`i';
+#enddo
+id f(x?) = forestid(x-`foreststart');
+.sort:tensorforest-3;
+
+id opengammastring(?a) = gamma(?a);
+
+#call FeynmanRules()
+
+* TODO: keep the spatial vectors since it's faster
+id energyselector.energyselector = 1;
+id energyselector.p?spatialparts = 0;
+id p?.energyselector = penergy(p);
+id p1?spatialparts.p? = spatial(p1,p);
+argument spatial;
+    Multiply replace_(<ps1,p1>,...,<ps40,p40>,<cs1,c1>,...,<cs40,c40>);
+endargument;
+
+.sort:feynman-complete-graph;
+
 * Expand
 Multiply replace_(D, 4 - 2 * ep);
 id ep^n1? = rat(ep^n1,1);
@@ -583,7 +813,6 @@ id ep^n? = 1;
 id UVRenormFINITE^n? = 1;
 .sort:rat-truncate;
 
-
 * If the expression is empty (due to epsilon pole selection), we still write a file
 #if ( termsin(F) == 0 )
     #write<out_`SGID'.proto_c> "#0 due to epsilon pole selection\n"
@@ -591,194 +820,12 @@ id UVRenormFINITE^n? = 1;
     #write<out_integrand_LTD_`SGID'.proto_c> "#0 due to epsilon pole selection\n"
 #endif
 
-* now extract the energy components of the LTD loop variables
-id k1?.k2? = g(k1, k2);
-repeat id conf(x?,?a,k1?,?b)*g(k1?,k2?) = conf(x,?a,k1,?b)*f(k1,k2);
-id g(p1?,p2?) = p1.p2;
-symmetrize f;
-id f(?a) = f(?a,1);
-id f(?a,n1?)*f(?a,n2?) = f(?a,n1+n2);
-
-B+ f;
-.sort:energy-splitoff-1;
-Keep brackets;
-id f(k1?,k2?,n?) = (penergy(k1)*penergy(k2)-spatial(k1,k2))^n;
-
-B+ conf,penergy,energy;
-.sort:energy-splitoff-2;
-Keep brackets;
-
-repeat id conf(x?,?a,k1?,?b)*penergy(k1?) = conf(x,?a,k1,?b)*energy(k1);
-
-repeat id energy(?a)*energy(?b) = energy(?a,?b);
-symmetrize energy;
-id energy(?a) = energy(f(?a));
-if (count(energy,1) == 0) Multiply energy(f(c0)); * signal with c0 that we are dealing with the constant term
-.sort:energy-splitoff-3;
-
-id energy(f(?a)) = energy(?a);
-chainout energy;
-id energy(c0) = 1;
-
-* collect all the energies in the diagram
-repeat id forestid(?a,p1?,p2?,?b) = forestid(?a,p1,0,p2,?b);
-id forestid(?a,p1?) = forestid(?a,p1,0);
-repeat id energy(c?)*forestid(?a,c?,n?,?b) = forestid(?a,c,n+1,?b);
-
-if (count(energy,1));
-    Print "Energy left: %t";
-    exit "Error";
-endif;
-
-repeat id cmb(?a)*forestid(?b) = f(forestid(?b,cmb(?a)))*cmb(?a);
-id cmb(?a) = 1;
-id f(?a) = forestid(?a);
-argtoextrasymbol tonumber,forestid,1;
-#redefine oldextrasymbols "`extrasymbols_'"
-
-.sort:diag-1;
-#redefine forestend "`extrasymbols_'"
-#do ext={`oldextrasymbols'+1},`forestend'
-    L forest{`ext'-`oldextrasymbols'} = extrasymbol_(`ext');
-#enddo
-#define forestcount "{`forestend'-`oldextrasymbols'}"
-
-id forestid(x1?,?a,x3?) = forestid(?a)*forest(x1)*x3*conf(-1,x1);
-
-if (expression(F) == 0);
-    repeat id forestid(p?,n?,?a) = energy(p)^n*forestid(?a);
-    id forestid = 1;
-endif;
-
-* Create the local UV counterterm
-* TODO: create a new expr per UV subgraph as well since it gens many terms?
-
-B+ subgraph;
-.sort:uv-subgraphs;
-Keep brackets;
-
-id subgraph(?a,uvconf(?b,x?)) = subgraph(?a,uvconf(?b,uvdiag(x)));
-* uvdiag is filled in from the table and yields a uvconf
-id subgraph(?a,uvconf(?b,uvconf(?c,x?))) = subgraph(?a,uvconf(?b,x));
-
-repeat;
-* all subgraphs without dependencies can be treated at the same time
-* multiply each graph with -1 to correctly subtract it
-    id subgraph(x1?, x2?) = -uvconf1(x1, x2);
-    argument uvconf1,2;
-        id uvconf(x2?,?a,x3?) = tmax^x2 * uvconf1(?a) * x3;
-        chainout uvconf1;
-        repeat id uvconf1(p?)*uvconf1(p?) = uvconf1(p);
-        id uvconf1(p?) = replace_(p, t * p);
-
-        argument uvprop,1,vxs,uvtopo,diag;
-            id t = 1; * it could be that the LTD momentum also makes an appearance as an external momentum
-        endargument;
-
-        id m?!{tmax,} = t*m; * rescale all masses in the numerator
-
-* Taylor expand the propagators to the right depth
-* p carries a t dependence that determines the order
-* t1 determines the powers of the UV propagator
-
-* expand the propagators without loop momentum dependence
-        id uvprop(k?,t1?,0,m?) = uvprop(k,t1,1,m) * (1 - (mUV^2*t^2-m^2*t^2) * t1 + (mUV^2*t^2-m^2*t^2)^2 * t1^2 + ALARM * t^5);
-        id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
-        repeat;
-            id once ifnomatch->skiptruncation uvprop(k?,t1?,p?,m?)*t^x1?*tmax^x2? = uvprop(k,t1,1,m) * t^x1*tmax^x2 * theta_(x2-x1) *
-                (1 +
-                    (-2*p.k-(p.p+mUV^2*t^2-m^2*t^2)) * t1 +
-                    (+4*p.k^2+4*p.k*(p.p+mUV^2*t^2-m^2*t^2)+(p.p+mUV^2*t^2-m^2*t^2)^2) * t1^2 +
-                    (-8*p.k^3-12*p.k^2*(p.p+mUV^2*t^2-m^2*t^2)) * t1^3 +
-                    (16*p.k^4) * t1^4 +
-                    ALARM * t^5);
-            id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
-            label skiptruncation;
-        endrepeat;
-
-        id t = 1;
-        id tmax = 1;
-
-        if (count(ALARM, 1));
-            Print "UV Taylor expansion depth exceeded.";
-            exit "";
-        endif;
-
-* match the denominator structure to a diagram
-        id uvprop(?a,m?) = uvprop(?a);
-        repeat id t1?ts^n2? = tmp(t1,n2);
-        repeat id uvprop(k?,t1?,n1?)*uvprop(k?,t1?,n2?) = uvprop(k,t1,n1+n2); 
-        repeat id uvprop(k?,t1?,n1?)*uvtopo(x?,x1?,?a)*tmp(t1?,n2?) = uvprop(k,n1 + n2)*uvtopo(x,x1*t1^n2,?a);
-        id uvprop(k?,t1?ts,n?) = uvprop(k, n);
-
-        #call uvmap()
-        if (count(uvtopo, 1, tmp, 1));
-            Print "Unsubstituted UV topology: %t";
-            exit "Critical error";
-        endif;
-        
-* collect all uv propagators of the subgraph
-        Multiply replace_(vxs, vx);
-        if (count(ICT, 1) == 0);
-            id uvprop(?a) = 1;
-            id vx(?a) = 1;
-        else;
-            id 1/ICT = ICT;
-        endif;
-
-        chainin uvprop;
-        id uvprop(?a) = uvprop(?a, 1);
-        repeat id vx(?a)*uvprop(?b,x?) = uvprop(?b, x*vx(?a));
-        Multiply replace_(vx, vxs);
-        id uvprop(?a) = integrateduv(?a);
-    endargument;
-    id uvconf1(?a) = uvconf(?a);
-
-* now fill in the subgraph evaluation into the supergraph
-    repeat id subgraph(x1?,?a,n?,?b,uvconf(?c,x2?))*uvconf(n?,x3?) = subgraph(x1,?a,?b,uvconf(?c,x2*x3));
-endrepeat;
-
-id uvconf(x?,x1?) = x1;
-if (count(subgraph, 1));
-    Print "Unsubstituted UV subgraph: %t";
-    exit "Critical error";
-endif;
-
-.sort:local-uv;
-
 id cmb(?a) = cmb(?a)*replace(?a);
 AB+ cmb;
 .sort:cmb-replace;
 Keep brackets;
 id replace(?a) = replace_(?a);
 .sort:pf-splitoff;
-
-* The UV counterterm procedure may have create new dot products for which we extract the energies
-id c1?.c2? = g(c1, c2);
-repeat id forestmb(?a,c1?,?b)*g(c1?,c2?) = forestmb(?a,c1,?b)*f(c1,c2);
-id g(p1?,p2?) = p1.p2;
-symmetrize f;
-id f(?a) = f(?a,1);
-id f(?a,n1?)*f(?a,n2?) = f(?a,n1+n2);
-
-B+ f;
-.sort:energy-splitoff-1;
-Keep brackets;
-id f(k1?,k2?,n?) = (penergy(k1)*penergy(k2)-spatial(k1,k2))^n;
-.sort:energy-splitoff-2;
-
-repeat id forestmb(?a,k1?,?b)*penergy(k1?) = forestmb(?a,k1,?b)*energy(k1);
-
-* apply the transformation to the spinney basis, only for the energies
-B+ diag, energy, forestmb;
-.sort:fmb-1;
-Keep brackets;
-id forestmb(?a) = replace_(?a);
-id energy(p?) = energyct(p);
-id energyct(p?) = energy(p);
-id energy(c?!fmbs) = penergy(c);
-
-.sort:fmb-2;
 Hide F;
 
 * collect all the energies in the diagram
@@ -821,15 +868,16 @@ endif;
     repeat id cmb(?a)*diag(?b) = f(diag(?b,cmb(?a)))*cmb(?a);
     id f(?a) = diag(?a);
     argtoextrasymbol tonumber,diag,1;
-    #redefine oldextrasymbols "`extrasymbols_'"
+    #redefine diagstart "`extrasymbols_'"
 
     .sort:diag-1;
     #redefine diagend "`extrasymbols_'"
-    #do ext={`oldextrasymbols'+1},`diagend'
-        L diag{`ext'-`oldextrasymbols'} = extrasymbol_(`ext');
+    #do ext={`diagstart'+1},`diagend'
+        L diag{`ext'-`diagstart'} = extrasymbol_(`ext');
     #enddo
-    #define diagcount "{`diagend'-`oldextrasymbols'}"
+    #define diagcount "{`diagend'-`diagstart'}"
 
+    id diag(x?) = diag(x-`diagstart'+`forestcount');
     id diag(x1?,x2?,?a,x3?) = diag(?a)*ltdtopo(x1,x2)*x3*conf(-1,x1,x2);
     id cmb(?a) = replace_(?a);
     .sort:ltd-splitoff;
@@ -892,7 +940,7 @@ endif;
 
 * now add all LTD structures as a special conf
     #if `diagcount' > 0
-        L FINTEGRANDLTD = F + <diag1*conf(-{1+`forestcount'})>+...+<diag`diagcount'*conf(-{`diagcount'+`forestcount'})> + <forestltd1*conf(-1)>+...+<forestltd`forestcount'*conf(-`forestcount')>;
+        L FINTEGRANDLTD = F + <diag1*conf(-{1+`forestcount'})>+...+<diag`diagcount'*conf(-{`diagcount'+`forestcount'})> + <forestltd1*conf(-1,-1)>+...+<forestltd`forestcount'*conf(-`forestcount',-1)>;
     #endif
 
     id conf(x?)*conf(x1?{<0},?a) = conf(x,?a); *TODO: is this correct?
@@ -924,15 +972,16 @@ endif;
     repeat id cmb(?a)*diag(?b) = f(diag(?b,cmb(?a)))*cmb(?a);
     id f(?a) = diag(?a);
     argtoextrasymbol tonumber,diag,1;
-    #redefine oldextrasymbols "`extrasymbols_'"
+    #redefine diagstart "`extrasymbols_'"
 
     .sort:diag-1;
     #redefine diagend "`extrasymbols_'"
-    #do ext={`oldextrasymbols'+1},`diagend'
-        L diag{`ext'-`oldextrasymbols'} = extrasymbol_(`ext');
+    #do ext={`diagstart'+1},`diagend'
+        L diag{`ext'-`diagstart'} = extrasymbol_(`ext');
     #enddo
-    #define diagcount "{`diagend'-`oldextrasymbols'}"
+    #define diagcount "{`diagend'-`diagstart'}"
 
+    id diag(x?) = diag(x-`diagstart'+`forestcount');
     id diag(x1?,x2?,?a,x3?) = diag(?a)*pftopo(x1,x2)*x3*conf(-1,x1,x2);
     id cmb(?a) = replace_(?a);
     .sort:pf-splitoff;
@@ -974,7 +1023,7 @@ endif;
 
 * now add all PF structures as a special conf
     #if `diagcount' > 0
-        L FINTEGRANDPF = F + <diag1*conf(-{1+`forestcount'})>+...+<diag`diagcount'*conf(-{`diagcount'+`forestcount'})> + <forest1*conf(-1)>+...+<forest`forestcount'*conf(-`forestcount')>;
+        L FINTEGRANDPF = F + <diag1*conf(-{1+`forestcount'})>+...+<diag`diagcount'*conf(-{`diagcount'+`forestcount'})> + <forest1*conf(-1,-1)>+...+<forest`forestcount'*conf(-`forestcount',-1)>;
     #endif
 
     id conf(x?)*conf(x1?{<0},?a) = conf(x,?a); *TODO: is this correct?

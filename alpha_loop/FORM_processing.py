@@ -490,19 +490,23 @@ aGraph=%s;
         for node in self.nodes.values():
             if node['vertex_id'] < 0:
                 continue
-        
-            form_diag += '*\n vx({},{},{})'.format(
+
+            loop_momenta = set('k{}'.format(i + 1) for e in node['edge_ids'] for i, v in enumerate(self.edges[e]['signature'][0]) if v != 0)
+            form_diag += '*\n vx({},{},{}{})'.format(
                 ','.join(str(p) for p in node['PDGs']),
                 ','.join(node['momenta']),
                 ','.join(str(i) for i in node['indices']),
+                (',' if len(loop_momenta) > 0 else '') + ','.join(str(i) for i in loop_momenta),
             )
 
         for edge in self.edges.values():
-            form_diag += '*\n prop({},{},{},{})'.format(
+            loop_momenta = ['k{}'.format(i + 1) for i, v in enumerate(edge['signature'][0]) if v != 0]
+            form_diag += '*\n prop({},{},{},{}{})'.format(
                 edge['PDG'],
                 edge['type'],
                 edge['momentum'],
                 ','.join(str(i) for i in edge['indices']),
+                (',' if len(loop_momenta) > 0 else '') + ','.join(loop_momenta),
             )
 
         if only_algebra:
@@ -1399,7 +1403,7 @@ CTable pfmap(0:{},0:{});
 
                         # construct the map from the cmb/lmb to the forest basis
                         forest_to_cb = []
-                        for lmb_index, (r, aff) in enumerate(zip(*uv_structure['forest_to_cb_matrix'])):
+                        for lmb_index, (r, aff, _, _) in enumerate(zip(*uv_structure['forest_to_cb_matrix'])):
                             if all(x == 0 for x in r):
                                 assert(all(x == 0 for x in aff))
                                 continue
@@ -1420,7 +1424,32 @@ CTable pfmap(0:{},0:{});
                             m = 'c{},{}{}'.format(lmb_index + len(aff) + 1, mom, shift)
                             forest_to_cb.append(m)
                         if len(forest_to_cb) > 0:
-                            forest_element.append('forestmb({})'.format(','.join(forest_to_cb)))
+                            forest_element.append('cbtofmb({})'.format(','.join(forest_to_cb)))
+                        
+                        # only needed for spatial part
+                        cb_to_forest = []
+                        for fmb_index, (_, _, r, aff) in enumerate(zip(*uv_structure['forest_to_cb_matrix'])):
+                            if all(x == 0 for x in r):
+                                assert(all(x == 0 for x in aff))
+                                continue
+                            mom = ''.join('+{}*cs{}'.format(a, cmb_index + len(aff) + 1) for cmb_index, a in enumerate(r) if a != 0)
+                            # the shift should be added
+                            shift = ''
+                            for forest_index, a in enumerate(aff):
+                                if a == 0:
+                                    continue
+
+                                d = self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][forest_index]['signature'][1]), False)
+                                d = d.replace('p', 'ps')
+                                if d != '':
+                                    shift += '+{}*(fmbs{}-({}))'.format(a, forest_index + 1, d)
+                                else:
+                                    shift += '+{}*fmbs{}'.format(a, forest_index + 1)
+
+                            m = 'fmbs{},{}{}'.format(fmb_index + 1, mom, shift)
+                            cb_to_forest.append(m)
+                        if len(cb_to_forest) > 0:                           
+                            forest_element.append('fmbtocb({})'.format(','.join(cb_to_forest)))
 
                         diag_moms = ','.join(self.momenta_decomposition_to_string(lmm, False) for lmm in uv_structure['remaining_graph_loop_topo'].loop_momentum_map)
                         if diag_moms != '':
@@ -1508,11 +1537,11 @@ CTable pfmap(0:{},0:{});
                             else:
                                 uv_diag = 'uvtopo({},1,{})'.format(uv_subgraph['id'], uv_diag_moms)
 
-                            uv_conf_diag = 'uvconf({},{}*{}*{})'.format(','.join(external_momenta), '*'.join(uv_props),'*'.join(vertex_structure), uv_diag)
+                            uv_conf_diag = 'uvconf({},{},{}*{}*{})'.format(uv_diag_moms,uv_subgraph['taylor_order'],'*'.join(uv_props),'*'.join(vertex_structure), uv_diag)
                             if uv_conf_diag not in uv_diagrams:
                                 uv_diagrams.append(uv_conf_diag)
 
-                            uv_conf = 'uvconf({},{},{})'.format(uv_subgraph['taylor_order'], ','.join(external_momenta), uv_diagrams.index(uv_conf_diag))
+                            uv_conf = 'uvdiag({})'.format(uv_diagrams.index(uv_conf_diag))
                             forest_element.append('subgraph({}{},{})'.format(uv_subgraph['graph_index'], 
                                 (',' if len(uv_subgraph['subgraph_indices']) > 0 else '') + ','.join(str(si) for si in uv_subgraph['subgraph_indices']),
                                 uv_conf))
@@ -2600,7 +2629,7 @@ class FORMSuperGraphList(list):
                             temp_vars = list(sorted(set(var_pattern.findall(conf_sec))))
 
                             if denominator_mode == 'FOREST':
-                                main_code = conf_sec.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
+                                main_code = conf_sec.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(masst*masst)')
                                 main_code_with_diag_call = diag_pattern.sub(r'diag_\1(lm, params)', main_code)
                                 integrand_main_code += '\nstatic double complex forest_{}(double complex lm[], double complex params[]) {{{}\n{}}}'.format(abs(int(conf[0])),
                                     '\n\tdouble complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_with_diag_call
@@ -2622,7 +2651,7 @@ class FORMSuperGraphList(list):
                                 )
                             elif denominator_mode == 'DIAG':
                                 main_code = '{}\n{}\n{}'.format(energy_code, denom_code, conf_sec)
-                                main_code = main_code.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
+                                main_code = main_code.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(masst*masst)')
                                 integrand_main_code += '\nstatic double complex diag_{}(double complex lm[], double complex params[]) {{{}\n{}}}'.format(abs(int(conf[0])),
                                     '\n\tdouble complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code
                                 )
@@ -2646,7 +2675,7 @@ class FORMSuperGraphList(list):
                                 if len(temp_vars) > 0:
                                     graph.is_zero = False
 
-                                main_code = conf_sec.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(mass_t*mass_t)')
+                                main_code = conf_sec.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(masst*masst)')
                                 main_code_with_forest_call = forest_pattern.sub(r'forest_\1(lm, params)', main_code)
                                 integrand_main_code += '\nstatic inline void %(header)sevaluate_{}_{}_{}(double complex lm[], double complex params[], double complex* out) {{{}\n{}}}'.format(itype, i, int(conf[0]),
                                     '\n\tdouble complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_with_forest_call
@@ -2953,8 +2982,8 @@ void %(header)sevaluate_{}_{}_mpfr(__complex128 lm[], __complex128 params[], int
             return '0'
 
         hardcoded_mass_parameters = {
-            6   : 'mass_t',
-            -6  : 'mass_t',
+            6   : 'masst',
+            -6  : 'masst',
         }
         
         hardcoded_log_quark_mass = {
@@ -3510,12 +3539,12 @@ class FORMProcessor(object):
         assert(header in ['MG', 'QG', ''])
 
         params = {
-            'mass_t': self.model['parameter_dict'][self.model.get_particle(6).get('mass')].real,
-            'mass_b': self.model['parameter_dict'][self.model.get_particle(5).get('mass')].real,
+            'masst': self.model['parameter_dict'][self.model.get_particle(6).get('mass')].real,
+            'massb': self.model['parameter_dict'][self.model.get_particle(5).get('mass')].real,
             'gs': self.model['parameter_dict']['G'].real,
             'ge': math.sqrt(4. * math.pi / self.model['parameter_dict']['aEWM1'].real),
-            'yukawa_t': self.model['parameter_dict']['mdl_yt'].real / math.sqrt(2.),
-            'yukawa_b': self.model['parameter_dict']['mdl_yb'].real / math.sqrt(2.),
+            'yukawat': self.model['parameter_dict']['mdl_yt'].real / math.sqrt(2.),
+            'yukawab': self.model['parameter_dict']['mdl_yb'].real / math.sqrt(2.),
             'ghhh': 6. * self.model['parameter_dict']['mdl_lam'].real,
             'vev': self.model['parameter_dict']['mdl_vev'].real,
             'pi': 'M_PI',
