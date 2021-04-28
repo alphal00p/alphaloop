@@ -143,7 +143,7 @@ Set lorentz: mu1,...,mu40;
 Set lorentzdummy: mud1,...,mud40;
 
 CF gamma, gammatrace(c), GGstring, NN, vector,g(s),delta(s),T, counter,color, prop, replace;
-CF f, vx, vxs(s), vec, vec1;
+CF f, vx, vxs(s), uvx, vec, vec1;
 CF subs, configurations, conf, cmb, cbtofmb, fmbtocb, diag, forestid, der, energy, spatial(s);
 CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, integrateduv;
 CT gammatracetensor(c),opengammastring;
@@ -332,6 +332,7 @@ id gamma(s1?,?a,s1?) = gammatrace(?a)*delta_(mod_(nargs_(?a), 2));
 #enddo
 
 * For the quartic gluon vertex we need an extra dummy index
+* FIXME: since the graphs are cut into pieces, this dummy index may not be locally unique!
 Multiply counter(1);
 repeat id vx(`GLU', `GLU', `GLU', `GLU', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?)*counter(i?) = - counter(i + 1) * gs^2 * i_ *(
     + cOlf(colAdum[i], colA[idx1], colA[idx2]) * cOlf(colA[idx3], colA[idx4], colAdum[i])
@@ -468,12 +469,13 @@ L F = F * CONF;
 .sort:load-conf;
 Drop CONF;
 
+* TODO: needs to be moved
+#if 0
 * multiply the numerator contribution of derivatives
 * FIXME: this is not global
 id conf(?a,p?) = conf(?a) * penergy(p);
 id conf(?a,x?) = conf(?a) * x; * note the type difference
 
-* FIXME: needs to be moved!
 AB+ forestid,subs,conf,cmb;
 .sort:bubble-treatment-prep;
 Keep brackets;
@@ -492,6 +494,12 @@ label bubbleend;
 
 id subs(p1?,p2?) = replace_(p1, p2);
 .sort:bubble-treatment-replacement;
+#else
+* FIXME: this messes with the power counting though...
+id conf(?a,p?) = conf(?a);
+id conf(?a,x?) = conf(?a);
+id subs(p1?,p2?) = replace_(p1, p2);
+#endif
 
 * transform the graph to the cut basis
 * store a copy for the integrand routine in cmb
@@ -545,25 +553,31 @@ id replace(?a) = replace_(?a);
 * convert to the forest mb
 id cbtofmb(?a) = replace_(?a);
 
-* move the vertices and propagators into a subgraph
-repeat id subgraph(?a,uvconf(?b,fmb1?,?c,x?,?d,x1?))*f?{prop,vx}(?e,fmb1?,?f) = subgraph(?a,uvconf(?b,fmb1,?c,x,?d,x1*f(?e,fmb1,?f)));
+* move the vertices and propagators into a subgraph, starting from the most nested ones first
+#do i=1,5
+    repeat id subgraph(n1?,...,n`i'?,uvconf(?b,fmb1?,?c,x?,?d,x1?))*f?{prop,vx}(?e,fmb1?,?f) = subgraph(n1,...,n`i',uvconf(?b,fmb1,?c,x,?d,x1*f(?e,fmb1,?f)));
+#enddo
+.sort:graphs;
 
 * Create the local UV counterterm
-
+#define uvdiagtotalstart "`extrasymbols_'"
 #do i = 1,1
 * substitute Fenyman rules one by one
     id subgraph(x1?, x2?) = -uvconf1(x1, x2);
     argtoextrasymbol tonumber,uvconf1,2;
     #redefine uvdiagstart "`extrasymbols_'"
-
     .sort:uvdiag-1;
     #redefine uvdiagend "`extrasymbols_'"
     #do ext={`uvdiagstart'+1},`uvdiagend'
         L uvdiag`ext' = extrasymbol_(`ext');
     #enddo
-    #define uvdiagcount "{`uvdiagend'-`uvdiagstart'}"
     .sort:uvdiag-2;
-* TODO: hide all other expressions
+
+* fill in results from subdiagrams
+    #do ext={`uvdiagtotalstart'+1},`uvdiagstart'
+        id uvconf1(`ext') = uvdiag`ext';
+    #enddo
+    .sort:uv-subgrap-fillin;
 
     id uvconf(?a,x2?,x3?) = tmax^x2*x3;
 
@@ -572,7 +586,7 @@ repeat id subgraph(?a,uvconf(?b,fmb1?,?c,x?,?d,x1?))*f?{prop,vx}(?e,fmb1?,?f) = 
 
 * linearize the gamma matrices and convert them to tensors
 * this makes them suitable for differentiation
-    repeat id gamma(s1?,?a,p?!vector_,?b,s2?) = p(mudummy)*gamma(s1,?a,mudummy,?b,s2);
+    repeat id once gamma(s1?,?a,p?!vector_,?b,s2?) = p(mudummy)*gamma(s1,?a,mudummy,?b,s2);
     id gamma(?a) = opengammastring(?a);
 
     id uvprop(k?,t1?,p?,m?) = uvprop(k,t1,p,m)*uvconf2(p);
@@ -631,35 +645,35 @@ repeat id subgraph(?a,uvconf(?b,fmb1?,?c,x?,?d,x1?))*f?{prop,vx}(?e,fmb1?,?f) = 
     endif;
     
 * collect all uv propagators of the subgraph
-    Multiply replace_(vxs, vx);
+    Multiply replace_(vxs, uvx);
     if (count(ICT, 1) == 0);
         id uvprop(?a) = 1;
-        id vx(?a) = 1;
+        id uvx(?a) = 1;
     else;
         id 1/ICT = ICT;
     endif;
 
     chainin uvprop;
     id uvprop(?a) = uvprop(?a, 1);
-    repeat id vx(?a)*uvprop(?b,x?) = uvprop(?b, x*vx(?a));
-    Multiply replace_(vx, vxs);
+    repeat id uvx(?a)*uvprop(?b,x?) = uvprop(?b, x*uvx(?a));
+    Multiply replace_(uvx, vxs);
     id uvprop(?a) = integrateduv(?a);
 
     .sort:uv-subgraph-done;
-    Drop uvdiag{`uvdiagstart'+1},uvdiag`uvdiagend';
+    UnHide tensorforest1,...,tensorforest`tensorforestcount';
+    Hide uvdiag{`uvdiagstart'+1},...,uvdiag`uvdiagend';
 
-    #do ext={`uvdiagstart'+1},`uvdiagend'
-        id uvconf1(x1?,`ext') = uvconf1(x1,uvdiag`ext');
-    #enddo 
+* in the next loop the UV subgraph will be added to the tensorforest or to a UV graph that embeds it
+    if (count(uvconf1, 1)) redefine i "0";
 
-    id uvconf1(?a) = uvconf(?a);
-
-* now fill in the subgraph evaluation into the supergraph
-    repeat id subgraph(x1?,?a,n?,?b,uvconf(?c,x2?))*uvconf(n?,x3?) = subgraph(x1,?a,?b,uvconf(?c,x2*x3));
-
-    if (count(subgraph, 1)) redefine i "0";
+* fill in the unsubstituted subgraph into the supergraph
+    repeat id subgraph(x1?,?a,n?,?b,uvconf(?c,x2?))*uvconf1(n?,x3?) = subgraph(x1,?a,?b,uvconf(?c,x2*uvconf1(x3)));
+    id uvconf1(n?,x?) = uvconf1(x);
     .sort:uv3;
 #enddo
+
+.sort:local-uv-done;
+delete extrasymbols>`uvdiagtotalstart';
 
 id uvconf(x?,x1?) = x1;
 if (count(subgraph, 1));
@@ -767,8 +781,9 @@ argtoextrasymbol tonumber,f,1;
 * convert fmb spatial part back to cmb in the forest
 id fmbtocb(?a) = replace_(?a);
 
-.sort:temsprforest-2;
+.sort:tensorforest-2;
 Drop tensorforest1,...,tensorforest`tensorforestcount';
+Hide forest1,...,forest`forestcount';
 UnHide F;
 
 * fill in the tensor forest into F and fill in the Feynman rules
@@ -955,13 +970,15 @@ endif;
     .sort:integrand-ltd;
     #if (`INTEGRAND' == "both")
         Hide FINTEGRANDLTD;
-        UnHide forest1,...,forest`forestcount';
         delete extrasymbols>`oldextrasymbols';
     #endif
 #endif
 
 #if (`INTEGRAND' == "PF") || (`INTEGRAND' == "both")
-    .sort:pf-start;
+    .sort:pf-start-1;
+    UnHide forest1,...,forest`forestcount';
+    .sort:pf-start-2;
+
     #include- pftable_`SGID'.h
     .sort:load-pf;
 
