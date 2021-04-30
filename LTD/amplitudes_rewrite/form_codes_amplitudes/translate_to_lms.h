@@ -228,7 +228,7 @@
         #enddo
         #do j=`i', `$MAXCEPS'
             #if (`DEBUGLVL'>0)
-                #write<debug_diag_`SGID'.m> "spatialComp(ceps`i',ceps`j) -> lm`$OFFSET',"
+                #write<debug_diag_`SGID'.m> "spatialComp(ceps`i',ceps`j') -> lm`$OFFSET',"
             #endif
             id ceps`i'.ceps`j' = lm`$OFFSET';
             #$OFFSET = $OFFSET+1;
@@ -241,14 +241,14 @@
             #$OFFSET = $OFFSET+1;
 
             #if (`DEBUGLVL'>0)
-                #write<debug_diag_`SGID'.m> "spatial(c`j', ceps`j') -> lm`$OFFSET',"
+                #write<debug_diag_`SGID'.m> "spatial(c`i', ceps`j') -> lm`$OFFSET',"
             #endif
-            id spatial(c`j', ceps`j') = lm`$OFFSET';
+            id spatial(c`i', ceps`j') = lm`$OFFSET';
             #$OFFSET = $OFFSET + 1;
         #enddo       
         #do j=1, `$MAXP'
             #if (`DEBUGLVL'>0)
-                #write<debug_diag_`SGID'.m> "sp(c`j', p`j') -> lm`$OFFSET',"
+                #write<debug_diag_`SGID'.m> "sp(ceps`i', p`j') -> lm`$OFFSET',"
             #endif
             id ceps`i'.p`j' = lm`$OFFSET';
             #$OFFSET = $OFFSET+1;
