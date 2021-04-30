@@ -755,6 +755,26 @@ impl PythonCrossSection {
         }
     }
 
+    fn externals_from_set(&mut self, squared_topology_set_file: &str) -> PyResult<()> {
+        let f = File::open(squared_topology_set_file)
+            .wrap_err_with(|| {
+                format!(
+                    "Could not open squared topology set file {}",
+                    squared_topology_set_file
+                )
+            })
+            .suggestion("Does the path exist?").unwrap();
+
+        let squared_topology_set_input: squared_topologies::SquaredTopologySetInput = serde_yaml::from_reader(f)
+            .wrap_err("Could not parse squared topology set file")
+            .suggestion("Is it a correct yaml file").unwrap();
+
+        self.squared_topology.set_external_data(&squared_topology_set_input);
+        self.squared_topology.overwrite_momenta(&squared_topology_set_input);
+
+        Ok(())
+    }
+
     fn evaluate_integrand(&mut self, x: Vec<f64>) -> PyResult<(f64, f64)> {
         let res = self
             .integrand
