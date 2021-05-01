@@ -761,6 +761,7 @@ endif;
 #call Gstring(opengammastring,0)
 
 * split off the energy part: energyselector=(1,0,0,0,..), fmbs = spatial part
+* fmbs1.fmbs2 will later get a minus sign to honour the Minkowksi metric
 AB+ energy,diag,fmbtocb;
 .sort:energy-splitoff-1;
 Keep brackets;
@@ -816,6 +817,7 @@ endif;
 id energyselector.energyselector = 1;
 id energyselector.p?spatialparts = 0;
 id p?.energyselector = penergy(p);
+id p1?spatialparts.p2?spatialparts = -p1.p2; * add a -1 to fix the metric
 id p1?spatialparts.p? = spatial(p1,p);
 argument spatial;
     Multiply replace_(<ps1,p1>,...,<ps40,p40>,<cs1,c1>,...,<cs40,c40>);
