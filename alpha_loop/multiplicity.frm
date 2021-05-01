@@ -14,7 +14,7 @@ L F = F1 + x * (F2+...+F`NUMD');
 * Do algebra
 #include numerator.frm # feynman-rules
 
-#call FeynmanRules()
+#call FeynmanRules(1)
 
 B+ x;
 .sort
