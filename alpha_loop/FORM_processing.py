@@ -492,21 +492,19 @@ aGraph=%s;
                 continue
 
             loop_momenta = set('k{}'.format(i + 1) for e in node['edge_ids'] for i, v in enumerate(self.edges[e]['signature'][0]) if v != 0)
-            form_diag += '*\n vx({},{},{}{})'.format(
+            form_diag += '*\n vx({},{},{})'.format(
                 ','.join(str(p) for p in node['PDGs']),
                 ','.join(node['momenta']),
-                ','.join(str(i) for i in node['indices']),
-                (',' if len(loop_momenta) > 0 else '') + ','.join(str(i) for i in loop_momenta),
+                ','.join(str(i) for i in node['indices'])
             )
 
         for edge in self.edges.values():
             loop_momenta = ['k{}'.format(i + 1) for i, v in enumerate(edge['signature'][0]) if v != 0]
-            form_diag += '*\n prop({},{},{},{}{})'.format(
+            form_diag += '*\n prop({},{},{},{})'.format(
                 edge['PDG'],
                 edge['type'],
                 edge['momentum'],
-                ','.join(str(i) for i in edge['indices']),
-                (',' if len(loop_momenta) > 0 else '') + ','.join(loop_momenta),
+                ','.join(str(i) for i in edge['indices'])
             )
 
         if only_algebra:
@@ -1364,6 +1362,7 @@ CTable pfmap(0:{},0:{});
                 diag_set_uv_conf = []
                 diag_momenta = []
 
+                cmb_offset = len(cut['cuts']) - 1
                 for diag_info in diag_set['diagram_info']:
                     # bubble treatment
                     der_edge = None
@@ -1410,18 +1409,18 @@ CTable pfmap(0:{},0:{});
                             mom = ''.join('+{}*fmb{}'.format(a, forest_index + 1) for forest_index, a in enumerate(r) if a != 0)
                             # the shift should be subtracted
                             shift = ''
-                            for forest_index, a in enumerate(aff):
+                            for cmb_index, a in enumerate(aff):
                                 if a == 0:
                                     continue
 
                                 # also subtract the external momenta
-                                d = self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][forest_index]['signature'][1]), False)
+                                d = self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][cmb_index]['signature'][1]), False)
                                 if d != '':
-                                    shift += '-{}*(c{}-({}))'.format(a, forest_index + 1, d)
+                                    shift += '-{}*(c{}-({}))'.format(a, cmb_index + 1, d)
                                 else:
-                                    shift += '-{}*c{}'.format(a, forest_index + 1)
+                                    shift += '-{}*c{}'.format(a, cmb_index + 1)
 
-                            m = 'c{},{}{}'.format(lmb_index + len(aff) + 1, mom, shift)
+                            m = 'c{},{}{}'.format(lmb_index + cmb_offset + 1, mom, shift)
                             forest_to_cb.append(m)
                         if len(forest_to_cb) > 0:
                             forest_element.append('cbtofmb({})'.format(','.join(forest_to_cb)))
@@ -1432,7 +1431,7 @@ CTable pfmap(0:{},0:{});
                             if all(x == 0 for x in r):
                                 assert(all(x == 0 for x in aff))
                                 continue
-                            mom = ''.join('+{}*cs{}'.format(a, cmb_index + len(aff) + 1) for cmb_index, a in enumerate(r) if a != 0)
+                            mom = ''.join('+{}*cs{}'.format(a, cmb_index + cmb_offset + 1) for cmb_index, a in enumerate(r) if a != 0)
                             # the shift should be added
                             shift = ''
                             for forest_index, a in enumerate(aff):
@@ -1548,6 +1547,7 @@ CTable pfmap(0:{},0:{});
 
                         conf.append('*'.join(forest_element))
 
+                    cmb_offset += len(diag_info['uv'][0]['forest_to_cb_matrix'][0]) # add the amplitude loop count to the cmb start
                     uv_forest.append('+\n\t'.join(conf))
 
                 # construct the map from the lmb to the cmb

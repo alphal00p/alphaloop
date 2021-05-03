@@ -456,6 +456,21 @@ id pzero = 0; * Substitute the 0-momentum by 0
 #endprocedure
 *--#] feynman-rules :
 
+#procedure ExtractMomenta()
+* strip momentum tags
+    repeat id f?{vx,prop}(?a,p?) = f(?a);
+
+* extract momenta from the Feynman rules
+    id prop(x1?,x2?,?a,p1?,x3?,?b) = prop(x1,x2,?a,p1,x3,?b,conf(?a,p1));
+    id vx(?a,x1?,p1?,?b,p2?,x3?,?c) = vx(?a,x1,p1,?b,p2,x3,?c,conf(p1,?b,p2));
+    argument prop,vx;
+        splitarg conf;
+        repeat id conf(?a,-p?vector_,?b) = conf(?a,p,?b);
+        repeat id conf(?a,p?,?b,p?,?c) = conf(?a,p,?b,?c);
+    endargument;
+    id f?{prop,vx}(?a,conf(?b)) = f(?a,?b);
+#endprocedure
+
 * If the expression is empty (due to color), we still write a file
 * FIXME: needs to be moved!
 #if ( termsin(F) == 0 )
@@ -523,6 +538,7 @@ id conf(x?,x1?,cmb(?a),?b) = conf(x,x1,?b)*replace(?a)*cmb(?a);
 .sort:cmb-2;
 
 * collect the edges and vertices belonging to the forests
+#call ExtractMomenta()
 id forestid(?a) = forestid(?a,1);
 repeat id forestid(?a,k1?,?b,x?)*f?{prop,vx}(?c,k1?,?d) = forestid(?a,k1,?b,x*f(?c,k1,?d));
 repeat id cmb(?a)*forestid(?b,x?) = f(forestid(?b,x*cmb(?a)))*cmb(?a);
@@ -549,12 +565,20 @@ id conf(?a) = 1;
 * Apply cmb to the uv subgraph
 id cmb(?a) = cmb(?a)*replace(?a);
 AB+ cmb;
-.sort:cmb-replace;
+.sort:cmb-replace-1;
 Keep brackets;
 id replace(?a) = replace_(?a);
+.sort:cmb-replace-2;
 
+AB+ cmb;
+.sort:fmb-replace-1;
+Keep brackets;
 * convert to the forest mb
 id cbtofmb(?a) = replace_(?a);
+.sort:fmb-replace-2;
+
+* get the momentum dependence in the fmb
+#call ExtractMomenta()
 
 * move the vertices and propagators into a subgraph, starting from the most nested ones first
 id subgraph(?a,uvconf(?b,x?,x1?)) = subgraph(?a,uvconf(?b,x,x1),?b); * prevent pattern matching issues by lowering the ?b by one level
@@ -731,7 +755,6 @@ id subgraph(?a,uvconf(?b),?c) = subgraph(?a,uvconf(?b));
     .sort:integrated-ct-2;
 #endif
 
-    Print +s;
     .sort:uv-subgraph-done;
     UnHide tensorforest1,...,tensorforest`tensorforestcount';
     Hide uvdiag{`uvdiagstart'+1},...,uvdiag`uvdiagend';
