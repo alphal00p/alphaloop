@@ -105,15 +105,20 @@ endif;
 #enddo
 .sort:lmb-to-cmb;
 Format Mathematica;
-#if (`DEBUGLVL'>0)
-    #write<debug_diag_`SGID'.m> "diag`SGID'=%e" F
+#if (`DEBUGLVL'>1)
+    #write<debug_stage_0_diag_`SGID'.m> "{diag`SGID'->%E}" F
 #endif
 .sort-debug-output;
 
 #call scalar-prop-to-clTD-prop
 .sort:bilinear-sp; 
 #call translate-inds-and-ext-data
-
+.sort
+Format Mathematica;
+#if (`DEBUGLVL'>1)
+    #write<debug_stage_1_diag_`SGID'.m> "{diag`SGID'->%E}" F
+#endif
+.sort
 
 
 
@@ -162,8 +167,17 @@ symmetrize spatial;
         L globalDenom`i' = extrasymbol_(`i');
     #enddo
     .sort
+    #if (`DEBUGLVL'>1)
+        #write<debug_overall_denoms_diag_`SGID'.m> "{"
+    #endif
 
-    #do i={`oldextrasymbols'+1},`extrasymbols_'   
+    #do i={`oldextrasymbols'+1},`extrasymbols_'
+        #if (`DEBUGLVL'>1)
+            Format Mathematica;
+            #write<debug_overall_denoms_diag_`SGID'.m> "ampDenom[`i'] = 1/(%E)," globalDenom`i'
+            #write<debug_overall_denoms_diag_`SGID'.m> "\n"
+        #endif
+        .sort-debug;   
         ExtraSymbols, underscore, AD`i'Z; 
         Format C;
         Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
@@ -179,10 +193,17 @@ symmetrize spatial;
     #enddo
     delete  extrasymbols>`oldextrasymbols';
     .sort
+    #if (`DEBUGLVL'>1)
+        #write<debug_overall_denoms_diag_`SGID'.m> "1->1}"
+    #endif
     Unhide F;
 #endif
 .sort
-
+#if (`DEBUGLVL'>1)
+    Format Mathematica;
+    #write<debug_stage_2_diag_`SGID'.m> "{diag`SGID'->%E}" F
+#endif
+.sort
 *** replace on-shell energies by energy symbols (E) for the cltd-code
 ExtraSymbols, underscore, E;
 #redefine oldextrasymbols "`extrasymbols_'"
@@ -193,14 +214,28 @@ multiply replace_(<E{`oldextrasymbols'+1}_,E{`oldextrasymbols'+1}>\
 	                  ,...,<E`extrasymbols_'_,E`extrasymbols_'>);
 .sort
 
-Format C;
+
 #write<out_integrand_PF_`SGID'.proto_c> "//energies \n"
+#if (`DEBUGLVL'>1)
+    #write<debug_energies_diag_`SGID'.m> "energies -> {"
+#endif
 #do i={`oldextrasymbols'+1},`extrasymbols_'
     #$y = extrasymbol_(`i');
+    #if (`DEBUGLVL'>1)
+            Format Mathematica;
+            #write<debug_energies_diag_`SGID'.m> "E{`i'-`oldextrasymbols'} -> %$," $y
+            #write<debug_energies_diag_`SGID'.m> "\n"
+    #endif
+    .sort:debug_output;
+    Format C;
     #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s E{`i'-`oldextrasymbols'} = %$;" $y
 #enddo
 #write<out_integrand_PF_`SGID'.proto_c> ""
+#if (`DEBUGLVL'>1)
+    #write<debug_energies_diag_`SGID'.m> "1->1}"
+#endif
 delete  extrasymbols>`oldextrasymbols';
+
 .sort:replace-energies;
 
 **** REPLACE cut-energies by cLTD loop energy symbols (energyk`i')
@@ -271,8 +306,19 @@ on statistics;
 multiply replace_(<den{`oldextrasymbols'+1}_,invden{1}>
                   ,...,<den`extrasymbols_'_,invden{`extrasymbols_'-`oldextrasymbols'}>);
 #write<out_integrand_PF_`SGID'.proto_c> "//denoms cLTD \n"
+#if (`DEBUGLVL'>1)
+    #write<debug_cltd_diag_`SGID'.m> "{"
+#endif
+
 #do i={`oldextrasymbols'+1},`extrasymbols_'
     #$y = extrasymbol_(`i');
+    #if (`DEBUGLVL'>1)
+            Format Mathematica;
+            #write<debug_cltd_diag_`SGID'.m> "invden{`i'-`oldextrasymbols'} -> 1/(%$)," $y
+            #write<debug_cltd_diag_`SGID'.m> "\n"
+    #endif
+    .sort:debug_output;
+
     #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s invden{`i'-`oldextrasymbols'} = 1/(%$);" $y
 #enddo
 .sort:end-numerator;
@@ -285,7 +331,13 @@ delete  extrasymbols>`oldextrasymbols';
 
 * Optimize and export the diags1,...,diagsN
 
-#do i=1,`NDIAGS'    
+#do i=1,`NDIAGS'
+    #if (`DEBUGLVL'>1)
+            Format Mathematica;
+            #write<debug_cltd_diag_`SGID'.m> "diag[`i'] -> %E," diag`i'
+            #write<debug_cltd_diag_`SGID'.m> "\n"
+    #endif
+    .sort:debug_output;    
     ExtraSymbols, underscore, DIA`i'Z;
     Format C;
     Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
@@ -299,8 +351,16 @@ delete  extrasymbols>`oldextrasymbols';
     Drop diag`i';
     .sort
 #enddo
+#if (`DEBUGLVL'>1)
+    #write<debug_cltd_diag_`SGID'.m> "1 -> 1}" 
+#endif
 .sort
 Unhide F;
+.sort
+#if (`DEBUGLVL'>1)
+    Format Mathematica;
+    #write<debug_stage_3_diag_`SGID'.m> "{diag`SGID'->%E}" F
+#endif
 .sort
 * Optimize and export complete expression
 ExtraSymbols, underscore, Z;
@@ -312,4 +372,41 @@ Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATION
 #write<out_integrand_PF_`SGID'.proto_c> "%O"
 #write<out_integrand_PF_`SGID'.proto_c> "\t*out = %e" F;
 #write<success_`SGID'.proto_c> "1";
+.sort
+
+#if (`DEBUGLVL'>1)
+    Format Mathematica;
+    #write<debug_full_diag_`SGID'.m> "(*This code debugs diagram `SGID'*)\n\n"
+    #write<debug_full_diag_`SGID'.m> "(*useful definitions*)"
+    #write<debug_full_diag_`SGID'.m> "sp[a_List,b_List]:=a[[1]]*b[[1]]-a[[2;;]].b[[2;;]];"
+    #write<debug_full_diag_`SGID'.m> "spatial[a_List,b_List]:=a[[2;;]].b[[2;;]];"
+    #write<debug_full_diag_`SGID'.m> "penergy[a_List]:=a[[1]];"
+    #write<debug_full_diag_`SGID'.m> "spatialComp[a_List,b_Integer]:=a[[b+1]];"
+    #write<debug_full_diag_`SGID'.m> "importFORM[x_String]:=ToExpression@(StringReplace[{\"\\n\"->\"\",\" \"->\"\",\"i_\"->\"I\",\"pi_\"->\"Pi\"}][Import[x,\"Text\"]]); \n\n"
+
+
+    #write<debug_full_diag_`SGID'.m> "(* Replacement rules for dummy functions and variables *)\n"
+    #write<debug_full_diag_`SGID'.m> "(* overall denominators wrapped in ampDenom wrapper *)"
+    #write<debug_full_diag_`SGID'.m> "overallDenoms = importFORM[\"debug_overall_denoms_diag_`SGID'.m\"];"
+    #write<debug_full_diag_`SGID'.m> "(* lms *)"
+    #write<debug_full_diag_`SGID'.m> "lmRepl=Reverse/@importFORM[\"debug_lm_diag_`SGID'.m\"];"
+    #write<debug_full_diag_`SGID'.m> "(* replacements from cLTD: energies *)"
+    #write<debug_full_diag_`SGID'.m> "cLTDEnergies=importFORM[\"debug_energies_diag_`SGID'.m\"];"
+    #write<debug_full_diag_`SGID'.m> "(* replacements from cLTD: denoms and configs in wrapper diag[] *)"
+    #write<debug_full_diag_`SGID'.m> "cLTDRepl=importFORM[\"debug_cltd_diag_`SGID'.m\"];\n"
+    
+
+
+
+    #write<debug_full_diag_`SGID'.m> "(* diagram as imported mapped to the cmb*)"
+    #write<debug_full_diag_`SGID'.m> "diagOringinal=diag0 /. importFORM[\"debug_stage_0_diag_`SGID'.m\"] ;\n"
+    #write<debug_full_diag_`SGID'.m> "(* diagram mapped propagators and expanded SPs*)"
+    #write<debug_full_diag_`SGID'.m> "diagMod1=diag0 /. importFORM[\"debug_stage_1_diag_`SGID'.m\"] ;\n"
+    #write<debug_full_diag_`SGID'.m> "(* diagram gamma algebra performed and introduced lms*)"
+    #write<debug_full_diag_`SGID'.m> "diagMod2=diag0 /. importFORM[\"debug_stage_2_diag_`SGID'.m\"] ;\n"
+    #write<debug_full_diag_`SGID'.m> "(* diagram final version: CLTD is performed*)"
+    #write<debug_full_diag_`SGID'.m> "diagMod3=diag0 /. importFORM[\"debug_stage_3_diag_`SGID'.m\"] ;\n"
+
+#endif
+.sort
 .end
