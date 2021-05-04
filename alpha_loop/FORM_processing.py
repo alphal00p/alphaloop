@@ -1362,6 +1362,7 @@ CTable pfmap(0:{},0:{});
                 diag_set_uv_conf = []
                 diag_momenta = []
 
+                n_loops = len(self.edges) - len(self.nodes) + 1
                 cmb_offset = len(cut['cuts']) - 1
                 for diag_info in diag_set['diagram_info']:
                     # bubble treatment
@@ -1396,7 +1397,6 @@ CTable pfmap(0:{},0:{});
 
                     # write the entire UV structure as a sum
                     conf = []
-                    forestid = ''
                     for uv_index, uv_structure in enumerate(diag_info['uv']):
                         forest_element = []
 
@@ -1468,12 +1468,6 @@ CTable pfmap(0:{},0:{});
                                 topo_map += '\tid uvtopo({},{},k1?,...,k{}?) = diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
                                     '1' if len(dg['raise_map']) == 0 else '*'.join('t' + str(i) for i in dg['raise_map']),
                                     dg['graph'].n_loops, diag_set['id'], dg['id'], dg['graph'].n_loops)
-                           
-                            # get the external momenta without sign
-                            # note: the signatures are unaffected by the bubble treatment from before
-                            external_momenta = tuple(sorted(set(m for e in uv_subgraph['external_edges'] 
-                                for m in self.momenta_decomposition_to_string(next(ee for ee in self.edges.values() if ee['name'] == e)['signature'], False)
-                                        .replace('-', '+').split('+') if m != '')))
 
                             # construct the vertex structure of the UV subgraph
                             # TODO: are the LTD vertices reliable?
@@ -1547,12 +1541,11 @@ CTable pfmap(0:{},0:{});
 
                         conf.append('*'.join(forest_element))
 
-                    cmb_offset += len(diag_info['uv'][0]['forest_to_cb_matrix'][0]) # add the amplitude loop count to the cmb start
+                    cmb_offset += len(diag_info['uv'][0]['forest_to_cb_matrix'][0][0]) # add the amplitude loop count to the cmb start
                     uv_forest.append('+\n\t'.join(conf))
 
                 # construct the map from the lmb to the cmb
                 cmb_map = []
-                n_loops = len(self.edges) - len(self.nodes) + 1
                 for i in range(n_loops):
                     s = ''
                     for cc, cs in enumerate(diag_set['cb_to_lmb'][i * n_loops:i * n_loops+n_loops]):
