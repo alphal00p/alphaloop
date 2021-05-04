@@ -1434,16 +1434,16 @@ CTable pfmap(0:{},0:{});
                             mom = ''.join('+{}*cs{}'.format(a, cmb_index + cmb_offset + 1) for cmb_index, a in enumerate(r) if a != 0)
                             # the shift should be added
                             shift = ''
-                            for forest_index, a in enumerate(aff):
+                            for cmb_index, a in enumerate(aff):
                                 if a == 0:
                                     continue
 
-                                d = self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][forest_index]['signature'][1]), False)
+                                d = self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][cmb_index]['signature'][1]), False)
                                 d = d.replace('p', 'ps')
                                 if d != '':
-                                    shift += '+{}*(fmbs{}-({}))'.format(a, forest_index + 1, d)
+                                    shift += '+{}*(cs{}-({}))'.format(a, cmb_index + 1, d)
                                 else:
-                                    shift += '+{}*fmbs{}'.format(a, forest_index + 1)
+                                    shift += '+{}*cs{}'.format(a, cmb_index + 1)
 
                             m = 'fmbs{},{}{}'.format(fmb_index + 1, mom, shift)
                             cb_to_forest.append(m)
