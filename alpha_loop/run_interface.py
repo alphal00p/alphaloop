@@ -1711,6 +1711,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if len(selected_SGs)==0:
             logger.info("The list of selected supergraph to run the profiling on is empty. Finishing now then.")
             return
+        else:
+            logger.info("Now performing a IR profile analysis on %d supergraphs."%len(selected_SGs))
 
         # We need to detect here if we are in the amplitude-mock-up situation with frozen external momenta.
         frozen_momenta = None
@@ -1988,14 +1990,14 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     edges_in_subtree = { cut_tree.edge_map_lin[i][0] : edges_dict[cut_tree.edge_map_lin[i][0]] for i in sub_tree_indices[0] }
                     nodes_in_subtree = list(set(sum( [ [edge[0], edge[1]] for e_name, edge in edges_in_subtree.items() ],[])))
                     E_surf['left_nodes'] = nodes_in_subtree
-                    print('LEFT NODES: ',SG_name, E_surf['id'], E_surf['left_nodes'] )
+                    #print('LEFT NODES: ',SG_name, E_surf['id'], E_surf['left_nodes'] )
 
                 # Now build the "connectivity matrix" which sets, for each pair of E-surfaces, whether the nodes in-between are connected or not
                 connectivity = {}
                 for i_surf_A, E_surf_A in enumerate(E_surfaces):
                     for E_surf_B in E_surfaces[i_surf_A+1:]:
-                        print(SG_name, E_surf_A['id'], E_surf_A['left_nodes'] )
-                        print(SG_name, E_surf_B['id'], E_surf_B['left_nodes'] )
+                        #print(SG_name, E_surf_A['id'], E_surf_A['left_nodes'] )
+                        #print(SG_name, E_surf_B['id'], E_surf_B['left_nodes'] )
                         sandwiched_nodes_AB = [ n for n in E_surf_A['left_nodes'] if n not in E_surf_B['left_nodes'] ]
                         sandwiched_nodes_BA = [ n for n in E_surf_B['left_nodes'] if n not in E_surf_A['left_nodes'] ]
                         E_surface_A_relationship = None
@@ -2690,6 +2692,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if len(selected_SGs)==0:
             logger.info("The list of selected supergraph to run the profiling on is empty. Finishing now then.")
             return
+        else:
+            logger.info("Now performing a UV profile analysis on %d supergraphs."%len(selected_SGs))
 
         #self.hyperparameters['CrossSection']['NormalisingFunction']['spread'] = 1. # args.h_power
         if args.required_precision is None:
