@@ -572,7 +572,7 @@ impl SquaredTopologySet {
                 sum_incoming += *m;
             }
             self.e_cm_squared = sum_incoming.square().abs();
-            println!("E_cm: {:?}", self.e_cm_squared);
+            //println!("E_cm: {:?}", self.e_cm_squared);
 
             // I get some problem if I try it otherwise: regarding slicing on vectors -> need to ask ben.
             let c_mom = (*out_momenta).clone();
@@ -2820,8 +2820,8 @@ impl SquaredTopology {
                         if self.spinor_u.is_some() {
                             for su in self.spinor_u.clone().unwrap() {
                                 cache.scalar_products.extend_from_slice(&[
-                                    Into::<T>::into(su[0].im),
                                     Into::<T>::into(su[0].re),
+                                    Into::<T>::into(su[0].im),
                                     Into::<T>::into(su[1].re),
                                     Into::<T>::into(su[1].im),
                                     Into::<T>::into(su[2].re),
