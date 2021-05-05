@@ -1,4 +1,3 @@
-
 import numpy
 import os
 import sys
@@ -77,7 +76,6 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
                     prop["incoming_signature"],
                     prop["mass"]
                 )})
-       
 
         propagators = [
             {
@@ -149,13 +147,15 @@ class SquaredTopologyGeneratorForAmplitudes(TopologyGeneratorFromPropagators):
             if i != self.n_outgoing-1:
                 dummy_signature = [0]*self.n_loops_subgraph + \
                     [0 if i != j else 1 for j in range(self.n_outgoing-1)]
+                dummy_q = numpy.array([0, 0, 0, 0])
             else:
                 dummy_signature = [0]*self.n_loops_subgraph + \
                     [-1]*(self.n_outgoing-1)
+                dummy_q = sum(in_mom[1] for in_mom in  self.incoming_momenta)
             dummy_propagators = [Propagator(
-                numpy.sum([sign*in_mom[1] for sign, in_mom in zip(
-                    propagator["incoming_signature"], self.incoming_momenta)], axis=0),
-                # mass of cut momenta not needed as it is automatically determined from fixed values #float(self.outgoing_momenta[i][1].square()),
+                dummy_q,
+                # mass of cut momenta not needed as it is automatically
+                # determined from fixed values #float(self.outgoing_momenta[i][1].square()),
                 0.,
                 name=self.outgoing_momenta[i][0])]
             outgoing_loop_lines += [LoopLine(dummy_signature,
