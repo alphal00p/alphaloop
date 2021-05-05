@@ -457,15 +457,16 @@ class SuperGraph(dict):
 
                 res_list = [('Complete integrand','%sPASS%s'%(Colours.GREEN, Colours.END) if results['dod_computed'][-1] else '%sFAIL%s'%(Colours.RED, Colours.END), {k:v for k,v in results.items() if k!='cut_results'},''),]
                 for cut_ID, cut_res in  sorted(list(results.get('cut_results',{}).items()),key = lambda k: k[0]):
+                    failed_deformation_colour = (Colours.RED if (not cut_res['dod_computed'][-1]) else '')
                     tail_cut_info = '%-20s, %-20s, %-20s'%(
                         't_scal: %s'%('%.3e'%cut_res['t_scaling'] if cut_res['t_scaling'] is not None else 'N/A'),
                         'def_norm: %s'%('%.3e'%cut_res['deformation_norm'] if cut_res['deformation_norm'] is not None else 'N/A'),
                         'def_proj: %s'%(
                             ' | '.join(
                                 '%s%s%s'%(
-                                    '' if E_surface_ID_to_E_surface[E_surf_id]['pinched'] else (Colours.RED if proj>=0. else Colours.GREEN),
+                                    '' if E_surface_ID_to_E_surface[E_surf_id]['pinched'] else (failed_deformation_colour if proj>=0. else Colours.GREEN),
                                     '#%d -> %s%.3e'%(E_surface_combination.index(E_surf_id),'+' if proj>=0. else '-',abs(proj)),
-                                    '' if E_surface_ID_to_E_surface[E_surf_id]['pinched'] else Colours.END
+                                    '' if (E_surface_ID_to_E_surface[E_surf_id]['pinched'] or (failed_deformation_colour=='' and proj>=0.)) else Colours.END
                                 )
                                 for E_surf_id, proj in sorted(cut_res['deformation_projections'].items(), key=lambda el:el[0])) 
                             if cut_res['deformation_projections'] is not None else 'N/A'),
@@ -515,6 +516,36 @@ class SuperGraph(dict):
             else:
                 res_str.append('%s%s%s'%(Colours.BLUE,k,Colours.END))
         return '\n'.join(res_str)
+
+    def contains_external_selfenergy(self):
+
+        for c in self['cutkosky_cuts']:
+            if any( len(ds['diagram_info'])>2 for ds in c['diagram_sets']):
+                return True
+        return False
+
+    def get_external_edges(self):
+        """ Return the name of the external edges (not cutkosky cuts) to the left and the right of a particular supergraph."""
+
+        external_edges = {'left':[], 'right':[]}
+        for e_name, e_sig in self['edge_signatures'].items():
+            if not all(s==0 for s in e_sig[0]):
+                continue
+            left_external_e_sig = e_sig[1][:len(e_sig[1])//2] 
+            right_external_e_sig = e_sig[1][len(e_sig[1])//2:] 
+            if all(s==0 for s in right_external_e_sig) and left_external_e_sig.count(1)==1 and left_external_e_sig.count(0)==len(left_external_e_sig)-1:
+                external_edges['left'].append((e_name, left_external_e_sig.index(1)))
+            if all(s==0 for s in left_external_e_sig) and right_external_e_sig.count(1)==1 and right_external_e_sig.count(0)==len(right_external_e_sig)-1:
+                external_edges['right'].append((e_name, right_external_e_sig.index(1)))
+        # Now reorder the vertices in the order of the signatures
+        external_edges['left'] = [ edge[0] for edge in sorted(external_edges['left'], key=lambda e: e[1]) ]
+        external_edges['right'] = [ edge[0] for edge in sorted(external_edges['right'], key=lambda e: e[1]) ]
+
+        # Make sure there is at least one in each
+        assert(len(external_edges['left'])>=1)
+        assert(len(external_edges['right'])>=1)
+
+        return external_edges
 
     def set_integration_channels(self):
         """ This function shrinks all loops within each left- and right- amplitude graph of each cutkosky cut and builds the corresponding
@@ -608,23 +639,7 @@ class SuperGraph(dict):
                 ]
 
             cut_edge_names = [c['name'] for c in cutkosky_cut['cuts']]
-            external_edges = {'left':[], 'right':[]}
-            for e_name, e_sig in self['edge_signatures'].items():
-                if not all(s==0 for s in e_sig[0]):
-                    continue
-                left_external_e_sig = e_sig[1][:len(e_sig[1])//2] 
-                right_external_e_sig = e_sig[1][len(e_sig[1])//2:] 
-                if all(s==0 for s in right_external_e_sig) and left_external_e_sig.count(1)==1 and left_external_e_sig.count(0)==len(left_external_e_sig)-1:
-                    external_edges['left'].append((e_name, left_external_e_sig.index(1)))
-                if all(s==0 for s in left_external_e_sig) and right_external_e_sig.count(1)==1 and right_external_e_sig.count(0)==len(right_external_e_sig)-1:
-                    external_edges['right'].append((e_name, right_external_e_sig.index(1)))
-            # Now reorder the vertices in the order of the signatures
-            external_edges['left'] = [ edge[0] for edge in sorted(external_edges['left'], key=lambda e: e[1]) ]
-            external_edges['right'] = [ edge[0] for edge in sorted(external_edges['right'], key=lambda e: e[1]) ]
-
-            # Make sure there is at least one in each
-            assert(len(external_edges['left'])>=1)
-            assert(len(external_edges['right'])>=1)
+            external_edges = self.get_external_edges()
 
             cut_tree = ltd_utils.TopologyGenerator(
                 [ (e_name, edge[0],edge[1]) for e_name, edge in non_shrunk_edges_for_this_CC_cut.items() if e_name not in cut_edge_names],
@@ -1643,6 +1658,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='Force the re-analysis of E-surfaces even if result already found in cache (default: %(default)s)')
     ir_profile_parser.add_argument("-mc","--multi_channeling", action="store_true", dest="multi_channeling", default=False,
                     help='Enable multi_channeling in the evaluation (default: %(default)s)')
+    ir_profile_parser.add_argument("-nose","--no_selfenergy", action="store_false", dest="include_external_selfenergy_SGs", default=True,
+                    help='Discard the analysis for all SGs feature cuts containing external self-energy corrections.')
     ir_profile_parser.add_argument(
         "-sm","--show_momenta", action="store_true", dest="show_momenta", default=False,
         help="Show the momenta of the edges in the E-surfaces for the intersection point approached in the IR.")
@@ -1677,12 +1694,23 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         if args.multi_channeling:
             self.hyperparameters.set_parameter('General.multi_channeling',True)
-            self.hyperparameters.set_parameter('multi_channeling_including_massive_propagators',True)
+            self.hyperparameters.set_parameter('General.multi_channeling_including_massive_propagators',True)
 
         if args.SG_name is None:
             selected_SGs = list(self.all_supergraphs.keys())
         else:
             selected_SGs = [args.SG_name,]
+
+        if not args.include_external_selfenergy_SGs:
+            prior_length = len(selected_SGs)
+            selected_SGs = [ SG_name for SG_name in selected_SGs if not self.all_supergraphs[SG_name].contains_external_selfenergy() ]
+            n_discared_SGs = prior_length-len(selected_SGs)
+            if n_discared_SGs > 0:
+                logger.warning("The ir_profile command discarded %d supergraphs because they contained cuts with external self-energy corrections and the user specified the option '--no_selfenergy'."%n_discared_SGs)
+
+        if len(selected_SGs)==0:
+            logger.info("The list of selected supergraph to run the profiling on is empty. Finishing now then.")
+            return
 
         # We need to detect here if we are in the amplitude-mock-up situation with frozen external momenta.
         frozen_momenta = None
@@ -1759,7 +1787,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 external_momenta = [ LorentzVector(v) for v in self.hyperparameters['CrossSection']['incoming_momenta'] ]
                 external_momenta.extend(external_momenta)
 
-                if not args.reanalyze_E_surfaces and all(entry in SG for entry in ['E_surfaces','E_surfaces_intersection']):
+                if not args.reanalyze_E_surfaces and all(entry in SG for entry in ['E_surfaces','E_surfaces_intersection', 'E_surfaces_connectivity']):
                     
                     user_E_surfaces = []
                     all_E_surfaces_found = True
@@ -1812,7 +1840,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     if all_E_surfaces_found and all_intersections_found:
                         IR_info_per_SG_and_E_surfaces_set[SG_name] = {
                             'E_surfaces' : user_E_surfaces,
-                            'E_surfaces_intersection' : user_intersections
+                            'E_surfaces_intersection' : user_intersections,
+                            'E_surfaces_connectivity' : dict(SG['E_surfaces_connectivity'])
                         }
                         bar.update(intersection='SKIPPED')
                         continue
@@ -1825,10 +1854,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 E_cm = SG.get_E_cm(self.hyperparameters)
 
                 # First we must regenerate a TopologyGenerator instance for this supergraph
-                edges_list = SG['topo_edges']
+                edges_dict = {e[0]: e[1:] for e in SG['topo_edges']}
                 SG_topo_gen = ltd_utils.TopologyGenerator(
-                    [e[:-1] for e in edges_list],
-                    powers = { e[0] : e[-1] for e in edges_list }
+                    [ tuple([e,]+list(v[:-1])) for e, v in edges_dict.items()],
+                    powers = { e : v[-1] for e, v in edges_dict.items() }
                 )
                 loop_SG = ltd_utils.LoopTopology.from_flat_format(SG['topo'])
 
@@ -1947,6 +1976,95 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 Colours.BLUE, term['name'], Colours.END) ) 
                             for term in  E_surface['onshell_propagators'])))
 
+                
+                external_edges = SG.get_external_edges()
+
+                # For each E-surfaces, build what are the set of nodes to its left
+                for E_surf in E_surfaces:
+                    E_surf_os_props = [ prop['name'] for prop in E_surf['onshell_propagators'] ]
+                    cut_tree = ltd_utils.TopologyGenerator( [ tuple([e,]+list(v[:-1])) for e,v in edges_dict.items() if e not in E_surf_os_props] )
+                    sub_tree_indices = []
+                    cut_tree.generate_spanning_trees(sub_tree_indices, tree={ edges_dict[external_edges['left'][0]][0] } )          
+                    edges_in_subtree = { cut_tree.edge_map_lin[i][0] : edges_dict[cut_tree.edge_map_lin[i][0]] for i in sub_tree_indices[0] }
+                    nodes_in_subtree = list(set(sum( [ [edge[0], edge[1]] for e_name, edge in edges_in_subtree.items() ],[])))
+                    E_surf['left_nodes'] = nodes_in_subtree
+                    print('LEFT NODES: ',SG_name, E_surf['id'], E_surf['left_nodes'] )
+
+                # Now build the "connectivity matrix" which sets, for each pair of E-surfaces, whether the nodes in-between are connected or not
+                connectivity = {}
+                for i_surf_A, E_surf_A in enumerate(E_surfaces):
+                    for E_surf_B in E_surfaces[i_surf_A+1:]:
+                        print(SG_name, E_surf_A['id'], E_surf_A['left_nodes'] )
+                        print(SG_name, E_surf_B['id'], E_surf_B['left_nodes'] )
+                        sandwiched_nodes_AB = [ n for n in E_surf_A['left_nodes'] if n not in E_surf_B['left_nodes'] ]
+                        sandwiched_nodes_BA = [ n for n in E_surf_B['left_nodes'] if n not in E_surf_A['left_nodes'] ]
+                        E_surface_A_relationship = None
+                        qualifies_for_deformation_check = True
+                        enclosed_nodes = None
+                        if len(sandwiched_nodes_AB)==0 and len(sandwiched_nodes_BA)==0:
+                            # These seem to be the same E-surfaces, this is unexpected
+                            raise alphaLoopRunInterfaceError("The two distinct E-surfaces #%d and #%d of SG %s seem identical as they have no sandwiched nodes."%(E_surf_A['id'],E_surf_B['id'],SG_name))
+                        elif len(sandwiched_nodes_AB)>0 and len(sandwiched_nodes_BA)>0:
+                            # This does not correspond to a cross-free family, and I do not think we can find intersection for those. Either way, deformation check is of no relevance here.
+                            qualifies_for_deformation_check = False
+                            E_surface_A_relationship = 'crossing'
+                        elif len(sandwiched_nodes_AB)>0 and len(sandwiched_nodes_BA)==0:
+                            E_surface_A_relationship = 'encapsulating'
+                            enclosed_nodes = sandwiched_nodes_AB
+                        elif len(sandwiched_nodes_AB)==0 and len(sandwiched_nodes_BA)>0:
+                            E_surface_A_relationship = 'nested'
+                            enclosed_nodes = sandwiched_nodes_BA
+
+                        if enclosed_nodes is None:
+                            disconnected_enclosure = True
+                        else:
+                            sandwiched_edges = [ tuple([e,]+list(v[:-1])) for e,v in edges_dict.items() if all( node in enclosed_nodes for node in v[:2]) ]
+                            if len(sandwiched_edges)==0:
+                                disconnected_enclosure = len(enclosed_nodes)>1
+                            else:
+                                cut_tree = ltd_utils.TopologyGenerator( sandwiched_edges )
+                                sub_tree_indices = []
+                                cut_tree.generate_spanning_trees(sub_tree_indices, tree={ enclosed_nodes[0] } )
+                                # We can now decide if the enclosed nodes are all connected
+                                edges_in_sandwich = { cut_tree.edge_map_lin[i][0] : edges_dict[cut_tree.edge_map_lin[i][0]] for i in sub_tree_indices[0] }
+                                nodes_in_sandwich= set(sum( [ [edge[0], edge[1]] for e_name, edge in edges_in_sandwich.items() ],[]))
+                                disconnected_enclosure = (nodes_in_sandwich != set(enclosed_nodes))
+
+                        if disconnected_enclosure:
+                            qualifies_for_deformation_check = False
+
+                        connectivity[(E_surf_A['id'],E_surf_B['id'])] = {
+                            'E_surface_A_relationship' : E_surface_A_relationship,
+                            'disconnected_enclosure'   : disconnected_enclosure,
+                            'qualifies_for_deformation_check' : qualifies_for_deformation_check
+                        }
+                        connectivity[(E_surf_B['id'],E_surf_A['id'])] = {
+                            'E_surface_A_relationship' : 'nested' if E_surface_A_relationship=='encapsulating' else ( 'encapsulating' if E_surface_A_relationship=='nested' else E_surface_A_relationship),
+                            'disconnected_enclosure'   : disconnected_enclosure,
+                            'qualifies_for_deformation_check' : qualifies_for_deformation_check
+                        }
+
+                if args.verbose or True:
+                    logger.info("Connectivity matrix for all %dx%d existing E-surfaces ordered pairs from supergraph %s:"%(len(E_surfaces),len(E_surfaces),SG_name))
+                    conn_matrix_str = '  /  '+''.join(('%s{:^5d}%s'%(Colours.BLUE, Colours.END)).format(E_surface['id']) for E_surface in E_surfaces)+'\n'
+                    for E_surf_A in E_surfaces:
+                        conn_matrix_str += ('%s{:^5d}%s'%(Colours.BLUE, Colours.END)).format(E_surf_A['id'])
+                        for E_surf_B in E_surfaces:
+                            if E_surf_A['id']==E_surf_B['id']:
+                                conn_matrix_str += 'N/A  '
+                                continue
+                            conn = connectivity[(E_surf_B['id'],E_surf_A['id'])]
+                            conn_matrix_str += '%s%s%s'%(
+                                Colours.GREEN if conn['qualifies_for_deformation_check'] else Colours.RED,
+                                'v' if conn['qualifies_for_deformation_check'] else 'x',
+                                Colours.END
+                            )
+                            conn_matrix_str += '>' if conn['E_surface_A_relationship']=='encapsulating' else ('<' if conn['E_surface_A_relationship']=='nested' else 'x')
+                            conn_matrix_str += 'd' if conn['disconnected_enclosure'] else 'c'
+                            conn_matrix_str += '  '
+                        conn_matrix_str += '\n'
+                    logger.info('\n%s'%conn_matrix_str)
+
                 # Write all E-surface specifications to a mathematica output
                 if args.mathematica:
                     with open(pjoin(self.dir_path, self._run_workspace_folder, "E_surfaces.m"),'w') as f:
@@ -1969,6 +2087,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                             ))
                         f.write('|>')
 
+                IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_connectivity']=connectivity
                 IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection']={}
                 E_surfaces_combinations = []
                 if not args.intersections:
@@ -2038,6 +2157,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     # Save the completed preprocessing
                     SG['E_surfaces'] = IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces']
                     SG['E_surfaces_intersection'] = IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection']
+                    SG['E_surfaces_connectivity'] = IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_connectivity']
 
                     logger.info("Writing out processed yaml for supergaph '%s' on disk..."%SG_name)
                     SG.export(SG_name, pjoin(self.dir_path, self._rust_inputs_folder))
@@ -2077,6 +2197,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 SG['E_surfaces_intersection_analysis'] = {}
 
                 E_surfaces_intersection_analysis = IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection']
+                E_surf_connectivity_matrix = IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_connectivity']
             
                 if args.seed != 0:
                     random.seed(args.seed)
@@ -2196,6 +2317,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                             non_complex_conjugated_propagators[prop['name']] = ll['signature']
                             for E_surf_id in E_surface_combination:
                                 if E_surf_id == CC_E_surf_id:
+                                    continue
+                                if CC_E_surf_id is not None and not E_surf_connectivity_matrix[(CC_E_surf_id,E_surf_id)]['qualifies_for_deformation_check']:
                                     continue
                                 E_surf_props_not_in_CC = [ os['name'] for os in E_surface_ID_to_E_surface[E_surf_id]['onshell_propagators'] if os['name'] not in CC_edges ]
                                 if all( (os_name in non_complex_conjugated_propagators) for os_name in E_surf_props_not_in_CC):
@@ -2352,10 +2475,14 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                     if any(E_surface_ID_to_E_surface[E_surf_id]['pinched'] for E_surf_id in E_surface_combination if E_surf_id!=CC_E_surf_id):
                                         test_passed_per_cut[cut_ID] = test_passed_per_cut[cut_ID] and (abs(deformation_norm_results[-1][1]) < args.small_deformation_threshold)
                                 if len(deformation_projection_results)>0:
-                                    # Only enable the check if the deformation is enabled and if the deformation is large enough, because if it is small it may be that we are on pinched threshold
+                                    # Only enable the check if the deformation is enabled and if the deformation is large enough, because if it is small it may be that we are on pinched solution of the 
+                                    # intersection which however is not *necessarily* pinched so that the E-surface equations are not set to "pinched".
+                                    # Also only enable the check of this pair of E-surfaces qualifies for a deformation check given its connectivity.
                                     if self.hyperparameters['General']['deformation_strategy']!='none' and (abs(deformation_norm_results[-1][1]) > args.small_deformation_threshold) and \
                                         not(any(E_surface_ID_to_E_surface[E_surf_id]['pinched'] for E_surf_id in E_surface_combination if E_surf_id!=CC_E_surf_id)):
-                                        test_passed_per_cut[cut_ID] = test_passed_per_cut[cut_ID] and all( projections[-1][1] < 0. for E_surf_id, projections in deformation_projection_results.items() )
+                                        test_passed_per_cut[cut_ID] = test_passed_per_cut[cut_ID] and all( 
+                                                (projections[-1][1] < 0. or (CC_E_surf_id is not None and (not E_surf_connectivity_matrix[(CC_E_surf_id,E_surf_id)]['qualifies_for_deformation_check']) ) )
+                                            for E_surf_id, projections in deformation_projection_results.items() )
 
                                 if args.verbose or (not test_passed_per_cut[cut_ID] and args.show_fails):
                                     logger.info('%s : IR profile of %s and cut_ID #%d with intersection %s. Intersection point:\n%s\nand momenta:\n%s\n%s'%(
@@ -2523,6 +2650,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     uv_profile_parser.add_argument(
         "-v", "--verbose", action="store_true", dest="verbose", default=False,
         help="Enable verbose output.")
+    uv_profile_parser.add_argument("-nose","--no_selfenergy", action="store_false", dest="include_external_selfenergy_SGs", default=True,
+                    help='Discard the analysis for all SGs feature cuts containing external self-energy corrections.')
     def help_uv_profile(self):
         self.uv_profile_parser.print_help()
         return
@@ -2550,6 +2679,17 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             selected_SGs = list(self.all_supergraphs.keys())
         else:
             selected_SGs = [args.SG_name,]
+
+        if not args.include_external_selfenergy_SGs:
+            prior_length = len(selected_SGs)
+            selected_SGs = [ SG_name for SG_name in selected_SGs if not self.all_supergraphs[SG_name].contains_external_selfenergy() ]
+            n_discared_SGs = prior_length-len(selected_SGs)
+            if n_discared_SGs > 0:
+                logger.warning("The ir_profile command discarded %d supergraphs because they contained cuts with external self-energy corrections and the user specified the option '--no_selfenergy'."%n_discared_SGs)
+
+        if len(selected_SGs)==0:
+            logger.info("The list of selected supergraph to run the profiling on is empty. Finishing now then.")
+            return
 
         #self.hyperparameters['CrossSection']['NormalisingFunction']['spread'] = 1. # args.h_power
         if args.required_precision is None:
