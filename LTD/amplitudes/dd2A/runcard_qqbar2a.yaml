@@ -1,0 +1,64 @@
+---
+
+directories:
+  # adjust these paths
+  alphaloop: /home/andrea/BitBucket/alphaloop    # loop_amplitudes
+  out_dir: ./
+
+form_options:  # Will also put the rest of the options
+  # Define the extra aguments for the compilation
+  cores: 1
+  extra-options:
+    OPTIMITERATIONS: 1000
+  OPTIMISATIONSTRATEGY: CSEgreedy
+  OPTIMLVL: 1
+  DEBUGLVL: 2
+
+amplitude_options:
+  colorless: true
+  integrand_per_diag: false  # if every integrand get its own c-routine
+  # if true:  the color structure per graph will be factorized:
+  #           e.g. Tr[T^a T^b T^c]-Tr[T^a T^c T^b]
+  #           will be treated as ``independent'' color-structure
+  # if false: every structure is treated independently
+  #
+  # Example
+  #  q q~ > g g:    True:     3 color-structures appear
+  #                           {T^a T^b T^c,T^a T^c T^b,T^a T^b T^c-T^a T^c T^b}
+  #                           where the last one is due to the 3g-vertex
+  #                 False:    2 color-structures for all diagrams
+  #                           {T^a T^b T^c,T^a T^c T^b}
+  color_per_graph: false
+
+
+amplitude:
+  # analytic results: (2.6000033896689256e-10-0.00025978584998111523j)
+  name: qqbar2a
+  diagram_list: ./qqbar2a.json
+  constants:
+    gS: 1.2177157847767195
+    gEW: 0.3079537672443688
+    CasimirF: 1.3333333333333333
+    qU: 0.6666666666666666
+    qD: -0.3333333333333333
+  external_data:
+    in_momenta:
+      - [0.5, 0.0, 0.0, 0.5]
+      - [0.5, 0.0, 0.0, -0.5]
+    out_momenta:  # independent ones
+      - [0.5, 0.0, -0.49993953163007476, 0.007775905960175335]
+    cpol:
+      -   - [0.0, 0.0]
+          - [-6.73359e-19, +7.07107e-1]
+          - [-1.09968e-2, -4.32978e-17]
+          - [-7.07021e-1, +0.0]
+      -   - [0.0, 0.0]
+          - [+6.73359e-19, -7.07107e-1]
+          - [-1.09968e-2, -4.32978e-17]
+          - [-7.07021e-1, +0.0]
+    spinor_vbar:
+      - [[0.0, 0.0], [-1.0, -1.22465e-16], [0.0, 0.0], [0.0, 0.0]]
+    spinor_u:
+      - [[0.0, 0.0], [0.0, 0.0], [1.0, 0.0], [0.0, 0.0]]
+  masses:
+    muv: 10
