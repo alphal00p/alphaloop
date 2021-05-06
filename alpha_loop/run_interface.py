@@ -399,9 +399,11 @@ class SuperGraph(dict):
                 res_str.append('%s%s%s'%(Colours.BLUE,k,Colours.END))
         return '\n'.join(res_str)
 
-    def show_IR_statistics(self, show_momenta=True, external_momenta=None):
+    def show_IR_statistics(self, show_momenta=True, external_momenta=None, show_fail_only=False):
 
         res_str = []
+        fail_res_str = []
+        contains_a_fail = False
 
         res_str.append("All %d E-surfaces considered in tests:"%(len(self['E_surfaces_analysis'])))
         for i_surf, E_surface in enumerate(self['E_surfaces_analysis']):
@@ -427,6 +429,7 @@ class SuperGraph(dict):
                         ','.join(osp['name'] for osp in E_surface_ID_to_E_surface[E_surf_ID]['onshell_propagators'])) for E_surf_ID in E_surface_combination),
                     Colours.END
                 ))
+                fail_res_str.append('%s : '%self['name']+res_str[-1])
                 if show_momenta:
                     intersection_point = [ Vector(v) for v in results['intersection_point'] ]
                     approach_direction = [ Vector(v) for v in results['approach_direction'] ]
@@ -455,9 +458,12 @@ class SuperGraph(dict):
                                     ) )
                             ) for prop_name, sig in sorted(self['edge_signatures'].items(), key=lambda el: (-1,el[0]) if re.match('^pq\d+$',el[0]) is None else (int(el[0][2:]),el[0]) ) ) ) 
 
+                contains_a_fail = (contains_a_fail or (not results['dod_computed'][-1]) )
+
                 res_list = [('Complete integrand','%sPASS%s'%(Colours.GREEN, Colours.END) if results['dod_computed'][-1] else '%sFAIL%s'%(Colours.RED, Colours.END), {k:v for k,v in results.items() if k!='cut_results'},''),]
                 for cut_ID, cut_res in  sorted(list(results.get('cut_results',{}).items()),key = lambda k: k[0]):
                     failed_deformation_colour = (Colours.RED if (not cut_res['dod_computed'][-1]) else '')
+                    contains_a_fail = (contains_a_fail or (not cut_res['dod_computed'][-1]) )
                     tail_cut_info = '%-20s, %-20s, %-20s'%(
                         't_scal: %s'%('%.3e'%cut_res['t_scaling'] if cut_res['t_scaling'] is not None else 'N/A'),
                         'def_norm: %s'%('%.3e'%cut_res['deformation_norm'] if cut_res['deformation_norm'] is not None else 'N/A'),
@@ -478,10 +484,20 @@ class SuperGraph(dict):
                          tail_cut_info
                         )
                     )
+
                 for lead, middle, info, tail in res_list:
                     res_str.append('   %-35s: %-15s %-100s %s'%(
                         lead, middle, '%-7.4f +/- %-7.4f (max for lambda = %.2e: %s)'%(info['dod_computed'][0],info['dod_computed'][1],info['max_result'][0],str(complex(*info['max_result'][1])) ), tail 
                     ))
+                    if not info['dod_computed'][-1]:
+                        fail_res_str.append(res_str[-1])
+
+        if show_fail_only:
+            if not contains_a_fail:
+                return None
+            else:
+                return '\n'.join(fail_res_str)
+
         return '\n'.join(res_str)
 
     def show_UV_statistics(self):
@@ -1102,6 +1118,31 @@ class SuperGraphCollection(dict):
             res_str.append("\nIR profile of %s%s%s:\n%s"%(Colours.GREEN,SG_name,Colours.END, self[SG_name].show_IR_statistics(
                 show_momenta=show_momenta, external_momenta=external_momenta)))
 
+        fail_res_str = []
+        fail_res_str.append('')
+        fail_res_str.append('>> Listing of only SGs failing IR profile:')
+        fail_res_str.append('')
+        SGs_fail = []
+        for SG_name in sorted(list(self.keys())):
+            if 'E_surfaces_analysis' not in self[SG_name]:
+                continue
+            failed_str = self[SG_name].show_IR_statistics(show_momenta=show_momenta, external_momenta=external_momenta, show_fail_only=True)
+            if failed_str is not None:
+                SGs_fail.append(SGs_fail)
+                fail_res_str.append("\nIR profile of %s%s%s:\n%s"%(Colours.GREEN,SG_name,Colours.END, failed_str))
+
+        if len(SGs_fail)>0:
+            fail_res_str.append('')
+            fail_res_str.append('List of all %d SGs failing the IR profile: %s'%(
+                len(SGs_fail), ', '.join(SGs_fail)
+            ))
+            fail_res_str.append('')
+            res_str += fail_res_str
+        else:
+            res_str.append('')
+            res_str.append('All SGs passed the IR profile!')
+            res_str.append('')
+
         return '\n'.join(res_str)
 
     def show_UV_statistics(self):
@@ -1601,6 +1642,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='force a certain number of points to be considered for the ir profile')
     ir_profile_parser.add_argument("-sdt","--small_deformation_threshold", dest='small_deformation_threshold', type=float, default=1.0e-08,
                     help='Set the threshold on the normalised deformation norm for considering the deformation small (default: %(default)s)')
+    ir_profile_parser.add_argument("-spt","--small_projection_threshold", dest='small_projection_threshold', type=float, default=1.0e-10,
+                    help='Set the threshold on the angle of the projection of the deformation on the E-sueface norm to be considered valid (default: %(default)s)')
     ir_profile_parser.add_argument("-max","--max_scaling", dest='max_scaling', type=float, default=1.0e-05,
                     help='maximum IR scaling to consider')
     ir_profile_parser.add_argument("-min","--min_scaling", dest='min_scaling', type=float, default=1.0e0,
@@ -1660,6 +1703,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='Enable multi_channeling in the evaluation (default: %(default)s)')
     ir_profile_parser.add_argument("-nose","--no_selfenergy", action="store_false", dest="include_external_selfenergy_SGs", default=True,
                     help='Discard the analysis for all SGs feature cuts containing external self-energy corrections.')
+
     ir_profile_parser.add_argument(
         "-sm","--show_momenta", action="store_true", dest="show_momenta", default=False,
         help="Show the momenta of the edges in the E-surfaces for the intersection point approached in the IR.")
@@ -1711,6 +1755,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if len(selected_SGs)==0:
             logger.info("The list of selected supergraph to run the profiling on is empty. Finishing now then.")
             return
+        else:
+            logger.info("Now performing a IR profile analysis on %d supergraphs."%len(selected_SGs))
 
         # We need to detect here if we are in the amplitude-mock-up situation with frozen external momenta.
         frozen_momenta = None
@@ -1988,14 +2034,14 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     edges_in_subtree = { cut_tree.edge_map_lin[i][0] : edges_dict[cut_tree.edge_map_lin[i][0]] for i in sub_tree_indices[0] }
                     nodes_in_subtree = list(set(sum( [ [edge[0], edge[1]] for e_name, edge in edges_in_subtree.items() ],[])))
                     E_surf['left_nodes'] = nodes_in_subtree
-                    print('LEFT NODES: ',SG_name, E_surf['id'], E_surf['left_nodes'] )
+                    #print('LEFT NODES: ',SG_name, E_surf['id'], E_surf['left_nodes'] )
 
                 # Now build the "connectivity matrix" which sets, for each pair of E-surfaces, whether the nodes in-between are connected or not
                 connectivity = {}
                 for i_surf_A, E_surf_A in enumerate(E_surfaces):
                     for E_surf_B in E_surfaces[i_surf_A+1:]:
-                        print(SG_name, E_surf_A['id'], E_surf_A['left_nodes'] )
-                        print(SG_name, E_surf_B['id'], E_surf_B['left_nodes'] )
+                        #print(SG_name, E_surf_A['id'], E_surf_A['left_nodes'] )
+                        #print(SG_name, E_surf_B['id'], E_surf_B['left_nodes'] )
                         sandwiched_nodes_AB = [ n for n in E_surf_A['left_nodes'] if n not in E_surf_B['left_nodes'] ]
                         sandwiched_nodes_BA = [ n for n in E_surf_B['left_nodes'] if n not in E_surf_A['left_nodes'] ]
                         E_surface_A_relationship = None
@@ -2481,7 +2527,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                     if self.hyperparameters['General']['deformation_strategy']!='none' and (abs(deformation_norm_results[-1][1]) > args.small_deformation_threshold) and \
                                         not(any(E_surface_ID_to_E_surface[E_surf_id]['pinched'] for E_surf_id in E_surface_combination if E_surf_id!=CC_E_surf_id)):
                                         test_passed_per_cut[cut_ID] = test_passed_per_cut[cut_ID] and all( 
-                                                (projections[-1][1] < 0. or (CC_E_surf_id is not None and (not E_surf_connectivity_matrix[(CC_E_surf_id,E_surf_id)]['qualifies_for_deformation_check']) ) )
+                                                (projections[-1][1] < args.small_projection_threshold or (CC_E_surf_id is not None and (not E_surf_connectivity_matrix[(CC_E_surf_id,E_surf_id)]['qualifies_for_deformation_check']) ) )
                                             for E_surf_id, projections in deformation_projection_results.items() )
 
                                 if args.verbose or (not test_passed_per_cut[cut_ID] and args.show_fails):
@@ -2690,6 +2736,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if len(selected_SGs)==0:
             logger.info("The list of selected supergraph to run the profiling on is empty. Finishing now then.")
             return
+        else:
+            logger.info("Now performing a UV profile analysis on %d supergraphs."%len(selected_SGs))
 
         #self.hyperparameters['CrossSection']['NormalisingFunction']['spread'] = 1. # args.h_power
         if args.required_precision is None:
