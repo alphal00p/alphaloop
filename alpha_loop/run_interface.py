@@ -429,7 +429,8 @@ class SuperGraph(dict):
                         ','.join(osp['name'] for osp in E_surface_ID_to_E_surface[E_surf_ID]['onshell_propagators'])) for E_surf_ID in E_surface_combination),
                     Colours.END
                 ))
-                fail_res_str.append('%s : '%self['name']+res_str[-1])
+                fail_res_str.append('%s%s%s : '%(Colours.RED,self['name'],Colours.END)+res_str[-1])
+                this_intersection_contains_a_fail = False
                 if show_momenta:
                     intersection_point = [ Vector(v) for v in results['intersection_point'] ]
                     approach_direction = [ Vector(v) for v in results['approach_direction'] ]
@@ -458,12 +459,12 @@ class SuperGraph(dict):
                                     ) )
                             ) for prop_name, sig in sorted(self['edge_signatures'].items(), key=lambda el: (-1,el[0]) if re.match('^pq\d+$',el[0]) is None else (int(el[0][2:]),el[0]) ) ) ) 
 
-                contains_a_fail = (contains_a_fail or (not results['dod_computed'][-1]) )
+                this_intersection_contains_a_fail = (this_intersection_contains_a_fail or (not results['dod_computed'][-1]) )
 
                 res_list = [('Complete integrand','%sPASS%s'%(Colours.GREEN, Colours.END) if results['dod_computed'][-1] else '%sFAIL%s'%(Colours.RED, Colours.END), {k:v for k,v in results.items() if k!='cut_results'},''),]
                 for cut_ID, cut_res in  sorted(list(results.get('cut_results',{}).items()),key = lambda k: k[0]):
                     failed_deformation_colour = (Colours.RED if (not cut_res['dod_computed'][-1]) else '')
-                    contains_a_fail = (contains_a_fail or (not cut_res['dod_computed'][-1]) )
+                    this_intersection_contains_a_fail = (this_intersection_contains_a_fail or (not cut_res['dod_computed'][-1]) )
                     tail_cut_info = '%-20s, %-20s, %-20s'%(
                         't_scal: %s'%('%.3e'%cut_res['t_scaling'] if cut_res['t_scaling'] is not None else 'N/A'),
                         'def_norm: %s'%('%.3e'%cut_res['deformation_norm'] if cut_res['deformation_norm'] is not None else 'N/A'),
@@ -484,6 +485,11 @@ class SuperGraph(dict):
                          tail_cut_info
                         )
                     )
+                
+                if not this_intersection_contains_a_fail:
+                    del fail_res_str[-1]
+
+                contains_a_fail = (contains_a_fail or this_intersection_contains_a_fail)
 
                 for lead, middle, info, tail in res_list:
                     res_str.append('   %-35s: %-15s %-100s %s'%(
@@ -1120,7 +1126,7 @@ class SuperGraphCollection(dict):
 
         fail_res_str = []
         fail_res_str.append('')
-        fail_res_str.append('>> Listing of only SGs failing IR profile:')
+        fail_res_str.append('>> Listing of only the SGs failing IR profile:')
         fail_res_str.append('')
         SGs_fail = []
         for SG_name in sorted(list(self.keys())):
@@ -1128,13 +1134,13 @@ class SuperGraphCollection(dict):
                 continue
             failed_str = self[SG_name].show_IR_statistics(show_momenta=show_momenta, external_momenta=external_momenta, show_fail_only=True)
             if failed_str is not None:
-                SGs_fail.append(SGs_fail)
-                fail_res_str.append("\nIR profile of %s%s%s:\n%s"%(Colours.GREEN,SG_name,Colours.END, failed_str))
+                SGs_fail.append(SG_name)
+                fail_res_str.append(failed_str)
 
         if len(SGs_fail)>0:
             fail_res_str.append('')
             fail_res_str.append('List of all %d SGs failing the IR profile: %s'%(
-                len(SGs_fail), ', '.join(SGs_fail)
+                len(SGs_fail), ', '.join(['%s%s%s'%(Colours.RED, name, Colours.END) for name in SGs_fail])
             ))
             fail_res_str.append('')
             res_str += fail_res_str
