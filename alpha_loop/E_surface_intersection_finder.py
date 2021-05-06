@@ -162,7 +162,7 @@ class EsurfaceIntersectionFinder(object):
 
         all_loop_sigs = list(set([ osp['loop_sig'] for E_surf in self.E_surfaces for osp in E_surf['onshell_propagators'] ]))
 
-        # Now add all possible combinations, from less likely to yield a solution to more likely
+        # Now add all possible combinations, from more likely to yield a solution to less likely
         all_possible_loop_signatures_directions = list(itertools.combinations_with_replacement(base_directions, len(all_loop_sigs)))
         if len(all_possible_loop_signatures_directions)<maximal_cvxpy_seed_point_improvement_steps:
             for additional_combinations in itertools.combinations_with_replacement(base_directions+extra_directions, len(all_loop_sigs)):
@@ -208,6 +208,8 @@ class EsurfaceIntersectionFinder(object):
             if consistency_test < self.consistency_check_threshold:
                 if self.debug: logger.info('Current solution satisfactory enough, returning now.')
                 solved = True
+                if self.frozen_momenta is not None:
+                    new_seed_point[-len(self.frozen_momenta['out']):] = self.frozen_momenta['out']
                 return new_seed_point, solved
             
             if best_consistency_test is None or consistency_test<best_consistency_test:
@@ -406,7 +408,6 @@ class EsurfaceIntersectionFinder(object):
                         E_surf['id'], self.E_surface( seed_point, E_surf['onshell_propagators'], E_surf['E_shift'] )) for E_surf in self.E_surfaces
                     )
                 ))
-
                 return seed_point
 
         if self.debug: 
@@ -486,18 +487,19 @@ class EsurfaceIntersectionFinder(object):
 
                 #pprint(self.intersection_scalar_function(scipy_seed))
                 #pprint(self.intersection_scalar_function_jac(scipy_seed))
-                warnings.filterwarnings('error')
                 scipy_res = None
                 try:
-                    scipy_res = optimize.fsolve(
-                        self.intersection_function,
-                        scipy_seed,
-                        fprime=self.intersection_function_jac, 
-                        **{
-                            'xtol'   : self.scipy_tolerance,
-                            'maxfev' : 1000*(len(scipy_seed)+1)
-                        }
-                    )
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings('error')
+                        scipy_res = optimize.fsolve(
+                            self.intersection_function,
+                            scipy_seed,
+                            fprime=self.intersection_function_jac, 
+                            **{
+                                'xtol'   : self.scipy_tolerance,
+                                'maxfev' : 1000*(len(scipy_seed)+1)
+                            }
+                        )
                     fsolve_success = True
                 except Warning as e:
                     fsolve_success = False
@@ -536,17 +538,18 @@ class EsurfaceIntersectionFinder(object):
 
                 #pprint(self.intersection_scalar_function(scipy_seed))
                 #pprint(self.intersection_scalar_function_jac(scipy_seed))
-                warnings.filterwarnings('error')
                 scipy_res = None
                 try:
-                    scipy_res = optimize.minimize(
-                        self.intersection_scalar_function,
-                        scipy_seed,
-                        tol=self.scipy_tolerance,
-                        jac=self.intersection_scalar_function_jac,
-                        hess=self.intersection_scalar_function_hessian,
-                        method='trust-ncg'#'trust-krylov'#'dogleg'#'trust-ncg'#'Newton-CG'#'BFGS'
-                    )
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings('error')
+                        scipy_res = optimize.minimize(
+                            self.intersection_scalar_function,
+                            scipy_seed,
+                            tol=self.scipy_tolerance,
+                            jac=self.intersection_scalar_function_jac,
+                            hess=self.intersection_scalar_function_hessian,
+                            method='trust-ncg'#'trust-krylov'#'dogleg'#'trust-ncg'#'Newton-CG'#'BFGS'
+                        )
                     fsolve_success = True
                 except Warning as e:
                     fsolve_success = False
@@ -602,18 +605,18 @@ class EsurfaceIntersectionFinder(object):
 
         return None
 
-    def delta(self, loop_momenta, loop_sig, shift, m_squared):
+    @classmethod
+    def delta(cls, loop_momenta, loop_sig, shift, m_squared):
         
         k = [ sum( l[i]*factor for l, factor in zip(loop_momenta,loop_sig)) for i in range(0,3) ]
-
-        return math.sqrt(
-             (k[0]**2+k[1]**2+k[2]**2)+
+        delta_arg = ((k[0]**2+k[1]**2+k[2]**2)+
             +2*(k[0]*shift[0]+k[1]*shift[1]+k[2]*shift[2])
             +shift[0]**2+shift[1]**2+shift[2]**2
-            +m_squared
-        )
+            +m_squared)
+        return math.sqrt(max(delta_arg,0.))
     
-    def ddelta(self, loop_momenta, loop_sig, shift, m_squared, loop_index, component_index):
+    @classmethod
+    def ddelta(cls, loop_momenta, loop_sig, shift, m_squared, loop_index, component_index):
 
         k_derived = loop_momenta[loop_index][component_index]*loop_sig[loop_index]
 
@@ -622,31 +625,35 @@ class EsurfaceIntersectionFinder(object):
 
         k_not_derived = sum( l[component_index]*factor for i_loop_mom, (l, factor) in enumerate(zip(loop_momenta,loop_sig)) if i_loop_mom!=loop_index )
 
-        return (k_derived + k_not_derived + shift[component_index])/self.delta(loop_momenta, loop_sig, shift, m_squared)
+        return loop_sig[loop_index]*(k_derived + k_not_derived + shift[component_index])/max(cls.delta(loop_momenta, loop_sig, shift, m_squared),1.0e-99)
 
-    def dddelta(self, loop_momenta, loop_sig, shift, m_squared, loop_indexA, component_indexA,loop_indexB, component_indexB):
+    @classmethod
+    def dddelta(cls, loop_momenta, loop_sig, shift, m_squared, loop_indexA, component_indexA,loop_indexB, component_indexB):
 
         if (loop_indexA, component_indexA)==(loop_indexB, component_indexB):
-            return (1.-(self.ddelta(loop_momenta, loop_sig, shift, m_squared,loop_indexA, component_indexA)**2))/self.delta(loop_momenta, loop_sig, shift, m_squared)
+            return (1.-(cls.ddelta(loop_momenta, loop_sig, shift, m_squared,loop_indexA, component_indexA)**2))/cls.delta(loop_momenta, loop_sig, shift, m_squared)
         else:
-            return ((self.ddelta(loop_momenta, loop_sig, shift, m_squared,loop_indexA, component_indexA)*self.ddelta(loop_momenta, loop_sig, shift, m_squared,loop_indexB, component_indexB))/
-                self.delta(loop_momenta, loop_sig, shift, m_squared) )
+            return ((cls.ddelta(loop_momenta, loop_sig, shift, m_squared,loop_indexA, component_indexA)*cls.ddelta(loop_momenta, loop_sig, shift, m_squared,loop_indexB, component_indexB))/
+                cls.delta(loop_momenta, loop_sig, shift, m_squared) )
 
-    def E_surface(self, loop_momenta, onshell_propagators, E_surface_shift):
+    @classmethod
+    def E_surface(cls, loop_momenta, onshell_propagators, E_surface_shift):
         
         # Not necessary any longer as I append frozen momenta upstream now.
         #if len(loop_momenta) < len(self.cvxpy_coordinates):
         #    loop_momenta += self.frozen_momenta['out']
 
-        return sum( self.delta(loop_momenta,osp['loop_sig'],osp['v_shift'],osp['m_squared']) for osp in onshell_propagators) + E_surface_shift
+        return sum( cls.delta(loop_momenta,osp['loop_sig'],osp['v_shift'],osp['m_squared']) for osp in onshell_propagators) + E_surface_shift
 
-    def dE_surface(self, loop_momenta, onshell_propagators, E_surface_shift, loop_index, component_index):
+    @classmethod
+    def dE_surface(cls, loop_momenta, onshell_propagators, E_surface_shift, loop_index, component_index):
 
-        return sum( self.ddelta(loop_momenta,osp['loop_sig'],osp['v_shift'],osp['m_squared'],loop_index, component_index) for osp in onshell_propagators)
+        return sum( cls.ddelta(loop_momenta,osp['loop_sig'],osp['v_shift'],osp['m_squared'],loop_index, component_index) for osp in onshell_propagators)
 
-    def ddE_surface(self, loop_momenta, onshell_propagators, E_surface_shift, loop_indexA, component_indexA,loop_indexB, component_indexB):
+    @classmethod
+    def ddE_surface(cls, loop_momenta, onshell_propagators, E_surface_shift, loop_indexA, component_indexA,loop_indexB, component_indexB):
 
-        return sum( self.dddelta(loop_momenta,osp['loop_sig'],osp['v_shift'],osp['m_squared'],loop_indexA, component_indexA,loop_indexB, component_indexB) for osp in onshell_propagators)
+        return sum( cls.dddelta(loop_momenta,osp['loop_sig'],osp['v_shift'],osp['m_squared'],loop_indexA, component_indexA,loop_indexB, component_indexB) for osp in onshell_propagators)
 
     def intersection_function(self, xs):
 

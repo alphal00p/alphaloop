@@ -42,7 +42,8 @@ class HyperParameters(dict):
                 raise BaseException("Install yaml python module in order to export hyperparameters to yaml.")
 
         if output_path is not None:
-            open(output_path,'w').write(yaml.dump(self.to_flat_format(), Dumper=Dumper, default_flow_style=False))
+            with open(output_path,'w') as f:
+                f.write(yaml.dump(self.to_flat_format(), Dumper=Dumper, default_flow_style=False))
         else:
             return yaml.dump(self.to_flat_format(), Dumper=Dumper, default_flow_style=False)
 
@@ -124,7 +125,7 @@ hyperparameters = HyperParameters({
         # the channel IDs to consider. A channel ID corresponds to its index in the list produced by the
         # cartesian product of the cut_structure with the propagators in each of the loop lines.
         'multi_channeling_channel': None,
-        'multi_channeling_including_massive_propagators': False,
+        'multi_channeling_including_massive_propagators': True,
         # Derive the overlap structure required for the fixed deformation in Rust.
         'derive_overlap_structure':  False,
         # can be additive, fixed, constant or none
@@ -158,7 +159,7 @@ hyperparameters = HyperParameters({
                 # number of samples to take for the numerical stability check
                 'n_samples': 3,
                 'use_f128': False,
-                'use_pf': False,
+                'use_pf': True,
                 # number of digits that should be the same between rotated versions
                 'relative_precision': 4.0,
                 # force an upgrade when a new weight is this threshold times the current maximum weight
@@ -193,7 +194,7 @@ hyperparameters = HyperParameters({
         # Use the dashboard. Make sure to run Cuba with 0 cores or enable internal_parallelization.
         'dashboard'         :   True,
         # The integrator can be havana, vegas, divonne, cuhre or suave
-        'integrator'        :   'vegas',
+        'integrator'        :   'havana',
         'n_start'           :   int(1.0e5),
         'n_max'             :   int(1.0e10),
         'n_increase'        :   int(1.0e5),
@@ -203,9 +204,9 @@ hyperparameters = HyperParameters({
         'train_on_avg'      : False,
         'learning_rate'     : 1.5,
         # can be set to high values for use with MPI or internal_parallelization, otherwise leave it at 1
-        'n_vec'             :   80,
+        'n_vec'             :   100,
         'seed'              :   1,
-        'integrated_phase'  :  'both',
+        'integrated_phase'  :  'imag',
         'state_filename_prefix' :   None,
         'survey_n_points'   :   0,
         'survey_n_iterations':  0,
@@ -300,12 +301,12 @@ hyperparameters = HyperParameters({
             # can be hyperbolic, softmin, or unity
             'mode'  :   'hyperbolic',
             # dampen the deformation on pinches
-            'dampen_on_pinch': False,
+            'dampen_on_pinch': True,
             # dampen the deformation on pinches (if dampen_on_pinch is set) after the lambda scaling
-            'dampen_on_pinch_after_lambda': False,
+            'dampen_on_pinch_after_lambda': True,
             'pinch_dampening_alpha': 1.,
-            'pinch_dampening_k_com': 0.,
-            'pinch_dampening_k_shift': 1.,
+            'pinch_dampening_k_com': 1.,
+            'pinch_dampening_k_shift': 0.,
             # Specify a strategy to veto small problematic regions close to IR singularities
             # The strategy can either be "dismiss_point", "dismiss_deformation" or "none"
             'ir_handling_strategy': 'none',
@@ -350,7 +351,7 @@ hyperparameters = HyperParameters({
         'b'         :   1.0,
         # rescale the input from [0,1] to [lo,hi]
         'input_rescaling' : [
-            [[0. ,1.], [0., 1.], [0., 1.]],
+            [[0., 1.], [0., 1.], [0., 1.]],
             [[0., 1.], [0., 1.], [0., 1.]],
             [[0., 1.], [0., 1.], [0., 1.]],
             [[0., 1.], [0., 1.], [0., 1.]],
@@ -369,15 +370,15 @@ hyperparameters = HyperParameters({
     },
 
     'CrossSection'   :   {
-        'incoming_momenta'                      :   [[500., 0., 0., 500.], [500., 0., 0., -500.]],
+        'incoming_momenta'                      :   [[500., 0., 0., 500.],[500., 0., 0., -500.]],
         # used to compute an amplitude instead of a cross section
         'fixed_cut_momenta'                     :   [],
-        'm_uv_sq'                               :   16.,
-        'mu_r_sq'                               :   16.,
+        'm_uv_sq'                               :   155.**2,
+        'mu_r_sq'                               :   155.**2,
         'gs'                                    :   1.2177157847767195,
         # give massless propagators a small mass (only for FORM_integrand)
         'small_mass_sq'                         :   0.,
-        'picobarns'                             :   True,
+        'picobarns'                             :   False,
         'inherit_deformation_for_uv_counterterm':   False,
         'do_rescaling'                          :   True,        
         'NormalisingFunction' : {
@@ -416,13 +417,13 @@ hyperparameters = HyperParameters({
         # options: jet
         'active_selectors'          :   [],
         'jet': {
-            'min_jets'              :   0,
+            'min_jets'              :   2,
             'max_jets'              :   100,
             'min_j1pt'              :   0.,
             # A negative maximum means no cut is applied
             'max_j1pt'              :   -1.,
             'dR'                    :   0.4,
-            'min_jpt'              :   0.,
+            'min_jpt'               :   10.0,
             'use_fastjet'           :   True, 
         }
     },

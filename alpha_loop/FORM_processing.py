@@ -2169,6 +2169,7 @@ class FORMSuperGraphIsomorphicList(list):
         # logger.info("{} = {} * {}".format(self[0].name, factor, g.name ))
         return (self, multiplicity)
 
+    @staticmethod
     def multiplicity_factor_helper(args):
         return args[0].multiplicity_factor(*args[1:])
 

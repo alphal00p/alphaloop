@@ -32,6 +32,13 @@ from LTD.vectors import LorentzVector, LorentzVectorList
 import alpha_loop.integrator.integrands as integrands
 import alpha_loop.integrator.vegas3_integrator as vegas3
 
+try:
+    import scipy.optimize as optimize
+    import warnings
+    scipy_optimize_loaded = True
+except:
+    scipy_optimize_loaded = False
+
 #import matplotlib.pyplot as plt
 import numpy as np
 
@@ -587,9 +594,18 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         self.multichannel_generators = {}
 
         self.edges_PDG = { e[0] : e [1] for e in self.SG['edge_PDGs'] }
-        self.edge_masses = { edge_name : self.model['parameter_dict'][
+
+        unknown_particles = set([ PDG for edge_name, PDG in self.edges_PDG.items() if self.model.get_particle(PDG) is None ])
+        if len(unknown_particles)>0:
+            raise SamplerError("The particle PDGs %s are unknown in the model '%s' loaded. Make sure you loaded the same model that was used for generating the output."%(
+                str(unknown_particles), self.model.get('name')
+            ))
+        try:
+            self.edge_masses = { edge_name : self.model['parameter_dict'][
                     self.model.get_particle(self.edges_PDG[edge_name]).get('mass')
             ].real for edge_name in self.edges_PDG }
+        except Exception as e:
+            raise SamplerError("Some of the particle masses used in that supergraph are not defined in the model. Make sure you loaded the proper model and with the proper restrict card.")
 
         for i_channel, SG_channel_info in enumerate(self.SG['SG_multichannel_info']):
 
@@ -737,6 +753,78 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         xs = [e for x in zip(xs_radii,xs_thetas,xs_phis) for e in x]
         return xs, loop_inv_jac
 
+    def numerical_solve_soper_flow(self, final_state_configurations, Q0):
+
+        if self.debug:
+            logger.info("Numerical Soper Flow solving with Q0=%.3e and inputs:\n%s"%(Q0,pformat(final_state_configurations)))
+
+        if not scipy_optimize_loaded:
+            raise SamplerError("The numerical solution of Soper flow requires scipy. Install it.") 
+           
+        square_roots = [ {
+                'k.k' : cfg['k'].square(),
+                'k.p' : cfg['k'].dot(cfg['shift']),
+                'm2'  : cfg['mass']**2
+            } for cfg in  final_state_configurations ]
+
+        def energy_sum(t):
+            return sum(math.sqrt((t**2)*sqr['k.k'] + t*sqr['k.p'] + sqr['m2']) for sqr in square_roots)/Q0 - 1.
+
+        def energy_sum_squared(t):
+            return energy_sum(t)**2
+
+        if energy_sum(0.) > 0.:
+            raise SamplerError("The Soper flow could not be solved for these square roots because it will "+
+                "have no solutions or several positive ones which is not supported at the moment:\n%s "%pformat(final_state_configurations))
+
+        upper_bound = Q0/max(sqr['k.k'] for sqr in square_roots)
+        n_try = 1
+        while energy_sum(upper_bound) < 0. and n_try < 100:
+            upper_bound *= 10.
+            n_try += 1
+
+        if energy_sum(upper_bound) < 0.:
+            raise SamplerError("The Soper flow could not be solved for these square roots because it could not find a point "+
+                "for which the Cutkosky surface evaluates to a positive quantity :\n%s "%pformat(final_state_configurations))
+
+        if self.debug:
+            logger.info("Detected bounds for Numerical Soper Flow solving: (%.16e, %.16e)"%(0., upper_bound))
+
+        scipy_res = None
+        try:
+            with warnings.catch_warnings():
+                warnings.filterwarnings('error')
+                scipy_res = optimize.minimize_scalar(
+                    energy_sum_squared,
+                    bounds=(0.,upper_bound),
+                    #tol=1.0e-10,
+                    method='bounded',
+                    options={
+                        'xatol': 1.0e-16,
+                        'maxiter' : 1000
+                    }
+                )
+            fsolve_success = True
+        except Warning as e:
+            logger.info("Numerical Soper flow failed with Warning:\n%s"%str(e))
+            fsolve_success = False
+        
+        if scipy_res is None or not fsolve_success:
+             raise SamplerError("Could not numerically solve Soper Flow for:\n%s"%pformat(final_state_configurations))
+
+        t_solution = scipy_res.x
+        if self.debug:
+            logger.info("Numerical Soper Flow solving returned:\n%s"%str(scipy_res))
+            logger.info("Target function evaluation for t=%.16e found: %.16e"%(t_solution,energy_sum(t_solution)))
+
+        _numerical_soper_flow_threshold = 1.0e-7
+        if t_solution<=0. or abs(energy_sum(t_solution))>_numerical_soper_flow_threshold:
+             raise SamplerError("The numerical solver for Soper Flow found a solution which is however unsatisfactory t=%.16e, abs(E(t))=%.3e>%.3e."%(
+                 t_solution, abs(energy_sum(t_solution)), _numerical_soper_flow_threshold
+             ))
+
+        return t_solution
+
     def solve_soper_flow(self, final_state_configurations, external_momenta):
         """ Numerically solve for the specified final_state_configurations which is a list with entries:
             'k', 'shift', 'direction' and 'mass'.
@@ -754,7 +842,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         if all( (cfg['mass']==0. and cfg['shift'].square()==0.) for cfg in final_state_configurations):
             return Q0/sum( math.sqrt(cfg['k'].square()) for cfg in final_state_configurations )
         else:
-            raise SamplerError("The numerical solution of Soper flow with optimize.root_scalar is not implemented yet.")
+            return self.numerical_solve_soper_flow(final_state_configurations, Q0)
 
     def __call__(self, continuous_inputs, discrete_inputs, selected_cut_and_side=None, selected_LMB=None, **opts):
 
@@ -928,7 +1016,12 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             external_phase_space_xs = generator.PS_xs
 
         # build the external kinematics 
-        PS_point, PS_jac, _, _ = generator.get_PS_point(external_phase_space_xs)
+        try:
+            PS_point, PS_jac, _, _ = generator.get_PS_point(external_phase_space_xs)
+        except Exception as e:
+            if self.show_warnings: logger.warning("Exception during phase-space generation: %s\n%s"%(str(e),str(traceback.format_exc())))
+            PS_point = None
+
         if PS_point is None:
             if self.show_warnings: logger.warning(("\nPhase-space generator failed to generate a kinematic configuration for the following input xs:\n%s"+
                             "\ncorresponding to the following input random variables of the complete integrand:\n%s\n"+
@@ -1021,7 +1114,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
                 delta_jacobian += (
                     ( 2. * inv_rescaling_t * k.square() + k.dot(shift) ) / 
-                    ( 2. * math.sqrt( (inv_rescaling_t*k + shift).square() - self.edge_masses[edge_name]**2 ) )
+                    ( 2. * math.sqrt( (inv_rescaling_t*k + shift).square() + self.edge_masses[edge_name]**2 ) )
                 )
 
             delta_jacobian *= (inv_rescaling_t)**2
@@ -1298,7 +1391,14 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                     list(PS_initial_state_four_momenta)+MC_downscaled_final_state_four_momenta
                 ).__str__(n_initial=2, leg_names=MC_incoming_edge_names+MC_outgoing_edge_names))
 
-            MC_xs, MC_PS_jac= MC_generator.invertKinematics( self.E_cm, vectors.LorentzVectorList(list(PS_initial_state_four_momenta)+MC_downscaled_final_state_four_momenta) )
+            try:
+                MC_xs, MC_PS_jac= MC_generator.invertKinematics( self.E_cm, vectors.LorentzVectorList(list(PS_initial_state_four_momenta)+MC_downscaled_final_state_four_momenta) )
+            except Exception as e:
+                if self.show_warnings: logger.warning("Exception during phase-space generation inversion: %s\n%s"%(str(e),str(traceback.format_exc())))
+                MC_xs = None
+            if MC_xs is None:
+                return None
+    
             if self.debug: logger.debug('MC PS xs=%s'%str(MC_xs))
 
             # Correct for the 1/(2E) of each cut propagator that alphaLoop includes but which is already included in the normal PS parameterisation
@@ -1316,7 +1416,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
                     MC_delta_jacobian += (
                         ( 2. * MC_inv_rescaling_t * k.square() + k.dot(shift) ) / 
-                        ( 2. * math.sqrt( (MC_inv_rescaling_t*k + shift).square() - self.edge_masses[edge_name]**2 ) )
+                        ( 2. * math.sqrt( (MC_inv_rescaling_t*k + shift).square() + self.edge_masses[edge_name]**2 ) )
                     )
                 MC_delta_jacobian *= (MC_inv_rescaling_t)**2
             else:
