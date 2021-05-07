@@ -1,32 +1,32 @@
 #procedure gamma - traces - chains
 * chain out momenta gam(...,lVec(p1+p2),...) = gam(...,p1,...)+gam(...,p2,...)
     repeat id gam(?aa,lVec(p?vector_),?bb) = gam(?aa,p,?bb);
-repeat;
+    repeat;
         id once gam(?aa,lVec(p?!vector_),?bb) = p(mu)*gam(?aa,mu,?bb);
-        id p ? (mu ?) * gam(? aa, mu ?, ? bb) = gam(? aa, p, ? bb);
-        endrepeat;
+        id p?(mu?) * gam(?aa, mu?,?bb) = gam(?aa, p,?bb);
+    endrepeat;
     repeat id gam(?aa,s1?)*gam(s1?,?bb) = gam(?aa,?bb);
     id gam(s1?,?aa,s1?) = gammatrace(?aa);
 
     B + gammatrace;
     .sort : chain - out - momenta;
 
-    *perform traces Keep brackets;
+*perform traces Keep brackets;
     repeat;
         id once gammatrace(?aa) = g_(1,?aa);
         trace4, 1;
         endrepeat;
         B + gam;
-        .sort : gamma - traces;
-        *simplify gamma - strings Keep brackets;
+        .sort:gamma-traces;
+*simplify gamma - strings Keep brackets;
 * these are all the chains which are not simplified
     id gam(?aa) = gammatensor(?aa);
 #call Gstring4D(gammatensor, 0)
     id gammatensor(?aa) = gamma(?aa);
 #endprocedure
 
-#procedure expand - gamma - chains
-    ***********expand gamma chains **********************CF gammaAll;
+#procedure expand-gamma-chains
+***********expand gamma chains **********************CF gammaAll;
     S iter, intSym;
 
     Table explSpinor(1:4,p?);
@@ -50,27 +50,28 @@ repeat;
     B + gamma;
     .sort
 
-#include - definition_gamma_explicit.h
-        ***********************gamma expansion *********************************
-            ***************************keep brackets;
-    *gamma(1, p1 + q1, 2) expansion repeat;
+    #include- definition_gamma_explicit.h
+***********************gamma expansion *********************************
+***************************keep brackets;
+*gamma(1, p1 + q1, 2) expansion 
+    repeat;
         id once gamma(xx?number_,?aa,p?!vector_,aa?number_) = p(mu)*gamma(xx,?aa,mu,aa);
-        id p ? (mu ?) *
-                gamma(xx ? number_, mu ?, aa ? number_) = gamma(xx, p, aa);
-        endrepeat;
+        id p?(mu?)*gamma(xx?number_, mu?, aa?number_) = gamma(xx, p, aa);
+    endrepeat;
         B + gamma;
-        .sort : p - expand;
+    .sort:p-expand;
         keep brackets;
-        repeat;
+    repeat;
         id gamma(x?int_, p?vector_,  y?int_) = slash(x,y,p);
         id gamma(x?int_, intSym?int_, y?int_) = gamtab(x,y,intSym);
         id gamma(x?int_,?aa, p?vector_,  y?int_) = sum_(iter,1,4,gamma(x,?aa,iter)*slash(iter,y,p));
         id gamma(x?int_,?aa, intSym?int_, y?int_) = sum_(iter,1,4,gamma(x,?aa,iter)*gamtab(iter,y,intSym));
-        endrepeat;
-        .sort : gamma - chain - explicit;
+    endrepeat;
+    .sort:gamma-chain-explicit;
 
-        *sanity check if (count(gamma, 1) || count(gam, 1));
+*sanity check 
+    if (count(gamma, 1) || count(gam, 1));
         print "Some gammas are not replaced: %t";
         exit "Critical ERROR";
-        endif;
+    endif;
 #endprocedure
