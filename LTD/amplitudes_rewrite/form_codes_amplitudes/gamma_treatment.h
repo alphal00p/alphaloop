@@ -1,4 +1,4 @@
-#procedure gamma - traces - chains
+#procedure gamma-traces-chains
 * chain out momenta gam(...,lVec(p1+p2),...) = gam(...,p1,...)+gam(...,p2,...)
     repeat id gam(?aa,lVec(p?vector_),?bb) = gam(?aa,p,?bb);
     repeat;
@@ -9,7 +9,7 @@
     id gam(s1?,?aa,s1?) = gammatrace(?aa);
 
     B + gammatrace;
-    .sort : chain - out - momenta;
+    .sort : chain-out-momenta;
 
 *perform traces Keep brackets;
     repeat;
@@ -18,7 +18,7 @@
         endrepeat;
         B + gam;
         .sort:gamma-traces;
-*simplify gamma - strings Keep brackets;
+*simplify gamma-strings Keep brackets;
 * these are all the chains which are not simplified
     id gam(?aa) = gammatensor(?aa);
 #call Gstring4D(gammatensor, 0)
@@ -50,7 +50,7 @@
     B + gamma;
     .sort
 
-    #include- definition_gamma_explicit.h
+    #include-definition_gamma_explicit.h
 ***********************gamma expansion *********************************
 ***************************keep brackets;
 *gamma(1, p1 + q1, 2) expansion 
