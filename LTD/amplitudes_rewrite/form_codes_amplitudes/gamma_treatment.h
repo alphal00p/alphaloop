@@ -15,13 +15,13 @@
     repeat;
         id once gammatrace(?aa) = g_(1,?aa);
         trace4, 1;
-        endrepeat;
-        B + gam;
-        .sort:gamma-traces;
+    endrepeat;
+    B + gam;
+    .sort:gamma-traces;
 *simplify gamma-strings Keep brackets;
 * these are all the chains which are not simplified
     id gam(?aa) = gammatensor(?aa);
-#call Gstring4D(gammatensor, 0)
+    #call Gstring4D(gammatensor, 0)
     id gammatensor(?aa) = gamma(?aa);
 #endprocedure
 

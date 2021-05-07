@@ -19,7 +19,8 @@ Off statistics;
 *#define OPTIMLVL "4"
 *#define OPTIMITERATIONS "1000"
 *#define DEBUGLVL "1"
-
+*#define NUMERICGCHAINS "1"
+*#define NUMERICGCHAINS "1"
 * defintions for the computation
 V p1,...,p40,k1,...,k40,c1,...,c40; * force this internal ordering in FORM
 Auto V p,k,eps,ceps, sV,sVbar,sU,sUbar,c;
@@ -134,11 +135,56 @@ Keep brackets;
 
 #call gamma-traces-chains
 .sort:simplify-gamma-chains;
-#call expand-gamma-chains
-* I have to ask ben why that is not done by default
+#if (`NUMERICGCHAINS'<=0)
+    #call expand-gamma-chains
+#endif
 symmetrize spatial;
 .sort:gamma-chain-final;
 
+
+#if (`NUMERICGCHAINS'>0)
+    V envec, spatvec1, spatvec2 spatvec3;
+    CF gchain;
+    Auto S spatialc;
+
+    id spinor(p?,sd1?)*gamma(sd1?,?aa) =gamma(p,?aa);
+    id spinor(p?,sd1?)*gamma(?aa,sd1?) = gamma(?aa,p);
+    id spinor(p?,s1?)*gamma(s1?,?aa) =gamma(p,?aa);
+    id spinor(p?,s1?)*gamma(?aa,s1?) = gamma(?aa,p);
+    B+ gamma;
+    .sort
+    Keep brackets;
+* split off energies only
+    #do i=`NFINALMOMENTA'+1, `NFINALMOMENTA'+`NLOOPMOMENTA'
+        repeat;
+            id once gamma(?aa,c`i',?bb) = penergy(c`i')*gamma(?aa,envec,?bb) + gamma(?aa,spatialc`i',?bb); 
+        endrepeat;
+    #enddo
+    
+* if that becomes a problem the gamma chain has to be re-tought    
+    repeat;
+        id once gamma(?aa,mu?,?bb)*gamma(?cc,mu?,?dd) = gamma(?aa,envec,?bb)*gamma(?cc,envec,?dd)
+            - gamma(?aa,spatvec1,?bb)*gamma(?cc,spatvec1,?dd)
+            - gamma(?aa,spatvec2,?bb)*gamma(?cc,spatvec2,?dd)
+            - gamma(?aa,spatvec3,?bb)*gamma(?cc,spatvec3,?dd);
+    endrepeat;
+* put into gamma-chain format
+    id gamma(?aa) = gamma(nargs_(?aa),gchain(?aa));
+    #redefine oldextrasymbols "`extrasymbols_'"
+    argtoextrasymbol tonumber gamma 2;
+    .sort
+    #write<out_integrand_PF_`SGID'.proto_c> "// dummy vectors";
+    #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s envec[4] = {1.,0.,0.,0.};";
+    #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s spatvec1[4] = {0.,1.,0.,0.};";
+    #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s spatvec2[4] = {0.,0.,1.,0.};";
+    #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s spatvec3[4] = {0.,0.,0.,1.};\n";
+#endif
+symmetrize spatial;
+.sort:gamma-chain-final;
+.sort
+
+
+* I have to ask ben why that is not done by default
 
 
 *********************************************************************************
@@ -153,6 +199,19 @@ symmetrize spatial;
 .sort
 #call introduce-lms
 .sort:introduce-lm;
+* write out g-chains
+
+#if (`NUMERICGCHAINS'>0)  
+    Format C;
+    #write<out_integrand_PF_`SGID'.proto_c> "//gamma chains\n"
+    #do i={`oldextrasymbols'+1},`extrasymbols_'
+        #$y = extrasymbol_(`i');
+        #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s *gchain`i'[] = %$;" $y;
+    #enddo
+    delete  extrasymbols>`oldextrasymbols';
+    
+#endif
+#write<out_integrand_PF_`SGID'.proto_c> "\n";
 * treatement of overall denominators: optimize and export
 #if `TREATAMDENOM'
     

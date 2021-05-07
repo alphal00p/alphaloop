@@ -22,11 +22,15 @@
     #$MAXK = `NCUTMOMENTA';
     #$MAXP = `NINITIALMOMENTA';
     #$OFFSET = 0;
+
+    #write<out_integrand_PF_`SGID'.proto_c> "// components vectors";
     #do i=1,`$MAXP'
         #if (`DEBUGLVL'>0)
             #write<debug_lm_diag_`SGID'.m> "penergy[(p`i')] -> lm`$OFFSET',"
         #endif
         id penergy(p`i') = lm`$OFFSET';
+        #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s p`i'[4];";
+        #write<out_integrand_PF_`SGID'.proto_c> "p`i'[0] = lm`$OFFSET';";
         argument;
             id penergy(p`i') = lm`$OFFSET';
             argument;
@@ -65,6 +69,9 @@
     #do i=1,`$MAXK'
         #if (`i'<= `NFINALMOMENTA');
             id penergy(c`i') = lm`$OFFSET';
+
+            #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s c`i'[4];";
+            #write<out_integrand_PF_`SGID'.proto_c> "c`i'[0] = lm`$OFFSET';";
             #if (`DEBUGLVL'>0)
                 #write<debug_lm_diag_`SGID'.m> "penergy[(c`i')] -> lm`$OFFSET',"
             #endif
@@ -144,14 +151,26 @@
             #if (`DEBUGLVL'>0)
                 #write<debug_lm_diag_`SGID'.m> "spatialComp[p`i',`j'] -> lm`$OFFSET',"
             #endif
-            id spatialComp(p`i',`j') =  lm`$OFFSET';
+            #write<out_integrand_PF_`SGID'.proto_c> "p`i'[`j'] = lm`$OFFSET';";
+            id spatialComp(p`i',`j') =  lm`$OFFSET';            
+
             #$OFFSET = $OFFSET + 1;
         #enddo       
     #enddo
     #do i=1,`$MAXK'
+        #if (`i'> `NFINALMOMENTA');
+            #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s spatialc`i'[4];";
+            #write<out_integrand_PF_`SGID'.proto_c> "spatialc`i'[0] = 0.0;";
+        #endif
         #do j =1,3
             #if (`DEBUGLVL'>0)
                 #write<debug_lm_diag_`SGID'.m> "spatialComp[c`i',`j'] -> lm`$OFFSET',"
+            #endif
+            #if (`i'<= `NFINALMOMENTA');
+                #write<out_integrand_PF_`SGID'.proto_c> "c`i'[`j'] =  lm`$OFFSET';";
+            #endif
+            #if (`i'> `NFINALMOMENTA');
+                #write<out_integrand_PF_`SGID'.proto_c> "spatialc`i'[`j'] =  lm`$OFFSET';";
             #endif
             id spatialComp(c`i',`j') =  lm`$OFFSET';
             #$OFFSET = $OFFSET + 1;
@@ -162,10 +181,14 @@
         #if (`DEBUGLVL'>0)
                 #write<debug_lm_diag_`SGID'.m> "penergy[eps`i'] -> lm`$OFFSET',"
         #endif
+
+        #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s eps`i'[4];";
+        #write<out_integrand_PF_`SGID'.proto_c> "eps`i'[0] = lm`$OFFSET';";
         id penergy(eps`i') = lm`$OFFSET';
         #$OFFSET = $OFFSET + 1;
 
         #do j =1,3        
+            #write<out_integrand_PF_`SGID'.proto_c> "eps`i'[`j'] = lm`$OFFSET';";
             #if (`DEBUGLVL'>0)
                 #write<debug_lm_diag_`SGID'.m> "spatialComp[eps`i',`j'] -> lm`$OFFSET',"
             #endif
@@ -216,10 +239,13 @@
         #if (`DEBUGLVL'>0)
             #write<debug_lm_diag_`SGID'.m> "penergy[ceps`i'] -> lm`$OFFSET',"
         #endif
+        #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s ceps`i'[4];";
+        #write<out_integrand_PF_`SGID'.proto_c> "ceps`i'[0] = lm`$OFFSET';";
         id penergy(ceps`i') =   lm`$OFFSET';
         #$OFFSET = $OFFSET + 1;
 
         #do j =1,3
+            #write<out_integrand_PF_`SGID'.proto_c> "ceps`i'[`j'] = lm`$OFFSET';";
             #if (`DEBUGLVL'>0)
                 #write<debug_lm_diag_`SGID'.m> "spatialComp[ceps`i',`j'] -> lm`$OFFSET',"
             #endif
@@ -261,11 +287,14 @@
             #write<debug_lm_diag_`SGID'.m> "penergy[sV`i'] -> lm`$OFFSET',"
         #endif
 
+        #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s sV`i'[4];";
+        #write<out_integrand_PF_`SGID'.proto_c> "sV`i'[0] = lm`$OFFSET';";
         #$OFFSET = $OFFSET + 1;
         #do j =1,3
             #if (`DEBUGLVL'>0)
                 #write<debug_lm_diag_`SGID'.m> "spatialComp[sV`i',`j'] -> lm`$OFFSET',"
             #endif
+            #write<out_integrand_PF_`SGID'.proto_c> "sV`i'[`j'] = lm`$OFFSET';";
             id spatialComp(sV`i',`j') =  lm`$OFFSET';
             #$OFFSET = $OFFSET + 1;
         #enddo
@@ -275,9 +304,13 @@
         #if (`DEBUGLVL'>0)
             #write<debug_lm_diag_`SGID'.m> "penergy[sVbar`i'] -> lm`$OFFSET',"
         #endif
+
+        #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s sVbar`i'[4];";
+        #write<out_integrand_PF_`SGID'.proto_c> "sVbar`i'[0] = lm`$OFFSET';";
         id penergy(sVbar`i') = lm`$OFFSET';
         #$OFFSET = $OFFSET + 1;
         #do j =1,3
+            #write<out_integrand_PF_`SGID'.proto_c> "sVbar`i'[0] = lm`$OFFSET';";
             #if (`DEBUGLVL'>0)
                 #write<debug_lm_diag_`SGID'.m> "spatialComp[sVbar`i',`j'] -> lm`$OFFSET',"
             #endif
@@ -289,9 +322,13 @@
         #if (`DEBUGLVL'>0)
             #write<debug_lm_diag_`SGID'.m> "penergy[sU`i'] -> lm`$OFFSET',"
         #endif
+
+        #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s sU`i'[4];";
+        #write<out_integrand_PF_`SGID'.proto_c> "sU`i'[0] = lm`$OFFSET';";
         id penergy(sU`i')  = lm`$OFFSET';
         #$OFFSET = $OFFSET + 1;
         #do j =1,3
+            #write<out_integrand_PF_`SGID'.proto_c> "sU`i'[`j'] = lm`$OFFSET';";
             #if (`DEBUGLVL'>0)
                 #write<debug_lm_diag_`SGID'.m> "spatialComp[sU`i',`j'] -> lm`$OFFSET',"
             #endif
@@ -303,9 +340,13 @@
         #if (`DEBUGLVL'>0)
             #write<debug_lm_diag_`SGID'.m> "penergy[(sUbar`i')] -> lm`$OFFSET',"
         #endif
+
+        #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s sUbar`i'[4];";
+        #write<out_integrand_PF_`SGID'.proto_c> "sUbar`i'[0] = lm`$OFFSET';";
         id penergy(sUbar`i') = lm`$OFFSET';
         #$OFFSET = $OFFSET + 1;
         #do j =1,3
+            #write<out_integrand_PF_`SGID'.proto_c> "sUbar`i'[`j'] = lm`$OFFSET';\n\n";
             #if (`DEBUGLVL'>0)
                 #write<debug_lm_diag_`SGID'.m> "spatialComp[sUbar`i',`j'] -> lm`$OFFSET',"
             #endif

@@ -17,13 +17,6 @@ import json
 abspath = os.path.abspath
 pjoin = os.path.join
 
-    
-
-
-
-
-
-
 
 class AmplitudeList():
     """ Holds a list of amplitudes, e.g. neccesary if we split by color
@@ -258,8 +251,9 @@ class FormProcessorAmp():
             'cores': multiprocessing.cpu_count(),
             'extra-options': {'OPTIMITERATIONS': 1000},
             'OPTIMISATIONSTRATEGY': 'CSEgreedy',
-            'DEBUGLVL':0,
+            'DEBUGLVL': 0,
             'OPTIMLVL': 3,
+            'NUMERICGCHAINS': 0,
             'FORM_setup': {
                 #   'MaxTermSize':'100K',
                 #   'Workspace':'1G'
@@ -290,9 +284,9 @@ class FormProcessorAmp():
             self.form_options = copy.deepcopy(
                 _FORM_OPTS_DEFAULT)
             self.form_options.update(copy.copy(form_options))
-            
+
             # integrand list
-            if self.additional_options.get('integrand_per_diag')==True:
+            if self.additional_options.get('integrand_per_diag') == True:
                 self.integrands = [
                     self.derive_integrand_from_diag(
                         diag).get('analytic_integrand')
@@ -311,7 +305,7 @@ class FormProcessorAmp():
                     if diag.get('index_shift', 0) > ind_shift:
                         ind_shift = diag.get('index_shift', 0)
                 self.integrands = [self.integrands]
-                
+
                 self.FORM_variables['INDSHIFT_LIST'] = [ind_shift]
             # constants
             self.additional_constants = copy.copy(amplitude.constants)
@@ -387,6 +381,9 @@ class FormProcessorAmp():
         wrapper_function_pattern = re.compile(r'\((\d*)\)')
         float_pattern = re.compile(r'((\d+\.\d*)|(\.\d+))')
 
+        gchain_pattern = re.compile(r'gchain\((.*?)\)', re.DOTALL)
+        gamma_pattern = re.compile(r'gamma\((\d*),(\d*)\)')
+
         # header file inclusion
         header = """#include <tgmath.h>
 # include <quadmath.h>
@@ -421,6 +418,10 @@ class FormProcessorAmp():
                                       )
         form_output = input_pattern.sub(r'lm[\1]', form_output)
         form_output = divide_pattern.sub(r'1./', form_output)
+
+        form_output = gchain_pattern.sub(r'{\1}', form_output)
+        form_output = gamma_pattern.sub(
+            r'compute_chain%(mode)s(\1,gchain\2)', form_output)
         form_output = norm_pattern.sub(r'1./', form_output)
         form_output = wrapper_function_pattern.sub(r'\1', form_output)
         # append eval:
@@ -462,17 +463,27 @@ class FormProcessorAmp():
         for key, value in self.additional_constants.items():
             header_file += '\n'+'#define '+key+' '+str(float(value))
         header_file += '\n'+'# endif'
+        header_file += '\n'+'%(numbertype)s compute_chain%(mode)s(int chain_length, %(numbertype)s *vecs[]);' % {'mode': '',
+                                                                                                                 'numbertype': 'double complex'}
+        header_file += '\n'+'%(numbertype)s compute_chain%(mode)s(int chain_length, %(numbertype)s *vecs[]);' % {'mode': '_f128',
+                                                                                                                 'numbertype': '__complex128'}
         out_file = pjoin(pjoin(self.FORM_workspace, '../'), 'numerator.h')
         with open(out_file, "w") as numfile:
             numfile.write(header_file)
 
     def generate_integrand_c_files(self):
+        with open(pjoin(self.alphaloop_dir, 'LTD',
+                        'amplitudes_rewrite', 'form_codes_amplitudes', 'gamma_chains.c'), 'r') as f:
+            gamma_eval = f.read()
+
         out_file = abspath(pjoin(self.FORM_workspace, "../"))
         out_file = pjoin(out_file, 'integrand.c')
 
         header = "# include <tgmath.h>\n# include <quadmath.h>\n# include <signal.h>\n\n // integrands \n"
-        c_routines_f64 = '\n // f64 routines \n'
-        c_routines_f128 = '\n// f128 routines \n'
+        c_routines_f64 = '\n // f64 routines \n' + gamma_eval % {'mode': '',
+                                                                 'numbertype': 'double complex'}
+        c_routines_f128 = '\n// f128 routines \n' + gamma_eval % {'mode': '_f128',
+                                                                  'numbertype': '__complex128'}
         eval_f64 = "\nvoid evaluate_PF(double complex lm[], double complex params[], int diag, int conf, double complex* out) {\n\tswitch(diag) {"
         eval_f128 = "\nvoid evaluate_PF_f128(__complex128 lm[], __complex128 params[], int diag, int conf, __complex128* out) {\n\tswitch(diag) {"
 
@@ -538,6 +549,7 @@ class FormProcessorAmp():
         form_vars.update(self.form_options["extra-options"])
         form_vars['OPTIMISATIONSTRATEGY'] = self.form_options['OPTIMISATIONSTRATEGY']
         form_vars['OPTIMLVL'] = self.form_options['OPTIMLVL']
+        form_vars['NUMERICGCHAINS'] = self.form_options['NUMERICGCHAINS']
         form_vars['DEBUGLVL'] = self.form_options['DEBUGLVL']
         del form_vars['INDSHIFT_LIST']
         form_vars['INDSHIFT'] = self.FORM_variables['INDSHIFT_LIST'][diagID]

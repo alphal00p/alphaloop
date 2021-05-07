@@ -18,10 +18,10 @@ OPTIMIZATION_LVL_f128 = 0
 CFLAGSf128=-Wconversion -O$(OPTIMIZATION_LVL_f128) -fcx-fortran-rules -fcx-limited-range -lm -lquadmath
 
 %_f64.o: %_f64.c
-	$(GCC) -c $(CFLAGS) $< -o $@
+	$(GCC) -c -Wall $(CFLAGS) $< -o $@
 
 %_f128.o: %_f128.c
-	$(GCC) -c $(CFLAGSf128) $< -o $@
+	$(GCC) -c -Wall $(CFLAGSf128) $< -o $@
 
 $(LIBBPATH)/$(INTEGRANDLIBRARY): $(INTEGRANDOBJ)
 	$(GCC) --shared -fPIC $(CFLAGS) -o $@ $^
