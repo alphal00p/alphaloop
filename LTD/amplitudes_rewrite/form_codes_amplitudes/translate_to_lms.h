@@ -310,7 +310,7 @@
         id penergy(sVbar`i') = lm`$OFFSET';
         #$OFFSET = $OFFSET + 1;
         #do j =1,3
-            #write<out_integrand_PF_`SGID'.proto_c> "sVbar`i'[0] = lm`$OFFSET';";
+            #write<out_integrand_PF_`SGID'.proto_c> "sVbar`i'[`j'] = lm`$OFFSET';";
             #if (`DEBUGLVL'>0)
                 #write<debug_lm_diag_`SGID'.m> "spatialComp[sVbar`i',`j'] -> lm`$OFFSET',"
             #endif
