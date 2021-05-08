@@ -212,6 +212,54 @@ symmetrize spatial;
     
 #endif
 #write<out_integrand_PF_`SGID'.proto_c> "\n";
+
+.sort
+* declare each gamma_chain to a symbol
+CF gamcollector, gc;
+multiply gamcollector(1);
+repeat id gamma(?aa)*gamcollector(?bb) = gamcollector(gamma(?aa),?bb);
+id gamcollector(?aa,1) =gamcollector(?aa);
+#redefine oldextrasymbols "`extrasymbols_'"
+argtoextrasymbol tonumber gamcollector;
+.sort
+#if (`NUMERICGCHAINS'>0)  
+    Format C;
+    #write<out_integrand_PF_`SGID'.proto_c> "//gamma chain computation\n"
+    #do i={`oldextrasymbols'+1},`extrasymbols_'
+        #$y = extrasymbol_(`i');
+        #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s gc`i'= %$;" $y;
+    #enddo
+    delete  extrasymbols>`oldextrasymbols';  
+#endif
+#write<out_integrand_PF_`SGID'.proto_c> "\n";
+b+ gamcollector;
+.sort:collect-gammas;
+Keep brackets;
+repeat id gamcollector(aa?int_,?cc) = gamcollector(gc(aa))*gamcollector(?cc);
+id gamcollector =1;
+repeat id gamcollector(aa?)*gamcollector(bb?) = gamcollector(aa*bb);
+
+* factorize full chain
+#redefine oldextrasymbols "`extrasymbols_'"
+argtoextrasymbol tonumber gamcollector;
+.sort
+#if (`NUMERICGCHAINS'>0)  
+    Format C;
+    #write<out_integrand_PF_`SGID'.proto_c> "//gamma chain multiplications \n"
+    #do i={`oldextrasymbols'+1},`extrasymbols_'
+        #$y = extrasymbol_(`i');
+        #write<out_integrand_PF_`SGID'.proto_c> "%%(numbertype)s gcmult`i'= %$;" $y;
+    #enddo
+    delete  extrasymbols>`oldextrasymbols';  
+#endif
+#write<out_integrand_PF_`SGID'.proto_c> "\n";
+b+ gamcollector;
+
+.sort;
+CF gcmult;
+Keep brackets;
+id gamcollector(aa?int_) = gcmult(aa);
+.sort:gamma-factorization-final;
 * treatement of overall denominators: optimize and export
 #if `TREATAMDENOM'
     
