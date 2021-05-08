@@ -32,7 +32,7 @@ Set diracdummy: sd1,...,sd80;
 Set lorentz: mu1,...,mu80;
 Set lorentzdummy: mud1,...,mud80;
 Auto S x;
-
+CF repl;
 * for the integrand
 CF hermconjugate, pol, cpol, uSpinor, ubarSpinor, vSpinor, vbarSpinor, sp(s);
 CF gamma, gam, spinorU, spinorUbar,spinorV,spinorVbar,lVec, gMetric(s),deltaS(s),muL,indS;
@@ -199,6 +199,11 @@ symmetrize spatial;
 .sort
 #call introduce-lms
 .sort:introduce-lm;
+repeat;
+    id once repl(?aa) = replace_(?aa);
+endrepeat;
+id replace_(?aa) = 1;
+.sort:repl;
 * write out g-chains
 
 #if (`NUMERICGCHAINS'>0)  

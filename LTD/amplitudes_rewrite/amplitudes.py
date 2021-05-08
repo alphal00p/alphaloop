@@ -41,7 +41,7 @@ class Amplitude():
     """This class holds amplitudes which consist of propagators and numerators
     """
 
-    def __init__(self, name='my_amp', diagram_list=[], external_data={}, masses={}, additional_options={}, constants={}):
+    def __init__(self, name='my_amp', diagram_list=[], external_data={}, masses={}, additional_options={}, constants={}, kinematic_replacements={}):
 
         _AMP_OPTS_DEFAULT = {
             # if true, every integrand will get its own c-routine, else one integrand for the complete amplitude
@@ -84,6 +84,7 @@ class Amplitude():
         self.diagram_list = diagram_list
         self.external_data = copy.copy(external_data)
         self.additional_options = copy.deepcopy(_AMP_OPTS_DEFAULT)
+        self.kinematic_replacements = copy.deepcopy(kinematic_replacements)
         self.color_strucs = []
 
         # treat color:
@@ -121,8 +122,10 @@ class Amplitude():
                              masses=amp.get('masses', {}),
                              external_data=amp.get('external_data'),
                              constants=amp.get('constants', {}),
+                             kinematic_replacements=amp.get(
+                                 'kinematic_replacements', {}),
                              additional_options=additional_options
-                             )
+                            )
         # import from .py:
         else:
             p = Path(amp.get('diagram_list'))
@@ -167,7 +170,8 @@ class Amplitude():
             masses=amp.get('masses', {}),
             external_data=amp.get('external_data'),
             constants=amp.get('constants', {}),
-            additional_options=additional_options
+            additional_options=additional_options,
+            kinematic_replacements=amp.get('kinematic_replacements', {})
         )
 
     def append_diagram_list(self, diag_list):
@@ -189,8 +193,12 @@ class Amplitude():
             self.additional_options.update({"integrand_per_diag": True})
 
             # initialize empty amplitude: we will append diagrams and color-strucs to it
-            color_ordered_amp = Amplitude(name=self.name, external_data=self.external_data,
-                                          masses=self.masses, additional_options=amp_options, constants=self.constants)
+            color_ordered_amp = Amplitude(name=self.name,
+                                          external_data=self.external_data,
+                                          masses=self.masses,
+                                          additional_options=amp_options,
+                                          constants=self.constants,
+                                          kinematic_replacements=self.kinematic_replacements)
             form_processor_color = FormProcessorAmp(
                 self, alphaloop_path=alphaloop_dir, form_wrk_space=pjoin(out_dir, 'FORM', 'workspace'))
             color_decomp = form_processor_color.compute_color(
@@ -216,7 +224,8 @@ class Amplitude():
                                   external_data=color_ordered_amp.external_data,
                                   additional_options=color_ordered_amp.additional_options,
                                   masses=color_ordered_amp.masses,
-                                  constants=color_ordered_amp.constants)
+                                  constants=color_ordered_amp.constants,
+                                  kinematic_replacements=color_ordered_amp.kinematic_replacements)
                         for col, dia_list in color_ordered_amps.items()]
 
         # no color-computation
@@ -230,7 +239,8 @@ class Amplitude():
                                   external_data=self.external_data,
                                   additional_options=self.additional_options,
                                   masses=self.masses,
-                                  constants=self.constants)
+                                  constants=self.constants,
+                                  kinematic_replacements=self.kinematic_replacements)
                         for col, dia_list in color_ordered_amps.items()]
 
         return AmplitudeList(amp_list)
@@ -279,7 +289,7 @@ class FormProcessorAmp():
                 'INDSHIFT_LIST': []
             }
             self.additional_options = amplitude.additional_options
-
+            self.kinematic_replacements = amplitude.kinematic_replacements
             # update FORM options
             self.form_options = copy.deepcopy(
                 _FORM_OPTS_DEFAULT)
@@ -339,7 +349,11 @@ class FormProcessorAmp():
             prop_list += ['(sprop({},{}))^{}'.format(mom_strg,
                                                      prop.get('mass', '0'), prop.get('power', '1'))]
 
-        integrand = '('+num+')*'+'{}'.format(format('*'.join(prop_list)))
+        repl = "1"
+        for key, val in self.kinematic_replacements.items():
+            repl += "*repl(" + str(key) + ',' + str(val) +')'
+        repl += '*'
+        integrand = repl+'('+num+')*'+'{}'.format(format('*'.join(prop_list)))
         my_diag.update({'analytic_integrand': integrand})
 
         return my_diag
