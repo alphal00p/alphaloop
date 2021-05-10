@@ -773,17 +773,17 @@ impl Amplitude {
                     //println!("  | p{}        \t= {:.5e} ", i, self.ps[i]);
                     print!("  | (p{}, {:?}) \t= [", i, pol);
                     for x in p.iter() {
-                        print!(" {:+.5e}", x);
+                        print!(" {:+.16e}", x);
                     }
                     println!("]");
                 }
                 // Print CT
-                println!("\n  | born    \t: {:.5e}", self.born);
+                println!("\n  | born    \t: {:.16e}", self.born);
                 for (i, val) in self.int_ct.iter().enumerate() {
                     match i {
-                        0 => println!("  | Finite  \t: {:+.5e}", val),
-                        1 => println!("  | 1/ep    \t: {:+.5e}", val),
-                        _ => println!("  | 1/ep**{} \t: {:+.5e}", i, val),
+                        0 => println!("  | Finite  \t: {:+.16e}", val),
+                        1 => println!("  | 1/ep    \t: {:+.16e}", val),
+                        _ => println!("  | 1/ep**{} \t: {:+.16e}", i, val),
                     };
                 }
             }
