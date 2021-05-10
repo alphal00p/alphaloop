@@ -2,7 +2,7 @@
 
 
 AMP_NAME=$1
-RUN_LTD="~/BitBucket/alphaloop/rust_backend/target/release/ltd -f ./hyperparameters.yaml --amplitudes ./amplitudes_v2.yaml -l ./topologies_v2.yaml --amplitude ${AMP_NAME} integrated_ct"
+RUN_LTD="./../../../../rust_backend/target/release/ltd -f ./hyperparameters.yaml --amplitudes ./amplitudes_v2.yaml -l ./topologies_v2.yaml --amplitude ${AMP_NAME} integrated_ct"
 
 eval "$RUN_LTD" \
     | grep -E "(UPlus|Uminus|UBarPlus|UBarMinus|VPlus|VMinus|VBarPlus|VBarMinus|APlus|AMinus)" \

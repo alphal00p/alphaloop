@@ -2,7 +2,7 @@
 
 directories:
   # adjust these paths
-  alphaloop: /home/andrea/BitBucket/alphaloop    # loop_amplitudes
+  alphaloop: ./../../../    # loop_amplitudes
   out_dir: ./
 
 form_options:  # Will also put the rest of the options
