@@ -1,0 +1,135 @@
+---
+CrossSection:
+  NormalisingFunction: {center: 1.0, name: left_right_exponential, spread: 1.0}
+  compare_with_additional_topologies: false
+  do_rescaling: false
+  fixed_cut_momenta: []
+  gs: 1.2177157847767195
+  incoming_momenta:
+    - [0.5, 0.48291190613376445, -0.013368918016210193, 0.12890835095264436]
+    - [0.5, -0.48291190613376445, 0.013368918016210193, -0.12890835095264436]
+      #- [0.5, 0.0, 0.0, 0.5]
+      #- [0.5, 0.0, 0.0, -0.5]
+  inherit_deformation_for_uv_counterterm: false
+  integrand_type: PF
+  m_uv_sq: 100.0
+  mu_r_sq: 16.0
+  numerator_source: FORM_integrand
+  picobarns: false
+  small_mass_sq: 0.0
+  sum_diagram_sets: false
+Deformation:
+  additive:
+    a_ij: 0.01
+    a_ijs: []
+    mode: exponential
+  fixed:
+    M_ij: -0.069
+    a_ijs: []
+    dampen_on_pinch: true
+    dampen_on_pinch_after_lambda: true
+    delta: 0.3
+    include_normal_source: false
+    ir_alpha: 1.0
+    ir_beta_ellipse: 1.0
+    ir_beta_energy: 1.0
+    ir_beta_pinch: 1.0
+    ir_handling_strategy: none
+    ir_interpolation_length: 0.0
+    ir_k_com: 0.0
+    ir_k_shift: 1.0
+    ir_threshold: 1.0e-08
+    local: false
+    m_ijs: []
+    maximize_radius: false
+    mode: hyperbolic
+    normalisation_of_subspace_components: true
+    normalisation_per_number_of_sources: true
+    normalize_per_source: false
+    pinch_dampening_alpha: 1.0
+    pinch_dampening_k_com: 0.0
+    pinch_dampening_k_shift: 1.0
+    sigma: 0.0
+    source_dampening_factor: -0.0005
+    use_heuristic_centers: true
+  lambdas: []
+  normalize_on_E_surfaces_m: -1.0
+  overall_scaling: constant
+  overall_scaling_constant: 1.0
+  scaling: {branch_cut_alpha: 1.0, branch_cut_check: true, branch_cut_m: -1.0, expansion_check_strategy: ratio,
+    expansion_threshold: -0.3, lambda: 10.0, pole_check_strategy: real_solution, softmin_sigma: 0.0,
+    source_branch_cut_m: -1.0, source_branch_cut_multiplier: 0.8, source_branch_cut_threshold: 0.8,
+    theta_c: 10.0, theta_r_in: 10.0, theta_r_out: 10.0}
+General:
+  absolute_precision: 1.0e+99
+  amplitude: ''
+  cut_filter: []
+  debug: 0
+  deformation_strategy: none 
+  derive_overlap_structure: false
+  minimal_precision_for_returning_result: 10.0
+  mu_uv_sq_re_im: [10000.0, 0]
+  multi_channeling: false
+  multi_channeling_channel:
+  multi_channeling_including_massive_propagators: true
+  numerical_threshold: 0.0
+  partial_fractioning_multiloop: true
+  partial_fractioning_threshold: -1
+  python_numerator:
+  res_file_prefix: ''
+  stability_checks:
+    - {escalate_for_large_weight_threshold: 0.8, minimal_precision_to_skip_further_checks: 99.0,
+      n_samples: 3, relative_precision: 4.0, use_f128: false, use_pf: true}
+    - {escalate_for_large_weight_threshold: 0.8, minimal_precision_to_skip_further_checks: 99.0,
+      n_samples: 3, relative_precision: 4.0, use_f128: false, use_pf: true}
+    - {escalate_for_large_weight_threshold: -1.0, minimal_precision_to_skip_further_checks: 99.0,
+      n_samples: 3, relative_precision: 8.0, use_f128: true, use_pf: true}
+  stability_nudge_size: 0.0
+  topology: Box
+  use_collinear_ct: false
+  use_ct: false
+Integrator: {border: 0.001, dashboard: false, eps_abs: 0.0, eps_rel: 1.0e-08, flatness: 50.0,
+  integrated_phase: both, integrator: vegas, internal_parallelization: true, keep_state_file: false,
+  learning_rate: 1.5, load_from_state_file: false, max_pass: 5, maxchisq: 0.0, min_probability_per_bin: 0.1,
+  min_samples_for_update: 1000, mindeviation: 0.025, n_bins: 128, n_increase: 100000,
+  n_max: 10000000000, n_min: 2, n_new: 100000, n_start: 100000, n_vec: 80, refine_n_points: 0,
+  refine_n_runs: 0, reset_vegas_integrator: true, seed: 1, state_filename_prefix: !!null '',
+  survey_n_iterations: 0, survey_n_points: 0, train_on_avg: false, use_only_last_sample: false}
+Observables:
+  Jet1PT: {dR: 0.4, filename: Jet1PT.HwU, min_jpt: 0.0, n_bins: 50, use_fastjet: true,
+    write_to_file: true, x_max: 0.8, x_min: 0.0}
+  active_observables: [cross_section]
+Parameterization:
+  b: 1.0
+  input_rescaling:
+    -   - [0.0, 1.0]
+        - [0.0, 1.0]
+        - [0.0, 1.0]
+    -   - [0.0, 1.0]
+        - [0.0, 1.0]
+        - [0.0, 1.0]
+    -   - [0.0, 1.0]
+        - [0.0, 1.0]
+        - [0.0, 1.0]
+    -   - [0.0, 1.0]
+        - [0.0, 1.0]
+        - [0.0, 1.0]
+    -   - [0.0, 1.0]
+        - [0.0, 1.0]
+        - [0.0, 1.0]
+    -   - [0.0, 1.0]
+        - [0.0, 1.0]
+        - [0.0, 1.0]
+  mapping: linear
+  mode: spherical
+  shifts:
+    - [1.0, 0.0, 0.0, 0.0]
+    - [1.0, 0.0, 0.0, 0.0]
+    - [1.0, 0.0, 0.0, 0.0]
+    - [1.0, 0.0, 0.0, 0.0]
+    - [1.0, 0.0, 0.0, 0.0]
+    - [1.0, 0.0, 0.0, 0.0]
+Selectors:
+  active_selectors: []
+  jet: {dR: 0.4, max_j1pt: -1.0, max_jets: 100, min_j1pt: 0.0, min_jets: 0, min_jpt: 0.0,
+    use_fastjet: true}
