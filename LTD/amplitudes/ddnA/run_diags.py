@@ -38,7 +38,7 @@ for n_photon in [4]:
     amp = next(filter(lambda x: x['name'] == "dd%dA" % n_photon, amps))
     runcard['amplitude']['name'] = 'qqbar%da' % n_photon
     runcard['amplitude']['diagram_list'] = './qqbar%da.json' % n_photon
-    runcard['amplitude'].update(pols)
+    runcard['amplitude']['external_data'].update(pols)
     runcard['amplitude']['external_data']['in_momenta'] = amp['ps'][:2]
     runcard['amplitude']['external_data']['out_momenta'] = [
         (-np.array(q)).tolist() for q in amp['ps'][2:-1]]
