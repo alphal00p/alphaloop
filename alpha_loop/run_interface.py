@@ -145,6 +145,7 @@ class RunHyperparameters(HyperParameters):
             'CrossSection.incoming_momenta'                 : [[125.0, 0.0, 0.0 ,0.0],],
             'CrossSection.m_uv_sq'                          : 155.0**2,
             'CrossSection.mu_r_sq'                          : 155.0**2,
+            #'CrossSection.numerator_source'                 : 'FORM_integrand',
             'CrossSection.gs'                               : 1.2177157847767195,
             'CrossSection.NormalisingFunction.name'         : 'left_right_exponential',
             'CrossSection.NormalisingFunction.center'       : 1.0,
@@ -1325,6 +1326,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     _rust_inputs_folder = 'Rust_inputs'
     _cross_section_set_yaml_name = 'all_QG_supergraphs.yaml'
     _run_workspace_folder = 'run_workspace'
+    _lib_folder = 'lib'
     _FORM_folder = 'FORM'
 
     def __init__(self, dir_path, alphaLoop_interface, launch_options={}, *args, **opts):
@@ -1709,7 +1711,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='Enable multi_channeling in the evaluation (default: %(default)s)')
     ir_profile_parser.add_argument("-nose","--no_selfenergy", action="store_false", dest="include_external_selfenergy_SGs", default=True,
                     help='Discard the analysis for all SGs feature cuts containing external self-energy corrections.')
-
+    ir_profile_parser.add_argument(
+        "-ncl", "--no_check_lib", action="store_false", dest="check_if_lib_file_exists", default=True,
+        help="Disable the check that the corresponding library file for this supergraph exists.")
     ir_profile_parser.add_argument(
         "-sm","--show_momenta", action="store_true", dest="show_momenta", default=False,
         help="Show the momenta of the edges in the E-surfaces for the intersection point approached in the IR.")
@@ -1757,6 +1761,21 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             n_discared_SGs = prior_length-len(selected_SGs)
             if n_discared_SGs > 0:
                 logger.warning("The ir_profile command discarded %d supergraphs because they contained cuts with external self-energy corrections and the user specified the option '--no_selfenergy'."%n_discared_SGs)
+
+        if args.check_if_lib_file_exists:
+            skipped_because_of_no_lib_file = []
+            for SG_name in list(selected_SGs):
+                if SG_name in self.all_supergraphs and 'FORM_integrand' in self.all_supergraphs[SG_name]:
+                    lib_file_name = pjoin(self.dir_path, self._lib_folder, 'libFORM_sg_%d.so'%(self.all_supergraphs[SG_name]['FORM_integrand']['call_signature']['id']))
+                else:
+                    lib_file_name = None
+                if lib_file_name is None or not os.path.isfile(lib_file_name):
+                    del selected_SGs[selected_SGs.index(SG_name)]
+                    skipped_because_of_no_lib_file.append(SG_name)
+            if len(skipped_because_of_no_lib_file)>0:
+                logger.warning("The ir_profile command will ignore the following %d supergraphs since their dynamic library was not found to be compiled yet. Run with '--no_check_lib' to bypass this check.\n%s"%(
+                    len(skipped_because_of_no_lib_file), ', '.join(skipped_because_of_no_lib_file)
+                ))
 
         if len(selected_SGs)==0:
             logger.info("The list of selected supergraph to run the profiling on is empty. Finishing now then.")
@@ -2702,6 +2721,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     uv_profile_parser.add_argument(
         "-v", "--verbose", action="store_true", dest="verbose", default=False,
         help="Enable verbose output.")
+    uv_profile_parser.add_argument(
+        "-ncl", "--no_check_lib", action="store_false", dest="check_if_lib_file_exists", default=True,
+        help="Disable the check that the corresponding library file for this supergraph exists.")
     uv_profile_parser.add_argument("-nose","--no_selfenergy", action="store_false", dest="include_external_selfenergy_SGs", default=True,
                     help='Discard the analysis for all SGs feature cuts containing external self-energy corrections.')
     def help_uv_profile(self):
@@ -2737,8 +2759,23 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             selected_SGs = [ SG_name for SG_name in selected_SGs if not self.all_supergraphs[SG_name].contains_external_selfenergy() ]
             n_discared_SGs = prior_length-len(selected_SGs)
             if n_discared_SGs > 0:
-                logger.warning("The ir_profile command discarded %d supergraphs because they contained cuts with external self-energy corrections and the user specified the option '--no_selfenergy'."%n_discared_SGs)
+                logger.warning("The uv_profile command discarded %d supergraphs because they contained cuts with external self-energy corrections and the user specified the option '--no_selfenergy'."%n_discared_SGs)
 
+        if args.check_if_lib_file_exists:
+            skipped_because_of_no_lib_file = []
+            for SG_name in list(selected_SGs):
+                if SG_name in self.all_supergraphs and 'FORM_integrand' in self.all_supergraphs[SG_name]:
+                    lib_file_name = pjoin(self.dir_path, self._lib_folder, 'libFORM_sg_%d.so'%(self.all_supergraphs[SG_name]['FORM_integrand']['call_signature']['id']))
+                else:
+                    lib_file_name = None
+                if lib_file_name is None or not os.path.isfile(lib_file_name):
+                    del selected_SGs[selected_SGs.index(SG_name)]
+                    skipped_because_of_no_lib_file.append(SG_name)
+            if len(skipped_because_of_no_lib_file)>0:
+                logger.warning("The uv_profile command will ignore the following %d supergraphs since their dynamic library was not found to be compiled yet. Run with '--no_check_lib' to bypass this check.\n%s"%(
+                    len(skipped_because_of_no_lib_file), ', '.join(skipped_because_of_no_lib_file)
+                ))
+    
         if len(selected_SGs)==0:
             logger.info("The list of selected supergraph to run the profiling on is empty. Finishing now then.")
             return

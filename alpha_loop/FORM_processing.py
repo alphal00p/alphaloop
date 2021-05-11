@@ -556,6 +556,7 @@ aGraph=%s;
         original_LMB = [oLMBe[1] for oLMBe in original_LMB]
 
         topo_generator = LTD.ltd_utils.TopologyGenerator(topo_edges)
+
         topo_generator.generate_momentum_flow( loop_momenta = (original_LMB if specified_LMB is None else specified_LMB) )
         original_LMB = [edge_name_to_key[oLMBe] for oLMBe in original_LMB]
 
@@ -573,12 +574,18 @@ aGraph=%s;
 
         all_lmbs = topo_generator.loop_momentum_bases()
         all_lmbs= [ tuple([edge_name_to_key[topo_generator.edge_map_lin[e][0]] for e in lmb]) for lmb in all_lmbs]
-        
+
+        # You can hack in here your desired LMB when using the FORM processing options:
+        #   set_FORM_option number_of_lmbs 1
+        #   set_FORM_option reference_lmb 1
+        # and then specify below your pq<i> desired basis, keeping in mind that the integers below must be '<i>-1'.
+        #all_lmbs = [ tuple([edge_name_to_key[topo_generator.edge_map_lin[e][0]] for e in (3,5,11,12)]), ]
+
         # Then overwrite the reference LMB if the user requested it
         if FORM_processing_options['reference_lmb'] is not None:
             original_LMB = all_lmbs[(FORM_processing_options['reference_lmb']-1)%len(all_lmbs)]
             # Regenerate the topology with this new overwritten LMB
-            topo_generator, _, _ = self.get_topo_generator(specified_LMB=[ edge_key_to_name[e_key] for e_key in original_LMB ] )
+            topo_generator, _, _ = self.get_topo_generator(specified_LMB=[ edge_key_to_name[e_key] for e_key in original_LMB ])
             # And adjust all signatures (incl. the string momenta assignment accordingly)
             signatures = topo_generator.get_signature_map()
             signatures = { edge_name_to_key[edge_name]: [sig[0],
@@ -2103,10 +2110,9 @@ class FORMSuperGraphList(list):
         logger.info("Imported {} supergraphs.".format(len(m.graphs)))
 
         # Filter specific graphs by name 
-        #filter_graphs = ['SG_QG3','SG_QG4']
-        #m.graphs = [ g for (g,name) in zip(m.graphs, m.graph_names) if name in filter_graphs]
-        #m.graph_names = ['SG_MG3','SG_QG4']
-        #m.graph_names = [name for name in m.graph_names if name in filter_graphs ]
+        # filter_graphs = ['SG_QG3','SG_QG4']
+        # m.graphs = [ g for (g,name) in zip(m.graphs, m.graph_names) if name in filter_graphs]
+        # m.graph_names = [name for name in m.graph_names if name in filter_graphs ]
 
         # Now convert the vertex names to be integers according to QGRAF format:
         for i, g in enumerate(m.graphs):
