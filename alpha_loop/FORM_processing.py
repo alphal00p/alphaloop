@@ -974,7 +974,7 @@ aGraph=%s;
                         is_constant = all(s == 0 for s in l.signature)
 
                         for pi, p in enumerate(l.propagators):
-                            # contruct the momentum in the LMB, using that LTD
+                            # construct the momentum in the LMB
                             lmp = np.array([0]*topo.topo.n_loops)
                             for s, v in zip(l.signature, g.loop_momentum_map):
                                 lmp += s * np.array(v[0])
@@ -1489,20 +1489,27 @@ CTable pfmap(0:{},0:{});
                                 vertex_structure.append('vxs({})'.format(','.join(vertex)))
 
                             uv_props = []
-                            for i, (ll_sig, propagators) in enumerate(uv_loop_graph.uv_loop_lines):
-                                # the parametric shift is given in terms of external momenta of the subgraph
-                                # translate the signature and param_shift to momenta of the supergraph
+                            for i, (ll_sig, propagators) in enumerate(uv_loop_graph.uv_loop_lines[0]):
                                 loop_mom_sig = ''
-                                for s, lmm in zip(ll_sig, uv_loop_graph.loop_momentum_map):
+                                loop_mom_shift = ''
+                                for s, lmm, lm_shift in zip(ll_sig, uv_loop_graph.loop_momentum_map, uv_loop_graph.uv_loop_lines[1]):
                                     if s != 0:
                                         loop_mom_sig += '{}({})'.format('+' if s == 1 else '-', self.momenta_decomposition_to_string(lmm, False))
+                                        ds = self.momenta_decomposition_to_string(lm_shift, False)
+                                        if ds != '':
+                                            loop_mom_shift += '{}({})'.format('+' if s == 1 else '-', ds)
 
+                                # the parametric shift is given in terms of external momenta of the subgraph
+                                # translate the signature and param_shift to momenta of the supergraph
                                 for (edge_name, param_shift) in propagators:
                                     ext_mom_sig = ''
                                     edge_mass = 'masses({})'.format(next(ee for ee in self.edges.values() if ee['name'] == edge_name)['PDG'])
 
                                     if all(s == 0 for s in param_shift[1]):
-                                        uv_props.append('uvprop({},t{},0,{})'.format(loop_mom_sig, i, edge_mass))
+                                        if loop_mom_shift == '':
+                                            uv_props.append('uvprop({},t{},0,{})'.format(loop_mom_sig, i, edge_mass))
+                                        else:
+                                            uv_props.append('uvprop({},t{},{},{})'.format(loop_mom_sig, i, loop_mom_shift, edge_mass))
                                         continue
 
                                     for (ext_index, s) in enumerate(param_shift[1]):
@@ -1515,7 +1522,7 @@ CTable pfmap(0:{},0:{});
                                     # the edge may have a raised power due to the bubble derivative
                                     power = (2 if edge_name == diag_info['derivative'][1] else 1) if diag_info['derivative'] and diag_info['derivative'][0] != diag_info['derivative'][1] else 1
                                     for _ in range(power):
-                                        uv_props.append('uvprop({},t{},{},{})'.format(loop_mom_sig, i, ext_mom_sig, edge_mass))
+                                        uv_props.append('uvprop({},t{},{},{})'.format(loop_mom_sig, i, loop_mom_shift + ext_mom_sig, edge_mass))
                             # it could be that there are no propagators with external momentum dependence when pinching duplicate edges
                             if uv_props == []:
                                 uv_props = ['1']

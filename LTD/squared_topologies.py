@@ -8,6 +8,7 @@ import copy
 import math
 from itertools import combinations_with_replacement, product
 import vectors
+import numpy
 from sympy import Matrix, diag
 
 class SquaredTopologyGenerator:
@@ -194,48 +195,8 @@ class SquaredTopologyGenerator:
                 loop_topos = []
                 for i, diag_info in enumerate(diag_set['diagram_info']):
                     for uv_structure in diag_info['uv']:
-                        # create the LTD representation of the derived graph
-                        forest_to_cb = []
-                        for uv_subgraph in uv_structure['uv_subgraphs']:
-                            for di, d in enumerate(uv_subgraph['derived_graphs']):
-                                # the shift map cannot be constructed for UV counterterms of LTD subgraphs, so we keep the
-                                # original signature map
-                                (loop_mom_map, shift_map) = self.topo.build_proto_topology(d['graph'], c, skip_shift=True)
-                                if di == 0:
-                                    forest_to_cb.extend([x[0] for x in loop_mom_map])
-
-                                loop_topo = d['graph'].create_loop_topology(name + '_' + ''.join(cut_name) + '_' + str(i),
-                                    # provide dummy external momenta
-                                    ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
-                                    fixed_deformation=False,
-                                    mass_map=masses,
-                                    loop_momentum_map=loop_mom_map,
-                                    numerator_tensor_coefficients=[[0., 0.,]],#[[0., 0.] for _ in range(numerator_entries)],
-                                    shift_map=shift_map,
-                                    check_external_momenta_names=False,
-                                    analytic_result=0)
-                                loop_topo.external_kinematics = []
-
-                                # take the UV limit of the diagram, add the mass and set the parametric shift to 0
-                                # collect the parametric shifts of the loop lines such that it can be used to Taylor expand
-                                # the UV subgraph
-                                uv_loop_lines = []
-                                for ll in loop_topo.loop_lines:
-                                    uv_loop_lines.append((ll.signature, [(p.name, p.parametric_shift) for p in ll.propagators]))
-                                    prop = ll.propagators[0]
-                                    prop.uv = True
-                                    prop.m_squared = mu_uv**2
-                                    prop.power = sum(pp.power for pp in ll.propagators)
-                                    prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
-                                    ll.propagators = [prop]
-
-                                loop_topo.uv_loop_lines = uv_loop_lines
-
-                                d['loop_topo'] = loop_topo
-
                         # create the loop topo of the remaing graph
                         (loop_mom_map, shift_map) = self.topo.build_proto_topology(uv_structure['remaining_graph'], c, skip_shift=False)
-                        forest_to_cb.extend([x[0] for x in loop_mom_map])
 
                         if uv_structure['uv_spinney'] == []:
                             cut_to_lmb.extend([x[0] for x in loop_mom_map])
@@ -246,13 +207,11 @@ class SquaredTopologyGenerator:
                             fixed_deformation=False,
                             mass_map=masses,
                             loop_momentum_map=loop_mom_map,
-                            numerator_tensor_coefficients=[[0., 0.,]],#[[0., 0.] for _ in range(numerator_entries)],
+                            numerator_tensor_coefficients=[[0., 0.,]],
                             shift_map=shift_map,
                             check_external_momenta_names=False,
                             analytic_result=0)
                         uv_structure['remaining_graph_loop_topo'].external_kinematics = []
-
-                        uv_structure['forest_to_cb_matrix'] = forest_to_cb
 
                     """
                     pprint(diag_info)
@@ -308,14 +267,81 @@ class SquaredTopologyGenerator:
 
                 diag_set['cb_to_lmb'] = [int(x) for x in lmb_to_cb_matrix]
 
+                # we know that the loop momenta in the cmb are direcly one of the loop momenta in the lmb
+                used_loop_momenta = [i for i in range(self.topo.n_loops) if
+                    len([cc for cc in diag_set['cb_to_lmb'][i * self.topo.n_loops:(i+1) * self.topo.n_loops] if cc != 0]) == 1 and
+                    any(cc != 0 for cc in diag_set['cb_to_lmb'][i * self.topo.n_loops + len(c) - 1:(i+1) * self.topo.n_loops])]
+                assert(len(used_loop_momenta) == self.topo.n_loops - len(c) + 1)
+
                 # construct the forest matrix that maps the amplitude momenta in the cmb
                 # to ones suitable for the spinney
                 for i, diag_info in enumerate(diag_set['diagram_info']):
                     for uv_structure in diag_info['uv']:
-                        forest_cb = uv_structure['forest_to_cb_matrix']
+                        # create the LTD representation of the derived UV graph
+                        forest_to_cb = []
+                        for uv_subgraph in uv_structure['uv_subgraphs']:
+                            for di, d in enumerate(uv_subgraph['derived_graphs']):
+                                (loop_mom_map, shift_map) = self.topo.build_proto_topology(d['graph'], c, skip_shift=True)
 
-                        if forest_cb != []:
-                            fmb_in_cb = (Matrix(forest_cb) * lmb_to_cb_matrix).tolist()
+                                # Construct a loop momentum map for the loop momenta that remain after removing
+                                # all dependence on external momenta in the cmb.
+                                # ie for fmb defining edge c3-c4+c1+p1+p2, where c1 is cut we construct
+                                # f1 = c3 - c4, f1_shift = c1+p1+p2
+                                # The shift should be added later to the parametric shifts of each propagator containing f1.
+                                basis_shift_map = []
+                                new_lm_map = []
+                                for lmp, shp in loop_mom_map:
+                                    # get the dependence of the loop momenta
+                                    dep = numpy.array([0]*self.topo.n_loops, dtype=int)
+                                    for ii, x in enumerate(lmp):
+                                        dep += x* numpy.array(diag_set['cb_to_lmb'][ii * self.topo.n_loops:(ii+1) * self.topo.n_loops], dtype=int)
+                                    deps = [0 if u not in used_loop_momenta else
+                                            dep.dot(numpy.array(diag_set['cb_to_lmb'][u * self.topo.n_loops:(u+1) * self.topo.n_loops], dtype=int))
+                                            for u in range(self.topo.n_loops)]
+
+                                    basis_shift_map.append([[a-b for a,b in zip(lmp,deps)],shp])
+                                    new_lm_map.append([deps, [0]*len(shp)])
+
+                                loop_mom_map = new_lm_map
+
+                                if di == 0:
+                                    forest_to_cb.extend([x[0] for x in loop_mom_map])
+
+                                # note: the shift map signs may get swapped when edges switch orientation
+                                # the basis_shift_map should be unaffected since defining edges are not swapped
+                                loop_topo = d['graph'].create_loop_topology(name + '_' + ''.join(cut_name) + '_' + str(i),
+                                    # provide dummy external momenta
+                                    ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
+                                    fixed_deformation=False,
+                                    mass_map=masses,
+                                    loop_momentum_map=loop_mom_map,
+                                    numerator_tensor_coefficients=[[0., 0.,]],
+                                    shift_map=shift_map,
+                                    check_external_momenta_names=False,
+                                    analytic_result=0)
+                                loop_topo.external_kinematics = []
+
+                                # take the UV limit of the diagram, add the mass and set the parametric shift to 0
+                                # collect the parametric shifts of the loop lines such that it can be used to Taylor expand
+                                # the UV subgraph
+                                uv_loop_lines = []
+                                for ll in loop_topo.loop_lines:
+                                    uv_loop_lines.append((ll.signature, [(p.name, p.parametric_shift) for p in ll.propagators]))
+                                    prop = ll.propagators[0]
+                                    prop.uv = True
+                                    prop.m_squared = mu_uv**2
+                                    prop.power = sum(pp.power for pp in ll.propagators)
+                                    prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
+                                    ll.propagators = [prop]
+
+                                loop_topo.uv_loop_lines = (uv_loop_lines, basis_shift_map)
+
+                                d['loop_topo'] = loop_topo
+
+                        forest_to_cb.extend([x[0] for x in uv_structure['remaining_graph_loop_topo'].loop_momentum_map])
+
+                        if forest_to_cb != []:
+                            fmb_in_cb = (Matrix(forest_to_cb) * lmb_to_cb_matrix).tolist()
                             shift = Matrix([r[:len(c) - 1] for r in fmb_in_cb])
                             loops = [r[len(c) - 1:] for r in fmb_in_cb]
                             # filter out all columns with zeroes as these are cmb momenta belonging to another amplitude
@@ -326,12 +352,6 @@ class SquaredTopologyGenerator:
                             uv_structure['forest_to_cb_matrix'] = (loopsi.tolist() , shifti.tolist(), loops, shift.tolist())
                         else:
                             uv_structure['forest_to_cb_matrix'] = ([[]], [[]], [[]], [[]])
-
-            #from pprint import pprint
-            #pprint(cut_info)
-
-            # TODO: fuse with cut_info['diagram_sets']
-            #self.cut_diagrams.append(diagram_sets)
 
     def export(self, output_path):
         out = {
