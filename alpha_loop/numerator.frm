@@ -920,8 +920,8 @@ endif;
     #include- ltdtable_`SGID'.h
 
 * map all diagrams to their unique representative
-    id diag(x1?,x2?,?a) = diag(ltdmap(x1,x2),?a);
-    id diag(diag(?a),?b) = diag(?a,?b);
+    id diag(x1?,x2?,?a) = diag(x1,ltdmap(x1,x2),?a);
+    id diag(x1?,diag(?a),?b) = diag(x1,?a,?b);
 
     repeat id cmb(?a)*diag(?b) = f(diag(?b,cmb(?a)))*cmb(?a);
     id f(?a) = diag(?a);
@@ -936,7 +936,7 @@ endif;
     #define diagcount "{`diagend'-`diagstart'}"
 
     id diag(x?) = diag(x-`diagstart'+`forestcount');
-    id diag(x1?,x2?,?a,x3?) = diag(?a)*ltdtopo(x1,x2)*x3*conf(-1,x1,x2);
+    id diag(xcut?,x1?,x2?,?a,x3?) = diag(?a)*ltdtopo(x1,x2)*x3*conf(-1,xcut,-1);
     id cmb(?a) = replace_(?a);
     .sort:ltd-splitoff;
     Hide forestltd1,...,forestltd`forestcount';
@@ -1001,7 +1001,7 @@ endif;
         L FINTEGRANDLTD = F + <diag1*conf(-{1+`forestcount'})>+...+<diag`diagcount'*conf(-{`diagcount'+`forestcount'})> + <forestltd1*conf(-1,-1)>+...+<forestltd`forestcount'*conf(-`forestcount',-1)>;
     #endif
 
-    id conf(x?)*conf(x1?{<0},?a) = conf(x,?a); *TODO: is this correct?
+    id conf(x?)*conf(x1?{<0},?a) = conf(x,?a);
 
 * TODO: deprecated
     #if (`SUMDIAGRAMSETS' == "onlysum")
@@ -1026,9 +1026,11 @@ endif;
     .sort:load-pf;
 
 * map all diagrams to their unique representative
-    id diag(x1?,x2?,?a) = diag(pfmap(x1,x2),?a);
-    id diag(diag(?a),?b) = diag(?a,?b);
+    id diag(x1?,x2?,?a) = diag(x1,pfmap(x1,x2),?a);
+    id diag(x1?,diag(?a),?b) = diag(x1,?a,?b);
 
+* TODO: here we create a unique diagram per cut as we include the cmb (and conf) into the key
+* it is possible that diagrams are the same after the cmb is applied, for example for UV topologies
     repeat id cmb(?a)*diag(?b) = f(diag(?b,cmb(?a)))*cmb(?a);
     id f(?a) = diag(?a);
     argtoextrasymbol tonumber,diag,1;
@@ -1042,7 +1044,7 @@ endif;
     #define diagcount "{`diagend'-`diagstart'}"
 
     id diag(x?) = diag(x-`diagstart'+`forestcount');
-    id diag(x1?,x2?,?a,x3?) = diag(?a)*pftopo(x1,x2)*x3*conf(-1,x1,x2);
+    id diag(xcut?,x1?,x2?,?a,x3?) = diag(?a)*pftopo(x1,x2)*x3*conf(-1,xcut,-1);
     id cmb(?a) = replace_(?a);
     .sort:pf-splitoff;
     Hide forest1,...,forest`forestcount';
@@ -1086,7 +1088,7 @@ endif;
         L FINTEGRANDPF = F + <diag1*conf(-{1+`forestcount'})>+...+<diag`diagcount'*conf(-{`diagcount'+`forestcount'})> + <forest1*conf(-1,-1)>+...+<forest`forestcount'*conf(-`forestcount',-1)>;
     #endif
 
-    id conf(x?)*conf(x1?{<0},?a) = conf(x,?a); *TODO: is this correct?
+    id conf(x?)*conf(x1?{<0},?a) = conf(x,?a);
 
 * TODO: deprecated
     #if (`SUMDIAGRAMSETS' == "onlysum")

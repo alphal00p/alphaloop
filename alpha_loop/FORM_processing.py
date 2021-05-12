@@ -957,6 +957,7 @@ aGraph=%s;
 
         unique_ltd = {}
         for cut in topo.cuts:
+            unique_energies = {}
             unique_propagators = {}
             for diag_set in cut['diagram_sets']:
                 # collect all graphs
@@ -971,7 +972,7 @@ aGraph=%s;
                         graphs.append((signature_offset, uv_structure['remaining_graph_id'], uv_structure['remaining_graph_loop_topo']))
 
                 for signature_offset, graph_id, g in graphs:
-                    energy_map, energies, constants, shift_map = [], [], [], []
+                    energies, constants, shift_map = [], [], []
                     res = []
                     prop_mom_in_lmb = {}
                     prop_id = {}
@@ -996,19 +997,18 @@ aGraph=%s;
 
                             totalmom = self.momenta_decomposition_to_string((lmp + shift, extshift), True)
 
+                            edge_mass = 'masses({})'.format(next(ee for ee in self.edges.values() if ee['name'] == p.name)['PDG'])
+                            energy_instr = '{},{}'.format(totalmom, edge_mass if not p.uv else 'mUV')
                             if not is_constant:
-                                unique_energy_index = next(i if not p.uv else 100 + i for i, e in enumerate(topo.topo.edge_map_lin) if e[0] == p.name)
-                                prop_mom_in_lmb[unique_energy_index] = (lmp, shift, extshift)
-                                energy_map.append((totalmom, p.m_squared if not p.uv else 'mUV*mUV', 1)) # we treat powers specially for LTD
+                                if energy_instr not in unique_energies:
+                                    unique_energies[energy_instr] = len(unique_energies)
 
-                                edge_mass = 'masses({})'.format(next(ee for ee in self.edges.values() if ee['name'] == p.name)['PDG'])
-                                energies.append('E{},{},{}'.format(unique_energy_index, totalmom, edge_mass if not p.uv else 'mUV'))
-
+                                prop_mom_in_lmb[unique_energies[energy_instr]] = (lmp, shift, extshift)
+                                energies.append('E{},{}'.format(unique_energies[energy_instr], energy_instr))
                                 shift_map.append(list(shift) + list(extshift))
-
-                                prop_id[(li, pi)] = unique_energy_index
+                                prop_id[(li, pi)] = unique_energies[energy_instr]
                             else:
-                                constants.append('{},{}'.format(totalmom, edge_mass if not p.uv else 'mUV'))
+                                constants.append(energy_instr)
 
                     diagres = []
                     propagators = []
@@ -1149,6 +1149,7 @@ CTable ltdmap(0:{},0:{});
         unique_pf = {}
         for cut in topo.cuts:
             den_library = []
+            unique_energies = {}
             for diag_set in cut['diagram_sets']:
                 # collect all graphs
                 graphs = []
@@ -1189,16 +1190,19 @@ CTable ltdmap(0:{},0:{});
 
                             # recycle energy computations when there are duplicate edges
                             edge_mass = 'masses({})'.format(next(ee for ee in self.edges.values() if ee['name'] == p.name)['PDG'])
+                            energy_instr = '{},{}'.format(totalmom, edge_mass if not p.uv else 'mUV')
                             if not is_constant:
-                                unique_energy_index = next(i if not p.uv else 100 + i for i, e in enumerate(topo.topo.edge_map_lin) if e[0] == p.name)
-                                pf_prefactor.append('2*E{}'.format(unique_energy_index) if p.power == 1 else '(2*E{})^{}'.format(unique_energy_index, p.power))
-                                energies.append('E{},{},{}'.format(unique_energy_index, totalmom, edge_mass if not p.uv else 'mUV'))
+                                if energy_instr not in unique_energies:
+                                    unique_energies[energy_instr] = len(unique_energies)
+
+                                pf_prefactor.append('2*E{}'.format(unique_energies[energy_instr]) if p.power == 1 else '(2*E{})^{}'.format(unique_energies[energy_instr], p.power))
+                                energies.append('E{},{}'.format(unique_energies[energy_instr], energy_instr))
 
                                 for _ in range(p.power):
                                     shift_map.append(list(shift) + list(extshift))
-                                    unique_energy.append(unique_energy_index)
+                                    unique_energy.append(unique_energies[energy_instr])
                             else:
-                                constants.append('{},{}'.format(totalmom, edge_mass if not p.uv else 'mUV'))
+                                constants.append(energy_instr)
 
                     pf_prefactor = '*'.join(pf_prefactor)
 
@@ -1214,7 +1218,7 @@ CTable ltdmap(0:{},0:{});
                         pf.shifts_to_externals() #shift_map=np.array(shift_map).T)
                         res, used_props = pf.to_FORM(unique_energy)
                         res = '\n'.join(['\t' + l for l in res.split('\n')])
-                        resden = ','.join('invd{},{}'.format(i, d) for i, d in enumerate(pf.den_library) if i in used_props)
+                        resden = ','.join('invd{},{}'.format(i, d) for i, d in enumerate(den_library) if i in used_props)
 
                     global_diag_id = (diag_set['id'], graph_id)
 
@@ -1960,7 +1964,7 @@ class FORMSuperGraphIsomorphicList(list):
             FORM_vars['INTEGRAND'] = integrand_type
 
         var_pattern = re.compile(r'Z\d*_')
-        input_pattern = re.compile(r'lm(\d*)')
+        lm_pattern = re.compile(r'lm(\d*)')
         energy_exp = re.compile(r'f\(([^)]*)\)\n')
         split_number = re.compile(r'\\\n\s*')
         return_exp = re.compile(r'return ([^;]*);\n')
@@ -2515,7 +2519,9 @@ class FORMSuperGraphList(list):
 """
 
         var_pattern = re.compile(r'Z\d*_')
-        input_pattern = re.compile(r'lm(\d*)')
+        lm_pattern = re.compile(r'lm(\d*)')
+        energy_pattern = re.compile(r'E(\d+)')
+        denom_pattern = re.compile(r'invd(\d+)')
         conf_exp = re.compile(r'conf\(([^)]*)\)\n')
         return_exp = re.compile(r'return ([^;]*);\n')
         float_pattern = re.compile(r'((\d+\.\d*)|(\.\d+))')
@@ -2566,6 +2572,8 @@ class FORMSuperGraphList(list):
                         num = num.replace('i_', 'I')
                         num = num.replace('\nZ', '\n\tZ') # nicer indentation
 
+                        energies_per_cut = {}
+                        propagators_per_cut = {}
                         confs = []
                         integrand_main_code = ''
                         integrand_f128_main_code = ''
@@ -2583,6 +2591,8 @@ class FORMSuperGraphList(list):
                             denominator_mode = 'NUM' if int(conf[0]) >= 0 else ('FOREST' if len(conf) == 2 else 'DIAG')
                             
                             if denominator_mode == 'DIAG':
+                                cut_id = int(conf[1])
+
                                 # parse the constants
                                 const_secs = conf_sec.split('#CONSTANTS')[1]
                                 const_secs = const_secs.replace('\n', '').replace(' ', '').replace('\t', '')
@@ -2592,14 +2602,13 @@ class FORMSuperGraphList(list):
                                 energy_secs = conf_sec.split('#ENERGIES')[1]
                                 energy_secs = energy_secs.replace('\n', '').replace(' ', '').replace('\t', '')
 
-                                # some energies are repeated and we only keep the first
-                                energy_code = []
                                 e = [e for e in energy_secs.split(',') if e != '']
                                 assert(len(e) % 2 == 0)
                                 for j in range(0, len(e), 2):
-                                    energy_code.append('\tdouble complex {} = sqrt({});'.format(e[j], square_pattern.sub(r'\1*\1', e[j+1])))
-
-                                energy_code = '\n'.join(energy_code)
+                                    energy_index = int(e[j][1:]) # skip E prefix
+                                    energy_instr = 'sqrt({})'.format(lm_pattern.sub(r'lm[\1]', square_pattern.sub(r'\1*\1', e[j+1])))
+                                    assert((cut_id, energy_index) not in energies_per_cut or energies_per_cut[(cut_id, energy_index)] == energy_instr)
+                                    energies_per_cut[(cut_id, energy_index)] = energy_instr
 
                                 # convert an int in front of the PF energies to float to prevent mpfr conversion issues
                                 const_code = re.sub(r'\((\d+)\*E', r'(\1.*E', const_code)
@@ -2614,13 +2623,17 @@ class FORMSuperGraphList(list):
                                 denom_secs = conf_sec.split('#ELLIPSOIDS')[1]
                                 denom_secs = denom_secs.replace('\n', '').replace('\t', '')
                                 d = [d for d in denom_secs.split(',') if d != '']
-                                denom_code = '\n'.join('\tdouble complex {} = 1./({});'.format(d[j], int_pattern.sub(r'\1.', d[j+1])) for j in range(0, len(d), 2))
+
+                                for j in range(0, len(d), 2):
+                                    denom_index = int(d[j][4:]) # strip invd prefix
+                                    denom_instr = '1./({})'.format(energy_pattern.sub(r'E[\1]', lm_pattern.sub(r'lm[\1]', int_pattern.sub(r'\1.', d[j+1]))))
+                                    assert((cut_id, denom_index) not in propagators_per_cut or propagators_per_cut[(cut_id, denom_index)] == denom_instr)
+                                    propagators_per_cut[(cut_id, denom_index)] = denom_instr
+
                                 conf_sec = conf_sec.split('#ELLIPSOIDS')[-1]
 
-                            denom_code = input_pattern.sub(r'lm[\1]', denom_code)
-                            const_code = input_pattern.sub(r'lm[\1]', const_code)
-                            energy_code = input_pattern.sub(r'lm[\1]', energy_code)
-                            conf_sec = input_pattern.sub(r'lm[\1]', conf_sec)
+                            const_code = denom_pattern.sub(r'invd[\1]', energy_pattern.sub(r'E[\1]', lm_pattern.sub(r'lm[\1]', const_code)))
+                            conf_sec = denom_pattern.sub(r'invd[\1]', energy_pattern.sub(r'E[\1]', lm_pattern.sub(r'lm[\1]', conf_sec)))
 
                             conf_sec = re.sub(r'(^|[+\-*=])(\s*\d+)($|[^.\d\w])', r'\1\2.\3', conf_sec)
                             returnval = list(return_exp.finditer(conf_sec))[0].groups()[0]
@@ -2636,14 +2649,14 @@ class FORMSuperGraphList(list):
 
                             if denominator_mode == 'FOREST':
                                 main_code = conf_sec.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(masst*masst)')
-                                main_code_with_diag_call = diag_pattern.sub(r'diag_\1(lm, params)', main_code)
-                                integrand_main_code += '\nstatic double complex forest_{}(double complex lm[], double complex params[]) {{{}\n{}}}'.format(abs(int(conf[0])),
+                                main_code_with_diag_call = diag_pattern.sub(r'diag_\1(lm, params, E, invd)', main_code)
+                                integrand_main_code += '\nstatic double complex forest_{}(double complex lm[], double complex params[], double complex E[], double complex invd[]) {{{}\n{}}}'.format(abs(int(conf[0])),
                                     '\n\tdouble complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_with_diag_call
                                 )
                                 main_code_f128 = main_code.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
                                 main_code_f128 = float_pattern.sub(r'\1q', main_code_f128)
-                                main_code_f128 = diag_pattern.sub(r'diag_\1_f128(lm, params)', main_code_f128)
-                                integrand_f128_main_code += '\n' + '\nstatic __complex128 forest_{}_f128(__complex128 lm[], __complex128 params[]) {{{}\n{}}}'.format(abs(int(conf[0])),
+                                main_code_f128 = diag_pattern.sub(r'diag_\1_f128(lm, params, E, invd)', main_code_f128)
+                                integrand_f128_main_code += '\n' + '\nstatic __complex128 forest_{}_f128(__complex128 lm[], __complex128 params[], __complex128 E[], __complex128 invd[]) {{{}\n{}}}'.format(abs(int(conf[0])),
                                     '\n\t__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
                                 )
 
@@ -2651,20 +2664,20 @@ class FORMSuperGraphList(list):
                                 main_code_mpfr = float_pattern.sub(r'mpreal("\1")', main_code_mpfr)
                                 main_code_mpfr = re.sub(r'sqrt\(([^)]+)\)', r'sqrt(mpcomplex(\1))', main_code_mpfr)
                                 main_code_mpfr = re.sub(r'pow\(([^,]+)', r'pow(mpcomplex(\1)', main_code_mpfr)
-                                main_code_mpfr = diag_pattern.sub(r'diag_\1_mpfr(lm, params)', main_code_mpfr)
-                                integrand_mpfr_main_code += '\n' + '\nstatic mpcomplex forest_{}_mpfr(__complex128 lm[], __complex128 params[]) {{{}\n{}}}'.format(abs(int(conf[0])),
+                                main_code_mpfr = diag_pattern.sub(r'diag_\1_mpfr(lm, params, E, invd)', main_code_mpfr)
+                                integrand_mpfr_main_code += '\n' + '\nstatic mpcomplex forest_{}_mpfr(__complex128 lm[], __complex128 params[], mpcomplex E[],mpcomplex invd[]) {{{}\n{}}}'.format(abs(int(conf[0])),
                                     '\n\tmpcomplex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_mpfr
                                 )
                             elif denominator_mode == 'DIAG':
-                                main_code = '{}\n{}\n{}'.format(energy_code, denom_code, conf_sec)
+                                main_code = conf_sec
                                 main_code = main_code.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(masst*masst)')
-                                integrand_main_code += '\nstatic double complex diag_{}(double complex lm[], double complex params[]) {{{}\n{}}}'.format(abs(int(conf[0])),
+                                integrand_main_code += '\nstatic double complex diag_{}(double complex lm[], double complex params[], double complex E[], double complex invd[]) {{{}\n{}}}'.format(abs(int(conf[0])),
                                     '\n\tdouble complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code
                                 )
 
                                 main_code_f128 = main_code.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
                                 main_code_f128 = float_pattern.sub(r'\1q', main_code_f128)
-                                integrand_f128_main_code += '\n' + '\nstatic __complex128 diag_{}_f128(__complex128 lm[], __complex128 params[]) {{{}\n{}}}'.format(abs(int(conf[0])),
+                                integrand_f128_main_code += '\n' + '\nstatic __complex128 diag_{}_f128(__complex128 lm[], __complex128 params[], __complex128 E[], __complex128 invd[]) {{{}\n{}}}'.format(abs(int(conf[0])),
                                     '\n\t__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
                                 )
 
@@ -2672,36 +2685,48 @@ class FORMSuperGraphList(list):
                                 main_code_mpfr = re.sub(r'sqrt\(([^)]+)\)', r'sqrt(mpcomplex(\1))', main_code_mpfr)
                                 main_code_mpfr = re.sub(r'pow\(([^,]+)', r'pow(mpcomplex(\1)', main_code_mpfr)
                                 main_code_mpfr = float_pattern.sub(r'mpreal("\1")', main_code_mpfr)
-                                integrand_mpfr_main_code += '\n' + '\nstatic mpcomplex diag_{}_mpfr(__complex128 lm[], __complex128 params[]) {{{}\n{}}}'.format(abs(int(conf[0])),
+                                integrand_mpfr_main_code += '\n' + '\nstatic mpcomplex diag_{}_mpfr(__complex128 lm[], __complex128 params[], mpcomplex E[], mpcomplex invd[]) {{{}\n{}}}'.format(abs(int(conf[0])),
                                     '\n\tmpcomplex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_mpfr
                                 )
                             else:
-                                confs.append(int(conf[0]))
+                                cut_id = int(conf[0])
+                                confs.append(cut_id)
 
                                 if len(temp_vars) > 0:
                                     graph.is_zero = False
 
+                                # generate the code for the energies and invds
+                                max_energy = max((eid + 1 for (cid, eid) in energies_per_cut if cid == cut_id), default=0)
+                                energies = ['0' if (cut_id, jj) not in energies_per_cut else energies_per_cut[(cut_id, jj)] for jj in range(max_energy)]
+                                max_denom = max((eid + 1 for (cid, eid) in propagators_per_cut if cid == cut_id), default=0)
+                                denoms = ['0' if (cut_id, jj) not in propagators_per_cut else propagators_per_cut[(cut_id, jj)] for jj in range(max_denom)]
+
+                                conf_sec = '\n\tdouble complex E[] = {{{}}};\n'.format(','.join(energies)) + \
+                                           '\tdouble complex invd[] = {{{}}};\n'.format(','.join(denoms)) + \
+                                           '\tdouble complex {};'.format(','.join(temp_vars)) +\
+                                           conf_sec
+
                                 main_code = conf_sec.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(masst*masst)')
-                                main_code_with_forest_call = forest_pattern.sub(r'forest_\1(lm, params)', main_code)
-                                integrand_main_code += '\nstatic inline void %(header)sevaluate_{}_{}_{}(double complex lm[], double complex params[], double complex* out) {{{}\n{}}}'.format(itype, i, int(conf[0]),
-                                    '\n\tdouble complex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_with_forest_call
+                                main_code_with_forest_call = forest_pattern.sub(r'forest_\1(lm, params, E, invd)', main_code)
+                                integrand_main_code += '\nstatic inline void %(header)sevaluate_{}_{}_{}(double complex lm[], double complex params[], double complex* out) {{{}}}'.format(itype, i, int(conf[0]),
+                                    main_code_with_forest_call
                                 )
 
                                 main_code_f128 = main_code.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
                                 main_code_f128 = float_pattern.sub(r'\1q', main_code_f128)
-                                main_code_f128 = forest_pattern.sub(r'forest_\1_f128(lm, params)', main_code_f128)
-                                integrand_f128_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{}_{}_{}_f128(__complex128 lm[], __complex128 params[], __complex128* out) {{{}\n{}}}'.format(itype, i, int(conf[0]),
-                                    '\n\t__complex128 {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
+                                main_code_f128 = forest_pattern.sub(r'forest_\1_f128(lm, params, E, invd)', main_code_f128)
+                                integrand_f128_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{}_{}_{}_f128(__complex128 lm[], __complex128 params[], __complex128* out) {{{}}}'.format(itype, i, int(conf[0]),
+                                    main_code_f128
                                 )
 
                                 main_code_mpfr = main_code.replace('pi', 'mpreal(mpfr::const_pi())').replace('double complex', 'mpcomplex')
                                 main_code_mpfr = re.sub(r'pow\(([^,]+)', r'pow(mpcomplex(\1)', main_code_mpfr)
                                 main_code_mpfr = re.sub(r'sqrt\(([^)]+)\)', r'sqrt(mpcomplex(\1))', main_code_mpfr)
                                 main_code_mpfr = float_pattern.sub(r'mpreal("\1")', main_code_mpfr)
-                                main_code_mpfr = forest_pattern.sub(r'forest_\1_mpfr(lm, params)', main_code_mpfr)
+                                main_code_mpfr = forest_pattern.sub(r'forest_\1_mpfr(lm, params, E, invd)', main_code_mpfr)
                                 main_code_mpfr = re.sub(r'\*out =([^;]*);', r'*out = (__complex128)(\1);', main_code_mpfr)
-                                integrand_mpfr_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{}_{}_{}_mpfr(__complex128 lm[], __complex128 params[], __complex128* out) {{{}\n{}}}'.format(itype, i, int(conf[0]),
-                                    '\n\tmpcomplex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_mpfr
+                                integrand_mpfr_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{}_{}_{}_mpfr(__complex128 lm[], __complex128 params[], __complex128* out) {{{}}}'.format(itype, i, int(conf[0]),
+                                    main_code_mpfr
                                 )
 
                         

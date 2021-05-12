@@ -96,7 +96,7 @@ def get_next_set_pair(subset1, subset2, set_size):
 #
 # @timeit
 class PartialFractioning:
-    def __init__(self, ll_n_props, signatures, **kwargs):
+    def __init__(self, ll_n_props, signatures, den_library=[], **kwargs):
         # ll_n_props: number of propagator per loop line
         # signatures: signature of each loop line
         self.signatures = signatures
@@ -107,7 +107,7 @@ class PartialFractioning:
         self.shift_map = kwargs.pop("shift_map", None)
         self.n_sg_loops = kwargs.pop("n_sg_loops", 0)
         self.ltd_index = kwargs.pop("ltd_index", 0)
-        self.den_library = []
+        self.den_library = den_library
         self.esq_library = [[], []]
         self.energies_map = []
         self.file_name = 'pf_{}l_{}.frm'.format(self.n_loops, self.name)
