@@ -288,8 +288,9 @@ class PartialFractioning:
 
         return res
 
-    def to_FORM(self):
+    def to_FORM(self, energy_index_map=None):
         terms = defaultdict(int)
+        used_denominators = set()
 
         for pf_id, (fact, prod, num) in enumerate(self.pf_res):
             ss = ""
@@ -301,7 +302,7 @@ class PartialFractioning:
                     den = ""
                     for (j, e) in enumerate(r['energies']):
                         if e != 0:
-                            den += "{:+}*E{}".format(cast_int(e), j)
+                            den += "{:+}*E{}".format(cast_int(e), energy_index_map[j] if energy_index_map is not None else j)
                     shifts = ""
                     for (j, p) in enumerate(r['shifts']):
                         if p != 0:
@@ -317,6 +318,8 @@ class PartialFractioning:
                     except ValueError:
                         d_idx = len(self.den_library)
                         self.den_library.append(den)
+
+                    used_denominators.add(d_idx)
                     ss += "*invd%d" % d_idx
             # store numerator steps
             ss += "*num(ncmd("
@@ -328,7 +331,7 @@ class PartialFractioning:
                             ss += "{:+}*energy(fmb{})".format(cast_int(l), j + 1 + self.ltd_index)
                     for (j, e) in enumerate(num_step['energies']):
                         if e != 0:
-                            ss += "{:+}*E{}".format(cast_int(e), j)
+                            ss += "{:+}*E{}".format(cast_int(e), energy_index_map[j] if energy_index_map is not None else j)
                     shifts = ""
                     for (j, p) in enumerate(num_step['shifts']):
                         if p != 0:
@@ -353,7 +356,7 @@ class PartialFractioning:
         for x, c in terms_sorted:
             ss += '\t{}{}\n'.format("%+d" % cast_int(c), x)
 
-        return ss
+        return ss, used_denominators
 
     def shifts_to_externals(self):
         if self.shift_map is None:

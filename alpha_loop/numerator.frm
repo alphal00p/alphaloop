@@ -982,7 +982,7 @@ endif;
 
 * rewrite the propagators
     id energies(0) = 0;
-    id prop(n?,x?,?a) = invdset[x]^(-n);
+    id prop(n?,x?,?a) = x^(-n);
 
 * set the ltd energies (including cut sign)
     id ltdenergy(?a) = replace_(?a);
@@ -1114,17 +1114,17 @@ argument ellipsoids;
     id energies(p?) = penergy(p);
 endargument;
 
-repeat id allenergies(p?,?a) = energync(p.p)*allenergies(?a);
-argument energync;
+repeat id allenergies(x?,p?,m?,?a) = energync(x,p.p+m*m)*allenergies(?a);
+argument energync, 2;
     id p1?.p2? = spatial(p1, p2);
 endargument;
 chainin energync;
 id energync(?a)*allenergies = allenergies(?a);
 id allenergies(?a) = energies(?a);
 
-repeat id constants(p?,?a) = energync(p.p)*constants(?a);
+repeat id constants(p?,m?,?a,x?) = energync(p.p-m*m)*constants(?a,x);
 chainin energync;
-id energync(?a)*constants = constants(?a);
+id energync(?a)*constants(x?) = constants(?a,x);
 
 argument ellipsoids, constants;
     id energy(p?) = penergy(p);

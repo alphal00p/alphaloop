@@ -213,7 +213,6 @@ class FORMSuperGraph(object):
         self.squared_topology = None
         self.replacement_rules = None
         self.configurations = None
-        self.integrand_info = {'PF': {}, 'LTD': {}}
 
         # Will be filled in during FORM generation
         self.code_generation_statistics = None
@@ -958,6 +957,7 @@ aGraph=%s;
 
         unique_ltd = {}
         for cut in topo.cuts:
+            unique_propagators = {}
             for diag_set in cut['diagram_sets']:
                 # collect all graphs
                 graphs = []
@@ -973,9 +973,8 @@ aGraph=%s;
                 for signature_offset, graph_id, g in graphs:
                     energy_map, energies, constants, shift_map = [], [], [], []
                     res = []
-                    prop_mom_in_lmb = []
+                    prop_mom_in_lmb = {}
                     prop_id = {}
-                    counter = 0
 
                     for li, l in enumerate(g.loop_lines):
                         is_constant = all(s == 0 for s in l.signature)
@@ -997,23 +996,22 @@ aGraph=%s;
 
                             totalmom = self.momenta_decomposition_to_string((lmp + shift, extshift), True)
 
-                            # TODO: recycle energy computations since Es will appear more than once
                             if not is_constant:
-                                prop_mom_in_lmb.append((lmp, shift, extshift))
+                                unique_energy_index = next(i if not p.uv else 100 + i for i, e in enumerate(topo.topo.edge_map_lin) if e[0] == p.name)
+                                prop_mom_in_lmb[unique_energy_index] = (lmp, shift, extshift)
                                 energy_map.append((totalmom, p.m_squared if not p.uv else 'mUV*mUV', 1)) # we treat powers specially for LTD
-                                energies.append(totalmom)
+
+                                edge_mass = 'masses({})'.format(next(ee for ee in self.edges.values() if ee['name'] == p.name)['PDG'])
+                                energies.append('E{},{},{}'.format(unique_energy_index, totalmom, edge_mass if not p.uv else 'mUV'))
+
                                 shift_map.append(list(shift) + list(extshift))
 
-                                prop_id[(li, pi)] = counter
-                                counter += 1
+                                prop_id[(li, pi)] = unique_energy_index
                             else:
-                                constants.append((totalmom, p.m_squared if not p.uv else 'mUV*mUV', p.power))
+                                constants.append('{},{}'.format(totalmom, edge_mass if not p.uv else 'mUV'))
 
                     diagres = []
-                    
                     propagators = []
-                    #ltd_signatures = {}
-                    propcount = 1
 
                     # enumerate all cut options
                     for co in [x for css in g.ltd_cut_structure for x in 
@@ -1063,28 +1061,41 @@ aGraph=%s;
                                         '0' if momp == '' else momp)
 
                             for pi, p in enumerate(l.propagators):
-                                # TODO: recycle propagator ids if the functional form is the same!
                                 powmod = '' if p.power == 1 else '^' +  str(p.power)
                                 if (1, (li, pi)) in co:
-                                    propagators.append('2*E{0}'.format(prop_id[(li, pi)]))
-                                    r.append('prop({0},1,ltd{1},0,E{1}){2}'.format(propcount, prop_id[(li, pi)], powmod))
+                                    prop_plus = '2*E{0}'.format(prop_id[(li, pi)])
+                                    if prop_plus not in unique_propagators:
+                                        unique_propagators[prop_plus] = len(unique_propagators)
+                                    propagators.append('invd{},{}'.format(unique_propagators[prop_plus], prop_plus))
+                                    r.append('prop(invd{0},1,ltd{1},0,E{1}){2}'.format(unique_propagators[prop_plus], prop_id[(li, pi)], powmod))
                                     if p.power > 1:
                                         # add derivative prescription
                                         der.append('ltd{},{}'.format(prop_id[(li, pi)], p.power - 1))
                                 elif (-1, (li, pi)) in co:
-                                    propagators.append('-2*E{0}'.format(prop_id[(li, pi)]))
-                                    r.append('prop({0},-1,ltd{1},0,-E{1}){2}'.format(propcount, prop_id[(li, pi)], powmod))
+                                    prop_min = '-2*E{0}'.format(prop_id[(li, pi)])
+                                    if prop_min not in unique_propagators:
+                                        unique_propagators[prop_min] = len(unique_propagators)
+                                    propagators.append('invd{},{}'.format(unique_propagators[prop_min], prop_min))
+                                    r.append('prop(invd{0},-1,ltd{1},0,-E{1}){2}'.format(unique_propagators[prop_min], prop_id[(li, pi)], powmod))
                                     if p.power > 1:
                                         der.append('ltd{},{}'.format(prop_id[(li, pi)], p.power - 1))
                                 else:
                                     momp = self.momenta_decomposition_to_string((prop_mom_in_lmb[prop_id[(li, pi)]][1], prop_mom_in_lmb[prop_id[(li, pi)]][2]), True)
-                                    r.append('prop({0},{1},E{2}+energies({3})){4}*prop({5},{1},-E{2}+energies({3})){4}'.format(propcount, ','.join(energy), prop_id[(li, pi)],
-                                        '0' if momp == '' else momp, powmod, propcount + 1))
 
-                                    propagators.append('{}+E{}+energies({})'.format(energy_full, prop_id[(li, pi)], '0' if momp == '' else momp))
-                                    propagators.append('{}-E{}+energies({})'.format(energy_full, prop_id[(li, pi)], '0' if momp == '' else momp))
-                                    propcount += 1
-                                propcount += 1
+                                    prop_plus = '{}+E{}+energies({})'.format(energy_full, prop_id[(li, pi)], '0' if momp == '' else momp)
+                                    prop_min = '{}-E{}+energies({})'.format(energy_full, prop_id[(li, pi)], '0' if momp == '' else momp)
+
+                                    if prop_plus not in unique_propagators:
+                                        unique_propagators[prop_plus] = len(unique_propagators)
+                                    if prop_min not in unique_propagators:
+                                        unique_propagators[prop_min] = len(unique_propagators)
+
+                                    propagators.append('invd{},{}'.format(unique_propagators[prop_plus], prop_plus))
+                                    propagators.append('invd{},{}'.format(unique_propagators[prop_min], prop_min))
+
+                                    r.append('prop(invd{0},{1},E{2}+energies({3})){4}*prop(invd{5},{1},-E{2}+energies({3})){4}'.format(unique_propagators[prop_plus], ','.join(energy), prop_id[(li, pi)],
+                                        '0' if momp == '' else momp, powmod, unique_propagators[prop_min]))
+
                         diagres.append('{}*{}{}{}({})'.format(
                             ltd_closure_factor,
                             'ltdcbtolmb({})*'.format(','.join(m)) if len(m) > 0 else '',
@@ -1100,20 +1111,19 @@ aGraph=%s;
                     max_diag_set_id = max(max_diag_set_id, diag_set['id'])
                     max_diag_id = max(max_diag_id, graph_id)
 
-                    ltd_sig = (g.n_loops, str(constants), ','.join(propagators), str(energy_map), res)
+                    propagators = list(sorted(set(propagators)))
+
+                    ltd_instr = '(-1)^{}*(2*pi*i_)^{}*constants({})*\n\tellipsoids({})*\n\tallenergies({})*(\n\t\t{}\n)'.format(g.n_loops, 
+                        g.n_loops, ','.join(constants + ['1']), ','.join(propagators), ','.join(energies), res)
                     max_diag_set_id = max(max_diag_set_id, diag_set['id'])
                     max_diag_id = max(max_diag_id, graph_id)
                     
-                    if ltd_sig not in unique_ltd:
-                        unique_ltd[ltd_sig] = global_diag_id
+                    if ltd_instr not in unique_ltd:
+                        unique_ltd[ltd_instr] = global_diag_id
+                        integrand_body += 'Fill ltdtopo({},{}) = {};\n'.format(*global_diag_id, ltd_instr)
 
-                        integrand_body += 'Fill ltdtopo({},{}) = (-1)^{}*constants({})*\n\tellipsoids({})*\n\tallenergies({})*(\n\t\t{}\n);\n'.format(*global_diag_id,
-                            g.n_loops, ','.join(c[0] for c in constants), ','.join(propagators), ','.join(energies), res)
+                    topo_map += 'Fill ltdmap({},{}) = diag({},{});\n'.format(*global_diag_id, *unique_ltd[ltd_instr])
 
-                    topo_map += 'Fill ltdmap({},{}) = diag({},{});\n'.format(*global_diag_id, *unique_ltd[ltd_sig])
-
-                    self.integrand_info['LTD'][(numerator_call, *global_diag_id)] = (energy_map, constants, g.n_loops, unique_ltd[ltd_sig])
-                    
 
         with open(pjoin(workspace, 'ltdtable_{}.h'.format(numerator_call)), 'w') as f:
             f.write("""
@@ -1121,7 +1131,6 @@ Auto S invd, E, shift, ltd;
 S r, s;
 CF a, num, ncmd, conf1, replace, energies, ellipsoids, ltdcbtolmb, ltdenergy, constants;
 NF allenergies;
-Set invdset: invd0,...,invd10000;
 CTable ltdtopo(0:{},0:{});
 CTable ltdmap(0:{},0:{});
 
@@ -1139,8 +1148,8 @@ CTable ltdmap(0:{},0:{});
 
         unique_pf = {}
         for cut in topo.cuts:
+            den_library = []
             for diag_set in cut['diagram_sets']:
-
                 # collect all graphs
                 graphs = []
                 for diag_info in diag_set['diagram_info']:
@@ -1153,7 +1162,8 @@ CTable ltdmap(0:{},0:{});
                         graphs.append((signature_offset, uv_structure['remaining_graph_id'], uv_structure['remaining_graph_loop_topo']))
 
                 for signature_offset, graph_id, g in graphs:
-                    signatures, n_props, energy_map, energies, constants, shift_map = [], [], [], [], [], []
+                    signatures, n_props, energies, constants, shift_map, unique_energy = [], [], [], [], [], []
+                    pf_prefactor = ['1']
 
                     for l in g.loop_lines:
                         is_constant = all(s == 0 for s in l.signature)
@@ -1178,47 +1188,45 @@ CTable ltdmap(0:{},0:{});
                             totalmom = self.momenta_decomposition_to_string((lmp + shift, extshift), True)
 
                             # recycle energy computations when there are duplicate edges
+                            edge_mass = 'masses({})'.format(next(ee for ee in self.edges.values() if ee['name'] == p.name)['PDG'])
                             if not is_constant:
-                                energy_map.append((totalmom, (p.m_squared if p.m_squared != 0 else 'small_mass_sq') if not p.uv else 'mUV*mUV', p.power))
+                                unique_energy_index = next(i if not p.uv else 100 + i for i, e in enumerate(topo.topo.edge_map_lin) if e[0] == p.name)
+                                pf_prefactor.append('2*E{}'.format(unique_energy_index) if p.power == 1 else '(2*E{})^{}'.format(unique_energy_index, p.power))
+                                energies.append('E{},{},{}'.format(unique_energy_index, totalmom, edge_mass if not p.uv else 'mUV'))
 
                                 for _ in range(p.power):
-                                    energies.append(totalmom)
                                     shift_map.append(list(shift) + list(extshift))
+                                    unique_energy.append(unique_energy_index)
                             else:
-                                constants.append((totalmom, (p.m_squared if p.m_squared != 0 else 'small_mass_sq') if not p.uv else 'mUV*mUV', p.power))
+                                constants.append('{},{}'.format(totalmom, edge_mass if not p.uv else 'mUV'))
+
+                    pf_prefactor = '*'.join(pf_prefactor)
 
                     if len(signatures) == 0:
                         # no loop dependence for this cut
                         res = '\t1\n'
                         resden = ''
                     else:
-                        #logger.info("Input to PF generator:\nn_props=%s\nsignatures=%s"%(
-                        #    pformat(n_props),pformat(signatures)
-                        #))
                         pf = LTD.partial_fractioning.PartialFractioning(n_props, signatures,
                                                 name=str(diag_set['id']), shift_map=np.array(shift_map).T,
                                                 n_sg_loops=topo.topo.n_loops, ltd_index=signature_offset,
-                                                progress_bar = progress_bar)
+                                                progress_bar = progress_bar, den_library=den_library)
                         pf.shifts_to_externals() #shift_map=np.array(shift_map).T)
-                        res = pf.to_FORM()
+                        res, used_props = pf.to_FORM(unique_energy)
                         res = '\n'.join(['\t' + l for l in res.split('\n')])
-                        resden = ','.join(pf.den_library)
+                        resden = ','.join('invd{},{}'.format(i, d) for i, d in enumerate(pf.den_library) if i in used_props)
 
                     global_diag_id = (diag_set['id'], graph_id)
 
-                    # TODO: symmetrize over the signature offset?
-                    pf_sig = (str(constants), str(energy_map), resden, res)
+                    pf_instr = '(2*pi*i_)^{}*constants({})*\nallenergies({})*\nellipsoids({})*(\n{})'.format(g.n_loops, ','.join(constants + [pf_prefactor]), 
+                        ','.join(energies), resden, res)
                     max_diag_set_id = max(max_diag_set_id, diag_set['id'])
                     max_diag_id = max(max_diag_id, graph_id)
-                    if pf_sig not in unique_pf:
-                        unique_pf[pf_sig] = global_diag_id
+                    if pf_instr not in unique_pf:
+                        unique_pf[pf_instr] = global_diag_id
+                        integrand_body += 'Fill pftopo({},{}) = {};\n'.format(*global_diag_id, pf_instr)
 
-                        integrand_body += 'Fill pftopo({},{}) = constants({})*\nallenergies({})*\nellipsoids({})*(\n{});\n'.format(global_diag_id[0],
-                            global_diag_id[1], ','.join(c[0] for c in constants), ','.join(energies), resden, res)
-
-                    topo_map += 'Fill pfmap({},{}) = diag({},{});\n'.format(*global_diag_id, *unique_pf[pf_sig])
-
-                    self.integrand_info['PF'][(numerator_call, *global_diag_id)] = (energy_map, constants, g.n_loops, unique_pf[pf_sig])
+                    topo_map += 'Fill pfmap({},{}) = diag({},{});\n'.format(*global_diag_id, *unique_pf[pf_instr])
 
         with open(pjoin(workspace, 'pftable_{}.h'.format(numerator_call)), 'w') as f:
             f.write("""
@@ -2513,6 +2521,9 @@ class FORMSuperGraphList(list):
         float_pattern = re.compile(r'((\d+\.\d*)|(\.\d+))')
         diag_pattern = re.compile(r'diag\((\d*)\)')
         forest_pattern = re.compile(r'forestid\((\d*)\)')
+        square_pattern = re.compile(r'([^^*+\-\s]*)\^2')
+        pow_pattern = re.compile(r'([^^*+\-\s]*)\^(\d+)')
+        int_pattern = re.compile(r'(?:^|(?<=[^\.\w]))(\d+)(?=[^\.\w]|$)')
         empty_line_pattern = re.compile(r'\n\n\n')
 
         integrand_type_list = [integrand_type] if integrand_type != 'both' else ['PF', 'LTD']
@@ -2553,7 +2564,6 @@ class FORMSuperGraphList(list):
 
                         total_time += time.time()-time_before
                         num = num.replace('i_', 'I')
-                        num = input_pattern.sub(r'lm[\1]', num)
                         num = num.replace('\nZ', '\n\tZ') # nicer indentation
 
                         confs = []
@@ -2573,54 +2583,44 @@ class FORMSuperGraphList(list):
                             denominator_mode = 'NUM' if int(conf[0]) >= 0 else ('FOREST' if len(conf) == 2 else 'DIAG')
                             
                             if denominator_mode == 'DIAG':
-                                conf_id = (i, int(conf[1]), int(conf[2]))
-                                mom_map, constants, loops, orig_id = graph[0].integrand_info[itype][conf_id]
-
-                            if denominator_mode == 'DIAG':
                                 # parse the constants
                                 const_secs = conf_sec.split('#CONSTANTS')[1]
-                                const_secs = const_secs.replace('\n', '')
-                                const_code = '*'.join('\t({}-{})'.format(e, mass) if p == 1 else '\tpow({}-{},{})'.format(e, mass, p)
-                                    for e, (_, mass, p) in zip(const_secs.split(','), constants) if e != '')
+                                const_secs = const_secs.replace('\n', '').replace(' ', '').replace('\t', '')
+                                const_code = '*'.join('({})'.format(e) for e in const_secs.split(',') if e != '')
 
                                 # parse the energies
                                 energy_secs = conf_sec.split('#ENERGIES')[1]
-                                energy_secs = energy_secs.replace('\n', '')
+                                energy_secs = energy_secs.replace('\n', '').replace(' ', '').replace('\t', '')
 
                                 # some energies are repeated and we only keep the first
-                                energy_index = 0
-                                skip_next = 1
                                 energy_code = []
-                                energy_prefactor = []
-                                for j, e in enumerate(energy_secs.split(',')):
-                                    if e == '':
-                                        continue
-
-                                    skip_next -= 1
-                                    if skip_next != 0:
-                                        continue
-
-                                    (_, mass, p) = mom_map[energy_index]
-                                    skip_next += p
-                                    energy_index += 1
-                                    energy_code.append('\tdouble complex E{} = sqrt({}+{});'.format(j, e, mass))
-                                    if itype == "PF":
-                                        energy_prefactor.append('2.*E{}'.format(j) if p == 1 else 'pow(2.*E{},{})'.format(j, p))
+                                e = [e for e in energy_secs.split(',') if e != '']
+                                assert(len(e) % 2 == 0)
+                                for j in range(0, len(e), 2):
+                                    energy_code.append('\tdouble complex {} = sqrt({});'.format(e[j], square_pattern.sub(r'\1*\1', e[j+1])))
 
                                 energy_code = '\n'.join(energy_code)
-                                energy_prefactor = '*'.join(energy_prefactor)
-                                const_code = const_code + ('*' if len(const_code) > 0 and len(energy_prefactor) > 0 else '') + energy_prefactor
+
+                                # convert an int in front of the PF energies to float to prevent mpfr conversion issues
+                                const_code = re.sub(r'\((\d+)\*E', r'(\1.*E', const_code)
+
+                                const_code = pow_pattern.sub(r'pow(\1,\2)', const_code)
+                                const_code = square_pattern.sub(r'\1*\1', const_code)
 
                                 if const_code == '':
                                     const_code = '1.'
 
                                 # parse the denominators
                                 denom_secs = conf_sec.split('#ELLIPSOIDS')[1]
-                                denom_secs = denom_secs.replace('\n', '')
+                                denom_secs = denom_secs.replace('\n', '').replace('\t', '')
                                 d = [d for d in denom_secs.split(',') if d != '']
-                                denom_code = '\n'.join('\tdouble complex invd{} = 1./({});'.format(i, dd) for i,dd in enumerate(d))
-                                denom_code = re.sub(r'([+\-*()])(\s*\d+)', r'\1\2.', denom_code)
+                                denom_code = '\n'.join('\tdouble complex {} = 1./({});'.format(d[j], int_pattern.sub(r'\1.', d[j+1])) for j in range(0, len(d), 2))
                                 conf_sec = conf_sec.split('#ELLIPSOIDS')[-1]
+
+                            denom_code = input_pattern.sub(r'lm[\1]', denom_code)
+                            const_code = input_pattern.sub(r'lm[\1]', const_code)
+                            energy_code = input_pattern.sub(r'lm[\1]', energy_code)
+                            conf_sec = input_pattern.sub(r'lm[\1]', conf_sec)
 
                             conf_sec = re.sub(r'(^|[+\-*=])(\s*\d+)($|[^.\d\w])', r'\1\2.\3', conf_sec)
                             returnval = list(return_exp.finditer(conf_sec))[0].groups()[0]
@@ -2628,7 +2628,7 @@ class FORMSuperGraphList(list):
                             if denominator_mode == 'FOREST':
                                 conf_sec = return_exp.sub('return {};\n'.format(returnval), conf_sec)
                             elif denominator_mode == 'DIAG':
-                                conf_sec = return_exp.sub('return pow(2.*pi*I,{})/({})*({});\n'.format(loops, const_code, returnval), conf_sec)
+                                conf_sec = return_exp.sub('return 1./({})*({});\n'.format(const_code, returnval), conf_sec)
                             else:
                                 conf_sec = return_exp.sub('*out = {};\n'.format(returnval), conf_sec)
 
