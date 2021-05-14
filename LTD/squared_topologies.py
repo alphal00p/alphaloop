@@ -326,11 +326,16 @@ class SquaredTopologyGenerator:
                                 # the UV subgraph
                                 uv_loop_lines = []
                                 for ll in loop_topo.loop_lines:
-                                    uv_loop_lines.append((ll.signature, [(p.name, p.parametric_shift) for p in ll.propagators]))
+                                    derived_ll_power = sum(pp.power for pp in ll.propagators)
+                                    orig_ll_power = sum(uv_subgraph['graph'].powers[pp.name] for pp in ll.propagators)
+
+                                    # FIXME: repeated propagators will only appear once in ll.propagators and will therefore not be
+                                    # getting the correct power
+                                    uv_loop_lines.append((ll.signature, [(p.name, p.parametric_shift) for p in ll.propagators], derived_ll_power - orig_ll_power))
                                     prop = ll.propagators[0]
                                     prop.uv = True
                                     prop.m_squared = mu_uv**2
-                                    prop.power = sum(pp.power for pp in ll.propagators)
+                                    prop.power = derived_ll_power
                                     prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
                                     ll.propagators = [prop]
 

@@ -1484,9 +1484,10 @@ CTable pfmap(0:{},0:{});
                         for uv_subgraph in uv_structure['uv_subgraphs']:
 
                             for dg in uv_subgraph['derived_graphs']:
+                                rp = '*'.join('t{}'.format(i) if raised_power == 1 else 't{}^{}'.format(i, raised_power)
+                                        for i, (_,_,raised_power) in enumerate(dg['loop_topo'].uv_loop_lines[0]) if raised_power != 0)
                                 topo_map += '\tid uvtopo({},{},k1?,...,k{}?) = diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
-                                    '1' if len(dg['raise_map']) == 0 else '*'.join('t' + str(i) for i in dg['raise_map']),
-                                    dg['graph'].n_loops, diag_set['id'], dg['id'], dg['graph'].n_loops)
+                                    '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], dg['id'], dg['graph'].n_loops)
 
                             # construct the vertex structure of the UV subgraph
                             # TODO: are the LTD vertices reliable?
@@ -1508,7 +1509,7 @@ CTable pfmap(0:{},0:{});
                                 vertex_structure.append('vxs({})'.format(','.join(vertex)))
 
                             uv_props = []
-                            for i, (ll_sig, propagators) in enumerate(uv_loop_graph.uv_loop_lines[0]):
+                            for i, (ll_sig, propagators, _raised_power) in enumerate(uv_loop_graph.uv_loop_lines[0]):
                                 loop_mom_sig = ''
                                 loop_mom_shift = ''
                                 for s, lmm, lm_shift in zip(ll_sig, uv_loop_graph.loop_momentum_map, uv_loop_graph.uv_loop_lines[1]):
