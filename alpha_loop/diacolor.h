@@ -689,7 +689,7 @@ if ( count(cOlff,1) ) redefine iStageB "0";
 *
 *   Made by J.Vermaseren, 24-may-1997
 *
-if ( count(cOlf,1) != multipleof(2) ) discard;
+*if ( count(cOlf,1) != multipleof(2) ) discard;
 #call contract
 #call SORT(simpli-0)
 #do isimpli = 1,`RANK'

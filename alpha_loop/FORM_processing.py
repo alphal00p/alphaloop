@@ -1525,11 +1525,16 @@ CTable pfmap(0:{},0:{});
                                     ext_mom_sig = ''
                                     edge_mass = 'masses({})'.format(next(ee for ee in self.edges.values() if ee['name'] == edge_name)['PDG'])
 
+                                    # the edge may have a raised power due to the bubble derivative
+                                    new_power = (power + 1 if edge_name == diag_info['derivative'][1] else 1) \
+                                            if diag_info['derivative'] and diag_info['derivative'][0] != diag_info['derivative'][1] else power
+
                                     if all(s == 0 for s in param_shift[1]):
-                                        if loop_mom_shift == '':
-                                            uv_props.append('uvprop({},t{},0,{})'.format(loop_mom_sig, i, edge_mass))
-                                        else:
-                                            uv_props.append('uvprop({},t{},{},{})'.format(loop_mom_sig, i, loop_mom_shift, edge_mass))
+                                        for _ in range(new_power):
+                                            if loop_mom_shift == '':
+                                                uv_props.append('uvprop({},t{},0,{})'.format(loop_mom_sig, i, edge_mass))
+                                            else:
+                                                uv_props.append('uvprop({},t{},{},{})'.format(loop_mom_sig, i, loop_mom_shift, edge_mass))
                                         continue
 
                                     for (ext_index, s) in enumerate(param_shift[1]):
@@ -1539,9 +1544,7 @@ CTable pfmap(0:{},0:{});
                                             ext_mom_sig += '{}({})'.format('+' if s == 1 else '-',
                                                 self.momenta_decomposition_to_string(ext_edge['signature'], False))
 
-                                    # the edge may have a raised power due to the bubble derivative
-                                    new_power = (power + 1 if edge_name == diag_info['derivative'][1] else 1) if diag_info['derivative'] and diag_info['derivative'][0] != diag_info['derivative'][1] else power
-                                    for _ in range(power):
+                                    for _ in range(new_power):
                                         uv_props.append('uvprop({},t{},{},{})'.format(loop_mom_sig, i, loop_mom_shift + ext_mom_sig, edge_mass))
                             # it could be that there are no propagators with external momentum dependence when pinching duplicate edges
                             if uv_props == []:
