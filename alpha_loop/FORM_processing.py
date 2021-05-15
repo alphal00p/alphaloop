@@ -1521,7 +1521,7 @@ CTable pfmap(0:{},0:{});
 
                                 # the parametric shift is given in terms of external momenta of the subgraph
                                 # translate the signature and param_shift to momenta of the supergraph
-                                for (edge_name, param_shift) in propagators:
+                                for (edge_name, param_shift, power) in propagators:
                                     ext_mom_sig = ''
                                     edge_mass = 'masses({})'.format(next(ee for ee in self.edges.values() if ee['name'] == edge_name)['PDG'])
 
@@ -1540,7 +1540,7 @@ CTable pfmap(0:{},0:{});
                                                 self.momenta_decomposition_to_string(ext_edge['signature'], False))
 
                                     # the edge may have a raised power due to the bubble derivative
-                                    power = (2 if edge_name == diag_info['derivative'][1] else 1) if diag_info['derivative'] and diag_info['derivative'][0] != diag_info['derivative'][1] else 1
+                                    new_power = (power + 1 if edge_name == diag_info['derivative'][1] else 1) if diag_info['derivative'] and diag_info['derivative'][0] != diag_info['derivative'][1] else power
                                     for _ in range(power):
                                         uv_props.append('uvprop({},t{},{},{})'.format(loop_mom_sig, i, loop_mom_shift + ext_mom_sig, edge_mass))
                             # it could be that there are no propagators with external momentum dependence when pinching duplicate edges

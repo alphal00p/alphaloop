@@ -1008,6 +1008,8 @@ class TopologyGenerator(object):
         new_shift_map = copy.deepcopy(shift_map)
         powers = copy.deepcopy(self.powers)
 
+        propagator_map = {}
+
         for prop, (edge_name, v1, v2) in zip(self.propagators, self.edge_map_lin):
             if prop == ():
                 # external momentum
@@ -1040,6 +1042,7 @@ class TopologyGenerator(object):
                         # if the edge is duplicate, raise the power and don't add it to the map
                         if ll[3] == alt_prop and ll[2] == mass:
                             #print('Merging with flip', name, ll[0], edge_name)
+                            propagator_map[edge_name] = ll[0]
                             powers[ll[0]] += powers[edge_name]
                             break
                     else:
@@ -1057,6 +1060,7 @@ class TopologyGenerator(object):
                         # if the edge is duplicate, raise the power and don't add it to the map
                         if ll[3] == prop and ll[2] == mass:
                             #print('Merging', name, ll[0], edge_name)
+                            propagator_map[edge_name] = ll[0]
                             powers[ll[0]] += powers[edge_name]
                             break
                     else:
@@ -1133,7 +1137,8 @@ class TopologyGenerator(object):
         
         loop_topology = LoopTopology(name=name, n_loops=len(self.loop_momenta), external_kinematics=external_kinematics,
             ltd_cut_structure=cs, loop_lines=ll, analytic_result = analytic_result, fixed_deformation = fixed_deformation,
-            constant_deformation = constant_deformation, loop_momentum_map=loop_momentum_map, cmb_indices=cmb_indices)
+            constant_deformation = constant_deformation, loop_momentum_map=loop_momentum_map, cmb_indices=cmb_indices,
+            propagator_map=propagator_map)
 
         if analytic_result is None:
             loop_topology.analytic_result = self.guess_analytical_result(self.loop_momenta, ext_mom, mass_map)
@@ -1380,7 +1385,7 @@ class LoopTopology(object):
     _existence_threshold = 1.0e-7
     def __init__(self, ltd_cut_structure, loop_lines, external_kinematics, n_loops=1, name=None, analytic_result=None,
         fixed_deformation=None, constant_deformation=None, maximum_ratio_expansion_threshold=None, loop_momentum_map=None,
-        cmb_indices=None, numerator_tensor_coefficients=None, **opts):
+        cmb_indices=None, numerator_tensor_coefficients=None, propagator_map={}, **opts):
         """
             loop_lines          : A tuple of loop lines instances corresponding to each edge of the directed
                                   graph of this topology.
@@ -1407,6 +1412,7 @@ class LoopTopology(object):
         self.loop_momentum_map = loop_momentum_map
         self.cmb_indices = cmb_indices
         self.numerator_tensor_coefficients = numerator_tensor_coefficients
+        self.propagator_map = propagator_map
 
     def evaluate(self, loop_momenta):
         """ Evaluates Loop topology with the provided list loop momenta, given as a list of LorentzVector."""

@@ -327,11 +327,14 @@ class SquaredTopologyGenerator:
                                 uv_loop_lines = []
                                 for ll in loop_topo.loop_lines:
                                     derived_ll_power = sum(pp.power for pp in ll.propagators)
-                                    orig_ll_power = sum(uv_subgraph['graph'].powers[pp.name] for pp in ll.propagators)
+                                    # determine the power of the loop line of the non-derived graph
+                                    orig_ll_power = sum(uv_subgraph['graph'].powers[pp.name]
+                                        + len([1 for _,mn in loop_topo.propagator_map.items() if mn == pp.name])
+                                     for pp in ll.propagators)
 
-                                    # FIXME: repeated propagators will only appear once in ll.propagators and will therefore not be
-                                    # getting the correct power
-                                    uv_loop_lines.append((ll.signature, [(p.name, p.parametric_shift) for p in ll.propagators], derived_ll_power - orig_ll_power))
+                                    # note: we assume that every propagator has power 1 and that only merging of identical edges raises it
+                                    uv_loop_lines.append((ll.signature, [(p.name, p.parametric_shift,
+                                        1 + len([1 for _,mn in loop_topo.propagator_map.items() if mn == p.name])) for p in ll.propagators], derived_ll_power - orig_ll_power))
                                     prop = ll.propagators[0]
                                     prop.uv = True
                                     prop.m_squared = mu_uv**2
