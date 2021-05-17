@@ -633,7 +633,9 @@ id subgraph(?a,uvconf(?b),?c) = subgraph(?a,uvconf(?b));
         id t = 1;
     endargument;
 
-    id m?allmasses = t*m; * rescale all masses in the numerator
+* rescale all masses in the numerator
+    repeat id m?allmasses = tmp(m);
+    id tmp(m?) = t*m;
 
 * Taylor expand the propagators to the right depth
 * p carries a t dependence that determines the order
