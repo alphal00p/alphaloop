@@ -375,7 +375,9 @@ class TopologyGenerator(object):
                 # strip all subgraphs in the spinney from the current subgraph momenta
                 # as these subgraphs have already been factored out by the Taylor expansion
                 subgraph_momenta = [m for m in subgraph_momenta_full if not any(m in s for s, _ in spinney[:graph_index])]
-                subgraph_indices = [i for i, (m, _) in enumerate(spinney[:graph_index]) if len(set(m) & set(subgraph_momenta_full)) != 0]
+                # strip indices of sub-sub-graphs
+                subgraph_indices = [i for i, (m, _) in enumerate(spinney[:graph_index]) if len(set(m) & set(subgraph_momenta_full)) != 0 and
+                    not any(len(m1) > len(m) and set(m).issubset(m1) for m1, _ in spinney[:graph_index])]
 
                 new_gs = []
                 for graph_info in gs:
