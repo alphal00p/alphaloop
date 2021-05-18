@@ -181,35 +181,36 @@ Hide CONF;
 
 *--#[ feynman-rules :
 
-#procedure FeynmanRules(DOCOLOR)
 ************************************************
 * Substitute the Feynman rules for the numerator
 ************************************************
 
+#procedure FeynmanRulesGlobal()
+* extract the global factors from the Feynman rules, including colour
+
+* make a copy of the Feynman rules
+id prop(?a) = prop(?a)*tmp(prop(?a));
+id vx(?a) = vx(?a)*tmp(vx(?a));
+repeat id tmp(x1?)*tmp(x2?) = tmp(x1*x2);
+
 * strip momentum tags
 repeat id f?{vx,prop}(?a,p?) = f(?a);
 
-* Fix a quirk where 0 does not match to a vector
-* The only 0 in a propagator or vertex is when a momentum is 0
-* All indices and pdgs are non-zero
-repeat id prop(?a, 0, ?b) = prop(?a, pzero, ?b);
-repeat id vx(?a, 0, ?b) = vx(?a, pzero, ?b);
-
 * do the spin sum external particles
-repeat id prop(`PHO', in, p?, idx1?)*prop(`PHO', out, p?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
-repeat id prop(x?{`L'}, in, p?, idx1?)*prop(x?{`L',}, out, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x)*gamma(dirac[idx1], dirac[idx2]);
-repeat id prop(x?{`Q'}, in, p?, idx1?)*prop(x?{`Q'}, out, p?, idx2?) = d_(colF[idx1], colF[idx2])*(gamma(dirac[idx1], p, dirac[idx2]) + masses(x)*gamma(dirac[idx1], dirac[idx2]));
-repeat id prop(x?{`LBAR'}, out, p?, idx1?)*prop(x?{`LBAR'}, in, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) - masses(x)*gamma(dirac[idx1], dirac[idx2]);
-repeat id prop(x?{`QBAR'}, out, p?, idx1?)*prop(x?{`QBAR'}, in, p?, idx2?) = d_(colF[idx1], colF[idx2])*(gamma(dirac[idx1], p, dirac[idx2]) - masses(x)*gamma(dirac[idx1], dirac[idx2]));
+repeat id prop(`PHO', in, p?, idx1?)*prop(`PHO', out, p?, idx2?) = 1;
+repeat id prop(x?{`L'}, in, p?, idx1?)*prop(x?{`L',}, out, p?, idx2?) = 1;
+repeat id prop(x?{`Q'}, in, p?, idx1?)*prop(x?{`Q'}, out, p?, idx2?) = 1;
+repeat id prop(x?{`LBAR'}, out, p?, idx1?)*prop(x?{`LBAR'}, in, p?, idx2?) = 1;
+repeat id prop(x?{`QBAR'}, out, p?, idx1?)*prop(x?{`QBAR'}, in, p?, idx2?) = 1;
 
 * virtual edges
-id prop(`GLU', virtual, p?, idx1?, idx2?) = - i_ * d_(lorentz[idx1], lorentz[idx2]) * d_(colA[idx1], colA[idx2]);
+id prop(`GLU', virtual, p?, idx1?, idx2?) = - i_ * d_(colA[idx1], colA[idx2]);
 id prop(x?{`GHO',`GHOBAR'}, virtual, p?, idx1?, idx2?) = - i_ *d_(colA[idx1], colA[idx2]);
-id prop(`PHO', virtual, p?, idx1?, idx2?) = - i_ * d_(lorentz[idx1], lorentz[idx2]);
-id prop(x?{`L'}, virtual, p?, idx1?, idx2?) = i_ * (gamma(dirac[idx2], p, dirac[idx1]) + masses(x) * gamma(dirac[idx2], dirac[idx1]));
-id prop(x?{`LBAR'}, virtual, p?, idx1?, idx2?) = - i_ * (gamma(dirac[idx1], p, dirac[idx2]) + masses(x) * gamma(dirac[idx1], dirac[idx2]));
-id prop(x?{`Q'}, virtual, p?, idx1?, idx2?) = i_ * (gamma(dirac[idx2], p, dirac[idx1]) + masses(x) * gamma(dirac[idx2], dirac[idx1])) * d_(colF[idx2], colF[idx1]);
-id prop(x?{`QBAR'}, virtual, p?, idx1?, idx2?) = - i_ * (gamma(dirac[idx1], p, dirac[idx2]) + masses(x) * gamma(dirac[idx1], dirac[idx2])) * d_(colF[idx1], colF[idx2]);
+id prop(`PHO', virtual, p?, idx1?, idx2?) = - i_;
+id prop(x?{`L'}, virtual, p?, idx1?, idx2?) = i_;
+id prop(x?{`LBAR'}, virtual, p?, idx1?, idx2?) = - i_;
+id prop(x?{`Q'}, virtual, p?, idx1?, idx2?) = i_ * d_(colF[idx2], colF[idx1]);
+id prop(x?{`QBAR'}, virtual, p?, idx1?, idx2?) = - i_ * d_(colF[idx1], colF[idx2]);
 id prop(`H', virtual, p?, idx1?, idx2?) = -i_;
 id prop(`H', in, p?, idx1?) = 1;
 id prop(`H', out, p?, idx1?) = 1;
@@ -222,30 +223,19 @@ if (count(prop, 1));
     exit "Critical error";
 endif;
 
-.sort:feynman-rules-edges;
-
 * vertices
-id vx(x1?{`QBAR'}, `GLU', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gs * gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * T(colF[idx1], colA[idx2], colF[idx3]);
-id vx(`GHOBAR', `GLU', `GHO', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gs * i_ * cOlf(colA[idx3], colA[idx2], colA[idx1]) * (1/2) * (p3(lorentz[idx2])-p1(lorentz[idx2]));
-id vx(x1?{`QBAR'}, `PHO', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = charges(x2) * ge * i_* gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
-id vx(x1?{`LBAR'}, `PHO', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = charges(x2) * ge * i_* gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
-id vx(x1?{`QBAR'}, `H', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gyq(x1) * i_ * d_(dirac[idx1], dirac[idx3]) * d_(colF[idx1], colF[idx3]);
-id vx(x1?{`LBAR'}, `H', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gyq(x1) * i_ * d_(dirac[idx1], dirac[idx3]);
+id vx(x1?{`QBAR'}, `GLU', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gs * T(colF[idx1], colA[idx2], colF[idx3]);
+id vx(`GHOBAR', `GLU', `GHO', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gs * i_ * cOlf(colA[idx3], colA[idx2], colA[idx1]) * (1/2);
+id vx(x1?{`QBAR'}, `PHO', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = charges(x2) * ge * i_* d_(colF[idx1], colF[idx3]);
+id vx(x1?{`LBAR'}, `PHO', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = charges(x2) * ge * i_;
+id vx(x1?{`QBAR'}, `H', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gyq(x1) * i_ * d_(colF[idx1], colF[idx3]);
+id vx(x1?{`LBAR'}, `H', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gyq(x1) * i_;
 id vx(`H', `H', `H', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ghhh * i_;
 
-id vx(`H', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = - i_ * d_(colA[idx2], colA[idx3]) * ( -gs^2/12/vev/pi^2 ) * (
-    p3(lorentz[idx2])*p2(lorentz[idx3]) - p2.p3 * d_(lorentz[idx2], lorentz[idx3])
-);
-id vx(`H', `GLU', `GLU', `GLU', p4?, p1?, p2?, p3?, idx4?, idx1?, idx2?, idx3?) = i_ * gs * cOlf(colA[idx1], colA[idx2], colA[idx3]) * ( -gs^2/12/vev/pi^2 ) * (
-    - d_(lorentz[idx1], lorentz[idx3]) * p1(lorentz[idx2])
-    + d_(lorentz[idx1], lorentz[idx2]) * p1(lorentz[idx3])
-    + d_(lorentz[idx2], lorentz[idx3]) * p2(lorentz[idx1])
-    - d_(lorentz[idx1], lorentz[idx2]) * p2(lorentz[idx3])
-    - d_(lorentz[idx2], lorentz[idx3]) * p3(lorentz[idx1])
-    + d_(lorentz[idx1], lorentz[idx3]) * p3(lorentz[idx2])
-);
+id vx(`H', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = - i_ * d_(colA[idx2], colA[idx3]) * ( -gs^2/12/vev/pi^2 );
+id vx(`H', `GLU', `GLU', `GLU', p4?, p1?, p2?, p3?, idx4?, idx1?, idx2?, idx3?) = i_ * gs * cOlf(colA[idx1], colA[idx2], colA[idx3]) * ( -gs^2/12/vev/pi^2 );
 
-#do i=3,20
+#do i=3,6
     id vx(<x1?{`PSI',}>,...,<x`i'?{`PSI',}>, p1?, ...,p`i'?, idx1?, ..., idx`i'?) = (-1*i_)^(`i'-2);
 #enddo
 
@@ -254,38 +244,181 @@ id vx(`H', `GLU', `GLU', `GLU', p4?, p1?, p2?, p3?, idx4?, idx1?, idx2?, idx3?) 
 * The first multiplicity factor is always the loop multiplicity factor! It must be adjusted w.r.t to n_f!
 
 * dZ massless quark
-id vx(x1?{`QBARMASSLESS'}, x2?{`QMASSLESS'}, p1?, p2?, idx1?, idx2?) = (1/1) * (-1) * i_ * ((4/3)*gs^2/16/pi^2) * (1/ep) * gamma(dirac[idx1], p2, dirac[idx2]) * d_(colF[idx1], colF[idx2]);
+id vx(x1?{`QBARMASSLESS'}, x2?{`QMASSLESS'}, p1?, p2?, idx1?, idx2?) = (1/1) * (-1) * i_ * ((4/3)*gs^2/16/pi^2) * (1/ep) * d_(colF[idx1], colF[idx2]);
 
 * the finite part needs to be checked, also because the factor 4/3 on the pole of the mass correction is pure fudge for now.
 * dZ massive quark
-id vx(x1?{`QBARMASSIVE'}, x2?{`QMASSIVE'}, p1?, p2?, idx1?, idx2?) = (1/1) * (-1) * i_ * ((4/3)*gs^2/16/pi^2) * ( 
-      (1/ep + UVRenormFINITE*(4 + 3*(logmu - logmasses(x1))) ) * ( -gamma(dirac[idx1], p1, dirac[idx2]) - masses(x1) * gamma(dirac[idx1], dirac[idx2]) ) 
-    + (-3/ep + UVRenormFINITE*(-4 - 3*(logmu - logmasses(x1))) ) * masses(x1) * gamma(dirac[idx1], dirac[idx2]) ) * d_(colF[idx1], colF[idx2]);
+id vx(x1?{`QBARMASSIVE'}, x2?{`QMASSIVE'}, p1?, p2?, idx1?, idx2?) = (1/1) * (-1) * i_ * ((4/3)*gs^2/16/pi^2) * d_(colF[idx1], colF[idx2]);
 
 * dZ gluon
 
 * The version below is for contributions to the gluon wavefunction from g, gh and down quark only, so it is good for e+ e- > j j j / u c s b t
-**id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (1/3) * (-1) * i_ * d_(colA[idx1], colA[idx2]) * (gs^2/16/pi^2) * (
-**    p1(lorentz[idx1]) * p1(lorentz[idx2]) * (
-* gluon contribution
-**        ( (-11)*(1/ep) )
-* ghost contribution
-**      + ( (-1/2)*(1/ep) )
-**    )
-**    - (p1.p1) * d_(lorentz[idx1], lorentz[idx2]) * (
-* gluon contribution
-**        ( (-19/2)*(1/ep) )
-* ghost contribution
-**      + ( (-1/2)*(1/ep) )
-**    )
-* one massive top quark contribution
-**    +(p1(lorentz[idx1]) * p1(lorentz[idx2]) - (p1.p1) * d_(lorentz[idx1], lorentz[idx2])) * (
-**        ( (+4/3) * ( (1/ep) + UVRenormFINITE* (logmu - logmt) ) )
-**    )
-**);
+id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (1/3) * (-1) * i_ * d_(colA[idx1], colA[idx2]) * (gs^2/16/pi^2);
+
+id vx(`GLU', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = i_ * gs * cOlf(colA[idx1], colA[idx2], colA[idx3]);
+
+* For the quartic gluon vertex we need an extra dummy index
+* We also split up the vertex in 3 components with different colour
+Multiply counter(1);
+repeat id vx(`GLU', `GLU', `GLU', `GLU', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?)*counter(i?) = - counter(i + 1) * gs^2 * i_ *(
+    + cOlf(colAdum[i], colA[idx1], colA[idx2]) * cOlf(colA[idx3], colA[idx4], colAdum[i])
+        * vx(`GLU', `GLU', `GLU', `GLU', 1, p1, p2, p3, p4, idx1, idx2, idx3, idx4)
+    + cOlf(colAdum[i], colA[idx1], colA[idx3]) * cOlf(colA[idx2], colA[idx4], colAdum[i])
+        * vx(`GLU', `GLU', `GLU', `GLU', 2, p1, p2, p3, p4, idx1, idx2, idx3, idx4)
+    + cOlf(colAdum[i], colA[idx1], colA[idx4]) * cOlf(colA[idx2], colA[idx3], colAdum[i])
+        * vx(`GLU', `GLU', `GLU', `GLU', 3, p1, p2, p3, p4, idx1, idx2, idx3, idx4)
+);
+repeat id vx(`H', `GLU', `GLU', `GLU', `GLU', p5?, p1?, p2?, p3?, p4?, idx5?, idx1?, idx2?, idx3?, idx4?)*counter(i?) = - counter(i + 1) * gs^2 * i_ * ( -gs^2/12/vev/pi^2 ) * (
+    + cOlf(colAdum[i], colA[idx1], colA[idx2]) * cOlf(colA[idx3], colA[idx4], colAdum[i])
+        * vx(`H', `GLU', `GLU', `GLU', `GLU', 1, p5, p1, p2, p3, p4, idx5, idx1, idx2, idx3, idx4)
+    + cOlf(colAdum[i], colA[idx1], colA[idx3]) * cOlf(colA[idx2], colA[idx4], colAdum[i])
+        * vx(`H', `GLU', `GLU', `GLU', `GLU', 2, p5, p1, p2, p3, p4, idx5, idx1, idx2, idx3, idx4)
+    + cOlf(colAdum[i], colA[idx1], colA[idx4]) * cOlf(colA[idx2], colA[idx3], colAdum[i])
+        * vx(`H', `GLU', `GLU', `GLU', `GLU', 3, p5, p1, p2, p3, p4, idx5, idx1, idx2, idx3, idx4)
+);
+
+id counter(x?) = 1;
+
+if (count(vx, 1));
+    Print "Unsubstituted vertex: %t";
+    exit "Critical error";
+endif;
+
+id tmp(x?) = x;
+.sort:feynman-rules-global;
+
+******************
+* Color evaluation
+******************
+repeat id T(cOli1?,?a,cOli2?)*T(cOli2?,?b,cOli3?) = T(cOli1,?a,?b,cOli3); * collect the colour string
+id  T(cOli1?, ?a, cOli1?) = cOlTr(?a);
+id  cOlTr(cOli1?) = 0;
+id  cOlTr = cOlNR;
+Multiply color(1);
+repeat id cOlTr(?a)*color(x?) = color(x * cOlTr(?a));
+repeat id cOlf(cOlj1?,cOlj2?,cOlj3?)*color(x?) = color(x * cOlf(cOlj1,cOlj2,cOlj3));
+repeat id cOlNA*color(x?) = color(x * cOlNA);
+repeat id cOlNR*color(x?) = color(x * cOlNR);
+
+B+ color;
+.sort:color-prep;
+Keep brackets;
+
+* Only evaluate this part per unique color by bracketing
+Argument color;
+    #call color
+    #call simpli
+    id  cOlI2R = cOlcR*cOlNR/cOlNA;
+    id  cOlNR/cOlNA*cOlcR = cOlI2R;
+    id  cOld33(cOlpR1,cOlpR2) = [dabc^2];
+    id  cOlNR/cOlNA = nf/cf/2;
+    id  cOlcR = cf;
+    id  cOlcA = ca;
+    id  cOlI2R = nf/2;
+	id	cOld44(cOlpA1,cOlpA2) = [d4AA];
+	id	cOld44(cOlpR1,cOlpR2) = [d4RR];
+	id	cOld44(cOlpR1,cOlpA1) = [d4RA];
+
+* set the SU(3) values
+    id [dabc^2] = 15/18;
+    id [d4AA] = 135;
+    id [d4RR] = 5/12;
+    id [d4RA] = 15/2;
+    id cOlNR = 3;
+    id cOlNA = 8;
+    id cf = 4 / 3;
+    id ca = 3;
+    id nf = 1;
+EndArgument;
+.sort:color;
+
+* set the SU(3) values
+id cOlNR = 3;
+
+id color(x?) = x;
+
+#endprocedure
+
+#procedure FeynmanRulesMomentum()
+* strip momentum tags
+repeat id f?{vx,prop}(?a,p?) = f(?a);
+
+* Fix a quirk where 0 does not match to a vector
+* The only 0 in a propagator or vertex is when a momentum is 0
+* All indices and pdgs are non-zero
+repeat id prop(?a, 0, ?b) = prop(?a, pzero, ?b);
+repeat id vx(?a, 0, ?b) = vx(?a, pzero, ?b);
+
+* do the spin sum external particles
+repeat id prop(`PHO', in, p?, idx1?)*prop(`PHO', out, p?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
+repeat id prop(x?{`L'}, in, p?, idx1?)*prop(x?{`L',}, out, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x)*gamma(dirac[idx1], dirac[idx2]);
+repeat id prop(x?{`Q'}, in, p?, idx1?)*prop(x?{`Q'}, out, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x)*gamma(dirac[idx1], dirac[idx2]);
+repeat id prop(x?{`Q'}, in, p?, idx1?)*prop(x?{`Q'}, out, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x)*gamma(dirac[idx1], dirac[idx2]);
+repeat id prop(x?{`LBAR'}, out, p?, idx1?)*prop(x?{`LBAR'}, in, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) - masses(x)*gamma(dirac[idx1], dirac[idx2]);
+repeat id prop(x?{`QBAR'}, out, p?, idx1?)*prop(x?{`QBAR'}, in, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) - masses(x)*gamma(dirac[idx1], dirac[idx2]);
+
+* virtual edges
+id prop(`GLU', virtual, p?, idx1?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
+id prop(x?{`GHO',`GHOBAR'}, virtual, p?, idx1?, idx2?) = 1;
+id prop(`PHO', virtual, p?, idx1?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
+id prop(x?{`L'}, virtual, p?, idx1?, idx2?) = gamma(dirac[idx2], p, dirac[idx1]) + masses(x) * gamma(dirac[idx2], dirac[idx1]);
+id prop(x?{`LBAR'}, virtual, p?, idx1?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x) * gamma(dirac[idx1], dirac[idx2]);
+id prop(x?{`Q'}, virtual, p?, idx1?, idx2?) = gamma(dirac[idx2], p, dirac[idx1]) + masses(x) * gamma(dirac[idx2], dirac[idx1]);
+id prop(x?{`QBAR'}, virtual, p?, idx1?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x) * gamma(dirac[idx1], dirac[idx2]);
+id prop(`H', virtual, p?, idx1?, idx2?) = 1;
+id prop(`H', in, p?, idx1?) = 1;
+id prop(`H', out, p?, idx1?) = 1;
+id prop(`PSI', virtual, p?, idx1?, idx2?) = 1;
+id prop(`PSI', in, p?, idx1?) = 1;
+id prop(`PSI', out, p?, idx1?) = 1;
+
+if (count(prop, 1));
+    Print "Unsubstituted propagator: %t";
+    exit "Critical error";
+endif;
+
+.sort:feynman-rules-edges;
+
+* vertices
+id vx(x1?{`QBAR'}, `GLU', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) ;
+id vx(`GHOBAR', `GLU', `GHO', p1?, p2?, p3?, idx1?, idx2?, idx3?) = (p3(lorentz[idx2])-p1(lorentz[idx2]));
+id vx(x1?{`QBAR'}, `PHO', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
+id vx(x1?{`LBAR'}, `PHO', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
+id vx(x1?{`QBAR'}, `H', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = d_(dirac[idx1], dirac[idx3]);
+id vx(x1?{`LBAR'}, `H', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = d_(dirac[idx1], dirac[idx3]);
+id vx(`H', `H', `H', p1?, p2?, p3?, idx1?, idx2?, idx3?) = 1;
+
+id vx(`H', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = p3(lorentz[idx2])*p2(lorentz[idx3]) - p2.p3 * d_(lorentz[idx2], lorentz[idx3]);
+id vx(`H', `GLU', `GLU', `GLU', p4?, p1?, p2?, p3?, idx4?, idx1?, idx2?, idx3?) =
+    - d_(lorentz[idx1], lorentz[idx3]) * p1(lorentz[idx2])
+    + d_(lorentz[idx1], lorentz[idx2]) * p1(lorentz[idx3])
+    + d_(lorentz[idx2], lorentz[idx3]) * p2(lorentz[idx1])
+    - d_(lorentz[idx1], lorentz[idx2]) * p2(lorentz[idx3])
+    - d_(lorentz[idx2], lorentz[idx3]) * p3(lorentz[idx1])
+    + d_(lorentz[idx1], lorentz[idx3]) * p3(lorentz[idx2])
+;
+
+#do i=3,6
+    id vx(<x1?{`PSI',}>,...,<x`i'?{`PSI',}>, p1?, ...,p`i'?, idx1?, ..., idx`i'?) = 1;
+#enddo
+
+* delta_Z vertex
+
+* The first multiplicity factor is always the loop multiplicity factor! It must be adjusted w.r.t to n_f!
+
+* dZ massless quark
+id vx(x1?{`QBARMASSLESS'}, x2?{`QMASSLESS'}, p1?, p2?, idx1?, idx2?) = gamma(dirac[idx1], p2, dirac[idx2]);
+
+* the finite part needs to be checked, also because the factor 4/3 on the pole of the mass correction is pure fudge for now.
+* dZ massive quark
+id vx(x1?{`QBARMASSIVE'}, x2?{`QMASSIVE'}, p1?, p2?, idx1?, idx2?) =
+      (1/ep + UVRenormFINITE*(4 + 3*(logmu - logmasses(x1))) ) * ( -gamma(dirac[idx1], p1, dirac[idx2]) - masses(x1) * gamma(dirac[idx1], dirac[idx2]) )
+    + (-3/ep + UVRenormFINITE*(-4 - 3*(logmu - logmasses(x1))) ) * masses(x1) * gamma(dirac[idx1], dirac[idx2]);
+
+* dZ gluon
 
 * The version below is for contributions to the gluon wavefunction from g, gh and down quark only, so it is good for e+ e- > j j j / u c s b t
-id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (1/3) * (-1) * i_ * d_(colA[idx1], colA[idx2]) * (gs^2/16/pi^2) * (
+id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (
     p1(lorentz[idx1]) * p1(lorentz[idx2]) * (
 * gluon contribution
         ( (-11)*(1/ep) )
@@ -315,13 +448,13 @@ id gamma(s1?,?a,s1?) = gammatrace(?a)*delta_(mod_(nargs_(?a), 2));
 
 * TODO: use momentum conservation to reduce the number of different terms
 #do i=1,1
-    id once ifnomatch->skip vx(`GLU', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = i_ * gs * cOlf(colA[idx1], colA[idx2], colA[idx3]) *(
+    id once ifnomatch->skip vx(`GLU', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) =
     - d_(lorentz[idx1], lorentz[idx3]) * p1(lorentz[idx2])
     + d_(lorentz[idx1], lorentz[idx2]) * p1(lorentz[idx3])
     + d_(lorentz[idx2], lorentz[idx3]) * p2(lorentz[idx1])
     - d_(lorentz[idx1], lorentz[idx2]) * p2(lorentz[idx3])
     - d_(lorentz[idx2], lorentz[idx3]) * p3(lorentz[idx1])
-    + d_(lorentz[idx1], lorentz[idx3]) * p3(lorentz[idx2]));
+    + d_(lorentz[idx1], lorentz[idx3]) * p3(lorentz[idx2]);
 
     redefine i "0";
     label skip;
@@ -331,26 +464,19 @@ id gamma(s1?,?a,s1?) = gammatrace(?a)*delta_(mod_(nargs_(?a), 2));
     Keep brackets;
 #enddo
 
-* For the quartic gluon vertex we need an extra dummy index
-* FIXME: since the graphs are cut into pieces, this dummy index may not be locally unique!
-Multiply counter(1);
-repeat id vx(`GLU', `GLU', `GLU', `GLU', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?)*counter(i?) = - counter(i + 1) * gs^2 * i_ *(
-    + cOlf(colAdum[i], colA[idx1], colA[idx2]) * cOlf(colA[idx3], colA[idx4], colAdum[i])
-        * (d_(lorentz[idx1], lorentz[idx4]) * d_(lorentz[idx2], lorentz[idx3]) - d_(lorentz[idx1], lorentz[idx3]) * d_(lorentz[idx2], lorentz[idx4]))
-    + cOlf(colAdum[i], colA[idx1], colA[idx3]) * cOlf(colA[idx2], colA[idx4], colAdum[i])
-        * (d_(lorentz[idx1], lorentz[idx4]) * d_(lorentz[idx2], lorentz[idx3]) - d_(lorentz[idx1], lorentz[idx2]) * d_(lorentz[idx3], lorentz[idx4]))
-    + cOlf(colAdum[i], colA[idx1], colA[idx4]) * cOlf(colA[idx2], colA[idx3], colAdum[i])
-        * (d_(lorentz[idx1], lorentz[idx3]) * d_(lorentz[idx2], lorentz[idx4]) - d_(lorentz[idx1], lorentz[idx2]) * d_(lorentz[idx3], lorentz[idx4]))
-);
-repeat id vx(`H', `GLU', `GLU', `GLU', `GLU', p5?, p1?, p2?, p3?, p4?, idx5?, idx1?, idx2?, idx3?, idx4?)*counter(i?) = - counter(i + 1) * gs^2 * i_ * ( -gs^2/12/vev/pi^2 ) * (
-    + cOlf(colAdum[i], colA[idx1], colA[idx2]) * cOlf(colA[idx3], colA[idx4], colAdum[i])
-        * (d_(lorentz[idx1], lorentz[idx4]) * d_(lorentz[idx2], lorentz[idx3]) - d_(lorentz[idx1], lorentz[idx3]) * d_(lorentz[idx2], lorentz[idx4]))
-    + cOlf(colAdum[i], colA[idx1], colA[idx3]) * cOlf(colA[idx2], colA[idx4], colAdum[i])
-        * (d_(lorentz[idx1], lorentz[idx4]) * d_(lorentz[idx2], lorentz[idx3]) - d_(lorentz[idx1], lorentz[idx2]) * d_(lorentz[idx3], lorentz[idx4]))
-    + cOlf(colAdum[i], colA[idx1], colA[idx4]) * cOlf(colA[idx2], colA[idx3], colAdum[i])
-        * (d_(lorentz[idx1], lorentz[idx3]) * d_(lorentz[idx2], lorentz[idx4]) - d_(lorentz[idx1], lorentz[idx2]) * d_(lorentz[idx3], lorentz[idx4]))
-);
-id counter(x?) = 1;
+id vx(`GLU', `GLU', `GLU', `GLU', 1, p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) =
+    d_(lorentz[idx1], lorentz[idx4]) * d_(lorentz[idx2], lorentz[idx3]) - d_(lorentz[idx1], lorentz[idx3]) * d_(lorentz[idx2], lorentz[idx4]);
+id vx(`GLU', `GLU', `GLU', `GLU', 2, p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) =
+    d_(lorentz[idx1], lorentz[idx4]) * d_(lorentz[idx2], lorentz[idx3]) - d_(lorentz[idx1], lorentz[idx2]) * d_(lorentz[idx3], lorentz[idx4]);
+id vx(`GLU', `GLU', `GLU', `GLU', 3, p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) =
+    d_(lorentz[idx1], lorentz[idx3]) * d_(lorentz[idx2], lorentz[idx4]) - d_(lorentz[idx1], lorentz[idx2]) * d_(lorentz[idx3], lorentz[idx4]);
+
+id vx(`H', `GLU', `GLU', `GLU', `GLU', 1, p5?, p1?, p2?, p3?, p4?, idx5?, idx1?, idx2?, idx3?, idx4?) =
+    d_(lorentz[idx1], lorentz[idx4]) * d_(lorentz[idx2], lorentz[idx3]) - d_(lorentz[idx1], lorentz[idx3]) * d_(lorentz[idx2], lorentz[idx4]);
+id vx(`H', `GLU', `GLU', `GLU', `GLU', 2, p5?, p1?, p2?, p3?, p4?, idx5?, idx1?, idx2?, idx3?, idx4?) =
+    d_(lorentz[idx1], lorentz[idx4]) * d_(lorentz[idx2], lorentz[idx3]) - d_(lorentz[idx1], lorentz[idx2]) * d_(lorentz[idx3], lorentz[idx4]);
+id vx(`H', `GLU', `GLU', `GLU', `GLU', 3, p5?, p1?, p2?, p3?, p4?, idx5?, idx1?, idx2?, idx3?, idx4?) =
+    d_(lorentz[idx1], lorentz[idx3]) * d_(lorentz[idx2], lorentz[idx4]) - d_(lorentz[idx1], lorentz[idx2]) * d_(lorentz[idx3], lorentz[idx4]);
 
 if (count(vx, 1));
     Print "Unsubstituted vertex: %t";
@@ -359,58 +485,6 @@ endif;
 
 id D^n? = rat(D^n, 1);
 .sort:feynman-rules-vertices-2;
-
-******************
-* Color evaluation
-******************
-repeat id T(cOli1?,?a,cOli2?)*T(cOli2?,?b,cOli3?) = T(cOli1,?a,?b,cOli3); * collect the colour string
-id  T(cOli1?, ?a, cOli1?) = cOlTr(?a);
-id  cOlTr(cOli1?) = 0;
-id  cOlTr = cOlNR;
-Multiply color(1);
-repeat id cOlTr(?a)*color(x?) = color(x * cOlTr(?a));
-repeat id cOlf(cOlj1?,cOlj2?,cOlj3?)*color(x?) = color(x * cOlf(cOlj1,cOlj2,cOlj3));
-repeat id cOlNA*color(x?) = color(x * cOlNA);
-repeat id cOlNR*color(x?) = color(x * cOlNR);
-
-B+ color;
-.sort:color-prep;
-Keep brackets;
-
-* TODO: do we need to set the dimension?
-* FIXME: open colour structures may drop terms?
-* Only evaluate this part per unique color by bracketing
-Argument color;
-    #if `DOCOLOR'
-        #call color
-        #call simpli
-    #endif
-    id  cOlI2R = cOlcR*cOlNR/cOlNA;
-    id  cOlNR/cOlNA*cOlcR = cOlI2R;
-    id  cOld33(cOlpR1,cOlpR2) = [dabc^2];
-    id  cOlNR/cOlNA = nf/cf/2;
-    id  cOlcR = cf;
-    id  cOlcA = ca;
-    id  cOlI2R = nf/2;
-	id	cOld44(cOlpA1,cOlpA2) = [d4AA];
-	id	cOld44(cOlpR1,cOlpR2) = [d4RR];
-	id	cOld44(cOlpR1,cOlpA1) = [d4RA];
-
-* set the SU(3) values
-    id [dabc^2] = 15/18;
-    id [d4AA] = 135;
-    id [d4RR] = 5/12;
-    id [d4RA] = 15/2;
-    id cOlNR = 3;
-    id cOlNA = 8;
-    id cf = 4 / 3;
-    id ca = 3;
-    id nf = 1;
-EndArgument;
-.sort:color;
-
-* set the SU(3) values
-id cOlNR = 3;
 
 Multiply counter(1);
 repeat id gammatrace(?a,p?,?b)*counter(i?) = vec(p,lorentzdummy[i])*gammatrace(?a,lorentzdummy[i],?b)*counter(i+1);
@@ -447,14 +521,14 @@ Keep brackets;
     Multiply replace_(D, 4-2*ep);
 #endif
 
-.sort:gamma-traces;
-
-id color(x?) = x;
-
 id pzero = 0; * Substitute the 0-momentum by 0
 .sort:feynman-rules-final;
 #endprocedure
-*--#] feynman-rules :
+
+#procedure FeynmanRules()
+    #call FeynmanRulesGlobal()
+    #call FeynmanRulesMomentum()
+#endprocedure
 
 #procedure ExtractMomenta()
 * strip momentum tags
@@ -470,17 +544,19 @@ id pzero = 0; * Substitute the 0-momentum by 0
     endargument;
     id f?{prop,vx}(?a,conf(?b)) = f(?a,?b);
 #endprocedure
+*--#] feynman-rules :
 
-* If the expression is empty (due to color), we still write a file
-* FIXME: needs to be moved!
+* Fill in the Feynman rules for the parts that do not depend on kinematics
+#call FeynmanRulesGlobal()
+
+* If the expression is empty due to color, we still write a file
 #if ( termsin(F) == 0 )
     #write<out_`SGID'.proto_c> "#0 due to color\n"
     #write<out_integrand_`SGID'.proto_c> "#0 due to color\n"
+    setexitflag;
 #endif
 
-*************************************************
-* Process different configurations (bubbles, etc)
-*************************************************
+.sort:empty-expression-check;
 
 * process all the configurations
 L F = F * CONF;
@@ -613,7 +689,7 @@ id subgraph(?a,uvconf(?b),?c) = subgraph(?a,uvconf(?b));
     Hide tensorforest1,...,tensorforest`tensorforestcount';
 
 * Apply Feynman rules to the UV subgraph
-    #call FeynmanRules(0)
+    #call FeynmanRulesMomentum()
 
 * linearize the gamma matrices and convert them to tensors
 * this makes them suitable for differentiation
@@ -780,7 +856,7 @@ if (count(subgraph, 1));
 endif;
 
 * Apply Feynman rules to remaining graph
-#call FeynmanRules(0)
+#call FeynmanRulesMomentum()
 
 * Simplify all open gamma strings
 #call Gstring(opengammastring,0)
@@ -831,7 +907,7 @@ id f(x?) = forestid(x-`foreststart');
 
 id opengammastring(?a) = gamma(?a);
 
-#call FeynmanRules(1)
+#call FeynmanRulesMomentum()
 
 if (count(gamma,1));
     Print "Unsubstituted gamma: %t";
