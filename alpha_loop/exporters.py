@@ -1328,6 +1328,14 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         else:
             logger.info("\033[1:32mRecovering from first checkpoint!\033[0m")
             super_graph_list = pickle.load(open(self.checkpoint[0][0],'rb'))
+        
+        # Select which graphs to study whenever SG_name_list is not empty
+        if self.alphaLoop_options['SG_name_list'] != []:
+            sg_number_checkpoint_1 = len(super_graph_list)
+            super_graph_list = FORM_processing.FORMSuperGraphList(filter(lambda x: x[0].name in self.alphaLoop_options['SG_name_list'], super_graph_list))
+            if len(super_graph_list) == 0:
+                raise alphaLoopExporterError("None of {} SG names found!".format(self.alphaLoop_options['SG_name_list']))
+            logger.info("Working on {} of {} SuperGraphs.".format(len(super_graph_list),sg_number_checkpoint_1))
 
         # Add phase
         for graphs in super_graph_list:

@@ -134,6 +134,8 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'FORM_compile_optimization' : 3,
             # Try to recover from selected checkpoint
             'checkpoint_lvl' : 0,
+            # List of SGs to propagate past checkpoint 1
+            'SG_name_list': [],
         }
         self.FORM_options=FORM_processing.FORM_processing_options
         self.plugin_output_format_selected = None
@@ -373,6 +375,11 @@ utils.bcolors.RED,utils.bcolors.ENDC
             if not value in [str(opt_n) for opt_n in range(3)]:
                 raise alphaLoopInvalidCmd("alphaLoop option 'checkpoint_lvl' should be between 0 and 2, not %s"%value)
             self.alphaLoop_options['checkpoint_lvl'] = int(value)
+        elif key == 'SG_name_list':
+            try:
+                self.alphaLoop_options['SG_name_list'] = eval(value)
+            except:
+                raise alphaLoopInvalidCmd("'SG_name_list' must be of the form [\"name_SG1\",...,\"name_SGn\"] not '%s'."%value)
         else:
             raise alphaLoopInvalidCmd("Unrecognized alphaLoop option: %s"%key)
 
