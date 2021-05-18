@@ -30,9 +30,9 @@ pub struct Dashboard {
 }
 
 impl Dashboard {
-    pub fn new(full: bool) -> Dashboard {
+    pub fn new(full: bool, show_plot: bool) -> Dashboard {
         if full {
-            Dashboard::full_dashboard()
+            Dashboard::full_dashboard(show_plot)
         } else {
             Dashboard::minimal_dashboard()
         }
@@ -64,7 +64,7 @@ impl Dashboard {
         }
     }
 
-    fn full_dashboard() -> Dashboard {
+    fn full_dashboard(show_plot: bool) -> Dashboard {
         let (log_sender, log_receiver) = channel();
 
         let stdout = io::stdout(); //.into_raw_mode()?;
@@ -175,14 +175,16 @@ impl Dashboard {
                         .split(f.size());
                     let chunks_hor = Layout::default()
                         .direction(Direction::Horizontal)
-                        .constraints(
+                        .constraints(if show_plot {
                             [
                                 Constraint::Percentage(25),
                                 Constraint::Percentage(25),
                                 Constraint::Percentage(50),
                             ]
-                            .as_ref(),
-                        )
+                            .as_ref()
+                        } else {
+                            [Constraint::Percentage(25), Constraint::Percentage(50)].as_ref()
+                        })
                         .split(vert_chunks[0]);
 
                     let vert_chunks_stats = Layout::default()
@@ -261,8 +263,8 @@ impl Dashboard {
                                 0.
                             } else {
                                 (integrand_statistics.integrand_evaluation_timing
-                                    / integrand_statistics.integrand_evaluation_timing_count as u128)
-                                    as f64
+                                    / integrand_statistics.integrand_evaluation_timing_count
+                                        as u128) as f64
                                     / 1000.
                             }
                         )),
@@ -358,70 +360,72 @@ impl Dashboard {
 
                     f.render_widget(weight_para, vert_chunks_stats[1]);
 
-                    let datasets = [
-                        Dataset::default()
-                            .name("re")
-                            .marker(Marker::Dot)
-                            .style(Style::default().fg(Color::Cyan))
-                            .data(re_data.as_slice()),
-                        Dataset::default()
-                            .name("im")
-                            .marker(Marker::Braille)
-                            .style(Style::default().fg(Color::Yellow))
-                            .data(im_data.as_slice()),
-                    ];
-                    let x_labels = [
-                        "0".to_owned(),
-                        (re_data.len() / 2).to_string(),
-                        re_data.len().to_string(),
-                    ];
+                    if show_plot {
+                        let datasets = [
+                            Dataset::default()
+                                .name("re")
+                                .marker(Marker::Dot)
+                                .style(Style::default().fg(Color::Cyan))
+                                .data(re_data.as_slice()),
+                            Dataset::default()
+                                .name("im")
+                                .marker(Marker::Braille)
+                                .style(Style::default().fg(Color::Yellow))
+                                .data(im_data.as_slice()),
+                        ];
+                        let x_labels = [
+                            "0".to_owned(),
+                            (re_data.len() / 2).to_string(),
+                            re_data.len().to_string(),
+                        ];
 
-                    let mut bounds = [
-                        re_data
-                            .iter()
-                            .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
-                            .map(|x| x.1)
-                            .unwrap_or(0.),
-                        re_data
-                            .iter()
-                            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
-                            .map(|x| x.1)
-                            .unwrap_or(0.),
-                    ];
-                    bounds[0] *= 0.9;
-                    bounds[1] *= 1.1;
-                    bounds[1] += std::f64::EPSILON;
-                    let y_labels = [
-                        format!("{:.2e}", bounds[0]),
-                        format!("{:.2e}", (bounds[0] + bounds[1]) / 2.),
-                        format!("{:.2e}", bounds[1]),
-                    ];
+                        let mut bounds = [
+                            re_data
+                                .iter()
+                                .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+                                .map(|x| x.1)
+                                .unwrap_or(0.),
+                            re_data
+                                .iter()
+                                .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+                                .map(|x| x.1)
+                                .unwrap_or(0.),
+                        ];
+                        bounds[0] *= 0.9;
+                        bounds[1] *= 1.1;
+                        bounds[1] += std::f64::EPSILON;
+                        let y_labels = [
+                            format!("{:.2e}", bounds[0]),
+                            format!("{:.2e}", (bounds[0] + bounds[1]) / 2.),
+                            format!("{:.2e}", bounds[1]),
+                        ];
 
-                    let chart = Chart::default()
-                        .block(
-                            Block::default()
-                                .title("Integral")
-                                .title_style(
-                                    Style::default().fg(Color::Cyan).modifier(Modifier::BOLD),
-                                )
-                                .borders(Borders::NONE),
-                        )
-                        .x_axis(
-                            Axis::default()
-                                .title("Iteration")
-                                .style(Style::default().fg(Color::Gray))
-                                .labels_style(Style::default().modifier(Modifier::ITALIC))
-                                .bounds([0., re_data.len() as f64])
-                                .labels(&x_labels),
-                        )
-                        .y_axis(
-                            Axis::default()
-                                .labels_style(Style::default().modifier(Modifier::ITALIC))
-                                .bounds(bounds)
-                                .labels(&y_labels),
-                        )
-                        .datasets(&datasets);
-                    f.render_widget(chart, chunks_hor[2]);
+                        let chart = Chart::default()
+                            .block(
+                                Block::default()
+                                    .title("Integral")
+                                    .title_style(
+                                        Style::default().fg(Color::Cyan).modifier(Modifier::BOLD),
+                                    )
+                                    .borders(Borders::NONE),
+                            )
+                            .x_axis(
+                                Axis::default()
+                                    .title("Iteration")
+                                    .style(Style::default().fg(Color::Gray))
+                                    .labels_style(Style::default().modifier(Modifier::ITALIC))
+                                    .bounds([0., re_data.len() as f64])
+                                    .labels(&x_labels),
+                            )
+                            .y_axis(
+                                Axis::default()
+                                    .labels_style(Style::default().modifier(Modifier::ITALIC))
+                                    .bounds(bounds)
+                                    .labels(&y_labels),
+                            )
+                            .datasets(&datasets);
+                        f.render_widget(chart, chunks_hor[2]);
+                    }
 
                     let block = Block::default()
                         .borders(Borders::ALL)

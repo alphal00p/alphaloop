@@ -529,6 +529,7 @@ pub struct GeneralSettings {
 pub struct IntegratorSettings {
     pub internal_parallelization: bool,
     pub dashboard: bool,
+    pub show_plot: bool,
     pub integrator: Integrator,
     pub n_vec: usize,
     pub n_increase: usize,
@@ -580,6 +581,7 @@ impl Default for IntegratorSettings {
         IntegratorSettings {
             internal_parallelization: false,
             dashboard: false,
+            show_plot: false,
             integrator: Integrator::Vegas,
             n_increase: 0,
             n_vec: 1,
