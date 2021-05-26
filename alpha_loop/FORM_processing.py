@@ -969,7 +969,11 @@ aGraph=%s;
                             for dg in uv_subgraph['derived_graphs']:
                                 graphs.append((signature_offset, dg['id'], dg['loop_topo']))
                             signature_offset += uv_subgraph['derived_graphs'][0]['loop_topo'].n_loops
-                        graphs.append((signature_offset, uv_structure['remaining_graph_id'], uv_structure['remaining_graph_loop_topo']))
+                        if len(uv_structure['uv_subgraphs']) == 0 and len(diag_info['bubble']) > 0:
+                            for bubble in diag_info['bubble']:
+                                graphs.append((signature_offset, bubble['id'], bubble['remaining_graph_loop_topo']))
+                        else:
+                            graphs.append((signature_offset, uv_structure['remaining_graph_id'], uv_structure['remaining_graph_loop_topo']))
 
                 for signature_offset, graph_id, g in graphs:
                     energies, constants, shift_map = [], [], []
@@ -1160,7 +1164,11 @@ CTable ltdmap(0:{},0:{});
                             for dg in uv_subgraph['derived_graphs']:
                                 graphs.append((signature_offset, dg['id'], dg['loop_topo']))
                             signature_offset += uv_subgraph['derived_graphs'][0]['loop_topo'].n_loops
-                        graphs.append((signature_offset, uv_structure['remaining_graph_id'], uv_structure['remaining_graph_loop_topo']))
+                        if len(uv_structure['uv_subgraphs']) == 0 and len(diag_info['bubble']) > 0:
+                            for bubble in diag_info['bubble']:
+                                graphs.append((signature_offset, bubble['id'], bubble['remaining_graph_loop_topo']))
+                        else:
+                            graphs.append((signature_offset, uv_structure['remaining_graph_id'], uv_structure['remaining_graph_loop_topo']))
 
                 for signature_offset, graph_id, g in graphs:
                     signatures, n_props, energies, constants, shift_map, unique_energy = [], [], [], [], [], []
@@ -1377,7 +1385,6 @@ CTable pfmap(0:{},0:{});
         for cut_index, cut in enumerate(topo.cuts):
             last_cmb = ''
             for diag_set in cut['diagram_sets']:
-                trans = ['1']
                 diag_set_uv_conf = []
                 diag_momenta = []
 
@@ -1385,34 +1392,34 @@ CTable pfmap(0:{},0:{});
                 cmb_offset = len(cut['cuts']) - 1
                 for diag_info in diag_set['diagram_info']:
                     # bubble treatment
-                    der_edge = None
-                    if diag_info['derivative'] is not None:
-                        trans.append('1/2') # add a factor 1/2 since the bubble will appear in two cuts
-
-                        # if the cutkosky cut has a negative sign, we derive in -p^0 instead of p^0.
-                        # here we compensate for this sign
-                        trans.append(str(next(c for c in cut['cuts'] if c['edge'] == diag_info['derivative'][0])['sign']))
-
-                        der_edge = diag_info['derivative'][1]
-                        ext_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][0])['momentum']
-                        der_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][1])['momentum']
-                        ext_sig = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][0])['signature']
-                        der_sig = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][1])['signature']
-
-                        if diag_info['bubble_momenta'] not in bubble_to_cut:
-                            bubble_to_cut[diag_info['bubble_momenta']] = (diag_info['derivative'][0], set())
-
-                        if diag_info['derivative'][0] == diag_info['derivative'][1]:
-                            # numerator derivative
-                            index = next(i for i, bub in enumerate(bubble_to_cut.keys()) if bub == diag_info['bubble_momenta'])
-                            trans.append('der(pbubble' + str(index) + ')')
-                        else:
-                            # check if we pick up a sign change due to the external momentum flowing in the opposite direction
-                            signs = [se * sc for se, sc in zip(der_sig[0] + der_sig[1], ext_sig[0] + ext_sig[1]) if se * sc != 0]
-                            assert(len(set(signs)) == 1)
-                            trans.append('-2*{}({})'.format('1*' if signs[0] == 1 else '-1*', der_mom))
-                            bubble_info = bubble_to_cut[diag_info['bubble_momenta']]
-                            bubble_to_cut[diag_info['bubble_momenta']] = (bubble_info[0], bubble_info[1] | {der_edge})
+                    #der_edge = None
+                    #if diag_info['bubble'] is not None:
+                    #    trans.append('1/2') # add a factor 1/2 since the bubble will appear in two cuts, TODO: make generic
+#
+                    #    # if the cutkosky cut has a negative sign, we derive in -p^0 instead of p^0.
+                    #    # here we compensate for this sign
+                    #    trans.append(str(next(c for c in cut['cuts'] if c['edge'] == diag_info['derivative'][0])['sign']))
+#
+                    #    der_edge = diag_info['derivative'][1]
+                    #    ext_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][0])['momentum']
+                    #    der_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][1])['momentum']
+                    #    ext_sig = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][0])['signature']
+                    #    der_sig = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][1])['signature']
+#
+                    #    if diag_info['bubble_momenta'] not in bubble_to_cut:
+                    #        bubble_to_cut[diag_info['bubble_momenta']] = (diag_info['derivative'][0], set())
+#
+                    #    if diag_info['derivative'][0] == diag_info['derivative'][1]:
+                    #        # numerator derivative
+                    #        index = next(i for i, bub in enumerate(bubble_to_cut.keys()) if bub == diag_info['bubble_momenta'])
+                    #        trans.append('der(pbubble' + str(index) + ')')
+                    #    else:
+                    #        # check if we pick up a sign change due to the external momentum flowing in the opposite direction
+                    #        signs = [se * sc for se, sc in zip(der_sig[0] + der_sig[1], ext_sig[0] + ext_sig[1]) if se * sc != 0]
+                    #        assert(len(set(signs)) == 1)
+                    #        trans.append('-2*{}({})'.format('1*' if signs[0] == 1 else '-1*', der_mom))
+                    #        bubble_info = bubble_to_cut[diag_info['bubble_momenta']]
+                    #        bubble_to_cut[diag_info['bubble_momenta']] = (bubble_info[0], bubble_info[1] | {der_edge})
 
                     # write the entire UV structure as a sum
                     conf = []
@@ -1470,10 +1477,41 @@ CTable pfmap(0:{},0:{});
                             forest_element.append('fmbtocb({})'.format(','.join(cb_to_forest)))
 
                         diag_moms = ','.join(self.momenta_decomposition_to_string(lmm, False) for lmm in uv_structure['remaining_graph_loop_topo'].loop_momentum_map)
-                        if diag_moms != '':
-                            forest_element.append('diag({},{},{})'.format(diag_set['id'], uv_structure['remaining_graph_id'], diag_moms))
+
+                        if uv_index == 0 and len(diag_info['bubble']) > 0:
+                            # we have a bubble: replace the non-UV spinney remaining graph by the bubble derivative graphs
+                            bubbles = []
+                            for bubble in diag_info['bubble']:
+                                trans = []
+                                trans.append('1/2') # add a factor 1/2 since the bubble will appear in two cuts, TODO: make generic
+
+                                # if the cutkosky cut has a negative sign, we derive in -p^0 instead of p^0.
+                                # here we compensate for this sign
+                                trans.append(str(next(c for c in cut['cuts'] if c['edge'] == bubble['derivative'][0])['sign']))
+
+                                ext_mom = next(ee for ee in self.edges.values() if ee['name'] == bubble['derivative'][0])['momentum']
+                                der_mom = next(ee for ee in self.edges.values() if ee['name'] == bubble['derivative'][1])['momentum']
+                                ext_sig = next(ee for ee in self.edges.values() if ee['name'] == bubble['derivative'][0])['signature']
+                                der_sig = next(ee for ee in self.edges.values() if ee['name'] == bubble['derivative'][1])['signature']
+
+                                if bubble['derivative'][0] == bubble['derivative'][1]:
+                                    # numerator derivative
+                                    trans.append('der({})'.format(ext_mom))
+                                else:
+                                    # check if we pick up a sign change due to the external momentum flowing in the opposite direction
+                                    signs = [se * sc for se, sc in zip(der_sig[0] + der_sig[1], ext_sig[0] + ext_sig[1]) if se * sc != 0]
+                                    assert(len(set(signs)) == 1)
+                                    trans.append('-2*{}der({},0)'.format('1*' if signs[0] == 1 else '-1*', der_mom))
+
+                                trans.append('diag({},{},{})'.format(diag_set['id'], bubble['id'], diag_moms))
+                                bubbles.append('*'.join(trans))
+
+                            forest_element.append('({})'.format('+'.join(bubbles)))
                         else:
-                            forest_element.append('diag({},{})'.format(diag_set['id'], uv_structure['remaining_graph_id']))
+                            if diag_moms != '':
+                                forest_element.append('diag({},{},{})'.format(diag_set['id'], uv_structure['remaining_graph_id'], diag_moms))
+                            else:
+                                forest_element.append('diag({},{})'.format(diag_set['id'], uv_structure['remaining_graph_id']))
 
                         if uv_index == 0:
                             if diag_moms != '':
@@ -1482,10 +1520,10 @@ CTable pfmap(0:{},0:{});
                                 diag_set_uv_conf.append('forestid({})'.format(len(uv_forest)))
 
                         for uv_subgraph in uv_structure['uv_subgraphs']:
-
                             for dg in uv_subgraph['derived_graphs']:
                                 rp = '*'.join('t{}'.format(i) if raised_power == 1 else 't{}^{}'.format(i, raised_power)
                                         for i, (_,_,raised_power) in enumerate(dg['loop_topo'].uv_loop_lines[0]) if raised_power != 0)
+                                # TODO: recycle uvtopo
                                 topo_map += '\tid uvtopo({},{},k1?,...,k{}?) = diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
                                     '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], dg['id'], dg['graph'].n_loops)
 
@@ -1525,12 +1563,8 @@ CTable pfmap(0:{},0:{});
                                     ext_mom_sig = ''
                                     edge_mass = 'masses({})'.format(next(ee for ee in self.edges.values() if ee['name'] == edge_name)['PDG'])
 
-                                    # the edge may have a raised power due to the bubble derivative
-                                    new_power = (power + 1 if edge_name == diag_info['derivative'][1] else 1) \
-                                            if diag_info['derivative'] and diag_info['derivative'][0] != diag_info['derivative'][1] else power
-
                                     if all(s == 0 for s in param_shift[1]):
-                                        for _ in range(new_power):
+                                        for _ in range(power):
                                             if loop_mom_shift == '':
                                                 uv_props.append('uvprop({},t{},0,{})'.format(loop_mom_sig, i, edge_mass))
                                             else:
@@ -1544,7 +1578,7 @@ CTable pfmap(0:{},0:{});
                                             ext_mom_sig += '{}({})'.format('+' if s == 1 else '-',
                                                 self.momenta_decomposition_to_string(ext_edge['signature'], False))
 
-                                    for _ in range(new_power):
+                                    for _ in range(power):
                                         uv_props.append('uvprop({},t{},{},{})'.format(loop_mom_sig, i, loop_mom_shift + ext_mom_sig, edge_mass))
                             # it could be that there are no propagators with external momentum dependence when pinching duplicate edges
                             if uv_props == []:
@@ -1603,7 +1637,7 @@ CTable pfmap(0:{},0:{});
                 if diag_momenta == []:
                     diag_momenta = ['1']
 
-                conf = 'conf({},{},{},{},{})*{}'.format(diag_set['id'], cut_index, cmb_map, conf, '*'.join(trans), '*'.join(diag_momenta))
+                conf = 'conf({},{},{},{})*{}'.format(diag_set['id'], cut_index, cmb_map, conf, '*'.join(diag_momenta))
                 if diag_set_uv_conf != []:
                     conf += '*{}'.format('*'.join(diag_set_uv_conf))
 

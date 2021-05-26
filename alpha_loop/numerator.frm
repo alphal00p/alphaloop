@@ -153,7 +153,7 @@ S ICT, mUV, logmu, logmUV, logmt, mi1L1, alarmMi1L1;
 Fill logmasses(6) = logmt;
 Fill logmasses(-6) = logmt;
 
-CF integratedct, rat, num, den;
+CF integratedct, rat, num, den, tmp;
 Set ts: t0,...,t20;
 CT penergy,energyct;
 NF energync;
@@ -563,38 +563,6 @@ L F = F * CONF;
 .sort:load-conf;
 Drop CONF;
 
-* TODO: needs to be moved
-#if 0
-* multiply the numerator contribution of derivatives
-* FIXME: this is not global
-id conf(?a,p?) = conf(?a) * penergy(p);
-id conf(?a,x?) = conf(?a) * x; * note the type difference
-
-AB+ forestid,subs,conf,cmb;
-.sort:bubble-treatment-prep;
-Keep brackets;
-
-* Take a single derivative in pbubble_i^0
-* FIXME: if the number of terms is 0 after differentiating, this configuration will not be created
-repeat;
-    id ifnomatch->bubbleend once der(p?) = replace_(p, p + pzero * x);
-    if (count(x, 1) != 1) Discard;
-    id x = 1;
-    id pzero.p? = penergy(p);
-    id penergy(pzero) = 1; * d/dpbubble_i^0 pbubble_i^0 = 1
-endrepeat;
-label bubbleend;
-.sort:bubble-treatment-derivative;
-
-id subs(p1?,p2?) = replace_(p1, p2);
-.sort:bubble-treatment-replacement;
-#else
-* FIXME: this messes with the power counting though...
-id conf(?a,p?) = conf(?a);
-id conf(?a,x?) = conf(?a);
-id subs(p1?,p2?) = replace_(p1, p2);
-#endif
-
 * transform the graph to the cut basis
 * store a copy for the integrand routine in cmb
 id conf(x?,x1?,cmb(?a),?b) = conf(x,x1,?b)*replace(?a)*cmb(?a);
@@ -860,6 +828,20 @@ endif;
 
 * Simplify all open gamma strings
 #call Gstring(opengammastring,0)
+
+* Linearize the gamma string
+repeat id once gamma(s1?,?a,p?!vector_,?b,s2?) = p(mudummy)*gamma(s1,?a,mudummy,?b,s2);
+
+* Apply bubble derivatives
+id der(p1?,0) = p1.energyselector; * numerator contribution of the bubble propagator derivative
+
+if (count(der, 1));
+    splitfirstarg der;
+    id der(p1?,p2?) = replace_(p2, t*pzero - p1);
+    id t^n? = delta_(n, 1);
+    repeat id pzero.p? = p.energyselector;
+    id energyselector.energyselector = 1;
+endif;
 
 * split off the energy part: energyselector=(1,0,0,0,..), fmbs = spatial part
 * fmbs1.fmbs2 will later get a minus sign to honour the Minkowksi metric
