@@ -129,7 +129,7 @@ RFM$GetLTDHook[name_,OptionsPattern[
 RunMode->"LTD",
 HyperparametersPath->"LTD/hyperparameters.yaml",
 TopologiesPath->"LTD/topologies.yaml",
-AmplitudesPath->"LTD/anplitudes.yaml",
+AmplitudesPath->"LTD/amplitudes.yaml",
 MGNumeratorPath->"N/A",
 DEBUG->False
 }
@@ -146,10 +146,9 @@ OptionValue[AmplitudesPath]
 SessionProlog="import os;os.environ['DYLD_LIBRARY_PATH']='"<>
 RFM$DYLDPATHS<>":'+os.environ.get('DYLD_LIBRARY_PATH','');"
 <>"os.environ['LD_LIBRARY_PATH']='"<>RFM$DYLDPATHS<>":'+os.environ.get('LD_LIBRARY_PATH','');"
-<>"os.environ['LIBRARY_PATH']='"<>RFM$DYLDPATHS<>":'+os.environ.get('LIBRARY_PATH','');"
-<>"os.environ['MG_NUMERATOR_PATH']='"<>
-(OptionValue[MGNumeratorPath]<>"/")<>"';"
-},
+<>"os.environ['LIBRARY_PATH']='"<>RFM$DYLDPATHS<>":'+os.environ.get('LIBRARY_PATH','');"},
+SessionProlog=If[OptionValue[MGNumeratorPath]!="N/A",SessionProlog<>"os.environ['MG_NUMERATOR_PATH']='"<>
+(OptionValue[MGNumeratorPath]<>"/")<>"';",SessionProlog];
 If[OptionValue[DEBUG],
 Print["Arguments="<>ToString[Arguments,InputForm]];
 Print["Prolog="<>SessionProlog];
@@ -204,29 +203,29 @@ RFM$KillAllHooks[]
 (*We can now build  functions using the hook to access the API*)
 
 
-(* ::Input::Initialization:: *)
+(* ::Input:::GetLTDDeformation:: *)
 RFM$GetLTDDeformation[hook_, RealMomenta_,OptionsPattern[DEBUG->False]]:=Module[
 {Res},
 
-Res=ExternalEvaluate[hook,<|"Command"->"API_initialise","Arguments"->{False,RealMomenta,-1,-1}|>];
+Res=ExternalEvaluate[hook,<|"Command"->"API_get_deformation","Arguments"->{False,RealMomenta,-1,-1}|>];
 
 (* Return *)
 <|"Jacobian"->Res["jac"],"DeformationVectors"->Res["kappas"]|>
 ]
 
 
-(* ::Input::Initialization:: *)
+(* ::Input::GetCrossSectionDeformation:: *)
 RFM$GetCrossSectionDeformation[hook_,CutID_,RealMomenta_,OptionsPattern[{DEBUG->False,DiagramSet->-1}]]:=Module[
 {Res},
 
-Res=ExternalEvaluate[hook,<|"Command"->"API_initialise","Arguments"->{False,RealMomenta,CutID,OptionValue[DiagramSet]}|>];
+Res=ExternalEvaluate[hook,<|"Command"->"API_get_deformation","Arguments"->{False,RealMomenta,CutID,OptionValue[DiagramSet]}|>];
 
 (* Return *)
 <|"DeformedMomenta"->Res["deformed_momenta"]|>
 ]
 
 
-(* ::Input::Initialization:: *)
+(* ::Input::GetRescaling:: *)
 RFM$GetRescaling[hook_, CutID_,RealMomenta_,OptionsPattern[DEBUG->False]]:=Module[
 {Res},
 
@@ -236,7 +235,7 @@ Res=ExternalEvaluate[hook,<|"Command"->"API_get_scaling","Arguments"->{False,Cut
 ]
 
 
-(* ::Input::Initialization:: *)
+(* ::Input::Parameterize:: *)
 RFM$Parameterize[hook_,LoopIndex_,ECM_,Xs_,OptionsPattern[{DEBUG->False,f128->False}]]:=Module[
 {Res},
 
@@ -247,7 +246,7 @@ Res=ExternalEvaluate[hook,<|"Command"->"API_parameterize","Arguments"->{OptionVa
 ]
 
 
-(* ::Input::Initialization:: *)
+(* ::Input::InvParameterize:: *)
 RFM$InvParameterize[hook_,LoopIndex_,ECM_,Momentum_,OptionsPattern[{DEBUG->False,f128->False}]]:=Module[
 {Res},
 
@@ -258,7 +257,7 @@ Res=ExternalEvaluate[hook,<|"Command"->"API_inv_parameterize","Arguments"->{Opti
 ]
 
 
-(* ::Input::Initialization:: *)
+(* ::Input::Evaluate:: *)
 RFM$Evaluate[hook_,Momenta_,OptionsPattern[{DEBUG->False,f128->False}]]:=Module[
 {Res},
 
@@ -268,7 +267,7 @@ Res["res"]
 ]
 
 
-(* ::Input::Initialization:: *)
+(* ::Input::EvaluateCut:: *)
 RFM$EvaluateCut[hook_,CutID_,scalingFactor_, scalingFactorJacobian_,Momenta_,OptionsPattern[{DEBUG->False,f128->False,DiagramSet->-1}]]:=Module[
 {Res},
 
@@ -279,7 +278,7 @@ Res["res"]
 ]
 
 
-(* ::Input::Initialization:: *)
+(* ::Input::EvaluateIntegrand:: *)
 RFM$EvaluateIntegrand[hook_,Xs_,OptionsPattern[{DEBUG->False,f128->False}]]:=Module[
 {Res},
 

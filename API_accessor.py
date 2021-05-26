@@ -128,10 +128,14 @@ def API_initialise(
             amp_name = '' 
         )
     elif mode=='cross_section':
-        rust_instance = CrossSection(
-            pjoin(root_path,name),
-            pjoin(root_path,hyperparameter_path)
-        )
+        try:
+            rust_instance = CrossSection(
+                pjoin(root_path,name),
+                pjoin(root_path,hyperparameter_path)
+            )
+        except Exception as e:
+            print("ERROR: could not instantiate a cross-sectin worker: %s"%str(e))
+            raise
     rust_instances.append(rust_instance)
 
 def API_is_alive():
