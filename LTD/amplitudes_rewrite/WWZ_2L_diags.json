@@ -1,0 +1,2367 @@
+{
+  "diagram_list": [
+    {
+      "analytic_num": "-512*ii*(-2*sp(p1,p3)^2+(-2*sp(p3,k1)+sp(p3,p3)+2*sp(p3,p1+p2-p3-p4))*sp(p1,p3)+sp(p3,p3)*(sp(p1,k1)-sp(p1,p1+p2-p3-p4)))/sp(-p2+p4,-p2+p4)^2*((-2*sp(p1,p4)+2*sp(p3,p4)-2*sp(p4,k1))*sp(p2,p4)+sp(p4,p4)*(sp(p1,p2)+sp(p2,k1)-sp(p2,p3)))/sp(p1-p3,p1-p3)^2",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag1_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag1_prop2",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag1_prop3",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag1_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag1_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "-512*ii*(((-2*sp(p3,k1)+4*sp(p3,p4))*sp(p1,p3)+sp(p3,p3)*(sp(p1,k1)-2*sp(p1,p4)))*sp(p2,p4)^2+(((-2*sp(p2,p3)+sp(p3,k1)-2*sp(p3,p4))*sp(p1,p3)-1/2*sp(p3,p3)*(sp(p1,k1)-2*sp(p1,p2)-2*sp(p1,p4)))*sp(p4,p4)+(2*sp(p2,k1)*sp(p3,p4)+2*sp(p4,k1)*(sp(p2,p3)-2*sp(p3,p4)))*sp(p1,p3)-(sp(p1,p4)*sp(p2,k1)+sp(p4,k1)*(sp(p1,p2)-2*sp(p1,p4)))*sp(p3,p3))*sp(p2,p4)+((-1/2*sp(p1,p2)*sp(p3,p3)+sp(p1,p3)*sp(p2,p3))*sp(p4,p4)+((-2*sp(p2,p3)+sp(p3,p4))*sp(p2,k1)+sp(p2,p3)*sp(p4,k1))*sp(p1,p3)+sp(p3,p3)*((sp(p1,p2)-1/2*sp(p1,p4))*sp(p2,k1)-1/2*sp(p1,p2)*sp(p4,k1)))*sp(p4,p4))/sp(-p2+p4,-p2+p4)^3/sp(p1-p3,p1-p3)^2",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag2_prop1",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag2_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag2_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag2_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "512*ii*(((-4*sp(p3,p4)-2*sp(p4,k1))*sp(p2,p4)+sp(p4,p4)*(sp(p2,k1)+2*sp(p2,p3)))*sp(p1,p3)^2+(((2*sp(p1,p4)+2*sp(p3,p4)+sp(p4,k1))*sp(p2,p4)-sp(p4,p4)*(sp(p1,p2)+1/2*sp(p2,k1)+sp(p2,p3)))*sp(p3,p3)+(2*sp(p1,k1)*sp(p3,p4)+2*sp(p3,k1)*(sp(p1,p4)-2*sp(p3,p4)))*sp(p2,p4)-sp(p4,p4)*(sp(p1,k1)*sp(p2,p3)+sp(p3,k1)*(sp(p1,p2)-2*sp(p2,p3))))*sp(p1,p3)+((1/2*sp(p1,p2)*sp(p4,p4)-sp(p2,p4)*sp(p1,p4))*sp(p3,p3)+((-2*sp(p1,p4)+sp(p3,p4))*sp(p1,k1)+sp(p1,p4)*sp(p3,k1))*sp(p2,p4)+sp(p4,p4)*((-1/2*sp(p2,p3)+sp(p1,p2))*sp(p1,k1)-1/2*sp(p1,p2)*sp(p3,k1)))*sp(p3,p3))/sp(-p2+p4,-p2+p4)^2/sp(p1-p3,p1-p3)^3",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag3_prop1",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag3_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag3_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag3_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "256/sp(-p2+p4,-p2+p4)*(((-8*sp(p3,k1)-4*sp(p3,p1+p2-p3-p4))*sp(p2,p4)^2+((-16*sp(p3,k1)-4*sp(p3,p1+p2-p3-p4))*sp(p2,k1)+(8*sp(p2,p3)-2*sp(p3,k1)-4*sp(p3,p4)+2*sp(p3,p1+p2-p3-p4))*sp(k1,k1)+(8*sp(p2,p3)+4*sp(p3,k1)+4*sp(p3,p1+p2-p3-p4))*sp(p4,k1)+2*sp(p3,k1)*sp(p4,p4)+(-4*sp(p3,k1)+4*sp(p3,p4))*sp(p2,p1+p2-p3-p4)+(4*sp(p4,p1+p2-p3-p4)+4*sp(p1+p2-p3-p4,k1))*sp(p2,p3)-4*sp(p1+p2-p3-p4,k1)*(sp(p3,k1)+sp(p3,p4)))*sp(p2,p4)-8*sp(p2,k1)^2*sp(p3,k1)+((4*sp(p2,p3)-2*sp(p3,p4))*sp(k1,k1)+(8*sp(p3,k1)+4*sp(p3,p4))*sp(p4,k1)+(-4*sp(p2,p3)+4*sp(p3,k1)+2*sp(p3,p4)-2*sp(p3,p1+p2-p3-p4))*sp(p4,p4)-8*sp(p2,p1+p2-p3-p4)*sp(p3,k1)+4*sp(p4,p1+p2-p3-p4)*(sp(p3,k1)+sp(p3,p4)))*sp(p2,k1)+(-2*sp(p2,p3)*sp(p4,k1)+(4*sp(p2,p3)-2*sp(p3,p4))*sp(p2,p1+p2-p3-p4)-2*sp(p2,p3)*sp(p4,p1+p2-p3-p4))*sp(k1,k1)-4*sp(p2,p3)*sp(p4,k1)^2+(-2*sp(p2,p3)*sp(p4,p4)-4*sp(p2,p3)*sp(p4,p1+p2-p3-p4)+4*sp(p2,p1+p2-p3-p4)*sp(p3,k1))*sp(p4,k1)-4*sp(p4,p4)*((sp(p2,p3)-1/2*sp(p3,k1))*sp(p2,p1+p2-p3-p4)-1/2*sp(p1+p2-p3-p4,k1)*sp(p2,p3)))*sp(p1,p3)+sp(p3,p3)*((4*sp(p1,k1)+2*sp(p1,p1+p2-p3-p4))*sp(p2,p4)^2+((8*sp(p1,k1)+2*sp(p1,p1+p2-p3-p4))*sp(p2,k1)+(sp(p1,k1)-4*sp(p1,p2)+2*sp(p1,p4)-sp(p1,p1+p2-p3-p4))*sp(k1,k1)+(-2*sp(p1,k1)-4*sp(p1,p2)-2*sp(p1,p1+p2-p3-p4))*sp(p4,k1)-sp(p1,k1)*sp(p4,p4)+(2*sp(p1,k1)-2*sp(p1,p4))*sp(p2,p1+p2-p3-p4)+2*sp(p1,k1)*sp(p1+p2-p3-p4,k1)+(-2*sp(p4,p1+p2-p3-p4)-2*sp(p1+p2-p3-p4,k1))*sp(p1,p2)+2*sp(p1,p4)*sp(p1+p2-p3-p4,k1))*sp(p2,p4)+4*sp(p1,k1)*sp(p2,k1)^2+((-2*sp(p1,p2)+sp(p1,p4))*sp(k1,k1)+(-4*sp(p1,k1)-2*sp(p1,p4))*sp(p4,k1)+(-2*sp(p1,k1)+2*sp(p1,p2)-sp(p1,p4)+sp(p1,p1+p2-p3-p4))*sp(p4,p4)+4*sp(p2,p1+p2-p3-p4)*sp(p1,k1)-2*sp(p4,p1+p2-p3-p4)*(sp(p1,k1)+sp(p1,p4)))*sp(p2,k1)+(sp(p1,p2)*sp(p4,k1)+(-2*sp(p1,p2)+sp(p1,p4))*sp(p2,p1+p2-p3-p4)+sp(p1,p2)*sp(p4,p1+p2-p3-p4))*sp(k1,k1)+2*sp(p1,p2)*sp(p4,k1)^2+(-2*sp(p2,p1+p2-p3-p4)*sp(p1,k1)+sp(p1,p2)*sp(p4,p4)+2*sp(p1,p2)*sp(p4,p1+p2-p3-p4))*sp(p4,k1)-((sp(p1,k1)-2*sp(p1,p2))*sp(p2,p1+p2-p3-p4)+sp(p1+p2-p3-p4,k1)*sp(p1,p2))*sp(p4,p4)))*ii/sp(p1-p3,p1-p3)^2",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag4_prop1",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag4_prop2",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag4_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag4_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag4_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag4_prop6",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "512/sp(-p2+p4,-p2+p4)^2*ii*(((4*sp(p4,k1)-2*sp(p4,p1+p2-p3-p4))*sp(p1,p3)^2+((-8*sp(p4,k1)+2*sp(p4,p1+p2-p3-p4))*sp(p1,k1)+(4*sp(p1,p4)-2*sp(p3,p4)+sp(p4,k1)+sp(p4,p1+p2-p3-p4))*sp(k1,k1)+(-4*sp(p1,p4)+2*sp(p4,k1)-2*sp(p4,p1+p2-p3-p4))*sp(p3,k1)-sp(p3,p3)*sp(p4,k1)+(2*sp(p3,p4)+2*sp(p4,k1))*sp(p1,p1+p2-p3-p4)+(2*sp(p3,p1+p2-p3-p4)-2*sp(p1+p2-p3-p4,k1))*sp(p1,p4)+2*sp(p1+p2-p3-p4,k1)*(sp(p3,p4)-sp(p4,k1)))*sp(p1,p3)+4*sp(p4,k1)*sp(p1,k1)^2+((-2*sp(p1,p4)+sp(p3,p4))*sp(k1,k1)+(2*sp(p3,p4)-4*sp(p4,k1))*sp(p3,k1)+(2*sp(p1,p4)-sp(p3,p4)+2*sp(p4,k1)+sp(p4,p1+p2-p3-p4))*sp(p3,p3)-4*sp(p1,p1+p2-p3-p4)*sp(p4,k1)-2*sp(p3,p1+p2-p3-p4)*(sp(p3,p4)-sp(p4,k1)))*sp(p1,k1)+(sp(p1,p4)*sp(p3,k1)+(2*sp(p1,p4)-sp(p3,p4))*sp(p1,p1+p2-p3-p4)-sp(p1,p4)*sp(p3,p1+p2-p3-p4))*sp(k1,k1)-2*sp(p1,p4)*sp(p3,k1)^2+(sp(p1,p4)*sp(p3,p3)+2*sp(p1,p4)*sp(p3,p1+p2-p3-p4)+2*sp(p1,p1+p2-p3-p4)*sp(p4,k1))*sp(p3,k1)-2*sp(p3,p3)*((sp(p1,p4)+1/2*sp(p4,k1))*sp(p1,p1+p2-p3-p4)+1/2*sp(p1,p4)*sp(p1+p2-p3-p4,k1)))*sp(p2,p4)+((sp(p2,p1+p2-p3-p4)-2*sp(p2,k1))*sp(p1,p3)^2+((-sp(p2,p1+p2-p3-p4)+4*sp(p2,k1))*sp(p1,k1)+(-1/2*sp(p2,p1+p2-p3-p4)-1/2*sp(p2,k1)-2*sp(p1,p2)+sp(p2,p3))*sp(k1,k1)+(-sp(p2,k1)+sp(p2,p1+p2-p3-p4)+2*sp(p1,p2))*sp(p3,k1)+1/2*sp(p3,p3)*sp(p2,k1)+(-sp(p2,k1)-sp(p2,p3))*sp(p1,p1+p2-p3-p4)+(-sp(p3,p1+p2-p3-p4)+sp(p1+p2-p3-p4,k1))*sp(p1,p2)+sp(p1+p2-p3-p4,k1)*(sp(p2,k1)-sp(p2,p3)))*sp(p1,p3)-2*sp(p2,k1)*sp(p1,k1)^2+((-1/2*sp(p2,p3)+sp(p1,p2))*sp(k1,k1)+(2*sp(p2,k1)-sp(p2,p3))*sp(p3,k1)+(-1/2*sp(p2,p1+p2-p3-p4)-sp(p1,p2)+1/2*sp(p2,p3)-sp(p2,k1))*sp(p3,p3)+2*sp(p1,p1+p2-p3-p4)*sp(p2,k1)-sp(p3,p1+p2-p3-p4)*(sp(p2,k1)-sp(p2,p3)))*sp(p1,k1)+(-1/2*sp(p1,p2)*sp(p3,k1)+(-sp(p1,p2)+1/2*sp(p2,p3))*sp(p1,p1+p2-p3-p4)+1/2*sp(p3,p1+p2-p3-p4)*sp(p1,p2))*sp(k1,k1)+sp(p1,p2)*sp(p3,k1)^2+(-sp(p3,p1+p2-p3-p4)*sp(p1,p2)-sp(p1,p1+p2-p3-p4)*sp(p2,k1)-1/2*sp(p1,p2)*sp(p3,p3))*sp(p3,k1)+sp(p3,p3)*((sp(p1,p2)+1/2*sp(p2,k1))*sp(p1,p1+p2-p3-p4)+1/2*sp(p1+p2-p3-p4,k1)*sp(p1,p2)))*sp(p4,p4))/sp(p1-p3,p1-p3)",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag5_prop1",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag5_prop2",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag5_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag5_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag5_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag5_prop6",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1024*ii*(((-2*sp(p2,p3)+2*sp(p3,p4))*sp(p2,k1)+(-2*sp(p3,k1)+2*sp(p3,p4))*sp(p2,p4)+(2*sp(p2,p3)-2*sp(p3,p4))*sp(p4,k1)-sp(p4,p4)*(sp(p2,p3)-sp(p3,k1)))*sp(p1,p3)+sp(p3,p3)*((sp(p1,p2)-sp(p1,p4))*sp(p2,k1)+(sp(p1,k1)-sp(p1,p4))*sp(p2,p4)+(-sp(p1,p2)+sp(p1,p4))*sp(p4,k1)-1/2*sp(p4,p4)*(sp(p1,k1)-sp(p1,p2))))/sp(-p2+p4,-p2+p4)^2/sp(p1-p3,p1-p3)^2*(sp(p2,k1)+sp(p2,p4))",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag6_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag6_prop2",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag6_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag6_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag6_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "1024*ii*(((-2*sp(p1,p4)+2*sp(p3,p4))*sp(p1,k1)+(-2*sp(p3,p4)-2*sp(p4,k1))*sp(p1,p3)+(2*sp(p1,p4)-2*sp(p3,p4))*sp(p3,k1)+sp(p3,p3)*(sp(p1,p4)+sp(p4,k1)))*sp(p2,p4)+sp(p4,p4)*((sp(p1,p2)-sp(p2,p3))*sp(p1,k1)+(sp(p2,k1)+sp(p2,p3))*sp(p1,p3)+(-sp(p1,p2)+sp(p2,p3))*sp(p3,k1)-1/2*sp(p3,p3)*(sp(p1,p2)+sp(p2,k1))))/sp(-p2+p4,-p2+p4)^2/sp(p1-p3,p1-p3)^2*(sp(p1,k1)-sp(p1,p3))",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag7_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag7_prop2",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag7_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag7_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag7_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "512*ii/sp(-p2+p4,-p2+p4)*((4*sp(p2,k1)^2+(4*sp(p2,p4)+2*sp(p3,p4)-4*sp(p4,k1))*sp(p2,k1)+(-2*sp(p2,p4)-2*sp(p4,k1)+sp(p4,p4))*sp(p2,p3)+2*(sp(p2,p4)+1/2*sp(p3,p3)-sp(p4,k1))*sp(p2,p4))*sp(p1,k1)^2+((-4*sp(p1,p3)-4*sp(p3,k1)-2*sp(p3,p4))*sp(p2,k1)^2+((-4*sp(k1,k1)+2*sp(p3,p3)-8*sp(p3,p4)+2*sp(p4,p4))*sp(p1,p2)+(2*sp(p1,p4)+2*sp(p2,p3))*sp(k1,k1)+(4*sp(p2,p3)-2*sp(p2,p4)-2*sp(p3,k1)-sp(p3,p3)+2*sp(p3,p4)-2*sp(p4,k1))*sp(p1,p4)+(-2*sp(p1,p3)+2*sp(p3,k1)+2*sp(p3,p4)+2*sp(p4,k1)-sp(p4,p4))*sp(p2,p3)+(-4*sp(p2,p4)+4*sp(p4,k1)-sp(p4,p4))*sp(p1,p3)+(-4*sp(p3,k1)-sp(p3,p3))*sp(p2,p4)+(-2*sp(p3,p4)+4*sp(p4,k1))*sp(p3,k1)+sp(p3,p3)*sp(p4,p4)-2*sp(p3,p4)^2+2*sp(p3,p4)*sp(p4,k1))*sp(p2,k1)+((-2*sp(p2,p4)-sp(p3,p4)+2*sp(p4,k1))*sp(k1,k1)+4*sp(p2,p3)*sp(p4,k1)+(2*sp(p3,k1)-2*sp(p3,p4)-2*sp(p4,k1))*sp(p2,p4)+(2*sp(p4,k1)-sp(p4,p4))*sp(p3,k1)+2*sp(p4,k1)^2+(-sp(p3,p3)+2*sp(p3,p4))*sp(p4,k1)-sp(p3,p3)*sp(p4,p4))*sp(p1,p2)+((sp(p2,p3)+sp(p2,p4))*sp(p1,p4)-sp(p2,p3)*(sp(p2,p3)-sp(p2,p4)-sp(p3,p4)+2*sp(p4,k1)))*sp(k1,k1)+((2*sp(p2,p4)-4*sp(p4,k1))*sp(p2,p3)+sp(p3,p3)*sp(p2,p4))*sp(p1,p4)+(-2*sp(p4,k1)+sp(p4,p4))*sp(p2,p3)^2+((2*sp(p4,k1)+sp(p4,p4))*sp(p1,p3)+(2*sp(p3,k1)-2*sp(p3,p4)+2*sp(p4,k1))*sp(p2,p4)-sp(p3,k1)*sp(p4,p4)+2*sp(p4,k1)*(sp(p3,p4)-sp(p4,k1)))*sp(p2,p3)-2*((sp(p2,p4)+sp(p3,k1)+sp(p3,p4)-2*sp(p4,k1))*sp(p1,p3)+(sp(p2,p4)-sp(p4,k1))*(sp(p3,k1)-1/2*sp(p3,p3)))*sp(p2,p4))*sp(p1,k1)+((-2*sp(p1,p3)+2*sp(p3,k1)+sp(p3,p3))*sp(p1,p4)+2*sp(p1,p3)*(sp(p1,p3)+sp(p3,k1)+1/2*sp(p4,p4)))*sp(p2,k1)^2+(((2*sp(p1,p3)+2*sp(p3,k1)+sp(p3,p4))*sp(k1,k1)+4*sp(p1,p4)*sp(p3,k1)+(-2*sp(p3,k1)+2*sp(p3,p4)+2*sp(p4,k1))*sp(p1,p3)-2*sp(p3,k1)^2+(2*sp(p3,p4)-2*sp(p4,k1)-sp(p4,p4))*sp(p3,k1)-sp(p3,p3)*(sp(p4,k1)-sp(p4,p4)))*sp(p1,p2)+(sp(p1,p4)^2+(-sp(p1,p3)-sp(p2,p3)-2*sp(p3,k1)-sp(p3,p4))*sp(p1,p4)-sp(p1,p3)*sp(p2,p3))*sp(k1,k1)+(-2*sp(p3,k1)-sp(p3,p3))*sp(p1,p4)^2+((-2*sp(p1,p3)-4*sp(p3,k1))*sp(p2,p3)+(2*sp(p3,k1)+2*sp(p3,p4)+2*sp(p4,k1))*sp(p1,p3)+(2*sp(p3,k1)-sp(p3,p3))*sp(p2,p4)+2*sp(p3,k1)^2+2*sp(p3,k1)*sp(p3,p4)-sp(p3,p3)*sp(p4,k1))*sp(p1,p4)+2*sp(p1,p3)*(-1/2*sp(p2,p3)*sp(p4,p4)+(sp(p2,p4)-sp(p4,k1)-1/2*sp(p4,p4))*sp(p1,p3)+(2*sp(p3,k1)+sp(p3,p4)-sp(p4,k1))*sp(p2,p4)-sp(p3,k1)*(sp(p4,k1)+1/2*sp(p4,p4))))*sp(p2,k1)+(sp(k1,k1)^2+(-sp(p3,p3)+4*sp(p3,p4)-sp(p4,p4))*sp(k1,k1)-4*sp(p4,k1)*sp(p3,k1)+sp(p3,p3)*sp(p4,p4))*sp(p1,p2)^2+((-sp(p1,p4)-sp(p2,p3))*sp(k1,k1)^2+((-4*sp(p2,p3)+2*sp(p2,p4)+sp(p3,p3)-2*sp(p3,p4)-sp(p4,k1))*sp(p1,p4)+(2*sp(p1,p3)+sp(p3,k1)-2*sp(p3,p4)+sp(p4,p4))*sp(p2,p3)+(-sp(p3,p4)-sp(p4,k1)+sp(p4,p4))*sp(p1,p3)+(sp(p3,k1)+sp(p3,p3)-sp(p3,p4))*sp(p2,p4)-sp(p3,p3)*sp(p4,p4)+sp(p3,p4)^2)*sp(k1,k1)+(-2*sp(p3,p3)*sp(p2,p4)+2*sp(p4,k1)*(sp(p3,k1)+1/2*sp(p3,p3)))*sp(p1,p4)+(-2*sp(p1,p3)*sp(p4,p4)+2*sp(p3,k1)*(sp(p4,k1)-1/2*sp(p4,p4)))*sp(p2,p3)+(4*sp(p2,p4)*sp(p3,p4)+sp(p3,k1)*sp(p4,p4)-2*sp(p4,k1)*(sp(p3,p4)+sp(p4,k1)))*sp(p1,p3)+(-2*sp(p3,k1)^2+2*sp(p3,k1)*sp(p3,p4)-sp(p3,p3)*sp(p4,k1))*sp(p2,p4)+sp(p3,k1)^2*sp(p4,p4)-2*sp(p3,k1)*sp(p3,p4)*sp(p4,k1)+sp(p3,p3)*sp(p4,k1)^2)*sp(p1,p2)+sp(k1,k1)*(sp(k1,k1)*sp(p1,p4)*sp(p2,p3)+2*sp(p2,p3)*sp(p1,p4)^2+(2*sp(p2,p3)^2+(-sp(p1,p3)-sp(p2,p4)-sp(p3,k1)-sp(p3,p4)+sp(p4,k1))*sp(p2,p3)-2*sp(p2,p4)*(sp(p1,p3)+1/2*sp(p3,k1)-1/2*sp(p3,p3)))*sp(p1,p4)+sp(p1,p3)*((-2*sp(p2,p4)+sp(p4,k1)+sp(p4,p4))*sp(p2,p3)+sp(p2,p4)*(sp(p1,p3)+sp(p2,p4)-sp(p3,p4)))))/sp(p1-p3,p1-p3)",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag8_prop1",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag8_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag8_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag8_prop4",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag8_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag8_prop6",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag8_prop7",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "512/sp(-p2+p4,-p2+p4)^2*(sp(p1,p2)+sp(p2,k1))*(sp(p1,k1)-sp(p1,p2))/sp(p1-p3,p1-p3)^2*ii*(sp(p3,p3)*sp(p4,p4)*sp(p1,p2)+(-2*sp(p2,p3)*sp(p4,p4)+4*sp(p2,p4)*sp(p3,p4))*sp(p1,p3)-2*sp(p1,p4)*sp(p2,p4)*sp(p3,p3))/sp(p1,p2)",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag9_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag9_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag9_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag9_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag9_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "-512/sp(p1-p3,p1-p3)^2/sp(-p2+p4,-p2+p4)^2*sp(p2,p1)*sp(p1,k1)*sp(p2,k1)*ii*(sp(p4,p4)*sp(p2,p1)*sp(p3,p3)-2*sp(p4,p4)*sp(p1,p3)*sp(p2,p3)+4*sp(p2,p4)*sp(p3,p4)*sp(p1,p3)-2*sp(p1,p4)*sp(p2,p4)*sp(p3,p3))/sp(p1,p2)^2",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": "mUV",
+          "name": "lp_diag10_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 3
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag10_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag10_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "512/sp(p1-p3,p1-p3)^2/sp(-p2+p4,-p2+p4)^2*ii*(sp(p2,k1)*sp(p4,p4)-2*sp(p2,p4)*sp(p4,k1))*(sp(p3,p3)*sp(k1,p1)-2*sp(p1,p3)*sp(k1,p3))",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": "mUV",
+          "name": "lp_diag11_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 3
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag11_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag11_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "-1024*ii/sp(-p2+p4,-p2+p4)^3/sp(p1-p3,p1-p3)^2*(((-2*sp(p4,p3)*sp(k1,k1)+2*sp(k1,p3)*sp(p2,k1)-2*sp(k1,p3)*sp(p4,k1))*sp(p1,p3)+sp(p3,p3)*(sp(k1,k1)*sp(p4,p1)-sp(k1,p1)*sp(p2,k1)+sp(k1,p1)*sp(p4,k1)))*sp(p2,p4)^2+(((-sp(k1,p3)*sp(p2,k1)+sp(k1,p3)*sp(p4,k1)+sp(k1,k1)*(sp(p4,p3)+sp(p2,p3)))*sp(p1,p3)-1/2*sp(p3,p3)*(-sp(k1,p1)*sp(p2,k1)+sp(k1,p1)*sp(p4,k1)+sp(k1,k1)*(sp(p2,p1)+sp(p4,p1))))*sp(p4,p4)-2*((sp(p2,k1)*sp(p4,p3)+sp(p4,k1)*(sp(p2,p3)-2*sp(p4,p3)))*sp(p1,p3)-1/2*sp(p3,p3)*(sp(p2,k1)*sp(p4,p1)+sp(p4,k1)*(sp(p2,p1)-2*sp(p4,p1))))*(sp(p2,k1)-sp(p4,k1)))*sp(p2,p4)-1/2*(sp(k1,k1)*(sp(p1,p3)*sp(p2,p3)-1/2*sp(p2,p1)*sp(p3,p3))*sp(p4,p4)-4*(((sp(p2,p3)-1/2*sp(p4,p3))*sp(p2,k1)-1/2*sp(p2,p3)*sp(p4,k1))*sp(p1,p3)-1/2*((sp(p2,p1)-1/2*sp(p4,p1))*sp(p2,k1)-1/2*sp(p2,p1)*sp(p4,k1))*sp(p3,p3))*(sp(p2,k1)-sp(p4,k1)))*sp(p4,p4))",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": "mUV",
+          "name": "lp_diag12_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 3
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag12_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag12_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "-1024*ii/sp(-p2+p4,-p2+p4)^3/sp(p1-p3,p1-p3)^2*((sp(p1,p3)*sp(k1,p3)-1/2*sp(p3,p3)*sp(k1,p1))*sp(p2,p4)^2+((-1/2*sp(p1,p3)*sp(k1,p3)+1/4*sp(p3,p3)*sp(k1,p1))*sp(p4,p4)+(-sp(p2,k1)*sp(p4,p3)-sp(p4,k1)*(sp(p2,p3)-2*sp(p4,p3)))*sp(p1,p3)+1/2*sp(p3,p3)*(sp(p2,k1)*sp(p4,p1)+sp(p4,k1)*(sp(p2,p1)-2*sp(p4,p1))))*sp(p2,p4)+(((sp(p2,p3)-1/2*sp(p4,p3))*sp(p2,k1)-1/2*sp(p2,p3)*sp(p4,k1))*sp(p1,p3)-1/2*((sp(p2,p1)-1/2*sp(p4,p1))*sp(p2,k1)-1/2*sp(p2,p1)*sp(p4,k1))*sp(p3,p3))*sp(p4,p4))",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": "mUV",
+          "name": "lp_diag13_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag13_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag13_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "-1024*ii*(((-2*sp(p4,p3)*sp(k1,k1)+2*sp(k1,p1)*sp(p4,k1)-2*sp(k1,p3)*sp(p4,k1))*sp(p2,p4)+sp(p4,p4)*(sp(p2,p3)*sp(k1,k1)-sp(k1,p1)*sp(p2,k1)+sp(k1,p3)*sp(p2,k1)))*sp(p1,p3)^2+(((-sp(k1,p1)*sp(p4,k1)+sp(k1,p3)*sp(p4,k1)+sp(k1,k1)*(sp(p4,p1)+sp(p4,p3)))*sp(p2,p4)-1/2*sp(p4,p4)*(-sp(k1,p1)*sp(p2,k1)+sp(k1,p3)*sp(p2,k1)+sp(k1,k1)*(sp(p2,p1)+sp(p2,p3))))*sp(p3,p3)+(sp(k1,p1)-sp(k1,p3))*((-2*sp(p4,p3)*sp(k1,p1)-2*sp(k1,p3)*(sp(p4,p1)-2*sp(p4,p3)))*sp(p2,p4)+(sp(k1,p1)*sp(p2,p3)+sp(k1,p3)*(sp(p2,p1)-2*sp(p2,p3)))*sp(p4,p4)))*sp(p1,p3)+1/4*sp(p3,p3)*(sp(k1,k1)*(sp(p4,p4)*sp(p2,p1)-2*sp(p2,p4)*sp(p4,p1))*sp(p3,p3)-4*(sp(k1,p1)-sp(k1,p3))*(((-2*sp(p4,p1)+sp(p4,p3))*sp(k1,p1)+sp(k1,p3)*sp(p4,p1))*sp(p2,p4)+((sp(p2,p1)-1/2*sp(p2,p3))*sp(k1,p1)-1/2*sp(k1,p3)*sp(p2,p1))*sp(p4,p4))))/sp(-p2+p4,-p2+p4)^2/sp(p1-p3,p1-p3)^3",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": "mUV",
+          "name": "lp_diag14_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 3
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag14_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag14_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "-1024*ii*((1/2*sp(p2,k1)*sp(p4,p4)-sp(p2,p4)*sp(p4,k1))*sp(p1,p3)^2+((1/2*sp(p2,p4)*sp(p4,k1)-1/4*sp(p2,k1)*sp(p4,p4))*sp(p3,p3)+(sp(p4,p3)*sp(k1,p1)+sp(k1,p3)*(sp(p4,p1)-2*sp(p4,p3)))*sp(p2,p4)-1/2*(sp(k1,p1)*sp(p2,p3)+sp(k1,p3)*(sp(p2,p1)-2*sp(p2,p3)))*sp(p4,p4))*sp(p1,p3)+1/2*sp(p3,p3)*(((-2*sp(p4,p1)+sp(p4,p3))*sp(k1,p1)+sp(k1,p3)*sp(p4,p1))*sp(p2,p4)+((sp(p2,p1)-1/2*sp(p2,p3))*sp(k1,p1)-1/2*sp(k1,p3)*sp(p2,p1))*sp(p4,p4)))/sp(-p2+p4,-p2+p4)^2/sp(p1-p3,p1-p3)^3",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": "mUV",
+          "name": "lp_diag15_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag15_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag15_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "-1024*ii/sp(p1-p3,p1-p3)^2/sp(-p2+p4,-p2+p4)^2*sp(p2,k1)*(((-2*sp(p2,p3)+2*sp(p4,p3))*sp(p2,k1)+(2*sp(p2,p3)-2*sp(p4,p3))*sp(p4,k1)-2*sp(k1,p3)*(sp(p2,p4)-1/2*sp(p4,p4)))*sp(p1,p3)+((sp(p2,p1)-sp(p4,p1))*sp(p2,k1)+(-sp(p2,p1)+sp(p4,p1))*sp(p4,k1)+sp(k1,p1)*(sp(p2,p4)-1/2*sp(p4,p4)))*sp(p3,p3))",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": "mUV",
+          "name": "lp_diag16_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 3
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag16_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag16_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "-1024*ii/sp(p1-p3,p1-p3)^2*sp(k1,p1)/sp(-p2+p4,-p2+p4)^2*(((-2*sp(p4,p1)+2*sp(p4,p3))*sp(k1,p1)+(2*sp(p4,p1)-2*sp(p4,p3))*sp(k1,p3)-2*sp(p4,k1)*(sp(p1,p3)-1/2*sp(p3,p3)))*sp(p2,p4)+((sp(p2,p1)-sp(p2,p3))*sp(k1,p1)+(-sp(p2,p1)+sp(p2,p3))*sp(k1,p3)+sp(p2,k1)*(sp(p1,p3)-1/2*sp(p3,p3)))*sp(p4,p4))",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": "mUV",
+          "name": "lp_diag17_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 3
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag17_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": 0,
+          "name": "lp_diag17_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        }
+      ]
+    },
+    {
+      "analytic_num": "512*ii*(-2*sp(p1,p3)^2+(-2*sp(p3,k1)+sp(p3,p3)+2*sp(p3,p1+p2-p3-p4))*sp(p1,p3)+sp(p3,p3)*(sp(p1,k1)-sp(p1,p1+p2-p3-p4)))/sp(-p2+p4,-p2+p4)^2*((-2*sp(p1,p4)+2*sp(p3,p4)-2*sp(p4,k1))*sp(p2,p4)+sp(p4,p4)*(sp(p1,p2)+sp(p2,k1)-sp(p2,p3)))/sp(p1-p3,p1-p3)^2",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag18_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag18_prop2",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag18_prop3",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": "mUV",
+          "name": "lp_diag18_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        }
+      ]
+    },
+    {
+      "analytic_num": "512*ii*(((-2*sp(p3,k1)+4*sp(p3,p4))*sp(p1,p3)+sp(p3,p3)*(sp(p1,k1)-2*sp(p1,p4)))*sp(p2,p4)^2+(((-2*sp(p2,p3)+sp(p3,k1)-2*sp(p3,p4))*sp(p1,p3)-1/2*sp(p3,p3)*(sp(p1,k1)-2*sp(p1,p2)-2*sp(p1,p4)))*sp(p4,p4)+(2*sp(p2,k1)*sp(p3,p4)+2*sp(p4,k1)*(sp(p2,p3)-2*sp(p3,p4)))*sp(p1,p3)-(sp(p1,p4)*sp(p2,k1)+sp(p4,k1)*(sp(p1,p2)-2*sp(p1,p4)))*sp(p3,p3))*sp(p2,p4)+((-1/2*sp(p1,p2)*sp(p3,p3)+sp(p1,p3)*sp(p2,p3))*sp(p4,p4)+((-2*sp(p2,p3)+sp(p3,p4))*sp(p2,k1)+sp(p2,p3)*sp(p4,k1))*sp(p1,p3)+sp(p3,p3)*((sp(p1,p2)-1/2*sp(p1,p4))*sp(p2,k1)-1/2*sp(p1,p2)*sp(p4,k1)))*sp(p4,p4))/sp(-p2+p4,-p2+p4)^3/sp(p1-p3,p1-p3)^2",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag19_prop1",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag19_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": "mUV",
+          "name": "lp_diag19_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        }
+      ]
+    },
+    {
+      "analytic_num": "-512*ii*(((-4*sp(p3,p4)-2*sp(p4,k1))*sp(p2,p4)+sp(p4,p4)*(sp(p2,k1)+2*sp(p2,p3)))*sp(p1,p3)^2+(((2*sp(p1,p4)+2*sp(p3,p4)+sp(p4,k1))*sp(p2,p4)-sp(p4,p4)*(sp(p1,p2)+1/2*sp(p2,k1)+sp(p2,p3)))*sp(p3,p3)+(2*sp(p1,k1)*sp(p3,p4)+2*sp(p3,k1)*(sp(p1,p4)-2*sp(p3,p4)))*sp(p2,p4)-sp(p4,p4)*(sp(p1,k1)*sp(p2,p3)+sp(p3,k1)*(sp(p1,p2)-2*sp(p2,p3))))*sp(p1,p3)+((1/2*sp(p1,p2)*sp(p4,p4)-sp(p2,p4)*sp(p1,p4))*sp(p3,p3)+((-2*sp(p1,p4)+sp(p3,p4))*sp(p1,k1)+sp(p1,p4)*sp(p3,k1))*sp(p2,p4)+sp(p4,p4)*((-1/2*sp(p2,p3)+sp(p1,p2))*sp(p1,k1)-1/2*sp(p1,p2)*sp(p3,k1)))*sp(p3,p3))/sp(-p2+p4,-p2+p4)^2/sp(p1-p3,p1-p3)^3",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag20_prop1",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag20_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": "mUV",
+          "name": "lp_diag20_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        }
+      ]
+    },
+    {
+      "analytic_num": "-256/sp(-p2+p4,-p2+p4)*(((-8*sp(p3,k1)-4*sp(p3,p1+p2-p3-p4))*sp(p2,p4)^2+((-16*sp(p3,k1)-4*sp(p3,p1+p2-p3-p4))*sp(p2,k1)+(8*sp(p2,p3)-2*sp(p3,k1)-4*sp(p3,p4)+2*sp(p3,p1+p2-p3-p4))*sp(k1,k1)+(8*sp(p2,p3)+4*sp(p3,k1)+4*sp(p3,p1+p2-p3-p4))*sp(p4,k1)+2*sp(p3,k1)*sp(p4,p4)+(-4*sp(p3,k1)+4*sp(p3,p4))*sp(p2,p1+p2-p3-p4)+(4*sp(p4,p1+p2-p3-p4)+4*sp(p1+p2-p3-p4,k1))*sp(p2,p3)-4*sp(p1+p2-p3-p4,k1)*(sp(p3,k1)+sp(p3,p4)))*sp(p2,p4)-8*sp(p2,k1)^2*sp(p3,k1)+((4*sp(p2,p3)-2*sp(p3,p4))*sp(k1,k1)+(8*sp(p3,k1)+4*sp(p3,p4))*sp(p4,k1)+(-4*sp(p2,p3)+4*sp(p3,k1)+2*sp(p3,p4)-2*sp(p3,p1+p2-p3-p4))*sp(p4,p4)-8*sp(p2,p1+p2-p3-p4)*sp(p3,k1)+4*sp(p4,p1+p2-p3-p4)*(sp(p3,k1)+sp(p3,p4)))*sp(p2,k1)+(-2*sp(p2,p3)*sp(p4,k1)+(4*sp(p2,p3)-2*sp(p3,p4))*sp(p2,p1+p2-p3-p4)-2*sp(p2,p3)*sp(p4,p1+p2-p3-p4))*sp(k1,k1)-4*sp(p2,p3)*sp(p4,k1)^2+(-2*sp(p2,p3)*sp(p4,p4)-4*sp(p2,p3)*sp(p4,p1+p2-p3-p4)+4*sp(p2,p1+p2-p3-p4)*sp(p3,k1))*sp(p4,k1)-4*sp(p4,p4)*((sp(p2,p3)-1/2*sp(p3,k1))*sp(p2,p1+p2-p3-p4)-1/2*sp(p1+p2-p3-p4,k1)*sp(p2,p3)))*sp(p1,p3)+sp(p3,p3)*((4*sp(p1,k1)+2*sp(p1,p1+p2-p3-p4))*sp(p2,p4)^2+((8*sp(p1,k1)+2*sp(p1,p1+p2-p3-p4))*sp(p2,k1)+(sp(p1,k1)-4*sp(p1,p2)+2*sp(p1,p4)-sp(p1,p1+p2-p3-p4))*sp(k1,k1)+(-2*sp(p1,k1)-4*sp(p1,p2)-2*sp(p1,p1+p2-p3-p4))*sp(p4,k1)-sp(p1,k1)*sp(p4,p4)+(2*sp(p1,k1)-2*sp(p1,p4))*sp(p2,p1+p2-p3-p4)+2*sp(p1,k1)*sp(p1+p2-p3-p4,k1)+(-2*sp(p4,p1+p2-p3-p4)-2*sp(p1+p2-p3-p4,k1))*sp(p1,p2)+2*sp(p1,p4)*sp(p1+p2-p3-p4,k1))*sp(p2,p4)+4*sp(p1,k1)*sp(p2,k1)^2+((-2*sp(p1,p2)+sp(p1,p4))*sp(k1,k1)+(-4*sp(p1,k1)-2*sp(p1,p4))*sp(p4,k1)+(-2*sp(p1,k1)+2*sp(p1,p2)-sp(p1,p4)+sp(p1,p1+p2-p3-p4))*sp(p4,p4)+4*sp(p2,p1+p2-p3-p4)*sp(p1,k1)-2*sp(p4,p1+p2-p3-p4)*(sp(p1,k1)+sp(p1,p4)))*sp(p2,k1)+(sp(p1,p2)*sp(p4,k1)+(-2*sp(p1,p2)+sp(p1,p4))*sp(p2,p1+p2-p3-p4)+sp(p1,p2)*sp(p4,p1+p2-p3-p4))*sp(k1,k1)+2*sp(p1,p2)*sp(p4,k1)^2+(-2*sp(p2,p1+p2-p3-p4)*sp(p1,k1)+sp(p1,p2)*sp(p4,p4)+2*sp(p1,p2)*sp(p4,p1+p2-p3-p4))*sp(p4,k1)-((sp(p1,k1)-2*sp(p1,p2))*sp(p2,p1+p2-p3-p4)+sp(p1+p2-p3-p4,k1)*sp(p1,p2))*sp(p4,p4)))*ii/sp(p1-p3,p1-p3)^2",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag21_prop1",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag21_prop2",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag21_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag21_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": "mUV",
+          "name": "lp_diag21_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        }
+      ]
+    },
+    {
+      "analytic_num": "-512/sp(-p2+p4,-p2+p4)^2*ii*(((4*sp(p4,k1)-2*sp(p4,p1+p2-p3-p4))*sp(p1,p3)^2+((-8*sp(p4,k1)+2*sp(p4,p1+p2-p3-p4))*sp(p1,k1)+(4*sp(p1,p4)-2*sp(p3,p4)+sp(p4,k1)+sp(p4,p1+p2-p3-p4))*sp(k1,k1)+(-4*sp(p1,p4)+2*sp(p4,k1)-2*sp(p4,p1+p2-p3-p4))*sp(p3,k1)-sp(p3,p3)*sp(p4,k1)+(2*sp(p3,p4)+2*sp(p4,k1))*sp(p1,p1+p2-p3-p4)+(2*sp(p3,p1+p2-p3-p4)-2*sp(p1+p2-p3-p4,k1))*sp(p1,p4)+2*sp(p1+p2-p3-p4,k1)*(sp(p3,p4)-sp(p4,k1)))*sp(p1,p3)+4*sp(p4,k1)*sp(p1,k1)^2+((-2*sp(p1,p4)+sp(p3,p4))*sp(k1,k1)+(2*sp(p3,p4)-4*sp(p4,k1))*sp(p3,k1)+(2*sp(p1,p4)-sp(p3,p4)+2*sp(p4,k1)+sp(p4,p1+p2-p3-p4))*sp(p3,p3)-4*sp(p1,p1+p2-p3-p4)*sp(p4,k1)-2*sp(p3,p1+p2-p3-p4)*(sp(p3,p4)-sp(p4,k1)))*sp(p1,k1)+(sp(p1,p4)*sp(p3,k1)+(2*sp(p1,p4)-sp(p3,p4))*sp(p1,p1+p2-p3-p4)-sp(p1,p4)*sp(p3,p1+p2-p3-p4))*sp(k1,k1)-2*sp(p1,p4)*sp(p3,k1)^2+(sp(p1,p4)*sp(p3,p3)+2*sp(p1,p4)*sp(p3,p1+p2-p3-p4)+2*sp(p1,p1+p2-p3-p4)*sp(p4,k1))*sp(p3,k1)-2*sp(p3,p3)*((sp(p1,p4)+1/2*sp(p4,k1))*sp(p1,p1+p2-p3-p4)+1/2*sp(p1,p4)*sp(p1+p2-p3-p4,k1)))*sp(p2,p4)+((sp(p2,p1+p2-p3-p4)-2*sp(p2,k1))*sp(p1,p3)^2+((-sp(p2,p1+p2-p3-p4)+4*sp(p2,k1))*sp(p1,k1)+(-1/2*sp(p2,p1+p2-p3-p4)-1/2*sp(p2,k1)-2*sp(p1,p2)+sp(p2,p3))*sp(k1,k1)+(-sp(p2,k1)+sp(p2,p1+p2-p3-p4)+2*sp(p1,p2))*sp(p3,k1)+1/2*sp(p3,p3)*sp(p2,k1)+(-sp(p2,k1)-sp(p2,p3))*sp(p1,p1+p2-p3-p4)+(-sp(p3,p1+p2-p3-p4)+sp(p1+p2-p3-p4,k1))*sp(p1,p2)+sp(p1+p2-p3-p4,k1)*(sp(p2,k1)-sp(p2,p3)))*sp(p1,p3)-2*sp(p2,k1)*sp(p1,k1)^2+((-1/2*sp(p2,p3)+sp(p1,p2))*sp(k1,k1)+(2*sp(p2,k1)-sp(p2,p3))*sp(p3,k1)+(-1/2*sp(p2,p1+p2-p3-p4)-sp(p1,p2)+1/2*sp(p2,p3)-sp(p2,k1))*sp(p3,p3)+2*sp(p1,p1+p2-p3-p4)*sp(p2,k1)-sp(p3,p1+p2-p3-p4)*(sp(p2,k1)-sp(p2,p3)))*sp(p1,k1)+(-1/2*sp(p1,p2)*sp(p3,k1)+(-sp(p1,p2)+1/2*sp(p2,p3))*sp(p1,p1+p2-p3-p4)+1/2*sp(p3,p1+p2-p3-p4)*sp(p1,p2))*sp(k1,k1)+sp(p1,p2)*sp(p3,k1)^2+(-sp(p3,p1+p2-p3-p4)*sp(p1,p2)-sp(p1,p1+p2-p3-p4)*sp(p2,k1)-1/2*sp(p1,p2)*sp(p3,p3))*sp(p3,k1)+sp(p3,p3)*((sp(p1,p2)+1/2*sp(p2,k1))*sp(p1,p1+p2-p3-p4)+1/2*sp(p1+p2-p3-p4,k1)*sp(p1,p2)))*sp(p4,p4))/sp(p1-p3,p1-p3)",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag22_prop1",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag22_prop2",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag22_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag22_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": "mUV",
+          "name": "lp_diag22_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        }
+      ]
+    },
+    {
+      "analytic_num": "-1024*ii*(((-2*sp(p2,p3)+2*sp(p3,p4))*sp(p2,k1)+(-2*sp(p3,k1)+2*sp(p3,p4))*sp(p2,p4)+(2*sp(p2,p3)-2*sp(p3,p4))*sp(p4,k1)-sp(p4,p4)*(sp(p2,p3)-sp(p3,k1)))*sp(p1,p3)+sp(p3,p3)*((sp(p1,p2)-sp(p1,p4))*sp(p2,k1)+(sp(p1,k1)-sp(p1,p4))*sp(p2,p4)+(-sp(p1,p2)+sp(p1,p4))*sp(p4,k1)-1/2*sp(p4,p4)*(sp(p1,k1)-sp(p1,p2))))/sp(-p2+p4,-p2+p4)^2/sp(p1-p3,p1-p3)^2*(sp(p2,k1)+sp(p2,p4))",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag23_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag23_prop2",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            -1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag23_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": "mUV",
+          "name": "lp_diag23_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        }
+      ]
+    },
+    {
+      "analytic_num": "-1024*ii*(((-2*sp(p1,p4)+2*sp(p3,p4))*sp(p1,k1)+(-2*sp(p3,p4)-2*sp(p4,k1))*sp(p1,p3)+(2*sp(p1,p4)-2*sp(p3,p4))*sp(p3,k1)+sp(p3,p3)*(sp(p1,p4)+sp(p4,k1)))*sp(p2,p4)+sp(p4,p4)*((sp(p1,p2)-sp(p2,p3))*sp(p1,k1)+(sp(p2,k1)+sp(p2,p3))*sp(p1,p3)+(-sp(p1,p2)+sp(p2,p3))*sp(p3,k1)-1/2*sp(p3,p3)*(sp(p1,p2)+sp(p2,k1))))/sp(-p2+p4,-p2+p4)^2/sp(p1-p3,p1-p3)^2*(sp(p1,k1)-sp(p1,p3))",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag24_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag24_prop2",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag24_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": "mUV",
+          "name": "lp_diag24_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        }
+      ]
+    },
+    {
+      "analytic_num": "-512*ii/sp(-p2+p4,-p2+p4)*((4*sp(p2,k1)^2+(4*sp(p2,p4)+2*sp(p3,p4)-4*sp(p4,k1))*sp(p2,k1)+(-2*sp(p2,p4)-2*sp(p4,k1)+sp(p4,p4))*sp(p2,p3)+2*(sp(p2,p4)+1/2*sp(p3,p3)-sp(p4,k1))*sp(p2,p4))*sp(p1,k1)^2+((-4*sp(p1,p3)-4*sp(p3,k1)-2*sp(p3,p4))*sp(p2,k1)^2+((-4*sp(k1,k1)+2*sp(p3,p3)-8*sp(p3,p4)+2*sp(p4,p4))*sp(p1,p2)+(2*sp(p1,p4)+2*sp(p2,p3))*sp(k1,k1)+(4*sp(p2,p3)-2*sp(p2,p4)-2*sp(p3,k1)-sp(p3,p3)+2*sp(p3,p4)-2*sp(p4,k1))*sp(p1,p4)+(-2*sp(p1,p3)+2*sp(p3,k1)+2*sp(p3,p4)+2*sp(p4,k1)-sp(p4,p4))*sp(p2,p3)+(-4*sp(p2,p4)+4*sp(p4,k1)-sp(p4,p4))*sp(p1,p3)+(-4*sp(p3,k1)-sp(p3,p3))*sp(p2,p4)+(-2*sp(p3,p4)+4*sp(p4,k1))*sp(p3,k1)+sp(p3,p3)*sp(p4,p4)-2*sp(p3,p4)^2+2*sp(p3,p4)*sp(p4,k1))*sp(p2,k1)+((-2*sp(p2,p4)-sp(p3,p4)+2*sp(p4,k1))*sp(k1,k1)+4*sp(p2,p3)*sp(p4,k1)+(2*sp(p3,k1)-2*sp(p3,p4)-2*sp(p4,k1))*sp(p2,p4)+(2*sp(p4,k1)-sp(p4,p4))*sp(p3,k1)+2*sp(p4,k1)^2+(-sp(p3,p3)+2*sp(p3,p4))*sp(p4,k1)-sp(p3,p3)*sp(p4,p4))*sp(p1,p2)+((sp(p2,p3)+sp(p2,p4))*sp(p1,p4)-sp(p2,p3)*(sp(p2,p3)-sp(p2,p4)-sp(p3,p4)+2*sp(p4,k1)))*sp(k1,k1)+((2*sp(p2,p4)-4*sp(p4,k1))*sp(p2,p3)+sp(p3,p3)*sp(p2,p4))*sp(p1,p4)+(-2*sp(p4,k1)+sp(p4,p4))*sp(p2,p3)^2+((2*sp(p4,k1)+sp(p4,p4))*sp(p1,p3)+(2*sp(p3,k1)-2*sp(p3,p4)+2*sp(p4,k1))*sp(p2,p4)-sp(p3,k1)*sp(p4,p4)+2*sp(p4,k1)*(sp(p3,p4)-sp(p4,k1)))*sp(p2,p3)-2*((sp(p2,p4)+sp(p3,k1)+sp(p3,p4)-2*sp(p4,k1))*sp(p1,p3)+(sp(p2,p4)-sp(p4,k1))*(sp(p3,k1)-1/2*sp(p3,p3)))*sp(p2,p4))*sp(p1,k1)+((-2*sp(p1,p3)+2*sp(p3,k1)+sp(p3,p3))*sp(p1,p4)+2*sp(p1,p3)*(sp(p1,p3)+sp(p3,k1)+1/2*sp(p4,p4)))*sp(p2,k1)^2+(((2*sp(p1,p3)+2*sp(p3,k1)+sp(p3,p4))*sp(k1,k1)+4*sp(p1,p4)*sp(p3,k1)+(-2*sp(p3,k1)+2*sp(p3,p4)+2*sp(p4,k1))*sp(p1,p3)-2*sp(p3,k1)^2+(2*sp(p3,p4)-2*sp(p4,k1)-sp(p4,p4))*sp(p3,k1)-sp(p3,p3)*(sp(p4,k1)-sp(p4,p4)))*sp(p1,p2)+(sp(p1,p4)^2+(-sp(p1,p3)-sp(p2,p3)-2*sp(p3,k1)-sp(p3,p4))*sp(p1,p4)-sp(p1,p3)*sp(p2,p3))*sp(k1,k1)+(-2*sp(p3,k1)-sp(p3,p3))*sp(p1,p4)^2+((-2*sp(p1,p3)-4*sp(p3,k1))*sp(p2,p3)+(2*sp(p3,k1)+2*sp(p3,p4)+2*sp(p4,k1))*sp(p1,p3)+(2*sp(p3,k1)-sp(p3,p3))*sp(p2,p4)+2*sp(p3,k1)^2+2*sp(p3,k1)*sp(p3,p4)-sp(p3,p3)*sp(p4,k1))*sp(p1,p4)+2*sp(p1,p3)*(-1/2*sp(p2,p3)*sp(p4,p4)+(sp(p2,p4)-sp(p4,k1)-1/2*sp(p4,p4))*sp(p1,p3)+(2*sp(p3,k1)+sp(p3,p4)-sp(p4,k1))*sp(p2,p4)-sp(p3,k1)*(sp(p4,k1)+1/2*sp(p4,p4))))*sp(p2,k1)+(sp(k1,k1)^2+(-sp(p3,p3)+4*sp(p3,p4)-sp(p4,p4))*sp(k1,k1)-4*sp(p4,k1)*sp(p3,k1)+sp(p3,p3)*sp(p4,p4))*sp(p1,p2)^2+((-sp(p1,p4)-sp(p2,p3))*sp(k1,k1)^2+((-4*sp(p2,p3)+2*sp(p2,p4)+sp(p3,p3)-2*sp(p3,p4)-sp(p4,k1))*sp(p1,p4)+(2*sp(p1,p3)+sp(p3,k1)-2*sp(p3,p4)+sp(p4,p4))*sp(p2,p3)+(-sp(p3,p4)-sp(p4,k1)+sp(p4,p4))*sp(p1,p3)+(sp(p3,k1)+sp(p3,p3)-sp(p3,p4))*sp(p2,p4)-sp(p3,p3)*sp(p4,p4)+sp(p3,p4)^2)*sp(k1,k1)+(-2*sp(p3,p3)*sp(p2,p4)+2*sp(p4,k1)*(sp(p3,k1)+1/2*sp(p3,p3)))*sp(p1,p4)+(-2*sp(p1,p3)*sp(p4,p4)+2*sp(p3,k1)*(sp(p4,k1)-1/2*sp(p4,p4)))*sp(p2,p3)+(4*sp(p2,p4)*sp(p3,p4)+sp(p3,k1)*sp(p4,p4)-2*sp(p4,k1)*(sp(p3,p4)+sp(p4,k1)))*sp(p1,p3)+(-2*sp(p3,k1)^2+2*sp(p3,k1)*sp(p3,p4)-sp(p3,p3)*sp(p4,k1))*sp(p2,p4)+sp(p3,k1)^2*sp(p4,p4)-2*sp(p3,k1)*sp(p3,p4)*sp(p4,k1)+sp(p3,p3)*sp(p4,k1)^2)*sp(p1,p2)+sp(k1,k1)*(sp(k1,k1)*sp(p1,p4)*sp(p2,p3)+2*sp(p2,p3)*sp(p1,p4)^2+(2*sp(p2,p3)^2+(-sp(p1,p3)-sp(p2,p4)-sp(p3,k1)-sp(p3,p4)+sp(p4,k1))*sp(p2,p3)-2*sp(p2,p4)*(sp(p1,p3)+1/2*sp(p3,k1)-1/2*sp(p3,p3)))*sp(p1,p4)+sp(p1,p3)*((-2*sp(p2,p4)+sp(p4,k1)+sp(p4,p4))*sp(p2,p3)+sp(p2,p4)*(sp(p1,p3)+sp(p2,p4)-sp(p3,p4)))))/sp(p1-p3,p1-p3)",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag25_prop1",
+          "outgoing_signature": [
+            -1,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag25_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag25_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag25_prop4",
+          "outgoing_signature": [
+            0,
+            1
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag25_prop5",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": "mUV",
+          "name": "lp_diag25_prop6",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        }
+      ]
+    },
+    {
+      "analytic_num": "-512/sp(-p2+p4,-p2+p4)^2*(sp(p1,p2)+sp(p2,k1))*(sp(p1,k1)-sp(p1,p2))/sp(p1-p3,p1-p3)^2*ii*(sp(p3,p3)*sp(p4,p4)*sp(p1,p2)+(-2*sp(p2,p3)*sp(p4,p4)+4*sp(p2,p4)*sp(p3,p4))*sp(p1,p3)-2*sp(p1,p4)*sp(p2,p4)*sp(p3,p3))/sp(p1,p2)",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            1,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag26_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag26_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            -1
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": 0,
+          "name": "lp_diag26_prop3",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 1
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": "mUV",
+          "name": "lp_diag26_prop4",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        }
+      ]
+    },
+    {
+      "analytic_num": "512/sp(p1-p3,p1-p3)^2/sp(-p2+p4,-p2+p4)^2*sp(p2,p1)*sp(p1,k1)*sp(p2,k1)*ii*(sp(p4,p4)*sp(p2,p1)*sp(p3,p3)-2*sp(p4,p4)*sp(p1,p3)*sp(p2,p3)+4*sp(p2,p4)*sp(p3,p4)*sp(p1,p3)-2*sp(p1,p4)*sp(p2,p4)*sp(p3,p3))/sp(p1,p2)^2",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": "mUV",
+          "name": "lp_diag27_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 3
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": "mUV",
+          "name": "lp_diag27_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        }
+      ]
+    },
+    {
+      "analytic_num": "-512/sp(p1-p3,p1-p3)^2/sp(-p2+p4,-p2+p4)^2*ii*(sp(p2,k1)*sp(p4,p4)-2*sp(p2,p4)*sp(p4,k1))*(sp(p3,p3)*sp(k1,p1)-2*sp(p1,p3)*sp(k1,p3))",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": "mUV",
+          "name": "lp_diag28_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 3
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": "mUV",
+          "name": "lp_diag28_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        }
+      ]
+    },
+    {
+      "analytic_num": "1024*ii/sp(-p2+p4,-p2+p4)^3/sp(p1-p3,p1-p3)^2*(((-2*sp(p4,p3)*sp(k1,k1)+2*sp(k1,p3)*sp(p2,k1)-2*sp(k1,p3)*sp(p4,k1))*sp(p1,p3)+sp(p3,p3)*(sp(k1,k1)*sp(p4,p1)-sp(k1,p1)*sp(p2,k1)+sp(k1,p1)*sp(p4,k1)))*sp(p2,p4)^2+(((-sp(k1,p3)*sp(p2,k1)+sp(k1,p3)*sp(p4,k1)+sp(k1,k1)*(sp(p4,p3)+sp(p2,p3)))*sp(p1,p3)-1/2*sp(p3,p3)*(-sp(k1,p1)*sp(p2,k1)+sp(k1,p1)*sp(p4,k1)+sp(k1,k1)*(sp(p2,p1)+sp(p4,p1))))*sp(p4,p4)-2*((sp(p2,k1)*sp(p4,p3)+sp(p4,k1)*(sp(p2,p3)-2*sp(p4,p3)))*sp(p1,p3)-1/2*sp(p3,p3)*(sp(p2,k1)*sp(p4,p1)+sp(p4,k1)*(sp(p2,p1)-2*sp(p4,p1))))*(sp(p2,k1)-sp(p4,k1)))*sp(p2,p4)-1/2*(sp(k1,k1)*(sp(p1,p3)*sp(p2,p3)-1/2*sp(p2,p1)*sp(p3,p3))*sp(p4,p4)-4*(((sp(p2,p3)-1/2*sp(p4,p3))*sp(p2,k1)-1/2*sp(p2,p3)*sp(p4,k1))*sp(p1,p3)-1/2*((sp(p2,p1)-1/2*sp(p4,p1))*sp(p2,k1)-1/2*sp(p2,p1)*sp(p4,k1))*sp(p3,p3))*(sp(p2,k1)-sp(p4,k1)))*sp(p4,p4))",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": "mUV",
+          "name": "lp_diag29_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 3
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": "mUV",
+          "name": "lp_diag29_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        }
+      ]
+    },
+    {
+      "analytic_num": "1024*ii/sp(-p2+p4,-p2+p4)^3/sp(p1-p3,p1-p3)^2*((sp(p1,p3)*sp(k1,p3)-1/2*sp(p3,p3)*sp(k1,p1))*sp(p2,p4)^2+((-1/2*sp(p1,p3)*sp(k1,p3)+1/4*sp(p3,p3)*sp(k1,p1))*sp(p4,p4)+(-sp(p2,k1)*sp(p4,p3)-sp(p4,k1)*(sp(p2,p3)-2*sp(p4,p3)))*sp(p1,p3)+1/2*sp(p3,p3)*(sp(p2,k1)*sp(p4,p1)+sp(p4,k1)*(sp(p2,p1)-2*sp(p4,p1))))*sp(p2,p4)+(((sp(p2,p3)-1/2*sp(p4,p3))*sp(p2,k1)-1/2*sp(p2,p3)*sp(p4,k1))*sp(p1,p3)-1/2*((sp(p2,p1)-1/2*sp(p4,p1))*sp(p2,k1)-1/2*sp(p2,p1)*sp(p4,k1))*sp(p3,p3))*sp(p4,p4))",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": "mUV",
+          "name": "lp_diag30_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": "mUV",
+          "name": "lp_diag30_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        }
+      ]
+    },
+    {
+      "analytic_num": "1024*ii*(((-2*sp(p4,p3)*sp(k1,k1)+2*sp(k1,p1)*sp(p4,k1)-2*sp(k1,p3)*sp(p4,k1))*sp(p2,p4)+sp(p4,p4)*(sp(p2,p3)*sp(k1,k1)-sp(k1,p1)*sp(p2,k1)+sp(k1,p3)*sp(p2,k1)))*sp(p1,p3)^2+(((-sp(k1,p1)*sp(p4,k1)+sp(k1,p3)*sp(p4,k1)+sp(k1,k1)*(sp(p4,p1)+sp(p4,p3)))*sp(p2,p4)-1/2*sp(p4,p4)*(-sp(k1,p1)*sp(p2,k1)+sp(k1,p3)*sp(p2,k1)+sp(k1,k1)*(sp(p2,p1)+sp(p2,p3))))*sp(p3,p3)+(sp(k1,p1)-sp(k1,p3))*((-2*sp(p4,p3)*sp(k1,p1)-2*sp(k1,p3)*(sp(p4,p1)-2*sp(p4,p3)))*sp(p2,p4)+(sp(k1,p1)*sp(p2,p3)+sp(k1,p3)*(sp(p2,p1)-2*sp(p2,p3)))*sp(p4,p4)))*sp(p1,p3)+1/4*sp(p3,p3)*(sp(k1,k1)*(sp(p4,p4)*sp(p2,p1)-2*sp(p2,p4)*sp(p4,p1))*sp(p3,p3)-4*(sp(k1,p1)-sp(k1,p3))*(((-2*sp(p4,p1)+sp(p4,p3))*sp(k1,p1)+sp(k1,p3)*sp(p4,p1))*sp(p2,p4)+((sp(p2,p1)-1/2*sp(p2,p3))*sp(k1,p1)-1/2*sp(k1,p3)*sp(p2,p1))*sp(p4,p4))))/sp(-p2+p4,-p2+p4)^2/sp(p1-p3,p1-p3)^3",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": "mUV",
+          "name": "lp_diag31_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 3
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": "mUV",
+          "name": "lp_diag31_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        }
+      ]
+    },
+    {
+      "analytic_num": "1024*ii*((1/2*sp(p2,k1)*sp(p4,p4)-sp(p2,p4)*sp(p4,k1))*sp(p1,p3)^2+((1/2*sp(p2,p4)*sp(p4,k1)-1/4*sp(p2,k1)*sp(p4,p4))*sp(p3,p3)+(sp(p4,p3)*sp(k1,p1)+sp(k1,p3)*(sp(p4,p1)-2*sp(p4,p3)))*sp(p2,p4)-1/2*(sp(k1,p1)*sp(p2,p3)+sp(k1,p3)*(sp(p2,p1)-2*sp(p2,p3)))*sp(p4,p4))*sp(p1,p3)+1/2*sp(p3,p3)*(((-2*sp(p4,p1)+sp(p4,p3))*sp(k1,p1)+sp(k1,p3)*sp(p4,p1))*sp(p2,p4)+((sp(p2,p1)-1/2*sp(p2,p3))*sp(k1,p1)-1/2*sp(k1,p3)*sp(p2,p1))*sp(p4,p4)))/sp(-p2+p4,-p2+p4)^2/sp(p1-p3,p1-p3)^3",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": "mUV",
+          "name": "lp_diag32_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": "mUV",
+          "name": "lp_diag32_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        }
+      ]
+    },
+    {
+      "analytic_num": "1024*ii/sp(p1-p3,p1-p3)^2/sp(-p2+p4,-p2+p4)^2*sp(p2,k1)*(((-2*sp(p2,p3)+2*sp(p4,p3))*sp(p2,k1)+(2*sp(p2,p3)-2*sp(p4,p3))*sp(p4,k1)-2*sp(k1,p3)*(sp(p2,p4)-1/2*sp(p4,p4)))*sp(p1,p3)+((sp(p2,p1)-sp(p4,p1))*sp(p2,k1)+(-sp(p2,p1)+sp(p4,p1))*sp(p4,k1)+sp(k1,p1)*(sp(p2,p4)-1/2*sp(p4,p4)))*sp(p3,p3))",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": "mUV",
+          "name": "lp_diag33_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 3
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": "mUV",
+          "name": "lp_diag33_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        }
+      ]
+    },
+    {
+      "analytic_num": "1024*ii/sp(p1-p3,p1-p3)^2*sp(k1,p1)/sp(-p2+p4,-p2+p4)^2*(((-2*sp(p4,p1)+2*sp(p4,p3))*sp(k1,p1)+(2*sp(p4,p1)-2*sp(p4,p3))*sp(k1,p3)-2*sp(p4,k1)*(sp(p1,p3)-1/2*sp(p3,p3)))*sp(p2,p4)+((sp(p2,p1)-sp(p2,p3))*sp(k1,p1)+(-sp(p2,p1)+sp(p2,p3))*sp(k1,p3)+sp(p2,k1)*(sp(p1,p3)-1/2*sp(p3,p3)))*sp(p4,p4))",
+      "color_struc": "derive",
+      "index_shift": 1,
+      "propagators": [
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            1,
+            0
+          ],
+          "mass": "mUV",
+          "name": "lp_diag34_prop1",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 3
+        },
+        {
+          "incoming_signature": [
+            0,
+            0
+          ],
+          "loop_signature": [
+            0,
+            1
+          ],
+          "mass": "mUV",
+          "name": "lp_diag34_prop2",
+          "outgoing_signature": [
+            0,
+            0
+          ],
+          "power": 2
+        }
+      ]
+    }
+  ]
+}

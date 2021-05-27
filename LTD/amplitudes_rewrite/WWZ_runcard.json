@@ -1,6 +1,8 @@
 {
   "amplitude": {
-    "diagram_list": "/Users/Dario/Desktop/PhD/Code/alphaloop/LTD/amplitudes_rewrite/WW_diags.json",
+    "constants": {
+    },
+    "diagram_list": "/Users/Dario/Desktop/PhD/Code/alphaloop/LTD/amplitudes_rewrite/WWZ_diags.json",
     "external_data": {
       "cpol": [],
       "in_momenta": [
@@ -19,21 +21,24 @@
       ],
       "out_momenta": [
         [
-          0.500000000000000E+000,
-          0.000000000000000E+000,
-          0.166666666666667E+000,
-          0.071428571428571E+000
+          0.316666666666667E+000,
+          0.0,
+          -0.168687772032632E+000,
+          0.0
+        ],
+        [
+          0.333333333333333E+000,
+          -0.098305267029553E+000,
+          0.111555637218089E+000,
+          -0.131073689372738E+000
         ]
       ]
     },
     "masses": {"mUV": 1},
-    "name": "WW",
-    "constants": {}
+    "name": "WWZ"
   },
   "directories": {
     "alphaloop": "/Users/Dario/Desktop/PhD/Code/alphaloop",
     "out_dir": "/Users/Dario/Desktop/PhD/Code/alphaloop/LTD/amplitudes_rewrite"
-  },
-  "form_options": {"DEBUGLVL": 1},
-  "amplitude_options": {"colorless": true, "integrand_per_diag": false}
+  }
 }

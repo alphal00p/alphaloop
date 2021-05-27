@@ -1,6 +1,8 @@
 {
   "amplitude": {
-    "diagram_list": "/Users/Dario/Desktop/PhD/Code/alphaloop/LTD/amplitudes_rewrite/WW_diags.json",
+    "constants": {
+    },
+    "diagram_list": "/Users/Dario/Desktop/PhD/Code/alphaloop/LTD/amplitudes_rewrite/WW_2L_diags.json",
     "external_data": {
       "cpol": [],
       "in_momenta": [
@@ -27,13 +29,10 @@
       ]
     },
     "masses": {"mUV": 1},
-    "name": "WW",
-    "constants": {}
+    "name": "WW_2L"
   },
   "directories": {
     "alphaloop": "/Users/Dario/Desktop/PhD/Code/alphaloop",
     "out_dir": "/Users/Dario/Desktop/PhD/Code/alphaloop/LTD/amplitudes_rewrite"
-  },
-  "form_options": {"DEBUGLVL": 1},
-  "amplitude_options": {"colorless": true, "integrand_per_diag": false}
+  }
 }
