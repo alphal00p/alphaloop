@@ -13,18 +13,8 @@ import numpy
 import time
 import random
 import math
-
-# classdistributed.deploy.local.LocalCluster(
-#     name=None, n_workers=None, threads_per_worker=None, processes=True, loop=None, 
-#     start=None, host=None, ip=None, scheduler_port=0, silence_logs=30, 
-#     dashboard_address=':8787', worker_dashboard_address=None, diagnostics_port=None, 
-#     services=None, worker_services=None, service_kwargs=None, asynchronous=False, 
-#     security=None, protocol=None, blocked_handlers=None, interface=None, 
-#     worker_class=None, scheduler_kwargs=None, **worker_kwargs)
-
-# export DASK_DISTRIBUTED__SCHEDULER__ALLOWED_FAILURES=20
-# export DASK_DISTRIBUTED__COMM__TIMEOUTS__CONNECT=5
-# export DASK_DISTRIBUTED__COMM__RETRY__COUNT=10
+import logging
+from dask.distributed import progress
 
 class HavanaMockUp(object):
 
@@ -51,9 +41,15 @@ class HavanaMockUp(object):
         # else:
         #     return [ (tuple([random.random() for _ in range(self.dimensions)]), 1.0) for _ in range(batch_size) ]
         if batch_size is None:
-            return (numpy.random.rand(self.dimensions), 1.0)
+            sample = numpy.ndarray(shape=(self.dimensions+1), dtype=float)
+            sample[1:] = numpy.random.rand(self.dimensions)
+            sample[0] = 1.0
+            return sample
         else:
-            return [ (numpy.random.rand(self.dimensions), 1.0) for _ in range(batch_size) ]
+            sample = numpy.random.rand(batch_size,self.dimensions+1)
+            for i_batch in range(batch_size):
+                sample[i_batch][0] = 1.0
+            return sample
 
     def accumulate_results(self, results):
         
@@ -61,8 +57,8 @@ class HavanaMockUp(object):
         if self.n_points == 0:
             return
 
-        self.wgt_sum += sum(res[1]*res[2] for res in results)
-        self.wgt_sum_squared += sum((res[1]*res[2])**2 for res in results)
+        self.wgt_sum += sum(res[0]*res[1] for res in results)
+        self.wgt_sum_squared += sum((res[0]*res[1])**2 for res in results)
 
         self.current_integral_estimate = self.wgt_sum / self.n_points
         self.current_error_estimate = math.sqrt( ((self.wgt_sum_squared / self.n_points) - self.current_integral_estimate**2)/self.n_points )
@@ -80,20 +76,67 @@ class HavanaMockUp(object):
                 ))
         return '\n'.join(res)
 
-@dask.delayed
 def integrand(job_id, sample_points):
-    #print("Start job %d"%job_id)
     start_time = time.time()
-    all_res = []
-    for sample_point, sample_jacobian_wgt in sample_points:
-        # Slow down evaluation
-        for _ in range(10000):
-            integrand_wgt = math.exp(-sum((pi/(1.-pi))**2 for pi in sample_point))
-            for pi in sample_point:
-                integrand_wgt *= 1./(1-pi)**2
-        all_res.append((sample_point, sample_jacobian_wgt, integrand_wgt))
+    all_res = numpy.ndarray(shape=(len(sample_points),len(sample_points[0])+1), dtype=float)
+    for i_sample, sample_point in enumerate(sample_points):
+        sample_jacobian_wgt = sample_point[0]
+        sample_point_coordinates = sample_point[1:]
+        integrand_wgt = math.exp(-sum((pi/(1.-pi))**2 for pi in sample_point_coordinates))
+        for pi in sample_point_coordinates:
+            integrand_wgt *= 1./(1-pi)**2
+        all_res[i_sample][0] = integrand_wgt
+        all_res[i_sample][1] = sample_jacobian_wgt
+        all_res[i_sample][2:] = sample_point_coordinates
 
     return (job_id, time.time()-start_time, all_res)
+
+def run(client, n_dims, n_jobs, n_iterations, batch_size):
+
+    havana = HavanaMockUp(
+        n_dims,
+        target_result = (math.sqrt(math.pi)/2.)**n_dims,
+        seed = 1
+    )
+
+    global_job_ID = 0
+    for iteration_number in range(n_iterations):
+
+        # print("Preparing %d jobs for iteration #%d ..."%(n_jobs,iteration_number))
+        # jobs = [ delayed(integrand)(global_job_ID+job_id, havana.sample(batch_size)) for job_id in range(n_jobs) ]
+        # global_job_ID += n_jobs
+    
+        # print("Submitting %d jobs for iteration #%d ..."%(n_jobs,iteration_number))
+        # futures = client.compute(jobs)
+        # print("Done. Now waiting for job completion...")
+        
+        print("")
+        futures = []
+        for job_id in range(n_jobs):
+            print("Generating input data for job %d/%d for iteration #%d ..."%(job_id+1,n_jobs,iteration_number))
+            a_sample = havana.sample(batch_size)
+            # Scattering data is not really necessary as I believe this is the right thing to do only for data common to multiple jobs. But I don't like the warning so I'll put it.
+            print("Scattering input data for job %d/%d for iteration #%d ..."%(job_id+1,n_jobs,iteration_number))
+            scattered_sample = client.scatter(a_sample)
+            print("Submitting job %d/%d for iteration #%d ..."%(job_id+1,n_jobs,iteration_number))
+            futures.append(client.submit(integrand, global_job_ID+job_id, scattered_sample))
+        print("")
+        print("Now waiting for completion of %d jobs at iteration #%d ... "%(n_jobs, iteration_number))
+        print("")
+
+        # Passive monitoring of jobs can be done with the widget below.
+        #progress(futures)
+
+        try:
+            for completed_future in as_completed(futures):
+                job_ID, run_time, results = completed_future.result()
+                print("Job #%d completed in %.0f s for %d points."%(
+                    job_ID, run_time, len(results)
+                ))
+                havana.accumulate_results(results)
+                print("Integral thus far at iteration %d:\n%s"%(iteration_number, havana.get_summary()))
+        except KeyboardInterrupt:
+            print("Aborting computation now.")
 
 def MC_example(
         n_dims = 3,
@@ -103,154 +146,66 @@ def MC_example(
         n_workers = 16
     ):
 
-    havana = HavanaMockUp(
-        n_dims,
-        target_result = (math.sqrt(math.pi)/2.)**n_dims,
-        seed = 1
-    )
+    with LocalCluster(n_workers=n_workers) as cluster:
+        
+        client = Client(cluster)
+        run(client, n_dims, n_jobs, n_iterations, batch_size)
 
-    cluster = LocalCluster(
-        n_workers=n_workers,
-        interface='lo0' # This is the magic line that's supposed to help with MacOS. Try removing it on unix too.
-    )
-    client = Client(cluster)
-
-    global_job_ID = 0
-    for iteration_number in range(n_iterations):
-
-        print("Preparing %d jobs for iteration #%d ..."%(n_jobs,iteration_number))
-        jobs = [ integrand(global_job_ID+job_id, havana.sample(batch_size)) for job_id in range(n_jobs) ]
-        global_job_ID += n_jobs
-    
-        print("Submitting %d jobs for iteration #%d ..."%(n_jobs,iteration_number))
-        futures = client.compute(jobs)
-        print("Done. Now waiting for job completion...")
-
-        try:
-            for completed_future in as_completed(futures):
-                job_ID, run_time, results = completed_future.result()
-                print("Job #%d completed in %.0f s for %d points."%(
-                    job_ID, run_time, len(results)
-                ))
-                havana.accumulate_results(results)
-                print("Integral thus far at iteration %d:\n%s"%(iteration_number, havana.get_summary()))
-        except KeyboardInterrupt:
-            print("Aborting computation now.")
-
-@dask.delayed
-def integrand_in_place(job_id, batch_size, havana):
-    #print("Start job %d"%job_id)
-    start_time = time.time()
-    all_res = []
-    if isinstance(havana, int):
-        local_havana = HavanaMockUp(
-            havana,
-            target_result = (math.sqrt(math.pi)/2.)**havana,
-            seed = job_id
-        )
-    else:
-        local_havana = havana
-    for _ in range(batch_size):
-        sample_point, sample_jacobian_wgt = local_havana.sample()
-        # No slow-down here
-        for _ in range(1):
-            integrand_wgt = math.exp(-sum((pi/(1.-pi))**2 for pi in sample_point))
-            for pi in sample_point:
-                integrand_wgt *= 1./(1-pi)**2
-        all_res.append((sample_point, sample_jacobian_wgt, integrand_wgt))
-
-    return (job_id, time.time()-start_time, all_res)
-
-def MC_example_in_place_generation(
+def CONDOR_MC_example(
         n_dims = 3,
         n_jobs = 8,
         n_iterations = 3,
         batch_size = int(1.0e3),
-        n_workers = 16
+        n_workers = 16,
+        io_port = 8786
     ):
 
-    havana = HavanaMockUp(
-        n_dims,
-        target_result = (math.sqrt(math.pi)/2.)**n_dims,
-        seed = 1
-    )
+    with HTCondorCluster(
+            cores=1,
+            memory='2000MB',
+            disk='1000MB',
+            death_timeout = '60',
+            nanny = False,
+            scheduler_options={
+                'port': io_port,
+                'host': socket.gethostname()
+            },
+            job_extra={
+                'log'    : 'dask_job_output.log',
+                'output' : 'dask_job_output.out',
+                'error'  : 'dask_job_output.err',
+                'should_transfer_files'   : 'Yes',
+                'when_to_transfer_output' : 'ON_EXIT',
+                '+JobFlavour' : "espresso",
+            },
+            extra = [ '--worker-port {}'.format(io_port) ]
+    ) as cluster:
 
-    cluster = LocalCluster(
-        n_workers=n_workers,
-        interface='lo0' # This is the magic line that's supposed to help with MacOS. Try removing it on unix too.
-    )
-    client = Client(cluster)
+        print("Scaling cluster ...")
+        cluster.scale(n_workers)
 
-    global_job_ID = 0
-    for iteration_number in range(n_iterations):
+        print("Initialising cluster ...")
+        print(cluster.job_script())
+        client = Client(cluster)
 
-        print("Preparing %d jobs for iteration #%d ..."%(n_jobs,iteration_number))
-        jobs = []
-        for job_ID in range(n_jobs):
-            local_havana = havana.get_copy(seed= (global_job_ID+job_ID) )
-            # jobs.append(
-            #     integrand_in_place(global_job_ID+job_ID, batch_size, local_havana )
-            # )
-            jobs.append(
-                integrand_in_place(global_job_ID+job_ID, batch_size, n_dims )
-            )
-        global_job_ID += n_jobs
-    
-        print("Submitting %d jobs for iteration #%d ..."%(n_jobs,iteration_number))
-        futures = client.compute(jobs)
-        print("Done. Now waiting for job completion...")
-
-        try:
-            for completed_future in as_completed(futures):
-                print("one job completed!")
-                job_ID, run_time, results = completed_future.result()
-                print("Job #%d completed in %.0f s for %d points."%(
-                    job_ID, run_time, len(results)
-                ))
-                havana.accumulate_results(results)
-                print("Integral thus far at iteration %d:\n%s"%(iteration_number, havana.get_summary()))
-        except KeyboardInterrupt:
-            print("Aborting computation now.")
-
-@dask.delayed
-def worker(job_id, data):
-    print("Start job %d"%job_id)
-    time.sleep(len(data))
-    return (job_id, "I received: %s"%data)
-
-def simple_example():
-    #cluster = HTCondorCluster(cores=1, memory='100MB', disk='100MB')
-    #cluster.scale(2)
-    #print(cluster.job_script())
-    cluster = LocalCluster()
-    client = Client(cluster)
-
-    #two_jobs = [ delayed(worker)(arg) for arg in ['D','CC'] ]
-    two_jobs = [ worker(job_id, arg) for job_id, arg in enumerate(['D','CC']) ]
-
-    print("Submitting jobs...")
-    all_results = client.compute(two_jobs)
-    print("Done. Now waiting for job completion...")
-    for completed_future in as_completed(all_results):
-        res = completed_future.result()
-        print("Job #%d finished with result: %s"%(res[0],res[1]))
-    # for i, res in enumerate(all_results):
-    #     print("Now waiting on result #%d"%i)
-    #     print(res.result())
+        run(client, n_dims, n_jobs, n_iterations, batch_size)
 
 if __name__ == "__main__":
-    #simple_example()
-    MC_example_in_place_generation(
+
+    # Local multicore example
+    MC_example(
         n_dims = 3,
-        n_jobs = 12,
-        n_iterations = 5,
-        n_workers = 4,
-        batch_size = int(1.0e3)
+        n_jobs = 4,
+        n_iterations = 3,
+        batch_size = int(1.0e5),
+        n_workers = 2
     )
-    # MC_example(
+
+    # Cluster (lxplus) example
+    # CONDOR_MC_example(
     #     n_dims = 3,
-    #     n_jobs = 16,
-    #     n_iterations = 5,
-    #     batch_size = int(1.0e3),
-    #     n_workers = 16
+    #     n_jobs = 4,
+    #     n_iterations = 3,
+    #     batch_size = int(1.0e5),
+    #     n_workers = 2
     # )
