@@ -968,6 +968,7 @@ aGraph=%s;
                         for uv_subgraph in uv_structure['uv_subgraphs']:
                             for dg in uv_subgraph['derived_graphs']:
                                 graphs.append((signature_offset, dg['id'], dg['loop_topo']))
+                            graphs.append((signature_offset, uv_subgraph['integrated_ct_id'], uv_subgraph['integrated_ct_bubble_graph']))
                             signature_offset += uv_subgraph['derived_graphs'][0]['loop_topo'].n_loops
                         if len(uv_structure['uv_subgraphs']) == 0 and len(diag_info['bubble']) > 0:
                             for bubble in diag_info['bubble']:
@@ -1163,6 +1164,7 @@ CTable ltdmap(0:{},0:{});
                         for uv_subgraph in uv_structure['uv_subgraphs']:
                             for dg in uv_subgraph['derived_graphs']:
                                 graphs.append((signature_offset, dg['id'], dg['loop_topo']))
+                            graphs.append((signature_offset, uv_subgraph['integrated_ct_id'], uv_subgraph['integrated_ct_bubble_graph']))
                             signature_offset += uv_subgraph['derived_graphs'][0]['loop_topo'].n_loops
                         if len(uv_structure['uv_subgraphs']) == 0 and len(diag_info['bubble']) > 0:
                             for bubble in diag_info['bubble']:
@@ -1423,6 +1425,7 @@ CTable pfmap(0:{},0:{});
 
                     # write the entire UV structure as a sum
                     conf = []
+                    bubble_uv_derivative = ''
                     for uv_index, uv_structure in enumerate(diag_info['uv']):
                         forest_element = []
 
@@ -1496,6 +1499,7 @@ CTable pfmap(0:{},0:{});
 
                                 if bubble['derivative'][0] == bubble['derivative'][1]:
                                     # numerator derivative
+                                    bubble_uv_derivative = '{}*der({})*'.format('*'.join(trans), ext_mom)
                                     trans.append('der({})'.format(ext_mom))
                                 else:
                                     # check if we pick up a sign change due to the external momentum flowing in the opposite direction
@@ -1509,9 +1513,9 @@ CTable pfmap(0:{},0:{});
                             forest_element.append('({})'.format('+'.join(bubbles)))
                         else:
                             if diag_moms != '':
-                                forest_element.append('diag({},{},{})'.format(diag_set['id'], uv_structure['remaining_graph_id'], diag_moms))
+                                forest_element.append('{}diag({},{},{})'.format(bubble_uv_derivative, diag_set['id'], uv_structure['remaining_graph_id'], diag_moms))
                             else:
-                                forest_element.append('diag({},{})'.format(diag_set['id'], uv_structure['remaining_graph_id']))
+                                forest_element.append('{}diag({},{})'.format(bubble_uv_derivative, diag_set['id'], uv_structure['remaining_graph_id']))
 
                         if uv_index == 0:
                             if diag_moms != '':
@@ -1584,9 +1588,6 @@ CTable pfmap(0:{},0:{});
                             if uv_props == []:
                                 uv_props = ['1']
 
-                            #if diag_info['integrated_ct']:
-                            #    uv_sig += '*ICT'
-
                             if uv_diag_moms == '':
                                 # should never happen!
                                 logger.warn("No diag moms in UV graph")
@@ -1594,7 +1595,10 @@ CTable pfmap(0:{},0:{});
                             else:
                                 uv_diag = 'uvtopo({},1,{})'.format(uv_subgraph['id'], uv_diag_moms)
 
-                            uv_conf_diag = 'uvconf({},{},{}*{}*{})'.format(uv_diag_moms,uv_subgraph['taylor_order'],'*'.join(uv_props),'*'.join(vertex_structure), uv_diag)
+                            if FORM_processing_options['generate_integrated_UV_CTs']:
+                                uv_diag += '*(1 - {}*diag({},{},{}))'.format('*'.join(vertex_structure), diag_set['id'], uv_subgraph['integrated_ct_id'], uv_diag_moms)
+
+                            uv_conf_diag = 'uvconf({},{},{}*{})'.format(uv_diag_moms,uv_subgraph['taylor_order'],'*'.join(uv_props),uv_diag)
                             if uv_conf_diag not in uv_diagrams:
                                 uv_diagrams.append(uv_conf_diag)
 

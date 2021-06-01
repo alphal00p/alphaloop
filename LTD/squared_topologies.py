@@ -140,6 +140,8 @@ class SquaredTopologyGenerator:
                             for dg in uv_sg['derived_graphs']:
                                 dg['id'] = graph_counter
                                 graph_counter += 1
+                            uv_sg['integrated_ct_id'] = graph_counter
+                            graph_counter += 1
                         uv_limit['remaining_graph_id'] = graph_counter
                         graph_counter += 1
 
@@ -156,72 +158,6 @@ class SquaredTopologyGenerator:
                         'remaining_graph': uv_limit['remaining_graph'],
                         'remaining_graph_id' : uv_limit['remaining_graph_id'],
                     } for uv_limit in uv_limits]
-
-                """
-                uv_diag_sets_with_integrated_ct = []
-
-                # unpack the factorized UV subgraphs
-                for uv_diag_set in uv_diag_sets:
-                    unfolded_diag_info = []
-                    for di in uv_diag_set['diagram_info']:
-                        # only the remaining graph gets the derivative flag to prevent
-                        # it being applied more than once per diagram set
-                        unfolded_diag_info.append({
-                            'uv_info': None,
-                            'uv_vertices': di['uv_vertices'],
-                            'graph': di['remaining_graph'],
-                            'derivative': di['derivative'],
-                            'derivative_edge': None,
-                            'bubble_momenta': di['bubble_momenta'],
-                            'conjugate_deformation': di['conjugate_deformation']
-                        })
-
-                        for uv_lim in di['uv_subgraphs']:
-                            unfolded_diag_info.append({
-                                'uv_info': uv_lim,
-                                'uv_vertices': None,
-                                'graph': uv_lim['graph'],
-                                'derivative': None,
-                                'derivative_edge': di['derivative'][1] if di['derivative'] and di['derivative'][0] != di['derivative'][1] else None,
-                                'bubble_momenta': [],
-                                'conjugate_deformation': di['conjugate_deformation']
-                            })
-
-                    # take the cartesian product over all local+integrated CT
-                    ct_opts = [[False] if (di['uv_info'] is None or not self.generation_options.get('generate_integrated_UV_CTs',True)) else [False, True] for di in unfolded_diag_info]
-                    #print(ct_opts)
-                    for o in product(*ct_opts):
-                        new_diag_info = []
-                        for ictflag, uv_diag_info in zip(o, unfolded_diag_info):
-                            integrated_diag_info = copy.deepcopy(uv_diag_info)
-                            integrated_diag_info['integrated_ct'] = ictflag
-                            new_diag_info.append(integrated_diag_info)
-
-                        uv_diag_sets_with_integrated_ct.append(
-                            {
-                                'diagram_info': new_diag_info,
-                                'uv_spinney': copy.deepcopy(uv_diag_set['uv_spinney']),
-                                'uv_propagators': copy.deepcopy(uv_diag_set['uv_propagators']),
-                            }
-                        )
-                """
-
-                    #uv_diag_set['diagram_info'] = unfolded_diag_info
-
-                # add integrated counterterms to the diagram set
-                #uv_diag_sets_with_integrated_ct = []
-                #for uv_diag_set in uv_diag_sets:
-                #    uv_diag_set['integrated_ct'] = False
-                #    uv_diag_sets_with_integrated_ct.append(uv_diag_set)
-                #    if self.generation_options.get('generate_integrated_UV_CTs',True):
-                #        if any(di['uv_info'] is not None for di in uv_diag_set['diagram_info']):
-                #            integrated_diag_set = copy.deepcopy(uv_diag_set)
-                #            integrated_diag_set['integrated_ct'] = True
-                #            uv_diag_sets_with_integrated_ct.append(integrated_diag_set)
-
-                #uv_diagram_sets.extend(uv_diag_sets_with_integrated_ct)
-
-            #cut_info['diagram_sets'] = uv_diagram_sets
 
                 diag_set['id'] = diagram_set_counter
                 diagram_set_counter += 1
@@ -266,48 +202,6 @@ class SquaredTopologyGenerator:
                             check_external_momenta_names=False,
                             analytic_result=0)
                         uv_structure['remaining_graph_loop_topo'].external_kinematics = []
-
-                    """
-                    pprint(diag_info)
-                    s = diag_info['graph']
-
-
-
-                    #print('uvl', uv_loop_lines)
-
-                    if diag_info['integrated_ct']:
-                        # replace the graphs by finite vacuum bubbles
-                        # the numerator will be the integrated CT
-                        lm = [s.edge_map_lin[i][0] for i in s.loop_momenta]
-                        g_int = TopologyGenerator([(lm, i, i) for i, lm in enumerate(lm)],
-                            powers={lm: 3 for lm in lm})
-                        (loop_mom_map, shift_map) = self.topo.build_proto_topology(g_int, c, skip_shift=diag_info['uv_info'] is not None)
-                        loop_topo = g_int.create_loop_topology(self.name + '_' + ''.join(cut_name) + uv_name + '_' + str(i),
-                            # provide dummy external momenta
-                            ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
-                            fixed_deformation=False,
-                            mass_map=masses,
-                            loop_momentum_map=loop_mom_map,
-                            numerator_tensor_coefficients=[[0., 0.,]],#[[0., 0.] for _ in range(numerator_entries)],
-                            shift_map=shift_map,
-                            check_external_momenta_names=False,
-                            analytic_result=0)
-                        for ll in loop_topo.loop_lines:
-                            ll.propagators[0].uv = True
-                            ll.propagators[0].m_squared = mu_uv**2
-                            ll.propagators[0].power = 3
-                            ll.propagators[0].parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
-
-                    loop_topo.external_kinematics = []
-
-                    loop_topos.append(
-                        {
-                            'graph': loop_topo,
-                            'loop_momentum_map': loop_mom_map,
-                            'uv_loop_lines': uv_loop_lines,
-                            'conjugate_deformation': diag_info['conjugate_deformation']
-                        })
-                     """
 
                 lmb_to_cb_matrix = Matrix(cut_to_lmb)
                 # The edge #i of the LMB may not always carry k_i but sometimes -k_i.
@@ -399,6 +293,32 @@ class SquaredTopologyGenerator:
                                 loop_topo.uv_loop_lines = (uv_loop_lines, basis_shift_map)
 
                                 d['loop_topo'] = loop_topo
+
+                            #  construct the normalizing tadpole for the integrated UV counterterm
+                            s = uv_subgraph['graph']
+                            lm = [s.edge_map_lin[i][0] for i in uv_subgraph['graph'].loop_momenta]
+                            g_int = TopologyGenerator([(lm, i, i) for i, lm in enumerate(lm)],
+                                powers={lm: 3 for lm in lm})
+                            (loop_mom_map, shift_map) = self.topo.build_proto_topology(g_int, c, skip_shift=True)
+                            loop_topo = g_int.create_loop_topology(name + '_' + ''.join(cut_name) + '_' + str(i) + "_ict",
+                                # provide dummy external momenta
+                                ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
+                                fixed_deformation=False,
+                                mass_map=masses,
+                                loop_momentum_map=loop_mom_map,
+                                numerator_tensor_coefficients=[[0., 0.,]],
+                                shift_map=shift_map,
+                                check_external_momenta_names=False,
+                                analytic_result=0)
+                            for ll in loop_topo.loop_lines:
+                                ll.propagators[0].uv = True
+                                ll.propagators[0].m_squared = mu_uv**2
+                                ll.propagators[0].power = 3
+                                ll.propagators[0].parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
+
+                            loop_topo.external_kinematics = []
+
+                            uv_subgraph['integrated_ct_bubble_graph'] = loop_topo
 
                         forest_to_cb.extend([x[0] for x in uv_structure['remaining_graph_loop_topo'].loop_momentum_map])
 

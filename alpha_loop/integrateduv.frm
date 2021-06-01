@@ -63,7 +63,7 @@ CF uvid;
     #enddo
 
     if (count(vxs,1,uvprop,1));
-        Print "Unsubstited UV graph: %t";
+        Print "Unsubstituted UV graph: %t";
         exit "Critical error";
     endif;
 #endprocedure

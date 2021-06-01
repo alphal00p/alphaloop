@@ -715,19 +715,18 @@ id subgraph(?a,uvconf(?b),?c) = subgraph(?a,uvconf(?b));
     repeat id uvprop(k?,t1?,n1?)*uvtopo(x?,x1?,?a)*tmp(t1?,n2?) = uvprop(k,n1 + n2)*uvtopo(x,x1*t1^n2,?a);
     id uvprop(k?,t1?ts,n?) = uvprop(k, n);
 
+* select what to keep for the local UV vs integrated UV CT
+    Multiply replace_(vxs, uvx);
+    if (count(uvx, 1) == 0);
+        id uvprop(?a) = 1;
+    else;
+        id uvtopo(?a) = 1;
+    endif;
+
     #call uvmap()
     if (count(uvtopo, 1, tmp, 1));
         Print "Unsubstituted UV topology: %t";
         exit "Critical error";
-    endif;
-    
-* collect all uv propagators of the subgraph
-    Multiply replace_(vxs, uvx);
-    if (count(ICT, 1) == 0);
-        id uvprop(?a) = 1;
-        id uvx(?a) = 1;
-    else;
-        id 1/ICT = ICT;
     endif;
 
     chainin uvprop;
@@ -736,70 +735,63 @@ id subgraph(?a,uvconf(?b),?c) = subgraph(?a,uvconf(?b));
     Multiply replace_(uvx, vxs);
     id uvprop(?a) = integrateduv(?a);
 
-
-* TODO: do integrated counterterm here
-#if 0
 * compute the integrated UV counterterm
     Multiply counter(1);
     repeat id k1?.k2?*counter(n?) = vec(k1,n)*vec(k2,n)*counter(n + 1);
+    id opengammastring(?a) = gamma(?a);
+    repeat id gamma(s1?,?a,k1?,?b,s2?)*counter(n?) = gamma(s1,?a,n,?b,s2)*vec(k1,n)*counter(n + 1);
+
 * convert every k^0 into k.p0select, where p0select is effectively (1,0,0,0)
     repeat id penergy(k1?)*counter(n?) = vec(k1,n)*vec(p0select,n)*counter(n + 1);
     id counter(x?) = 1;
 
-    #do j=1,1
-        id ICT = -1; * we add back the counterterm
+    id once integrateduv(?a,x?) = uvprop(?a)*x;
 
-        id once integrateduv(?a,x?) = uvprop(?a)*x;
-        if (count(uvprop,1)) redefine j "0";
+    Multiply replace_(vec, vec1); * consider all vectors as external
+    repeat id uvprop(k1?,n?)*vec1(k1?,n1?) = uvprop(k1,n)*vec(k1,n1);
 
-        Multiply replace_(vec, vec1); * consider all vectors as external
-        repeat id uvprop(k1?,n?)*vec1(k1?,n1?) = uvprop(k1,n)*vec(k1,n1);
-
-* TODO: also drag in gamma matrices in the projection
-
-        #call TensorReduce()
+    #call TensorReduce()
 
 * contract all metrics
-        repeat id g(n1?,n2?)*g(n2?,n3?) = g(n1,n3);
-        id g(n1?,n1?) = rat(4-2*ep,1);
-        repeat id vec1(p1?,n1?)*g(n1?,n2?) = vec1(p1,n2);
+    repeat id g(n1?,n2?)*g(n2?,n3?) = g(n1,n3);
+    id g(n1?,n1?) = rat(4-2*ep,1);
+    repeat id vec1(p1?,n1?)*g(n1?,n2?) = vec1(p1,n2);
 
-        .sort:tensor-projection-loop;
+    .sort:tensor-projection-loop;
 
-        if (count(uvprop,1));
+    if (count(uvprop,1));
 * divide by the normalizing factor of the denominator that is added to the topology
 * this is always 1/(k^2 - m_UV^2)^3 = -i / (4 pi)^2 * 1/2 * 1/mUV^2
-            Multiply i_ * (4 * pi)^2 * 2 * mUV^2;
+        Multiply i_ * (4 * pi)^2 * 2 * mUV^2;
 
-            #call IntegrateUV()
-        endif;
+        #call IntegrateUV()
+    endif;
 
-        Multiply replace_(D, 4 - 2 * ep);
-        id ep^n1? = rat(ep^n1,1);
+    Multiply replace_(D, 4 - 2 * ep);
+    id ep^n1? = rat(ep^n1,1);
 
-        .sort:ibp-reduction;
-    #enddo
+    .sort:ibp-reduction;
 
     id vec1(k1?,n?)*vec1(k2?,n?) = k1.k2;
     id k1?.p0select = penergy(k1);
 
+    repeat id gamma(s1?,?a,n?,?b,s2?) = gamma(s1,?a,lorentzdummy[n],?b,s2);
+    id g(n1?,n2?) = d_(lorentzdummy[n1], lorentzdummy[n2]);
+    id vec1(k1?,n?) = k1(lorentzdummy[n]);
+    id gamma(?a) = opengammastring(?a);
+
+* Simplify all open gamma strings so that the Ds are contracted out
+    #call Gstring(opengammastring,0)
+
+    if (match(opengammastring(s1?,?a,mu?lorentzdummy,?b,s2?)) || count(vec1,1));
+        Print "Index left in gamma string after projecting: %t";
+        exit "Critical error";
+    endif;
+
 * Substitute the masters and expand in ep
     #call SubstituteMasters()
-    .sort:integrated-ct-1;
 
-    PolyRatFun;
-    id rat(x1?) = x1;
-    if (count(ep, 1) != `SELECTEDEPSILONORDER') Discard; * keep only the ep^0 piece
-    id ep^n? = 1;
-    #if `UVRENORMFINITEPOWERTODISCARD' > 0
-        if (count(UVRenormFINITE, 1) >= `UVRENORMFINITEPOWERTODISCARD') Discard; * Discard UVRenormFinite pieces up to some order
-    #elseif  `UVRENORMFINITEPOWERTODISCARD' < 0
-        if (count(UVRenormFINITE, 1) < -`UVRENORMFINITEPOWERTODISCARD') Discard; * Keep UVRenormFinitiePieces up to some order
-    #endif
-    id UVRenormFINITE^n? = 1;
-
-    .sort:integrated-ct-2;
-#endif
+* TODO: tag MS-bar contributions
 
     .sort:uv-subgraph-done;
     UnHide tensorforest1,...,tensorforest`tensorforestcount';
@@ -826,33 +818,36 @@ endif;
 * Apply Feynman rules to remaining graph
 #call FeynmanRulesMomentum()
 
+* Linearize the gamma string
+repeat id once gamma(s1?,?a,p?!vector_,?b,s2?) = p(mudummy)*gamma(s1,?a,mudummy,?b,s2);
+id gamma(?a) = opengammastring(?a);
+
 * Simplify all open gamma strings
 #call Gstring(opengammastring,0)
 
-* Linearize the gamma string
-repeat id once gamma(s1?,?a,p?!vector_,?b,s2?) = p(mudummy)*gamma(s1,?a,mudummy,?b,s2);
+AB+ cmb,diag,fmbtocb;
+.sort:bubble-treatment;
+Keep brackets;
 
 * Apply bubble derivatives
 id der(p1?,0) = p1.energyselector; * numerator contribution of the bubble propagator derivative
 
 if (count(der, 1));
+* we use that the cmb momenta that make up the bubble external momentum only appear in that combination
     splitfirstarg der;
-    id der(p1?,p2?) = replace_(p2, t*pzero - p1);
+    id der(p1?,p2?) = replace_(p2, t*energyselector-p1);
+    id der(p1?) = replace_(p1, t*energyselector);
     id t^n? = delta_(n, 1);
-    repeat id pzero.p? = p.energyselector;
-    id energyselector.energyselector = 1;
 endif;
 
 * split off the energy part: energyselector=(1,0,0,0,..), fmbs = spatial part
 * fmbs1.fmbs2 will later get a minus sign to honour the Minkowksi metric
-AB+ energy,diag,fmbtocb;
+AB+ cmb,energy,diag,fmbtocb;
 .sort:energy-splitoff-1;
 Keep brackets;
 #do i=1,40
     Multiply replace_(fmb`i', energy(fmb`i')*energyselector - fmbs`i');
 #enddo
-* linearize the gamma string to extract the energy
-repeat id once gamma(s1?,?a,p?!vector_,?b,s2?) = p(mudummy)*gamma(s1,?a,mudummy,?b,s2);
 id energyselector.energyselector = 1;
 id energyselector.p?spatialparts = 0;
 .sort:energy-splitoff-2;
@@ -945,6 +940,7 @@ UnHide forest1,...,forest`forestcount';
 Hide F;
 
 id rat(x1?,x2?) = x1/x2;
+id rat(x?) = x;
 
 * collect all the energies in the diagram
 repeat id diag(?a,p1?,p2?,?b) = diag(?a,p1,0,p2,?b);
