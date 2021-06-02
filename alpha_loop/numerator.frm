@@ -816,6 +816,7 @@ if (count(subgraph, 1));
 endif;
 
 * Apply Feynman rules to remaining graph
+id opengammastring(?a) = gamma(?a);
 #call FeynmanRulesMomentum()
 
 * Linearize the gamma string

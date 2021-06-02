@@ -477,7 +477,7 @@ class TopologyGenerator(object):
         #pprint.pprint(new_graphs)
         return new_graphs
 
-    def find_cutkosky_cuts(self, n_jets, incoming_particles, final_state_particle_ids, particle_ids, PDGs_in_jet=None ):
+    def find_cutkosky_cuts(self, n_jets, incoming_particles, final_state_particle_ids, particle_ids, PDGs_in_jet=None, fuse_repeated_edges=False):
         """ Note that when called from withing the MG/QGRAF generation pipeline, the PDGs_in_jet option will be specified
         in accordance with the user model considered."""
         
@@ -515,19 +515,30 @@ class TopologyGenerator(object):
 
         # add tadpoles to the spanning tree edge
         # TODO: add higher-loop tadpole edges as well
+        spanning_trees = copy.deepcopy(spanning_trees)
         for spanning_tree in spanning_trees:
             for i,e in enumerate(self.edge_map_lin):
                 if len(set(e[1:])) == 1:
                     spanning_tree.append(i)
 
+        duplicate_edges = defaultdict(list)
+        if fuse_repeated_edges:
+            # only allow one edge with a given momentum to be outside of the spanning tree
+            for ei, (prop, eml) in enumerate(zip(self.propagators, self.edge_map_lin)):
+                if ei not in self.ext:
+                    sig = (abs(particle_ids[eml[0]]), tuple(sorted([tuple(prop), tuple((x[0], not x[1]) for x in prop)])))
+                    duplicate_edges[sig].append(ei)
+
+            spanning_trees = [s for s in spanning_trees if all(len(set(s) & set(d)) == len(d) or set(s) & set(d) == set(d[1:]) for d in duplicate_edges.values() if len(d) > 1)]
+
         for spanning_tree in spanning_trees:
             # now select the extra cut, which needs to have a loop dependence
             for edge_index in spanning_tree:
-                if edge_index in self.ext or all(i in self.ext for i, _ in self.propagators[edge_index]):
+                if edge_index in self.ext or all(i in self.ext for i, _ in self.propagators[edge_index]) or any(edge_index in d[1:] for d in duplicate_edges.values()):
                     continue
 
                 cut_momenta_options.add(tuple(sorted(set(spanning_tree) - {edge_index})))
-
+                
         for cut_momenta in cut_momenta_options:
             cut_momenta_set = set(cut_momenta)
             # verify that the graph is correctly split in two, with one of the subgraphs having all incoming particles
@@ -563,55 +574,6 @@ class TopologyGenerator(object):
                 cutkosky_cuts.add(cutkosky_cut)
 
         return list(sorted(cutkosky_cuts))
-
-    def bubble_cuts(self, cutkosky_cut, incoming_momenta, particle_ids):
-        # check if some of the cutkosky cuts cut a bubble external
-        duplicate_cut_edges_set = set()
-        cut_powers = []
-        for c, _ in cutkosky_cut:
-            sig = tuple(self.propagators[self.edge_name_map[c]])
-            inv_sig = tuple([(x[0], not x[1]) for x in sig])
-            bubble_props = [eml[0] for prop, eml in zip(self.propagators, self.edge_map_lin) if eml[0] != c and abs(particle_ids[eml[0]]) ==
-                particle_ids[c] and (tuple(prop) == sig or tuple(prop) == inv_sig)]
-            cut_powers.append(len(bubble_props) + 1)
-            duplicate_cut_edges_set |= set(bubble_props)
-
-        cut_names = [a[0] for a in cutkosky_cut]
-        graphs = self.split_graph(cut_names, incoming_momenta)
-        graphs[0].conjugate = False
-        graphs[1].conjugate = True
-
-        # now apply fake cuts one by one
-        for d in duplicate_cut_edges_set:
-            # keep cutting graphs
-            split_graphs = []
-            for g in graphs:
-                if d in g.edge_name_map:
-                    sg = g.split_graph([d], incoming_momenta)
-                    sg[0].conjugate = g.conjugate
-                    sg[1].conjugate = g.conjugate
-                    split_graphs.extend(sg)
-                else:
-                    split_graphs.append(g)
-
-            graphs = split_graphs
-
-        graph_combinations = {
-            'cuts': [{
-                    'edge': c[0],
-                    'sign': c[1],
-                    'power': p }
-                for c, p in zip(cutkosky_cut, cut_powers)],
-            'diagram_sets': [{
-                    'diagram_info': [{
-                        'graph':  g,
-                        'conjugate_deformation': g.conjugate,
-                    } for g in graphs]
-                }
-            ]
-        }
-
-        return graph_combinations
 
     def split_graph(self, cutkosky_cut, incoming_momenta):
         """Split the graph in two using a cutkosky cut. The first has the incoming momenta, and the second the outgoing."""

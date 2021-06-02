@@ -1486,7 +1486,6 @@ CTable pfmap(0:{},0:{});
                             bubbles = []
                             for bubble in diag_info['bubble']:
                                 trans = []
-                                trans.append('1/2') # add a factor 1/2 since the bubble will appear in two cuts, TODO: make generic
 
                                 # if the cutkosky cut has a negative sign, we derive in -p^0 instead of p^0.
                                 # here we compensate for this sign
