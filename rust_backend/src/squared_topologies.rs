@@ -442,7 +442,7 @@ pub struct SquaredTopology {
 pub struct SquaredTopologySet {
     pub name: String,
     pub e_cm_squared: f64,
-    topologies: Vec<SquaredTopology>,
+    pub topologies: Vec<SquaredTopology>,
     additional_topologies: Vec<Vec<(SquaredTopology, Vec<(Vec<i8>, Vec<i8>)>)>>,
     pub multiplicity: Vec<f64>,
     pub settings: Settings,

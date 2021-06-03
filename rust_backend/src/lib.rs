@@ -724,15 +724,32 @@ struct PythonCrossSection {
 #[pymethods]
 impl PythonCrossSection {
     #[new]
-    fn new(squared_topology_file: &str, settings_file: &str) -> PythonCrossSection {
+    #[args(cross_section_set = false)]
+    fn new(
+        squared_topology_file: &str,
+        settings_file: &str,
+        cross_section_set: Option<bool>,
+    ) -> PythonCrossSection {
         use integrand::IntegrandImplementation;
 
         let settings = Settings::from_file(settings_file).unwrap();
-        let squared_topology =
-            squared_topologies::SquaredTopology::from_file(squared_topology_file, &settings)
+        let (squared_topology, squared_topology_set) = match cross_section_set {
+            Some(false) => {
+                let local_squared_topology = squared_topologies::SquaredTopology::from_file(
+                    squared_topology_file,
+                    &settings,
+                )
                 .unwrap();
-        let squared_topology_set =
-            squared_topologies::SquaredTopologySet::from_one(squared_topology.clone());
+                let local_squared_topology_clone = local_squared_topology.clone();
+                ( local_squared_topology, squared_topologies::SquaredTopologySet::from_one(local_squared_topology_clone) )
+            }
+            Some(true) => {
+                let local_squared_topology_set = squared_topologies::SquaredTopologySet::from_file(squared_topology_file, &settings).unwrap();
+                (local_squared_topology_set.topologies[0].clone(), local_squared_topology_set)
+            }
+            _ => unreachable!(),
+        };
+
         let squared_topologies::SquaredTopologyCacheCollection {
             float_cache,
             quad_cache,
@@ -755,6 +772,63 @@ impl PythonCrossSection {
             caches_f128: quad_cache,
             _dashboard: dashboard,
         }
+    }
+
+    #[args(sg_ids = "None", channel_ids="None")]
+    fn evaluate_integrand_batch(&mut self, xs: Vec<Vec<f64>>, sg_ids: Option<Vec<usize>>, channel_ids: Option<Vec<usize>>) -> PyResult<Vec<(f64, f64)>> {
+
+        use integrand::IntegrandSample;
+        use havana;
+        use itertools::izip;
+
+        let samples = match (sg_ids, channel_ids) {
+            (Some(selected_sg_ids), Some(selected_channel_ids)) => {
+                let mut all_samples = vec![];
+                for (sg_id, channel_id, x) in izip!(selected_sg_ids, selected_channel_ids, xs) {
+                    all_samples.push(
+                        havana::Sample::DiscreteGrid(1., vec![sg_id],
+                            Some(Box::new(havana::Sample::DiscreteGrid(1., vec![channel_id],
+                                Some(Box::new(havana::Sample::ContinuousGrid(1., x)))
+                            )))
+                        )
+                    )
+                }
+                all_samples
+            },
+            (Some(selected_sg_ids), _) => {
+                let mut all_samples = vec![];
+                for (sg_id, x) in izip!(selected_sg_ids, xs) {
+                    all_samples.push(
+                        havana::Sample::DiscreteGrid(1., vec![sg_id],
+                            Some(Box::new(havana::Sample::ContinuousGrid(1., x)))
+                        )
+                    )
+                }
+                all_samples
+            },
+            (_, Some(_)) => {
+                panic!("Cannot sum over SGs for specific integration channels.")
+            },
+            (_, _) => {
+                let mut all_samples = vec![];
+                for x in xs {
+                    all_samples.push(
+                        havana::Sample::ContinuousGrid(1., x)
+                    );
+                }
+                all_samples
+            }
+        };
+
+        let mut all_res = vec![];
+        for sample in samples {
+            let res = self
+                .integrand
+                .evaluate(IntegrandSample::Nested(&sample), 1.0, 1);
+                all_res.push((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()));
+        }
+
+        Ok(all_res)
     }
 
     fn evaluate_integrand(&mut self, x: Vec<f64>) -> PyResult<(f64, f64)> {
