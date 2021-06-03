@@ -954,6 +954,11 @@ class SuperGraph(dict):
         if len(vertex['legs'])==3:
             return [vertex,], split_vertex_negative_number
 
+        # For two-point vertices, simply broadcast the leg number (something smarter may need to be done for 1PI like gamma -> Z transitions, but probably not)
+        if len(vertex['legs'])==2:
+            # TODO explicitly verify that simply removing the two-point vertex works when sending the resulting topology to the SingleChannelPhaseSpaceGenerator
+            return [], split_vertex_negative_number
+
         split_vertices = []
 
         # First capture all the legs that are final states
@@ -3350,7 +3355,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser.add_argument('-s','--sampling', metavar='sampling', type=str, default='xs', 
                     choices=('xs','flat', 'advanced', 'test_h_function'), help='Specify the sampling method (default: %(default)s)')
     integrate_parser.add_argument('-i','--integrator', metavar='integrator', type=str, default='vegas3', 
-                    choices=('naive','vegas', 'vegas3', 'inspect'), help='Specify the integrator (default: %(default)s)')
+                    choices=('naive','vegas', 'vegas3', 'havana', 'inspect'), help='Specify the integrator (default: %(default)s)')
     integrate_parser.add_argument('-hf','--h_function', metavar='h_function', type=str, default='left_right_polynomial', 
                     choices=('left_right_polynomial','left_right_exponential', 'flat'), help='Specify the h-function to use in sampling (default: %(default)s)')
     integrate_parser.add_argument('-hfs','--h_function_sigma', metavar='h_function_sigma', type=int, default=3,
@@ -3584,7 +3589,6 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         ]),
                         rust_worker,
                         SG_info,
-                        self.alphaLoop_interface._curr_model,
                         selected_h_function,
                         self.hyperparameters,
                         debug=args.verbosity,

@@ -382,6 +382,29 @@ class TestHFuncIntegrand(integrands.VirtualIntegrand):
 
         return final_res
 
+
+class DaskHavanaALIntegrand(integrands.VirtualIntegrand):
+
+    def __init__(self, SG_names, run_workspace, rust_input_folder, phase='real', frozen_momenta=None):
+
+        self.constructor_arguments = {
+            'SG_names' : SG_names,
+            'run_workspace' : run_workspace,
+            'rust_input_folder' : rust_input_folder,
+            'phase' : phase,
+            'frozen_momenta' : frozen_momenta
+        }
+        self.SG_names = SG_names
+        self.run_workspace = run_workspace
+        self.rust_input_folder = rust_input_folder
+        self.phase = phase
+        self.frozen_momenta = frozen_momenta
+
+        # Now start a rust worker
+
+    def get_constructor_arguments(self):
+        return copy.deepcopy(self.constructor_arguments)
+
 class DefaultALIntegrand(integrands.VirtualIntegrand):
     """An integrand for this phase-space volume test."""
 
@@ -1479,10 +1502,9 @@ class CustomGenerator(object):
 
 class generator_aL(CustomGenerator):
 
-    def __init__(self, dimensions, rust_worker, SG_info, model, h_function, hyperparameters, debug=0, frozen_momenta=None, **opts):
+    def __init__(self, dimensions, rust_worker, SG_info, h_function, hyperparameters, debug=0, frozen_momenta=None, **opts):
 
         self.rust_worker = rust_worker
-        self.model = model
         self.SG_info = SG_info
         self.hyperparameters = hyperparameters
         self.dimensions = dimensions

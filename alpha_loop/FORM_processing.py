@@ -75,6 +75,7 @@ FORM_processing_options = {
     'FORM_call_sig_id_offset_for_additional_lmb' : 1000000,
     'generate_integrated_UV_CTs' : True,
     'generate_renormalisation_graphs' : True,
+    'include_integration_channel_info' : True,
     'UV_min_dod_to_subtract' : 0,
     'selected_epsilon_UV_order' : 0,
     # Select how to include the finite part of the renormalisation. Possible values are:
@@ -1210,7 +1211,7 @@ CTable pfmap(0:{},0:{});
             return 0
 
     def generate_squared_topology_files(self, root_output_path, model, process_definition, n_jets, numerator_call, final_state_particle_ids=(),jet_ids=None, write_yaml=True, bar=None,
-        integrand_type=None, workspace=None):
+        integrand_type=None, workspace=None, include_integration_channel_info=True):
         if workspace is None:
             workspace = pjoin(root_output_path, os.pardir, 'workspace')
 
@@ -1233,7 +1234,7 @@ CTable pfmap(0:{},0:{});
         assert(e[0] != 'q' or int(e[1:]) < 5 for e in edge_map_lin)
 
         particle_ids = { e['name']: e['PDG'] for e in self.edges.values() }
-        particle_masses = {e['name']: model['parameter_dict'][model.get_particle(e['PDG']).get('mass')].real for e in self.edges.values()}
+        particle_masses = { e['name']: model['parameter_dict'][model.get_particle(e['PDG']).get('mass')].real for e in self.edges.values() }
 
         num_incoming = sum(1 for e in edge_map_lin if e[0][0] == 'q') // 2
 
@@ -1242,7 +1243,7 @@ CTable pfmap(0:{},0:{});
             #external_momenta = {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]}
             p = np.array(external_momenta['q1'])
         else:
-            external_momenta = {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
+            external_momenta = { 'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.] }
             #external_momenta = {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
             p = np.array(external_momenta['q1']) + np.array(external_momenta['q2'])
 
@@ -1297,7 +1298,7 @@ CTable pfmap(0:{},0:{});
                     bar.update(i_lmb='%d'%(i_lmb+2))
                 other_lmb_supergraph.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call, 
                         final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, write_yaml=write_yaml,workspace=workspace,
-                        bar=bar, integrand_type=integrand_type)
+                        bar=bar, integrand_type=integrand_type, include_integration_channel_info=False)
 
         if integrand_type is not None:
             if integrand_type == "both" or integrand_type == "LTD":
@@ -1307,9 +1308,9 @@ CTable pfmap(0:{},0:{});
 
         if write_yaml:
             if isinstance(self.additional_lmbs, int):
-                topo.export(pjoin(root_output_path, "%s_LMB%d.yaml"%(self.name,self.additional_lmbs)))
+                topo.export(pjoin(root_output_path, "%s_LMB%d.yaml"%(self.name,self.additional_lmbs)), include_integration_channel_info=include_integration_channel_info)
             else:
-                topo.export(pjoin(root_output_path, "%s.yaml"%self.name))
+                topo.export(pjoin(root_output_path, "%s.yaml"%self.name), include_integration_channel_info=include_integration_channel_info)
 
         return True
 
@@ -1781,7 +1782,7 @@ class FORMSuperGraphIsomorphicList(list):
         return args[0].multiplicity_factor(*args[1:])
 
     def generate_squared_topology_files(self, root_output_path, model, process_definition, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None, workspace=None, bar=None,
-            integrand_type=None):
+            integrand_type=None,include_integration_channel_info=True):
         for i, g in enumerate(self):
             # Now we generate the squared topology only for the first isomorphic graph
             # to obtain the replacement rules for the bubble.
@@ -1789,7 +1790,8 @@ class FORMSuperGraphIsomorphicList(list):
             # numerator 
             if i==0:
                 r = g.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call, 
-                                final_state_particle_ids, jet_ids=jet_ids, write_yaml=i==0, workspace=workspace, bar=bar, integrand_type=integrand_type)
+                                final_state_particle_ids, jet_ids=jet_ids, write_yaml=i==0, workspace=workspace, bar=bar, integrand_type=integrand_type, 
+                                include_integration_channel_info=include_integration_channel_info)
             else:
                 g.replacement_rules = self[0].replacement_rules
         #print(r)
@@ -2896,7 +2898,7 @@ int %(header)sget_rank(int diag, int conf) {{
         self.code_generation_statistics['generation_time_in_s'] = float('%.1f'%generation_time)
 
     def generate_squared_topology_files(self, root_output_path, model, process_definition, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None,
-        integrand_type=None):
+        integrand_type=None, include_integration_channel_info=True):
         if workspace is None:
             workspace = pjoin(root_output_path, os.pardir, 'workspace')
         topo_collection = {
@@ -2919,7 +2921,8 @@ int %(header)sget_rank(int diag, int conf) {{
                 bar.update(i_graph='%d'%(i+1))
                 if g.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call=non_zero_graph, 
                                                             final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, 
-                                                            workspace=workspace, bar=bar, integrand_type=integrand_type):
+                                                            workspace=workspace, bar=bar, integrand_type=integrand_type,
+                                                            include_integration_channel_info=include_integration_channel_info):
                     topo_collection['topologies'].append({
                         'name': g[0].name,
                         # Let us not put it there but in the topology itself
@@ -2960,7 +2963,8 @@ int %(header)sget_rank(int diag, int conf) {{
                 bar.update(i_graph='%d'%(i+1))
                 if g.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call=non_zero_graph, 
                                                             final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids,
-                                                            workspace=workspace, bar=bar, integrand_type=integrand_type):
+                                                            workspace=workspace, bar=bar, integrand_type=integrand_type,
+                                                            include_integration_channel_info=include_integration_channel_info):
                     topo_collection['topologies'].append({
                         'name': g.name,
                         'multiplicity': g.multiplicity,
@@ -3499,7 +3503,8 @@ int %(header)sget_rank(int diag, int conf) {{
         #FORM_processing_options['compilation-options'] += ['-e', "OPTIMIZATION_LVL=2"]
         form_processor.generate_squared_topology_files(TMP_OUTPUT, 0,
                     workspace=TMP_workspace,
-                    integrand_type='PF')
+                    integrand_type='PF',
+                    include_integration_channel_info=True)
         form_processor.generate_numerator_functions(TMP_FORM, output_format='c',
                     workspace=TMP_workspace,
                     integrand_type='PF')
@@ -3632,12 +3637,11 @@ class FORMProcessor(object):
                            "You will thus need to compile numerators.c manually.%s")%(utils.bcolors.GREEN, utils.bcolors.ENDC))
 
     def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None,
-        integrand_type=None):
+        integrand_type=None, include_integration_channel_info=True):
         self.super_graphs_list.generate_squared_topology_files(
             root_output_path, self.model, self.process_definition, n_jets, final_state_particle_ids, jet_ids=jet_ids, filter_non_contributing_graphs=filter_non_contributing_graphs, workspace=workspace,
-            integrand_type=integrand_type
+            integrand_type=integrand_type, include_integration_channel_info=FORM_processing_options['include_integration_channel_info']
         )
-
 
 if __name__ == "__main__":
    
