@@ -668,7 +668,7 @@ class TopologyGenerator(object):
 
             if skip_shift:
                 # keep the local subgraph map instead of translating it
-                param_shift[edge_name] = sub_graph_edge_map[edge_name]
+                param_shift[edge_name] = ([0]*sub_graph.n_loops, sub_graph_edge_map[edge_name][1])
                 continue
 
             # map the external momenta back to cuts and the external momenta of the full graph

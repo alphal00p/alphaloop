@@ -126,7 +126,7 @@ Fill charges(-11) = 1; * e
 S D, ep(:3);
 V energyselector,p1,...,p40,ps1,...,ps40,k1,...,k40,c1,...,c40,cs1,...,cs40,fmb1,...,fmb40,fmbs1,...,fmbs40; * force this internal ordering in FORM
 Auto V p,k,c;
-Auto S lm,ext;
+Auto S lm,ext,E;
 #ifdef `FOURDIM'
     Auto I mu=4,s=4;
 #else
@@ -144,7 +144,7 @@ Set lorentzdummy: mud1,...,mud40;
 
 CF gamma, gammatrace(c), GGstring, NN, vector,g(s),delta(s),T, counter,color, prop, replace;
 CF f, vx, vxs(s), uvx, vec, vec1;
-CF subs, configurations, conf, cmb, cbtofmb, fmbtocb, diag, forestid, der, energy, spatial(s);
+CF subs, configurations, conf, cmb, cbtofmb, fmbtocb, diag, forestid, der, energy, spatial(s), onshell;
 CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, integrateduv;
 CT gammatracetensor(c),opengammastring;
 
@@ -842,6 +842,24 @@ if (count(der, 1));
     id der(p1?,p2?) = replace_(p2, t*energyselector-p1);
     id der(p1?) = replace_(p1, t*energyselector);
     id t^n? = delta_(n, 1);
+endif;
+
+* set on-shell conditions for the internal bubble external momentum
+* we use that the cmb momenta that make up the bubble external momentum only appear in that combination
+splitfirstarg onshell;
+id onshell(p1?,-p?vector_,E?) = onshell(-p1,p,-E);
+id onshell(-p?vector_,E?) = onshell(p,-E);
+
+#do i=1,40
+    id onshell(k1?,p`i',E?) = replace_(p`i', E*energyselector - ps`i' - k1);
+    id onshell(k1?,c`i',E?) = replace_(c`i', E*energyselector - cs`i' - k1);
+    id onshell(p`i',E?) = replace_(p`i', E*energyselector- ps`i');
+    id onshell(c`i',E?) = replace_(c`i', E*energyselector- cs`i');
+#enddo
+
+if (count(onshell, 1));
+    Print "Unsubstituted on-shell condition: %t";
+    exit "Critical error";
 endif;
 
 * split off the energy part: energyselector=(1,0,0,0,..), fmbs = spatial part

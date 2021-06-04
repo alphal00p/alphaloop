@@ -96,7 +96,7 @@ def get_next_set_pair(subset1, subset2, set_size):
 #
 # @timeit
 class PartialFractioning:
-    def __init__(self, ll_n_props, signatures, den_library=[], **kwargs):
+    def __init__(self, ll_n_props, signatures, **kwargs):
         # ll_n_props: number of propagator per loop line
         # signatures: signature of each loop line
         self.signatures = signatures
@@ -107,7 +107,6 @@ class PartialFractioning:
         self.shift_map = kwargs.pop("shift_map", None)
         self.n_sg_loops = kwargs.pop("n_sg_loops", 0)
         self.ltd_index = kwargs.pop("ltd_index", 0)
-        self.den_library = den_library
         self.esq_library = [[], []]
         self.energies_map = []
         self.file_name = 'pf_{}l_{}.frm'.format(self.n_loops, self.name)
@@ -140,7 +139,6 @@ class PartialFractioning:
         # Take all combination of plus and minus energies from the first E_fractioning
         #    0: positive energy
         #    1: negative energy
-        den_library = []
         self.pf_res = []
 
         if progress_bar is None:
@@ -288,11 +286,11 @@ class PartialFractioning:
 
         return res
 
-    def to_FORM(self, energy_index_map=None):
+    def to_FORM(self, energy_index_map=None, den_library=None, on_shell_conditions={}):
         terms = defaultdict(int)
         used_denominators = set()
 
-        for pf_id, (fact, prod, num) in enumerate(self.pf_res):
+        for (fact, prod, num) in self.pf_res:
             ss = ""
 
             # store denominators
@@ -311,13 +309,19 @@ class PartialFractioning:
                             else:
                                 shifts += "{:+}*p{}".format(cast_int(p),
                                                             j-self.n_sg_loops+1)
-                    if shifts != "":
+
+                    if tuple(r['shifts']) in on_shell_conditions:
+                        den += '+' + on_shell_conditions[tuple(r['shifts'])]
+                    elif tuple(-r['shifts']) in on_shell_conditions:
+                        den += '-' + on_shell_conditions[tuple(-r['shifts'])]
+                    elif shifts != "":
                         den += "+energies(%s)" % shifts
-                    try:
-                        d_idx = self.den_library.index(den)
-                    except ValueError:
-                        d_idx = len(self.den_library)
-                        self.den_library.append(den)
+                    if den_library != None:
+                        try:
+                            d_idx = den_library.index(den)
+                        except ValueError:
+                            d_idx = len(den_library)
+                            den_library.append(den)
 
                     used_denominators.add(d_idx)
                     ss += "*invd%d" % d_idx
@@ -340,7 +344,11 @@ class PartialFractioning:
                             else:
                                 shifts += "{:+}*p{}".format(cast_int(p),
                                                             j-self.n_sg_loops+1)
-                    if shifts != "":
+                    if tuple(num_step['shifts']) in on_shell_conditions:
+                        ss += '+' + on_shell_conditions[tuple(num_step['shifts'])]
+                    elif tuple(-num_step['shifts']) in on_shell_conditions:
+                        ss += '-' + on_shell_conditions[tuple(-num_step['shifts'])]
+                    elif shifts != "":
                         ss += "+energies(%s)" % shifts
                     if i+1 == len(zs) and n+1 == len(num):
                         ss += ") )"
@@ -419,8 +427,9 @@ if __name__ == '__main__':
                             name='Box', shift_map=shift_map, n_sg_loops=0)
     pf.shifts_to_externals()
     print("1L Result:")
-    print(pf.to_FORM())
-    for n, den in enumerate(pf.den_library):
+    den_library={}
+    print(pf.to_FORM(den_library=den_library))
+    for n, den in enumerate(den_library):
         print("d%d = %s;" % (n, den))
     #sys.exit()
     #    #########################################
@@ -458,7 +467,8 @@ if __name__ == '__main__':
                             name='PentaBox', shift_map=shift_map, n_sg_loops=1)
     pf.shifts_to_externals()
     output = "L F =\n"
-    output += pf.to_FORM()
+    den_library={}
+    output += pf.to_FORM(den_library=den_library)
     output += ";\n"
     for idx, s in enumerate(pf.signatures):
         print("ll {}: {}".format(idx, s))
