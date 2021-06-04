@@ -211,7 +211,6 @@ class FORMSuperGraph(object):
         self.default_kinematics = default_kinematics
         self.effective_vertex_id = effective_vertex_id
         self.squared_topology = None
-        self.replacement_rules = None
         self.configurations = None
 
         # Will be filled in during FORM generation
@@ -490,7 +489,6 @@ aGraph=%s;
             if node['vertex_id'] < 0:
                 continue
 
-            loop_momenta = set('k{}'.format(i + 1) for e in node['edge_ids'] for i, v in enumerate(self.edges[e]['signature'][0]) if v != 0)
             form_diag += '*\n vx({},{},{})'.format(
                 ','.join(str(p) for p in node['PDGs']),
                 ','.join(node['momenta']),
@@ -498,22 +496,12 @@ aGraph=%s;
             )
 
         for edge in self.edges.values():
-            loop_momenta = ['k{}'.format(i + 1) for i, v in enumerate(edge['signature'][0]) if v != 0]
             form_diag += '*\n prop({},{},{},{})'.format(
                 edge['PDG'],
                 edge['type'],
                 edge['momentum'],
                 ','.join(str(i) for i in edge['indices'])
             )
-
-        if only_algebra:
-            return form_diag
-
-        if self.replacement_rules is None:
-            raise AssertionError("No energy configurations specified for numerator: run the denominator generation first")
-
-        # now add all the replacement rules
-        form_diag += self.replacement_rules
 
         return form_diag
 
@@ -1349,7 +1337,6 @@ CTable pfmap(0:{},0:{});
             logger.info("No cuts for graph {}".format(self.name))
             return False
 
-        self.generate_replacement_rules(topo)
         self.squared_topology = topo
 
         # Also generate the squared topology yaml files of all additional LMB topologies used for cross-check
@@ -1367,6 +1354,8 @@ CTable pfmap(0:{},0:{});
             if integrand_type == "both" or integrand_type == "PF":
                 self.generate_integrand(topo, workspace, call_signature_ID, progress_bar = bar)
 
+        self.generate_form_input(topo)
+
         if write_yaml:
             if isinstance(self.additional_lmbs, int):
                 topo.export(pjoin(root_output_path, "%s_LMB%d.yaml"%(self.name,self.additional_lmbs)))
@@ -1376,16 +1365,12 @@ CTable pfmap(0:{},0:{});
         return True
 
 
-    def generate_replacement_rules(self, topo):
-        # collect the transformations of the bubble
+    def generate_form_input(self, topo):
         configurations = []
-        bubble_to_cut = OrderedDict()
-
         uv_diagrams = []
         uv_forest = []
         topo_map = '#procedure uvmap()\n'
         for cut_index, cut in enumerate(topo.cuts):
-            last_cmb = ''
             for diag_set in cut['diagram_sets']:
                 diag_set_uv_conf = []
                 diag_momenta = []
@@ -1393,36 +1378,6 @@ CTable pfmap(0:{},0:{});
                 n_loops = len(self.edges) - len(self.nodes) + 1
                 cmb_offset = len(cut['cuts']) - 1
                 for diag_info in diag_set['diagram_info']:
-                    # bubble treatment
-                    #der_edge = None
-                    #if diag_info['bubble'] is not None:
-                    #    trans.append('1/2') # add a factor 1/2 since the bubble will appear in two cuts, TODO: make generic
-#
-                    #    # if the cutkosky cut has a negative sign, we derive in -p^0 instead of p^0.
-                    #    # here we compensate for this sign
-                    #    trans.append(str(next(c for c in cut['cuts'] if c['edge'] == diag_info['derivative'][0])['sign']))
-#
-                    #    der_edge = diag_info['derivative'][1]
-                    #    ext_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][0])['momentum']
-                    #    der_mom = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][1])['momentum']
-                    #    ext_sig = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][0])['signature']
-                    #    der_sig = next(ee for ee in self.edges.values() if ee['name'] == diag_info['derivative'][1])['signature']
-#
-                    #    if diag_info['bubble_momenta'] not in bubble_to_cut:
-                    #        bubble_to_cut[diag_info['bubble_momenta']] = (diag_info['derivative'][0], set())
-#
-                    #    if diag_info['derivative'][0] == diag_info['derivative'][1]:
-                    #        # numerator derivative
-                    #        index = next(i for i, bub in enumerate(bubble_to_cut.keys()) if bub == diag_info['bubble_momenta'])
-                    #        trans.append('der(pbubble' + str(index) + ')')
-                    #    else:
-                    #        # check if we pick up a sign change due to the external momentum flowing in the opposite direction
-                    #        signs = [se * sc for se, sc in zip(der_sig[0] + der_sig[1], ext_sig[0] + ext_sig[1]) if se * sc != 0]
-                    #        assert(len(set(signs)) == 1)
-                    #        trans.append('-2*{}({})'.format('1*' if signs[0] == 1 else '-1*', der_mom))
-                    #        bubble_info = bubble_to_cut[diag_info['bubble_momenta']]
-                    #        bubble_to_cut[diag_info['bubble_momenta']] = (bubble_info[0], bubble_info[1] | {der_edge})
-
                     # write the entire UV structure as a sum
                     conf = []
                     bubble_uv_derivative = ''
@@ -1627,13 +1582,6 @@ CTable pfmap(0:{},0:{});
 
                 cmb_map = 'cmb({})'.format(','.join(d for c in cmb_map for d in c))
 
-                if last_cmb == '':
-                    last_cmb = cmb_map
-                if last_cmb != cmb_map:
-                    pass
-                    #logger.warning("WARNING: cmbs differ between diagram sets. inherit_deformation_for_uv_counterterm should be set to FALSE.")
-                    #raise AssertionError("Diagram sets do not have the same cmb")
-
                 # store which momenta are LTD momenta
                 conf = 'c0' if n_loops == len(cut['cuts'][:-1]) else ','.join('c' + str(i + 1) for i in range(len(cut['cuts'][:-1]), n_loops) )
 
@@ -1646,48 +1594,8 @@ CTable pfmap(0:{},0:{});
 
                 configurations.append(conf)
             configurations[-1] += '\n'
-        
-        # replace external momentum in all bubble vertices and edges with a dummy momentum
-        # TODO: there is an awful lot of string manipulation here...
-        mommap = []
-        for i, ((bubble_edges, bubble_ext_edges), (cut_edge, bubble_derivative_edges)) in enumerate(bubble_to_cut.items()):
-            ce = next(ee for ee in self.edges.values() if ee['name'] == cut_edge)
-
-            if len(bubble_derivative_edges) == 0:
-                # the bubble is a single vertex: update it
-                bubble_v = next(v for v in self.nodes.values() if set(self.edges[eid]['name'] for eid in v['edge_ids']) == set(bubble_ext_edges))
-                bubble_v['momenta'] = ('pbubble' + str(i) if bubble_v['momenta'][0] == ce['momentum'] else '-pbubble' + str(i),
-                    'pbubble' + str(i) if bubble_v['momenta'][1] == ce['momentum'] else '-pbubble' + str(i))
-
-            for edge in bubble_derivative_edges:
-                e = next(ee for ee in self.edges.values() if ee['name'] == edge)
-
-                signs = [se * sc for se, sc in zip(e['signature'][0] + e['signature'][1], ce['signature'][0] + ce['signature'][1]) if se * sc != 0]
-                assert(len(set(signs)) == 1)
-                e['momentum'] += '{}(pbubble{}-({}))'.format('+' if signs[0] == 1 else '-', i, ce['momentum'])
-
-                # update the vertices attached to this edge
-                ext_mom_vars = [emp for emp in ce['momentum'].replace('-', '+').split('+') if emp != '']
-                ext_mom_signs = ['-' if ('-' + emp) in ce['momentum'] else '+' for emp in ext_mom_vars]
-                for vi in e['vertices']:
-                    v = self.nodes[vi]
-                    momenta = list(v['momenta'])
-                    for mi, (m, eid) in enumerate(zip(momenta, v['edge_ids'])):
-                        # only update the momentum of the external (cut) edge or the current edge
-                        if self.edges[eid]['name'] == edge or self.edges[eid]['name'] not in bubble_edges:
-                            # find a momentum that is shared between the external momentum and the edge to determine the sign
-                            (ext_var_in_mom, ext_sign_in_mom) = next((emp, ems) for emp, ems in zip(ext_mom_vars, ext_mom_signs) if emp in m)
-                            sign = ('-' if ext_sign_in_mom == '+' else '+') if ('-' + ext_var_in_mom) in m else ('+' if ext_sign_in_mom == '+' else '-')
-                            momenta[mi] += '{}(pbubble{}-({}))'.format(sign, i, ce['momentum'])
-                    v['momenta'] = tuple(momenta)
-
-            mommap.append('subs(pbubble{},{})'.format(i, ce['momentum']))
 
         topo_map += '#endprocedure\n'
-
-        self.replacement_rules = ''
-        if len(mommap) > 0:
-            self.replacement_rules = '*\n ' + '*\n '.join(mommap)
 
         self.configurations = (topo_map, uv_diagrams, uv_forest, ' +'.join(configurations))
 
@@ -1965,8 +1873,6 @@ class FORMSuperGraphIsomorphicList(list):
             if i==0:
                 r = g.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call, 
                                 final_state_particle_ids, jet_ids=jet_ids, write_yaml=i==0, workspace=workspace, bar=bar, integrand_type=integrand_type)
-            else:
-                g.replacement_rules = self[0].replacement_rules
         #print(r)
         return r
 
@@ -2575,7 +2481,6 @@ class FORMSuperGraphList(list):
 
         integrand_type_list = [integrand_type] if integrand_type != 'both' else ['PF', 'LTD']
 
-        # TODO: multiprocess this loop
         all_numerator_ids = {'PF': [], 'LTD': []}
 
         for itype in integrand_type_list:

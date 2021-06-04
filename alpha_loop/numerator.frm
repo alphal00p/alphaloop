@@ -791,7 +791,10 @@ id subgraph(?a,uvconf(?b),?c) = subgraph(?a,uvconf(?b));
 * Substitute the masters and expand in ep
     #call SubstituteMasters()
 
-* TODO: tag MS-bar contributions
+* subtract MS-bar contributions (the poles)
+    argument rat;
+        id ep^n? = ep^n*theta_(n);
+    endargument;
 
     .sort:uv-subgraph-done;
     UnHide tensorforest1,...,tensorforest`tensorforestcount';
@@ -1060,13 +1063,6 @@ endif;
 
     id conf(x?)*conf(x1?{<0},?a) = conf(x,?a);
 
-* TODO: deprecated
-    #if (`SUMDIAGRAMSETS' == "onlysum")
-        id conf(x?{>=0},x1?,?a) = conf(1000 + x1);
-    #elseif (`SUMDIAGRAMSETS' == "both")
-        id conf(x?{>=0},x1?,?a) = conf(x,?a) + conf(1000 + x1);
-    #endif
-
     .sort:integrand-ltd;
     #if (`INTEGRAND' == "both")
         Hide FINTEGRANDLTD;
@@ -1147,20 +1143,12 @@ endif;
 
     id conf(x?)*conf(x1?{<0},?a) = conf(x,?a);
 
-* TODO: deprecated
-    #if (`SUMDIAGRAMSETS' == "onlysum")
-        id conf(x?{>=0},x1?,?a) = conf(1000 + x1);
-    #elseif (`SUMDIAGRAMSETS' == "both")
-        id conf(x?{>=0},x1?,?a) = conf(x,?a) + conf(1000 + x1);
-    #endif
-
     .sort:pf-integrand-collect;
     #if (`INTEGRAND' == "both")
         UnHide FINTEGRANDLTD;
     #endif
 #endif
 
-* fill in the shifts
 id replace(?a) = replace_(?a);
 id energy(p?) = penergy(p);
 id energies(p?) = penergy(p);
@@ -1312,9 +1300,12 @@ Keep brackets;
                 #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "#ENERGIES\n%$\n#ENERGIES", $energies
                 #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "#ELLIPSOIDS\n%$\n#ELLIPSOIDS",$ellipsoids
 
-* FIXME: for now, we don't optimize the PF denominators
                 Format C;
-                Format O1,stats=on;
+                #if `OPTIMLVL' > 1
+                    Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
+                #else
+                    Format O1,stats=on;
+                #endif
             #else
                 Format C;
                 #if `OPTIMLVL' > 1
