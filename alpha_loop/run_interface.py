@@ -27,6 +27,7 @@ import progressbar
 import glob
 import threading
 import networkx as nx
+import psutil
 
 #import matplotlib.pyplot as plt
 #from matplotlib.font_manager import FontProperties
@@ -58,6 +59,7 @@ import alpha_loop.integrator.sampler as sampler
 import alpha_loop.integrator.integrands as integrands
 import alpha_loop.integrator.integrators as integrators
 import alpha_loop.integrator.vegas3_integrator as vegas3_integrator
+import alpha_loop.integrator.havana as havana
 import alpha_loop.integrator.pyCubaIntegrator as pyCubaIntegrator
 
 Colours = utils.bcolors
@@ -1375,6 +1377,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 raise alphaLoopInvalidRunCmd("Could not find cross-section set yaml file in path %s"%(pjoin(self.dir_path, self._rust_inputs_folder)))
             cross_section_set_yaml_file_path = candidates[0]
 
+        self.cross_section_set_file_name = os.path.basename(cross_section_set_yaml_file_path)
         self.cross_section_set = CrossSectionSet(cross_section_set_yaml_file_path)
         self.all_supergraphs = self.load_supergraphs()
 
@@ -3350,8 +3353,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
     #### INTEGRATE COMMAND
     integrate_parser = ArgumentParser(prog='integrate')
-    integrate_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
-                    help='the name of a supergraph to display')
+    integrate_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='+',
+                    help='One (or a list of, for Havana) supergraph name to integrate. Specify value "all" for havana to integrate them all.')
     integrate_parser.add_argument('-s','--sampling', metavar='sampling', type=str, default='xs', 
                     choices=('xs','flat', 'advanced', 'test_h_function'), help='Specify the sampling method (default: %(default)s)')
     integrate_parser.add_argument('-i','--integrator', metavar='integrator', type=str, default='vegas3', 
@@ -3370,6 +3373,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='Number of cores to parallelize on (default: %(default)s).')
     integrate_parser.add_argument('-nis','--n_iterations_survey', metavar='n_iterations_survey', type=int, default=10,
                     help='Number of iteration for the survey stage (default: %(default)s).')
+    integrate_parser.add_argument('-ni','--n_iterations', metavar='n_iterations', type=int, default=None,
+                    help='Max number of iterations in havana (default: %(default)s).')
     integrate_parser.add_argument('-nir','--n_iterations_refine', metavar='n_iterations_refine', type=int, default=5,
                     help='Number of iteration for the refine stage (default: %(default)s).')
     integrate_parser.add_argument('-nps','--n_points_survey', metavar='n_points_survey', type=int, default=int(1.0e5),
@@ -3391,7 +3396,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser.add_argument('--n_increase', metavar='n_increase', type=int, default=-1,
                     help='Starting number of sample points in Vegas (default: as per hyperparameters).')
     integrate_parser.add_argument('-bs','--batch_size', metavar='batch_size', type=int, default=-1,
-                    help='Batch size for parallelisation (default: as per hyperparameters n_vec).')
+                    help='Batch size for parallelisation (default: as per hyperparameters n_vec except for Havana where set to 1e6 by default).')
     integrate_parser.add_argument('--seed', metavar='seed', type=int, default=0,
                     help='Specify the random seed for the integration (default: %(default)s).')
     integrate_parser.add_argument('-hp','--hyperparameters', metavar='hyperparameters', type=str, default=[], nargs='+',
@@ -3412,9 +3417,49 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         '-no_mc','--no_multichanneling',action="store_false", dest="multichanneling", default=False,
         help="Disable multichanneling (default: as per hyperparameters)")
     integrate_parser.add_argument(
-        '-nw','--no_warnings',action="store_false", dest="show_warnings", default=True,
+        '-no_warn','--no_warnings',action="store_false", dest="show_warnings", default=True,
         help="Disable the printout of numerical warnings during the integration.")
-
+    integrate_parser.add_argument('-nw','--n_workers', metavar='n_workers', type=int, default=psutil.cpu_count(logical=False),
+        help='Number of dask workers to spawn for parallelisation.')
+    integrate_parser.add_argument('--cluster_type', metavar='cluster_type', type=str, default='dask_local', 
+        choices=tuple(havana.HavanaIntegrator._SUPPORTED_CLUSTER_ARCHITECTURES), help='Specify the integrator (default: %(default)s)')
+    integrate_parser.add_argument('-tr', '--target_result', metavar='target_result', type=float, default=None,
+        help='Specify a target result to compare current estimate against (default: %(default)f).')
+    integrate_parser.add_argument(
+        '--no_mc_over_sg',action="store_false", dest="MC_over_SGs", default=True,
+        help="Disable Monte-Carlo over supergraphs in Havana.")
+    integrate_parser.add_argument(
+        '--no_mc_over_channels',action="store_false", dest="MC_over_channels", default=True,
+        help="Disable Monte-Carlo over integration channels in Havana.")
+    integrate_parser.add_argument(
+        '--no_streaming_monitor', action="store_false", dest="stream_monitor", default=True,
+        help="Disable the streaming monitoring of havana integration.")
+    integrate_parser.add_argument(
+        '--no_optimize_on_variance', action="store_false", dest="havana_optimize_on_variance", default=True,
+        help="Do not optimize on the variance in Havana but directly on the relative contribution.")
+    integrate_parser.add_argument('--max_discrete_importance_sampling_ratio', dest='havana_max_prob_ratio', type=float, default=1000.,
+        help='Maximum allowed ratio in Havana importance sampling. Decreasing this quantity can help reduce bias. (default: %(default)f).')
+    integrate_parser.add_argument('--havana_integrand_phase', dest='havana_phase', type=str, default='real', 
+        choices=('real','imag'), help='Specify the phase of the integrand to integrate with Havana (default: %(default)s)')
+    integrate_parser.add_argument(
+        '--no_show_sg_grid', action="store_false", dest="show_sg_grid", default=True,
+        help="Disable the monitoring of the supergraph discrete grids in Havana.")
+    integrate_parser.add_argument(
+        '--show_channel_grid', action="store_true", dest="show_channel_grid", default=False,
+        help="Disable the monitoring of the discrete grids over integration channel in Havana.")
+    integrate_parser.add_argument(
+        '--show_grids_sorted_by_variance', action="store_true", dest="show_grids_sorted_by_variance", default=False,
+        help="Show havana grids with bins sorted by their variance.")
+    integrate_parser.add_argument(
+        '--no_dump_havana_grids', action="store_false", dest="dump_havana_grids", default=True,
+        help="Disable the dumping of havana grids to disk at every iteration.")
+    integrate_parser.add_argument(
+        '-f', '--fresh', action="store_true", dest="fresh", default=False,
+        help="Force integration to start fresh, without loading pre-exising grids/results.")
+    integrate_parser.add_argument('--condor_job_flavour', metavar='condor_job_flavour', type=str, default='tomorrow', 
+        choices=tuple(havana.HavanaIntegrator._SUPPORTED_CLUSTER_ARCHITECTURES), help='Specify the job flavour for condor runs (default: %(default)s)')
+    integrate_parser.add_argument('--n_dask_threads_per_worker', metavar='n_dask_threads_per_worker', type=int, default=1,
+                    help='Number of threads in dask workers (default: %(default)s).')
     def help_integrate(self):
         self.integrate_parser.print_help()
         return
@@ -3432,6 +3477,20 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         args = self.split_arg(line)
         args = self.integrate_parser.parse_args(args)
+
+        selected_SGs = args.SG_name
+        if len(selected_SGs)>1 and args.integrator!='havana':
+            raise alphaLoopInvalidRunCmd("Only the havana integrator supports the joint integration of more than one supergraph.")
+
+        if len(selected_SGs)==1 and selected_SGs[0].upper()=='ALL':
+            selected_SGs = None
+            if args.integrator!='havana':
+                raise alphaLoopInvalidRunCmd("Only the havana integrator supports the joint integration of all supergraphs.")
+
+        if args.MC_over_channels and not args.MC_over_channels:
+            raise alphaLoopInvalidRunCmd("Havana can only MC over integration channels when also MC-ing over supergraphs.")
+
+        args.SG_name = args.SG_name[0]
 
         # We need to detect here if we are in the amplitude-mock-up situation with frozen external momenta.
         frozen_momenta = None
@@ -3479,7 +3538,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if args.n_increase < 0:
             args.n_increase = self.hyperparameters['Integrator']['n_increase']
         if args.batch_size < 0:
-            args.batch_size = self.hyperparameters['Integrator']['n_vec']
+            if args.integrator!='havana':
+                args.batch_size = self.hyperparameters['Integrator']['n_vec']
+            else:
+                args.batch_size = int(1e6)
 
         if args.seed > 0:
             random.seed(args.seed)
@@ -3521,6 +3583,39 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                  'n_points_refine' : args.n_points_refine,
                  'batch_size' : args.batch_size,
             }
+        elif args.integrator == 'havana':
+            selected_integrator = havana.HavanaIntegrator
+            integrator_options = {
+                 'cross_section_set'   : self.cross_section_set,
+                 'all_supergraphs'     : self.all_supergraphs,
+                 'run_workspace'       : pjoin(self.dir_path, self._run_workspace_folder),
+                 'accuracy_target'     : args.target_accuracy,
+                 'n_iterations'        : args.n_iterations,
+                 'n_start'             : args.n_start,
+                 'n_increase'          : args.n_increase,
+                 'n_max'               : args.n_max,
+                 'verbosity'           : args.verbosity+2,
+                 'seed'                : args.seed,
+                 'n_workers'           : args.n_workers,
+                 'batch_size'          : args.batch_size,
+                 'cluster_type'        : args.cluster_type, #'dask_local' or 'dask_condor'
+                 'dask_local_options'  : {'threads_per_worker' : args.n_dask_threads_per_worker},
+                 'dask_condor_options' : {'job_flavour' : args.condor_job_flavour},
+                 'target_result'       : args.target_result,
+                 'MC_over_SGs'         : args.MC_over_SGs,
+                 'MC_over_channels'    : args.MC_over_channels,
+                 'selected_SGs'        : selected_SGs,
+                 'stream_monitor'      : args.stream_monitor,
+                 'havana_optimize_on_variance' : args.havana_optimize_on_variance,
+                 'havana_max_prob_ratio' : args.havana_max_prob_ratio,
+                 'phase'               : args.havana_phase, 
+                 'show_SG_grid'        : args.show_sg_grid,
+                 'show_channel_grid'   : args.show_channel_grid,
+                 'dump_havana_grids'   : args.dump_havana_grids,
+                 'show_grids_sorted_by_variance' : args.show_grids_sorted_by_variance,
+                 'fresh_integration'   : args.fresh
+            }
+
         elif args.integrator == 'inspect':
             # Inspection requires no integrator
             selected_integrator = None
@@ -3561,7 +3656,42 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 args.h_function, my_integrator.tot_func_evals, result[0], result[1]))
             logger.info('')
             return
+        
+        if args.integrator=='havana':
+
+            self.hyperparameters.set_parameter('General.multi_channeling',True)
+            self.hyperparameters.export_to(pjoin(self.dir_path, self._run_workspace_folder, sampler.DaskHavanaALIntegrand._dask_run_hyperparameters_filename ))
+
+            n_dimensions_per_SG_id = {}
+            E_cm = None
+            for i_SG, SG_info in enumerate(self.cross_section_set['topologies']):
+                if selected_SGs is None or SG_info['name'] in selected_SGs:
+                    n_dimensions_per_SG_id[i_SG] = self.all_supergraphs[SG_info['name']]['topo']['n_loops']*3
+                    if E_cm is None:
+                        E_cm = self.all_supergraphs[SG_info['name']].get_E_cm(self.hyperparameters)
+                    if frozen_momenta is not None:
+                        n_dimensions_per_SG_id[i_SG] -= 3*len(frozen_momenta['out'])
+            n_integration_dimensions = max(n_dimensions_per_SG_id.values())
+
+            run_workspace = pjoin(self.dir_path, self._run_workspace_folder)
+            rust_input_folder = pjoin(self.dir_path, self._rust_inputs_folder)
+            alpha_loop_path = os.path.abspath(pjoin(plugin_path,os.path.pardir))
+            all_integrands = [
+                sampler.DaskHavanaALIntegrand(
+                    n_integration_dimensions, 
+                    alpha_loop_path, 
+                    run_workspace, 
+                    rust_input_folder, 
+                    self.cross_section_set_file_name, 
+                    E_cm, 
+                    n_dimensions_per_SG_id=n_dimensions_per_SG_id, 
+                    frozen_momenta=frozen_momenta
+                ),
+            ]
+            my_integrand = all_integrands[0]
+
         else:
+
             SG_name = args.SG_name
             if SG_name not in self.all_supergraphs:
                 raise alphaLoopInvalidRunCmd("Cannot find SG named in '%s' in the collection loaded."%SG_name)
@@ -3732,63 +3862,63 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                 # return
 
-            my_integrator = selected_integrator(my_integrand, **integrator_options)
+        my_integrator = selected_integrator(my_integrand, **integrator_options)
 
-            result = my_integrator.integrate()
+        result = my_integrator.integrate()
 
-            if args.integrator == 'vegas3' and my_integrator.full_result is not None:
-                logger.info('')
-                logger.info('Summary of the integration:\n%s'%str(my_integrator.full_result.summary()))
-                logger.info('')
-                logger.info("Complete integration result for all integrand components:")
-                max_key_length = max(len(k) for k in my_integrator.full_result.keys())
-                for k in sorted(my_integrator.full_result.keys()):
-                    logger.info(('%-{}s : %s%.6g +/- %.4g (%.2g%%)'.format(max_key_length))%(k, 
-                        ' ' if my_integrator.full_result[k].mean>=0. else '',
-                        my_integrator.full_result[k].mean, my_integrator.full_result[k].sdev,
-                        abs(my_integrator.full_result[k].sdev/my_integrator.full_result[k].mean)*100. if my_integrator.full_result[k].mean!=0. else 0.
-                    ))
-
-            # RAvg.mean : mean 
-            # RAvg.sdev : standard dev.
-            # RAvg.chi2 : Chi^2 of the weighted average
-            # RAvg.dof  : number of degreeas of freedom
-            # RAvg.Q    : p-value of the weighted average 
-            # RAvg.itn_results : list of the integral estimates for each iteration
-            # RAvg.summary() : summary of the integration
-
+        if args.integrator == 'vegas3' and my_integrator.full_result is not None:
             logger.info('')
-            if my_integrand.n_evals_failed.value > 0:
-                logger.info("Number of failed evaluations: %d (%.6g%%)"%(
-                    my_integrand.n_evals_failed.value, (my_integrand.n_evals_failed.value/my_integrand.n_evals.value)*100.
-                ))
-            logger.info("Zero weights fraction: %.6g%%"%(
-                float((my_integrand.n_zero_evals.value / my_integrand.n_evals.value))*100.
-            ))
-            if my_integrand.max_eval_positive.value != 0.0:
-                logger.info("Maximum posivite weight found: %.6g (%.1e x central value) for xs=[%s]"%(
-                    my_integrand.max_eval_positive.value, 
-                    abs(my_integrand.max_eval_positive.value/result[0]),
-                    ' '.join('%.16f'%x for x in my_integrand.max_eval_positive_xs) 
-                ))
-            if my_integrand.max_eval_negative.value != 0.0:
-                logger.info("Maximum negative weight found: %.6g (%.1e x central value) for xs=[%s]"%(
-                    my_integrand.max_eval_negative.value, 
-                    abs(my_integrand.max_eval_negative.value/result[0]),
-                    ' '.join('%.16f'%x for x in my_integrand.max_eval_negative_xs) 
-                ))
-            logger.info("Result of the cross-section for %s%s%s of %s%s%s with sampler %s%s%s and integrator %s%s%s, using %s%d%s function calls:\n%s %.6g +/- %.4g%s (%.2g%%)"%(
-                utils.bcolors.GREEN, SG_name, utils.bcolors.ENDC,
-                utils.bcolors.GREEN, os.path.basename(self.dir_path), utils.bcolors.ENDC,
-                utils.bcolors.BLUE, args.sampling, utils.bcolors.ENDC,
-                utils.bcolors.BLUE, args.integrator, utils.bcolors.ENDC,
-                utils.bcolors.GREEN, my_integrator.tot_func_evals, utils.bcolors.ENDC,
-                utils.bcolors.GREEN, result[0], result[1], utils.bcolors.ENDC,
-                abs(result[1]/result[0])*100. if result[0]!=0. else 0.
-            ))
+            logger.info('Summary of the integration:\n%s'%str(my_integrator.full_result.summary()))
             logger.info('')
+            logger.info("Complete integration result for all integrand components:")
+            max_key_length = max(len(k) for k in my_integrator.full_result.keys())
+            for k in sorted(my_integrator.full_result.keys()):
+                logger.info(('%-{}s : %s%.6g +/- %.4g (%.2g%%)'.format(max_key_length))%(k, 
+                    ' ' if my_integrator.full_result[k].mean>=0. else '',
+                    my_integrator.full_result[k].mean, my_integrator.full_result[k].sdev,
+                    abs(my_integrator.full_result[k].sdev/my_integrator.full_result[k].mean)*100. if my_integrator.full_result[k].mean!=0. else 0.
+                ))
 
-            return
+        # RAvg.mean : mean 
+        # RAvg.sdev : standard dev.
+        # RAvg.chi2 : Chi^2 of the weighted average
+        # RAvg.dof  : number of degreeas of freedom
+        # RAvg.Q    : p-value of the weighted average 
+        # RAvg.itn_results : list of the integral estimates for each iteration
+        # RAvg.summary() : summary of the integration
+
+        logger.info('')
+        if my_integrand.n_evals_failed.value > 0:
+            logger.info("Number of failed evaluations: %d (%.6g%%)"%(
+                my_integrand.n_evals_failed.value, (my_integrand.n_evals_failed.value/my_integrand.n_evals.value)*100.
+            ))
+        logger.info("Zero weights fraction: %.6g%%"%(
+            float((my_integrand.n_zero_evals.value / my_integrand.n_evals.value))*100.
+        ))
+        if my_integrand.max_eval_positive.value != 0.0:
+            logger.info("Maximum posivite weight found: %.6g (%.1e x central value) for xs=[%s]"%(
+                my_integrand.max_eval_positive.value, 
+                abs(my_integrand.max_eval_positive.value/result[0]),
+                ' '.join('%.16f'%x for x in my_integrand.max_eval_positive_xs) 
+            ))
+        if my_integrand.max_eval_negative.value != 0.0:
+            logger.info("Maximum negative weight found: %.6g (%.1e x central value) for xs=[%s]"%(
+                my_integrand.max_eval_negative.value, 
+                abs(my_integrand.max_eval_negative.value/result[0]),
+                ' '.join('%.16f'%x for x in my_integrand.max_eval_negative_xs) 
+            ))
+        logger.info("Result of the cross-section for %s%s%s of %s%s%s with sampler %s%s%s and integrator %s%s%s, using %s%d%s function calls:\n%s %.6g +/- %.4g%s (%.2g%%)"%(
+            utils.bcolors.GREEN, SG_name, utils.bcolors.ENDC,
+            utils.bcolors.GREEN, os.path.basename(self.dir_path), utils.bcolors.ENDC,
+            utils.bcolors.BLUE, args.sampling, utils.bcolors.ENDC,
+            utils.bcolors.BLUE, args.integrator, utils.bcolors.ENDC,
+            utils.bcolors.GREEN, my_integrator.tot_func_evals, utils.bcolors.ENDC,
+            utils.bcolors.GREEN, result[0], result[1], utils.bcolors.ENDC,
+            abs(result[1]/result[0])*100. if result[0]!=0. else 0.
+        ))
+        logger.info('')
+
+        return
 
     #### EXPERIMENT COMMAND
     experiment_parser = ArgumentParser(prog='experiment')

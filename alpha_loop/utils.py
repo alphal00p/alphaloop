@@ -25,6 +25,73 @@ class bcolors:
     RED = '\033[91m'
     END = ENDC
 
+# An overwritable and streamable Canvas
+# Example usage:
+#
+#    start_canvas = "A #ln0\nA #ln1\nA #ln2\nA #ln3\nA #ln4\nA #ln5\nA #ln6\nA #ln7\nA #ln8\nA #ln9"
+#    canvas = Canvas(start_canvas, stream=True, overwrite=False)
+#    i = 0
+#    canvas_length = start_canvas.count('\n')+1
+#    while True:
+#        time.sleep(0.1)
+#        canvas.print('\n'.join("A" for _ in range(canvas_length)),0)
+#        canvas.print('\n'.join("B\nB\nB".split('\n')[-(canvas_length-i%canvas_length):]),i%canvas_length)
+#        i+=1
+#        if i==100:
+#            break
+
+class Canvas(object):
+
+    cursor_up = lambda lines: '\x1b[{0}A'.format(lines)
+    cursor_down = lambda lines: '\x1b[{0}B'.format(lines)
+
+    def __init__(self, canvas_length, stream=True, overwrite=True, print_func=None):
+        if isinstance(canvas_length, int):
+            self.current_state = ['',]*canvas_length
+        else:
+            self.current_state = canvas_length.split('\n')
+
+        print('\n'.join(self.current_state)) 
+        self.canvas_length = len(self.current_state)
+        self.stream = stream
+        self.overwrite = overwrite
+
+        if print_func is None:
+            self.print_func = (lambda msg: print(msg))
+        else:
+            self.print_func = print_func
+
+    def print(self, msg, line_number=0, offset=0):
+        
+        msg_n_lines = msg.count('\n')
+        for i_line, line in enumerate(msg.split('\n')):
+            if i_line+line_number >= self.canvas_length:
+                raise Exception("Number of lines in message exceeds canvas length of %d."%self.canvas_length)
+            if self.overwrite:
+                prev_length = len(self.current_state[i_line+line_number])
+                self.current_state[i_line+line_number] = ' '*offset+line
+                self.current_state[i_line+line_number] += ' '*max(prev_length-len(self.current_state[i_line+line_number]),0)
+            else:
+                prefix = ''.join(list(self.current_state[line_number+i_line])[:offset])
+                prefix += ' '*(len(prefix)-offset)
+                self.current_state[i_line+line_number] = prefix+line+''.join(list(self.current_state[line_number+i_line])[offset+len(line):])
+
+        if self.stream:
+            print(Canvas.cursor_up(self.canvas_length-line_number),end='')
+            print('\n'.join(self.current_state[line_number:line_number+msg_n_lines+1]),end='')
+            print(Canvas.cursor_down(self.canvas_length-line_number - msg_n_lines ),end='\r')
+        else:
+            self.print_func('\n'.join(self.current_state))
+
+    def clear(self):
+        self.current_state = ['',]*self.canvas_length
+        self.print('\n'.join(self.current_state),0)
+
+    def refresh(self):
+        if self.stream:
+            print(Canvas.cursor_up(self.canvas_length),end='')        
+            print('\n'.join(self.current_state),0)
+
 def compute_dod(sequence, threshold=0.01):
     """ from a sequence of results in the format (scaling, complex(result)), determine the asymptotic scaling."""
 

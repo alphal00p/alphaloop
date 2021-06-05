@@ -382,25 +382,104 @@ class TestHFuncIntegrand(integrands.VirtualIntegrand):
 
         return final_res
 
-
 class DaskHavanaALIntegrand(integrands.VirtualIntegrand):
 
-    def __init__(self, SG_names, run_workspace, rust_input_folder, phase='real', frozen_momenta=None):
+    _dask_run_hyperparameters_filename = 'dask_run_hyperparameters.yaml'
+
+    def __init__(self, n_integration_dimensions, alpha_loop_path, run_workspace, rust_input_folder, 
+                        cross_section_set_file_name, E_cm, n_dimensions_per_SG_id=None, frozen_momenta=None):
 
         self.constructor_arguments = {
-            'SG_names' : SG_names,
+            'alpha_loop_path' : alpha_loop_path,
             'run_workspace' : run_workspace,
+            'cross_section_set_file_name' : cross_section_set_file_name,
             'rust_input_folder' : rust_input_folder,
-            'phase' : phase,
-            'frozen_momenta' : frozen_momenta
+            'n_integration_dimensions' : n_integration_dimensions,
+            'n_dimensions_per_SG_id' : n_dimensions_per_SG_id,
+            'frozen_momenta' : frozen_momenta,
+            'E_cm' : E_cm
         }
-        self.SG_names = SG_names
+        self.alpha_loop_path = alpha_loop_path
         self.run_workspace = run_workspace
         self.rust_input_folder = rust_input_folder
-        self.phase = phase
+        self.cross_section_set_file_name = cross_section_set_file_name
+        self.frozen_momenta = frozen_momenta
+        self.E_cm = E_cm
+
+        # This dimensions specification is not really used for now, only the length of the set of 
+        # continuous and discrete dimensions matters for now.
+        self.dimensions = integrands.DimensionList([ 
+                            integrands.ContinuousDimension('x_%d'%i_dim,lower_bound=0.0, upper_bound=1.0) 
+                            for i_dim in range(1,n_integration_dimensions+1)
+                        ])
+        self.dimensions.append(integrands.DiscreteDimension('SG',values=[1.,]))
+        self.dimensions.append(integrands.DiscreteDimension('channel',values=[1.,]))
+
+        self.n_dimensions_per_SG_id = n_dimensions_per_SG_id
+
         self.frozen_momenta = frozen_momenta
 
+        super(DaskHavanaALIntegrand, self).__init__( self.dimensions )
+
         # Now start a rust worker
+        try:
+            if self.alpha_loop_path not in sys.path:
+                sys.path.insert(0, self.alpha_loop_path)
+
+            # Import the rust bindings
+            from ltd import CrossSection
+        except ImportError:
+            raise SamplerError("Could not import the rust back-end 'ltd' module in '%s'. Compile it first with:\n"%self.alpha_loop_path+
+                " ./make_lib\nfrom within the pyNLoop directory.")
+
+        #import yaml
+        #from yaml import Loader, Dumper
+        #with open(pjoin(self.rust_input_folder, cross_section_set_file_name),'r') as f:
+        #    self.cross_section_set = yaml.load(f, Loader=Loader)
+
+        #os.environ['MG_NUMERATOR_PATH'] = proc_path if proc_path.endswith('/') else '%s/'%proc_path
+        if not os.path.isfile(pjoin(self.run_workspace, self._dask_run_hyperparameters_filename)):
+            raise SamplerError("Could not find hyperparameter file at %s."%pjoin(self.run_workspace, self._dask_run_hyperparameters_filename))
+
+        try:
+            self.rust_worker = CrossSection(
+                pjoin(self.rust_input_folder, cross_section_set_file_name),
+                pjoin(self.run_workspace, self._dask_run_hyperparameters_filename),
+                cross_section_set = True
+            )
+        except:
+            raise SamplerError("Failed to load the rust backend API in the Dask integrand.")
+
+    def __call__(self, samples_batch, SG_id_per_sample = None, channel_id_per_sample = None):
+
+        # Pad xs with frozen momenta if necessary
+        # TODO either do this internally in Rust or at least compute the quantity below as a single batch to avoid Python call overhead
+        if self.frozen_momenta is not None:
+            overall_inv_jac = [1.,]*len(samples_batch)
+            for i_sample, sample in enumerate(samples_batch):
+                n_loop_vs = len(sample)//3
+                for i_v, v in enumerate([v[1:] for v in self.frozen_momenta['out']]):
+                    xx, xy, xz, inv_jac = self.rust_worker.inv_parameterize(list(v), n_loop_vs+i_v, self.E_cm**2)
+                    sample.extend([xx, xy, xz])
+                    overall_inv_jac[i_sample] *= inv_jac*(2.0*math.pi)**4
+
+        if self.n_dimensions_per_SG_id is not None and SG_id_per_sample is not None:
+            for i_sample in range(len(samples_batch)):
+                samples_batch[i_sample] = samples_batch[i_sample][:self.n_dimensions_per_SG_id[SG_id_per_sample[i_sample]]]
+
+        if SG_id_per_sample is None and channel_id_per_sample is None:
+            all_res = self.rust_worker.evaluate_integrand_batch(samples_batch)
+        elif (SG_id_per_sample is not None) and channel_id_per_sample is None:
+            all_res = self.rust_worker.evaluate_integrand_batch(samples_batch, sg_ids=SG_id_per_sample)
+        elif (SG_id_per_sample is not None) and (channel_id_per_sample is not None):
+            all_res = self.rust_worker.evaluate_integrand_batch(samples_batch, sg_ids=SG_id_per_sample, channel_ids=channel_id_per_sample )
+        else:
+            raise SamplerError("AlphaLoop integrand cannot sum over supergraphs but evaluate a single specific channel.")
+
+        if self.frozen_momenta is not None:
+            return [complex(*r)*overall_inv_jac[i_r] for i_r, r in enumerate(all_res)]
+        else:
+            return [complex(*r) for r in all_res]
 
     def get_constructor_arguments(self):
         return copy.deepcopy(self.constructor_arguments)
