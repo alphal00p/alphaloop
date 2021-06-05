@@ -303,7 +303,7 @@ class HavanaMockUp(object):
                     res.append('Distribution of %d channels for SG %s:'%(len(SG_bin['channel_grid']), SG_bin['SG_name']))
                     sorted_channel_bins = sorted([(i_c, b) for i_c, b in enumerate(SG_bin['channel_grid'])], key=lambda b: b[1]['error_estimate'] if sort_by_variance else abs(b[1]['integral_estimate']), reverse=True)
                     for bins_chunk in [sorted_channel_bins[i_chunk:i_chunk+5] for i_chunk in range(0,len(sorted_channel_bins),5)]:
-                        res.append('  '+' | '.join( '%-40s'%(
+                        res.append('  '+' | '.join( '%-30s'%(
                             'C%d(I=%.5g(%.2g%%),p=%.2f%%)'%(
                                 i_c, bin['integral_estimate'], 
                                 abs(bin['error_estimate']/bin['integral_estimate'])*100. if bin['integral_estimate']!=0. else 0.,
@@ -573,20 +573,14 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         cumulative_processing_time = 0.
         cumulative_IO_time = 0.
         
-        logger.info("Live monitoring of alphaLoop integration results below:\n\n")
-
         while True:
             
             n_remaining_points = current_n_points
 
             n_points_for_this_iteration = 0
 
-            self.update_status(
-                    start_time, n_jobs_total_completed, 0, 0,
-                    n_tot_points, n_points_for_this_iteration, current_n_points, cumulative_IO_time,
-                    cumulative_processing_time, cumulative_job_time, current_iteration)
-
             futures = []
+            logger.info("Preparing samples and submission for iteration #%d"%current_iteration)
             if self._DEBUG: logger.info("Starting submission now...")
             while n_remaining_points > 0:
                 this_n_points = min(n_remaining_points, self.batch_size)
@@ -623,6 +617,8 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                 ))
                 if self._DEBUG: logger.info("Done with job submission.")
                 cumulative_IO_time += time.time()-t0
+
+            logger.info("Now running iteration #%d"%current_iteration)
 
             #print("DONE SUBMITTING")
             n_submitted = len(futures)
@@ -710,7 +706,6 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
             # Keep printout of last step of this iteration.
             self.canvas = None
-            logger.info("Now on iteration #%d"%current_iteration)
 
         return self.havana.get_current_estimate()
 
@@ -724,7 +719,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
         # Update the run stat line and monitoring canvas
         monitoring_report = []
-        monitoring_report.append( '| Jobs: completed = %d (avg %s) and running = %d/%d on %d workers.\n| Total n_pts: %.1fM ( %s ms / pt on one core, %s pts / s overall ). n_pts for this iteration #%d: %.1fM/%.1fM (%.1f%%).'%(
+        monitoring_report.append( '| Jobs: completed = %d (avg %s) and running = %d/%d on %d workers.\n| Total n_pts: %.1fM ( %s ms / pt on one core, %s pts / s overall ). n_pts for this iteration #%d: %.2fM/%.2fM (%.1f%%).'%(
             n_jobs_total_completed, '%.3g min/job'%((cumulative_job_time/n_jobs_total_completed)/60.) if n_jobs_total_completed>0 else 'N/A', n_submitted-n_done, n_submitted, self.n_workers,
             n_tot_points/(1.e6), '%.3g'%((curr_integration_time/n_tot_points)*self.n_workers*1000.) if n_tot_points>0 else 'N/A', 
             ('%.1fK'%(n_tot_points/curr_integration_time/1000.) if n_tot_points>0 else 'N/A'),
