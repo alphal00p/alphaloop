@@ -10,6 +10,7 @@ import multiprocessing
 import socket
 import numpy
 import time
+import pickle
 
 if __name__ == '__main__':
     sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.pardir, os.path.pardir))
@@ -35,7 +36,27 @@ class NoAliasDumper(yaml.SafeDumper):
     def ignore_aliases(self, data):
         return True
 
+import datetime as dt
+class MyFormatter(logging.Formatter):
+    converter=dt.datetime.fromtimestamp
+    def formatTime(self, record, datefmt=None):
+        ct = self.converter(record.created)
+        if datefmt:
+            s = ct.strftime(datefmt)
+        else:
+            t = ct.strftime("%Y-%m-%d %H:%M:%S")
+            s = "%s,%03d" % (t, record.msecs)
+        return s
+formatter = MyFormatter(fmt='%(name)-15s {}%(asctime)s{} %(message)s'.format(utils.bcolors.BLUE,utils.bcolors.END),datefmt='%Y-%m-%d,%H:%M:%S.%f')
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(formatter)
+
 logger = logging.getLogger('madgraph.havana')
+logger.handlers.clear()
+logger.addHandler(console_handler)
+logger.propagate = False
+
 pjoin = os.path.join
 
 class HavanaIntegratorError(integrators.IntegratorError):
@@ -331,6 +352,13 @@ def HavanaIntegrandWrapper(
     ):
 
     start_time = time.time()
+    
+    IO_pickle_out_name = None
+    if isinstance(samples_batch, str):
+        IO_pickle_out_name = os.path.join(os.path.dirname(samples_batch),'dask_output_job_%d.pkl'%job_id )
+        sample_pickle_path = samples_batch
+        samples_batch = pickle.load( open( sample_pickle_path, 'rb' ) )
+        os.remove(sample_pickle_path)
 
     from alpha_loop.integrator.sampler import DaskHavanaALIntegrand
 
@@ -363,12 +391,18 @@ def HavanaIntegrandWrapper(
             all_res[i_res][0+i_integrand*2] = res.real
             all_res[i_res][1+i_integrand*2] = res.imag
 
+    if IO_pickle_out_name is not None:
+        with open(IO_pickle_out_name, 'wb') as f:
+            pickle.dump( all_res, f )
+        all_res = IO_pickle_out_name
+
     return (job_id, time.time()-start_time, all_res)
 
 class HavanaIntegrator(integrators.VirtualIntegrator):
     """ Steering of the havana integrator """
     
     _SUPPORTED_CLUSTER_ARCHITECTURES = [ 'dask_local', 'dask_condor' ]
+    _DEBUG = False
 
     def __init__(self, integrands,
                  cross_section_set=None,
@@ -399,6 +433,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                  show_grids_sorted_by_variance = False,
                  dump_havana_grids = True,
                  fresh_integration = False,
+                 pickle_IO = False,
                  **opts):
 
         """ Initialize the simplest MC integrator."""
@@ -407,7 +442,10 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.n_iterations = n_iterations
         self.cross_section_set = cross_section_set
         self.all_supergraphs = all_supergraphs
-        self.stream_monitor = stream_monitor
+        if not self._DEBUG:
+            self.stream_monitor = stream_monitor
+        else:
+            self.stream_monitor = False
         self.phase = phase
         self.run_workspace = run_workspace
         self.havana_optimize_on_variance = havana_optimize_on_variance
@@ -417,6 +455,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.show_grids_sorted_by_variance = show_grids_sorted_by_variance
         self.dump_havana_grids = dump_havana_grids
         self.fresh_integration = fresh_integration
+        self.pickle_IO = pickle_IO
 
         self.n_start = n_start
         self.n_max = n_max
@@ -542,25 +581,37 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
             n_points_for_this_iteration = 0
 
-            curr_integration_time = time.time()-start_time
             self.update_status(
-                    curr_integration_time, n_jobs_total_completed, 0, 0,
+                    start_time, n_jobs_total_completed, 0, 0,
                     n_tot_points, n_points_for_this_iteration, current_n_points, cumulative_IO_time,
                     cumulative_processing_time, cumulative_job_time, current_iteration)
 
             futures = []
-            print("SUBMITTING NOW")
-            t0 = time.time()
+            if self._DEBUG: logger.info("Starting submission now...")
             while n_remaining_points > 0:
                 this_n_points = min(n_remaining_points, self.batch_size)
-                n_remaining_points -= this_n_points                
-                this_sample = self.havana.sample(this_n_points)
-                # Scattering data is not really necessary as I believe this is the right thing to do only for data common to multiple jobs. 
-                # But I don't like the warning when not doing so, so I'll put it.
-                this_scattered_sample = client.scatter(this_sample)
-
+                n_remaining_points -= this_n_points   
+                t2 = time.time()           
                 job_ID += 1
-                print(job_ID)
+                if self._DEBUG: logger.info("Generating sample for job #%d..."%job_ID)
+                this_sample = self.havana.sample(this_n_points)
+                if self._DEBUG: logger.info("Done with sample generation.")
+                cumulative_processing_time = time.time() - t2
+    
+                t0 = time.time()
+                if self.pickle_IO:
+                    if self._DEBUG: logger.info("Dumping input of job %d to pickle..."%job_ID)
+                    IO_path = pjoin(self.run_workspace,'dask_input_job_%d.pkl'%job_ID)
+                    with open(IO_path, 'wb') as f:
+                        pickle.dump( this_sample, f )
+                    if self._DEBUG: logger.info("Done with pickle dump.")
+                    this_scattered_sample = str(IO_path)
+                else:
+                    # Scattering data is not really necessary as I believe this is the right thing to do only for data common to multiple jobs. 
+                    # But I don't like the warning when not doing so, so I'll put it.
+                    this_scattered_sample = client.scatter(this_sample)
+
+                if self._DEBUG: logger.info("Submitting job %d."%job_ID)
                 futures.append(client.submit(HavanaIntegrandWrapper, 
                     job_ID,
                     this_scattered_sample,
@@ -568,13 +619,15 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                     self.MC_over_SGs,
                     self.MC_over_channels
                 ))
-            cumulative_IO_time += time.time()-t0
-            print("DONE SUBMITTING")
+                if self._DEBUG: logger.info("Done with job submission.")
+                cumulative_IO_time += time.time()-t0
+
+            #print("DONE SUBMITTING")
             n_submitted = len(futures)
             n_done = 0
 
             self.update_status(
-                    curr_integration_time, n_jobs_total_completed, n_submitted, 0,
+                    start_time, n_jobs_total_completed, n_submitted, 0,
                     n_tot_points, n_points_for_this_iteration, current_n_points, cumulative_IO_time,
                     cumulative_processing_time, cumulative_job_time, current_iteration)
 
@@ -583,16 +636,28 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                 for completed_future in as_completed(futures):
                     
                     t1 = time.time()
+                    if self._DEBUG: logger.info("Now receiving result from a job...")
                     job_ID, run_time, results = completed_future.result()
+                    if self._DEBUG: logger.info("Finished receiving result job %d..."%job_ID)
+                    if self.pickle_IO:
+                        if self._DEBUG: logger.info("Loading pickled results for job %d..."%job_ID)
+                        results_pickle_path = results
+                        results = pickle.load( open( results_pickle_path, 'rb' ) )
+                        os.remove(results_pickle_path)
+                        if self._DEBUG: logger.info("Finished loading pickled results.")
+
                     cumulative_IO_time += time.time()-t1
                     cumulative_job_time += run_time
 
                     t2 = time.time()
                     #logger.debug("Job #%d completed in %.0f s for %d points."%(job_ID, run_time, len(results) ))
+                    if self._DEBUG: logger.info("Accumulating new results from job %d into havana..."%job_ID)
                     self.havana.accumulate_results(results)
                     max_prob_ratio_for_this_iteration = max( self.havana_max_prob_ratio / max( 100. - 10.*(current_iteration-1) , 1.), 3.)
+                    if self._DEBUG: logger.info("Syncing Havana grids with the new results...")
                     self.havana.sync_grids( max_prob_ratio = max_prob_ratio_for_this_iteration)
-                    
+                    if self._DEBUG: logger.info("Done updating Havana grids...")
+
                     for res in results:
                         xs = res[1+len(self.integrands)*2:]
                         for index in range(0,len(self.integrands)):
@@ -607,12 +672,13 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                     n_jobs_total_completed += 1
                     n_tot_points += len(results)
                     n_points_for_this_iteration += len(results)
-                    curr_integration_time = time.time()-start_time
                     
                     self.update_status(
-                        curr_integration_time, n_jobs_total_completed, n_submitted, n_done,
+                        start_time, n_jobs_total_completed, n_submitted, n_done,
                         n_tot_points, n_points_for_this_iteration, current_n_points, cumulative_IO_time,
                         cumulative_processing_time, cumulative_job_time, current_iteration)
+
+                    if self._DEBUG: logger.info("Now waiting for a job to complete...")
 
                 self.havana.update_iteration_count(dump_grids=self.dump_havana_grids)
                 cumulative_processing_time = time.time() - t2
@@ -641,14 +707,16 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         return self.havana.get_current_estimate()
 
     def update_status( self,
-        curr_integration_time, n_jobs_total_completed, n_submitted, n_done,
+        start_time, n_jobs_total_completed, n_submitted, n_done,
         n_tot_points, n_points_for_this_iteration, current_n_points, cumulative_IO_time,
         cumulative_processing_time, cumulative_job_time, current_iteration_number
     ):
 
+        curr_integration_time = time.time()-start_time
+
         # Update the run stat line and monitoring canvas
         monitoring_report = []
-        monitoring_report.append( 'Jobs: completed = %d and submitted = %d/%d on %d workers.\nTotal n_pts: %.1fM ( %s ms / pt on one core, %s pts / s overall ). n_pts for this iteration #%d: %.1fM/%.1fM (%.1f%%).'%(
+        monitoring_report.append( '| Jobs: completed = %d and submitted = %d/%d on %d workers.\n| Total n_pts: %.1fM ( %s ms / pt on one core, %s pts / s overall ). n_pts for this iteration #%d: %.1fM/%.1fM (%.1f%%).'%(
             n_jobs_total_completed, n_submitted-n_done, n_submitted, self.n_workers,
             n_tot_points/(1.e6), '%.3g'%((curr_integration_time/n_tot_points)*self.n_workers*1000.) if n_tot_points>0 else 'N/A', 
             ('%.1fK'%(n_tot_points/curr_integration_time/1000.) if n_tot_points>0 else 'N/A'),
@@ -660,7 +728,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         processing_time = (cumulative_processing_time / wall_time)*100.
         cpu_hours = (cumulative_job_time / 3600.)
         parallelisation_efficiency = (cumulative_job_time / (wall_time*self.n_workers) )*100.
-        monitoring_report.append(' Wall time: %.1f h, IO: %.2f%%, processing: %.2f%%, jobs: %.1f CPU-hours, efficiency: %.2f%%'%(
+        monitoring_report.append('| Wall time: %.1f h, IO: %.2f%%, processing: %.2f%%, jobs: %.1f CPU-hours, efficiency: %.2f%%'%(
             wall_time/3600., IO_time, processing_time, cpu_hours, parallelisation_efficiency
         ))
         monitoring_report.append('')

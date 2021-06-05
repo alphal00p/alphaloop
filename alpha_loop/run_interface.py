@@ -3456,6 +3456,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser.add_argument(
         '-f', '--fresh', action="store_true", dest="fresh", default=False,
         help="Force integration to start fresh, without loading pre-exising grids/results.")
+    integrate_parser.add_argument(
+        '--pickle_IO', action="store_true", dest="pickle_IO", default=False,
+        help="Communicate integration samples to Dask workers using on-disk pickle dumps as opposed to Dask TCP socket.")
+    integrate_parser.add_argument(
+        '--debug_havana', action="store_true", dest="debug_havana", default=False,
+        help="Add verbose printouts about the innerworking of Dask+Havana parallelisation.")
+
     integrate_parser.add_argument('--condor_job_flavour', metavar='condor_job_flavour', type=str, default='tomorrow', 
         choices=tuple(havana.HavanaIntegrator._SUPPORTED_CLUSTER_ARCHITECTURES), help='Specify the job flavour for condor runs (default: %(default)s)')
     integrate_parser.add_argument('--n_dask_threads_per_worker', metavar='n_dask_threads_per_worker', type=int, default=1,
@@ -3585,6 +3592,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             }
         elif args.integrator == 'havana':
             selected_integrator = havana.HavanaIntegrator
+            if args.debug_havana:
+                havana.HavanaIntegrator._DEBUG = True
             integrator_options = {
                  'cross_section_set'   : self.cross_section_set,
                  'all_supergraphs'     : self.all_supergraphs,
@@ -3613,7 +3622,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                  'show_channel_grid'   : args.show_channel_grid,
                  'dump_havana_grids'   : args.dump_havana_grids,
                  'show_grids_sorted_by_variance' : args.show_grids_sorted_by_variance,
-                 'fresh_integration'   : args.fresh
+                 'fresh_integration'   : args.fresh,
+                 'pickle_IO'           : args.pickle_IO
             }
 
         elif args.integrator == 'inspect':
