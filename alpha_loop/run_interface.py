@@ -3462,9 +3462,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser.add_argument(
         '--debug_havana', action="store_true", dest="debug_havana", default=False,
         help="Add verbose printouts about the innerworking of Dask+Havana parallelisation.")
-
     integrate_parser.add_argument('--condor_job_flavour', metavar='condor_job_flavour', type=str, default='tomorrow', 
-        choices=tuple('espresso', 'microcentury', 'longlunch', 'workday', 'tomorrow', 'testmatch', 'nextweek'), help='Specify the job flavour for condor runs (default: %(default)s)')
+        choices=('espresso', 'microcentury', 'longlunch', 'workday', 'tomorrow', 'testmatch', 'nextweek'), help='Specify the job flavour for condor runs (default: %(default)s)')
     integrate_parser.add_argument('--n_dask_threads_per_worker', metavar='n_dask_threads_per_worker', type=int, default=1,
                     help='Number of threads in dask workers (default: %(default)s).')
     def help_integrate(self):
