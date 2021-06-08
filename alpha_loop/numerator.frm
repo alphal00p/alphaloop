@@ -850,12 +850,14 @@ splitfirstarg onshell;
 id onshell(p1?,-p?vector_,E?) = onshell(-p1,p,-E);
 id onshell(-p?vector_,E?) = onshell(p,-E);
 
-#do i=1,40
-    id onshell(k1?,p`i',E?) = replace_(p`i', E*energyselector - ps`i' - k1);
-    id onshell(k1?,c`i',E?) = replace_(c`i', E*energyselector - cs`i' - k1);
-    id onshell(p`i',E?) = replace_(p`i', E*energyselector- ps`i');
-    id onshell(c`i',E?) = replace_(c`i', E*energyselector- cs`i');
-#enddo
+id onshell(p1?,p2?,E?) = onshell(p1+p2,p1,p2,E);
+id onshell(p1?,E?) = onshell(p1,p1,E);
+argument onshell,1;
+    Multiply replace_(<p1,ps1>,...,<p20,ps20>,<c1,cs1>,...,<c20,cs20>);
+endargument;
+
+id onshell(ks?,k?,p?,E?) = replace_(p, E*energyselector - ks - k);
+id onshell(ks?,p?,E?) = replace_(p, E*energyselector - ks);
 
 if (count(onshell, 1));
     Print "Unsubstituted on-shell condition: %t";

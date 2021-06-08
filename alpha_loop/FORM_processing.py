@@ -1576,7 +1576,7 @@ CTable ltdmap(0:{},0:{});
 
                             if uv_subgraph['internal_bubble'] is not None:
                                 # add the subtraction for the bubble
-                                sg_call = '(diag({},{},{})*{}+{}*{})'.format(
+                                sg_call = '(-diag({},{},{})*{}+{}*{})'.format(
                                     diag_set['id'], uv_subgraph['internal_bubble_id'], uv_diag_moms, bubble_treatment, sg_call, '*'.join(subtractions))
                             elif len(subtractions) > 0:
                                 sg_call = '{}*{}'.format(sg_call, '*'.join(subtractions))
