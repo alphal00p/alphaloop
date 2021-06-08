@@ -61,6 +61,7 @@ import alpha_loop.integrator.integrators as integrators
 import alpha_loop.integrator.vegas3_integrator as vegas3_integrator
 import alpha_loop.integrator.havana as havana
 import alpha_loop.integrator.pyCubaIntegrator as pyCubaIntegrator
+from alpha_loop.integrator.worker import ALStandaloneIntegrand
 
 Colours = utils.bcolors
 
@@ -3421,7 +3422,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         help="Disable the printout of numerical warnings during the integration.")
     integrate_parser.add_argument('-nw','--n_workers', metavar='n_workers', type=int, default=psutil.cpu_count(logical=False),
         help='Number of dask workers to spawn for parallelisation.')
-    integrate_parser.add_argument('--cluster_type', metavar='cluster_type', type=str, default='dask_local', 
+    integrate_parser.add_argument('--cluster_type', metavar='cluster_type', type=str, default='local', 
         choices=tuple(havana.HavanaIntegrator._SUPPORTED_CLUSTER_ARCHITECTURES), help='Specify the integrator (default: %(default)s)')
     integrate_parser.add_argument('-tr', '--target_result', metavar='target_result', type=float, default=None,
         help='Specify a target result to compare current estimate against (default: %(default)f).')
@@ -3593,6 +3594,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             selected_integrator = havana.HavanaIntegrator
             if args.debug_havana:
                 havana.HavanaIntegrator._DEBUG = True
+                havana.AL_cluster._FORWARD_WORKER_OUTPUT = True
+
             integrator_options = {
                  'cross_section_set'   : self.cross_section_set,
                  'all_supergraphs'     : self.all_supergraphs,
@@ -3669,7 +3672,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if args.integrator=='havana':
 
             self.hyperparameters.set_parameter('General.multi_channeling',True)
-            self.hyperparameters.export_to(pjoin(self.dir_path, self._run_workspace_folder, sampler.DaskHavanaALIntegrand._dask_run_hyperparameters_filename ))
+            self.hyperparameters.export_to(pjoin(self.dir_path, self._run_workspace_folder, ALStandaloneIntegrand._dask_run_hyperparameters_filename ))
+
+            # Adjust dummy SG name for display purposes
+            SG_name = '+'.join(selected_SGs) if selected_SGs is not None else 'ALL'
 
             n_dimensions_per_SG_id = {}
             E_cm = None
@@ -3687,6 +3693,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             alpha_loop_path = os.path.abspath(pjoin(plugin_path,os.path.pardir))
             all_integrands = [
                 sampler.DaskHavanaALIntegrand(
+                    args.MC_over_SGs,
+                    args.MC_over_channels,
                     n_integration_dimensions, 
                     alpha_loop_path, 
                     run_workspace, 
@@ -3899,10 +3907,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         logger.info('')
         if my_integrand.n_evals_failed.value > 0:
             logger.info("Number of failed evaluations: %d (%.6g%%)"%(
-                my_integrand.n_evals_failed.value, (my_integrand.n_evals_failed.value/my_integrand.n_evals.value)*100.
+                my_integrand.n_evals_failed.value, (my_integrand.n_evals_failed.value/max(my_integrand.n_evals.value,1))*100.
             ))
         logger.info("Zero weights fraction: %.6g%%"%(
-            float((my_integrand.n_zero_evals.value / my_integrand.n_evals.value))*100.
+            float((my_integrand.n_zero_evals.value / max(my_integrand.n_evals.value,1)))*100.
         ))
         if my_integrand.max_eval_positive.value != 0.0:
             logger.info("Maximum posivite weight found: %.6g (%.1e x central value) for xs=[%s]"%(

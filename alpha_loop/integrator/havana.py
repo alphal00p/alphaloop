@@ -1,3 +1,4 @@
+from asyncio.tasks import create_task
 import traceback
 import os
 import logging
@@ -11,15 +12,22 @@ import socket
 import numpy
 import time
 import pickle
+import subprocess
+import glob
+import re
 
-if __name__ == '__main__':
-    sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.pardir, os.path.pardir))
+alphaloop_basedir = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.pardir, os.path.pardir))
+if alphaloop_basedir not in sys.path:
+    sys.path.append(alphaloop_basedir)
+#if __name__ == '__main__':
+#    sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.pardir, os.path.pardir))
 
 import madgraph.various.misc as misc
 import alpha_loop.integrator.integrators as integrators
 import alpha_loop.integrator.integrands as integrands
 import alpha_loop.integrator.functions as functions
 import alpha_loop.utils as utils
+from alpha_loop.integrator.worker import HavanaIntegrandWrapper
 
 # Dask dependencies
 import dask
@@ -29,6 +37,7 @@ from dask import delayed
 from dask.distributed import progress
 from dask.distributed import as_completed
 
+import asyncio
 import yaml
 from yaml import Loader
 
@@ -284,7 +293,7 @@ class HavanaMockUp(object):
     def get_grid_summary(self, sort_by_variance=False, show_channel_grid=True):
 
         if self.discrete_grid is None:
-            return 'N/A'
+            return ''
 
         sorted_bins = sorted([b for b in self.discrete_grid], key=lambda b: b['error_estimate'] if sort_by_variance else abs(b['integral_estimate']), reverse=True)
         res = ['Distribution of %d SGs:'%len(sorted_bins)]
@@ -343,65 +352,159 @@ class HavanaMockUp(object):
 
         return (self.current_integral_estimate[self.reference_result_index], self.current_error_estimate[self.reference_result_index])
 
-def HavanaIntegrandWrapper(
-        job_id,
-        samples_batch,
-        integrands_constructor_args,
-        SG_ids_specified=True,
-        channels_specified=True
-    ):
+    def get_n_evals(self):
+        return self.n_points
 
-    start_time = time.time()
+class AL_cluster(object):
+
+    _SUPPORTED_CLUSTER_ARCHITECTURES = ['local', 'condor']
+    _JOB_CHECK_FREQUENCY = 0.2
+    _FORWARD_WORKER_OUTPUT = False
+
+    def __init__(self, architecture, n_workers, run_workspace, process_results_callback, monitor_callback=None, cluster_options=None):
+
+        self.n_workers = n_workers
+        self.run_workspace = run_workspace
+        self.available_worker_ids = asyncio.Queue()
+        self.workers = { }
+        self.active = True
+
+        self.process_results_callback = process_results_callback
+        self.monitor_callback = monitor_callback
+        self.architecture = architecture
+        self.cluster_options = cluster_options
+        self.run_id = 1
+        self.current_status = None
+        while os.path.exists(pjoin(self.run_workspace,'lock_run_%d'%self.run_id)):
+            self.run_id += 1
+        with open(pjoin(self.run_workspace,'lock_run_%d'%self.run_id),'w') as f:
+            f.write("Run #%d currently underway..."%self.run_id)
+
+        if self.cluster_options is None:
+            self.cluster_options = {}
+
+        if self.architecture not in self._SUPPORTED_CLUSTER_ARCHITECTURES:
+            raise HavanaIntegratorError("Cluster architecture not supported by ALcluster: %s"%architecture)
     
-    IO_pickle_out_name = None
-    if isinstance(samples_batch, str):
-        IO_pickle_out_name = os.path.join(os.path.dirname(samples_batch),'dask_output_job_%d.pkl'%job_id )
-        sample_pickle_path = samples_batch
-        samples_batch = pickle.load( open( sample_pickle_path, 'rb' ) )
-        os.remove(sample_pickle_path)
+    async def update_status(self):
 
-    from alpha_loop.integrator.sampler import DaskHavanaALIntegrand
+        all_statuses = [ v['status'] for v in self.workers.values() ]
+        new_status = {
+            'FREE' : all_statuses.count('FREE'),
+            'PENDING' : all_statuses.count('PENDING'),
+            'RUNNING' : all_statuses.count('RUNNING')
+        }
 
-    integrands = [
-        DaskHavanaALIntegrand(**integrand_constructor_args) for integrand_constructor_args in integrands_constructor_args
-    ]
-    all_res = numpy.ndarray(shape=(len(samples_batch),2*len(integrands)+len(samples_batch[0])), dtype=float)
-    for i_sample, sample in enumerate(samples_batch):
-        all_res[i_sample][2*len(integrands):] = sample
+        if self.current_status is None or new_status!=self.current_status:
+            self.current_status = new_status
+            if self.monitor_callback is not None:
+                await self.monitor_callback(self.current_status)
 
-    if SG_ids_specified and channels_specified:
-        SG_id_per_sample = [int(s[1]) for s in samples_batch]
-        channel_id_per_sample = [int(s[2]) for s in samples_batch]
-        xs_batch = [list(s[3:]) for s in samples_batch]
-    elif SG_ids_specified and (not channels_specified):
-        SG_id_per_sample = [int(s[1]) for s in samples_batch]
-        channel_id_per_sample = None
-        xs_batch = [list(s[2:]) for s in samples_batch]
-    elif (not SG_ids_specified) and (not channels_specified):
-        SG_id_per_sample = None
-        channel_id_per_sample = None
-        xs_batch = [list(s[1:]) for s in samples_batch]
-    else:
-        raise HavanaIntegratorError("Havana cannot integrate specific integration channels while summing over all supergraphs.")
+    async def send_job(self, worker_id, payload):
 
-    for i_integrand, integrand in enumerate(integrands):
+        input_job_path = pjoin(self.run_workspace, 'run_%d_job_input_worker_%d.pkl'%(self.run_id, worker_id))
+        input_job_path_done = pjoin(self.run_workspace, 'run_%d_job_input_worker_%d.done'%(self.run_id, worker_id))
+        if os.path.exists(input_job_path):
+            raise HavanaIntegratorError("Attempted to send a job to a busy worker, this should never happen.")
 
-        results = integrand(xs_batch, SG_id_per_sample = SG_id_per_sample, channel_id_per_sample = channel_id_per_sample)
-        for i_res, res in enumerate(results):
-            all_res[i_res][0+i_integrand*2] = res.real
-            all_res[i_res][1+i_integrand*2] = res.imag
+        with open(input_job_path,'wb') as f:
+            pickle.dump( payload, f )
+        with open(input_job_path_done,'w') as f:
+            f.write("Marker file for job input dump done.")
 
-    if IO_pickle_out_name is not None:
-        with open(IO_pickle_out_name, 'wb') as f:
-            pickle.dump( all_res, f )
-        all_res = IO_pickle_out_name
+        self.workers[worker_id]['status'] = 'RUNNING'
+        await self.update_status()
 
-    return (job_id, time.time()-start_time, all_res)
+    async def follow_workers(self):
+        while self.active:
+            io_files = [os.path.basename(f) for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_output_worker_*.done'%self.run_id))]
+            output_worker_ids = []
+            for io_file in io_files:
+                output_match = re.match(r'^run_(\d+)_job_output_worker_(?P<worker_id>\d+).done$',io_file)
+                if not output_match:
+                    raise HavanaIntegratorError("Unexpected IO file found: %s"%io_file)
+                output_worker_ids.append(int(output_match.group('worker_id')))
+            
+            for output_worker_id in output_worker_ids:
+                output_path = pjoin(self.run_workspace, 'run_%d_job_output_worker_%d.pkl'%(self.run_id, output_worker_id))
+                output_path_done = pjoin(self.run_workspace, 'run_%d_job_output_worker_%d.done'%(self.run_id, output_worker_id))
+                job_result = pickle.load( open( output_path, 'rb' ) )
+                input_path = pjoin(self.run_workspace, 'run_%d_job_input_worker_%d.pkl'%(self.run_id, output_worker_id))
+                input_path_done = pjoin(self.run_workspace, 'run_%d_job_input_worker_%d.done'%(self.run_id, output_worker_id))
+                if not os.path.exists(input_path):
+                    raise HavanaIntegratorError("Matching input file for worker %d not found."%output_worker_id)
+                os.remove(input_path)
+                os.remove(input_path_done)
+                os.remove(output_path)
+                os.remove(output_path_done)
+                
+                await self.available_worker_ids.put(output_worker_id)
+                self.workers[output_worker_id]['status'] = 'FREE'
+
+                await self.update_status()
+
+                if job_result != 'pong':
+                    asyncio.create_task(self.process_results_callback(job_result))
+
+            await asyncio.sleep(self._JOB_CHECK_FREQUENCY)
+
+    async def deploy(self, wait_for_one_worker=True):
+
+        for worker_id in range(self.n_workers):
+
+            if self.architecture == 'local':
+                self.workers[worker_id] = {
+                    'hook' : subprocess.Popen(
+                        [sys.executable, pjoin(alphaloop_basedir,'alpha_loop','integrator','worker.py'), str(self.run_id), str(worker_id) ],
+                        cwd=self.run_workspace,
+                        stdout=subprocess.STDOUT if self._FORWARD_WORKER_OUTPUT else subprocess.DEVNULL,
+                        stderr=subprocess.STDOUT if self._FORWARD_WORKER_OUTPUT else subprocess.DEVNULL
+                    ),
+                    'status' : 'PENDING'
+                }
+
+            await self.update_status()
+            await self.send_job( worker_id, 'ping')
+        
+        asyncio.create_task(self.follow_workers())
+
+        # Wait for at least one worker to become active
+        if wait_for_one_worker:
+            available_worker_id = await self.available_worker_ids.get()
+            await self.available_worker_ids.put(available_worker_id)
+
+    async def submit_job(self, payload, blocking=False):
+
+        if blocking:
+            available_worker_id = await self.available_worker_ids.get()
+            await self.send_job( available_worker_id, payload)
+        else:
+            asyncio.create_task(self.submit_job(payload, blocking=True))
+
+    def terminate(self):
+        
+        logger.info("Cleaning up cluster run #%d..."%self.run_id)
+        self.active = False
+        if os.path.exists(pjoin(self.run_workspace,'lock_run_%d'%self.run_id)):
+            os.remove(pjoin(self.run_workspace,'lock_run_%d'%self.run_id))
+
+        if self.architecture == 'local':
+            for worker_id, worker in self.workers.items():
+                try:
+                    worker['hook'].kill()
+                except Exception as e:
+                    pass
+
+        io_files = \
+            [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.pkl'%self.run_id))]+\
+            [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.done'%self.run_id))]
+        for io_file in io_files:
+            os.remove(io_file)
 
 class HavanaIntegrator(integrators.VirtualIntegrator):
     """ Steering of the havana integrator """
     
-    _SUPPORTED_CLUSTER_ARCHITECTURES = [ 'dask_local', 'dask_condor' ]
+    _SUPPORTED_CLUSTER_ARCHITECTURES = [ 'dask_local', 'dask_condor', 'local' ]
     _DEBUG = False
 
     def __init__(self, integrands,
@@ -461,7 +564,12 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.n_max = n_max
         self.n_increase = n_increase
 
+        self.cluster_status_summary = None
+
         logger.setLevel(verbosity)
+
+        # Only useful later in run_interface for final report
+        self.tot_func_evals = 0
 
         if n_workers is None:
             self.n_workers = multiprocessing.cpu_count()
@@ -666,8 +774,9 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                             else:
                                 wgt = res[1+index*2]
                             havana_jacobian = res[len(self.integrands)*2]
-                            self.integrands[index].update_evaluation_statistics(xs, wgt*havana_jacobian)
-                    
+                            self.integrands[index].update_evaluation_statistics(xs, wgt*havana_jacobian)                
+                    cumulative_processing_time = time.time() - t2
+
                     n_done += 1
                     n_jobs_total_completed += 1
                     n_tot_points += len(results)
@@ -680,6 +789,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
                     if self._DEBUG: logger.info("Now waiting for a job to complete...")
 
+                t2 = time.time()
                 self.havana.update_iteration_count(dump_grids=self.dump_havana_grids)
                 cumulative_processing_time = time.time() - t2
 
@@ -707,21 +817,26 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
             # Keep printout of last step of this iteration.
             self.canvas = None
 
+        self.tot_func_evals = self.havana.get_n_evals()
         return self.havana.get_current_estimate()
 
     def update_status( self,
         start_time, n_jobs_total_completed, n_submitted, n_done,
         n_tot_points, n_points_for_this_iteration, current_n_points, cumulative_IO_time,
-        cumulative_processing_time, cumulative_job_time, current_iteration_number
+        cumulative_processing_time, cumulative_job_time, current_iteration_number,
+        n_jobs_for_this_iteration=None
     ):
 
         curr_integration_time = time.time()-start_time
 
         # Update the run stat line and monitoring canvas
         monitoring_report = []
-        monitoring_report.append( '| Jobs: completed = %d (avg %s) and running = %d/%d on %d workers.\n| Total n_pts: %.1fM ( %s ms / pt on one core, %s pts / s overall ). n_pts for this iteration #%d: %.2fM/%.2fM (%.1f%%).'%(
-            n_jobs_total_completed, '%.3g min/job'%((cumulative_job_time/n_jobs_total_completed)/60.) if n_jobs_total_completed>0 else 'N/A', n_submitted-n_done, n_submitted, self.n_workers,
-            n_tot_points/(1.e6), '%.3g'%((curr_integration_time/n_tot_points)*self.n_workers*1000.) if n_tot_points>0 else 'N/A', 
+        if self.cluster_status_summary is not None:
+            monitoring_report.append( '\n'.join('| %s'%line for line in self.cluster_status_summary.split('\n')) )
+
+        monitoring_report.append( '| Jobs completed: overall = %d (avg %s), and for this iteration = %d/%d/%d on %d workers.\n| Total n_pts: %.1fM ( %s ms / pt on one core, %s pts / s overall ). n_pts for this iteration #%d: %.2fM/%.2fM (%.1f%%).'%(
+            n_jobs_total_completed, '%.3g min/job'%((cumulative_job_time/n_jobs_total_completed)/60.) if n_jobs_total_completed>0 else 'N/A', n_done, n_submitted, n_jobs_for_this_iteration if n_jobs_for_this_iteration is not None else n_submitted,
+            self.n_workers, n_tot_points/(1.e6), '%.3g'%((curr_integration_time/n_tot_points)*self.n_workers*1000.) if n_tot_points>0 else 'N/A', 
             ('%.1fK'%(n_tot_points/curr_integration_time/1000.) if n_tot_points>0 else 'N/A'),
             current_iteration_number,
             n_points_for_this_iteration/(1.e6), current_n_points/(1.e6), (float(n_points_for_this_iteration)/current_n_points)*100.
@@ -738,10 +853,12 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         monitoring_report.append( self.havana.get_summary() )
 
         if self.show_SG_grid:
-            monitoring_report.append( self.havana.get_grid_summary( 
+            grid_summary = self.havana.get_grid_summary( 
                 sort_by_variance=self.show_grids_sorted_by_variance, 
                 show_channel_grid= (self.MC_over_channels and self.show_channel_grid)
-            ) )
+            )
+            if grid_summary != '':
+                monitoring_report.append( grid_summary )
         monitoring_report.append('')
 
         if self.canvas is None:
@@ -749,6 +866,245 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         else:
             self.canvas.print('\n'.join(monitoring_report))
 
+    async def process_job_result(self, job_result):
+        if self.exit_now:
+            return
+        try:
+            job_ID, run_time, results = job_result
+            if self._DEBUG: logger.info("Processing result of %d samples from job #%d."%(len(results), job_ID))
+
+            self.cumulative_job_time += run_time
+
+            t2 = time.time()
+            if self._DEBUG: logger.info("Accumulating new results from job %d into havana..."%job_ID)
+            self.havana.accumulate_results(results)
+            max_prob_ratio_for_this_iteration = max( self.havana_max_prob_ratio / max( 100. - 10.*(self.current_iteration-1) , 1.), 3.)
+            if self._DEBUG: logger.info("Syncing Havana grids with the new results...")
+            self.havana.sync_grids( max_prob_ratio = max_prob_ratio_for_this_iteration )
+            if self._DEBUG: logger.info("Done updating Havana grids...")
+
+            for res in results:
+                xs = res[1+len(self.integrands)*2:]
+                for index in range(0,len(self.integrands)):
+                    if self.phase=='real':
+                        wgt = res[index*2]
+                    else:
+                        wgt = res[1+index*2]
+                    havana_jacobian = res[len(self.integrands)*2]
+                    self.integrands[index].update_evaluation_statistics(xs, wgt*havana_jacobian)
+            
+            self.cumulative_processing_time = time.time() - t2
+
+            self.n_jobs_awaiting_completion -= 1
+            self.n_points_for_this_iteration += len(results)
+            self.n_tot_points += len(results)
+        except KeyboardInterrupt:
+            self.exit_now = True
+
+    async def process_al_cluster_status_update(self, new_status):
+        
+        self.cluster_status_summary = 'Status of %d workers: %d pending, %d available, %d running.'%(
+            new_status['PENDING']+new_status['FREE']+new_status['RUNNING'],
+            new_status['PENDING'], new_status['FREE'], new_status['RUNNING']
+        )
+
+    def handle_exception(self, loop, context):
+        self.exit_now = True
+        logger.critical("The following exception happened in a coroutine:\n%s\nAborting integration now."%str(context))
+
+    async def async_integrate(self):
+
+        n_dimensions = len(self.integrands[0].dimensions.get_continuous_dimensions())
+        if not all(len(integrand.dimensions.get_continuous_dimensions())==n_dimensions for integrand in self.integrands):
+            raise HavanaIntegratorError("In Havana implementations, all integrands must have the same dimension.")
+
+        if not self.MC_over_SGs:
+            SG_ids = None
+        else:
+            if self.selected_SGs is None:
+                SG_ids = [ (i_SG, SG['name']) for i_SG, SG in enumerate(self.cross_section_set['topologies']) ]
+            else:
+                SG_ids = []
+                for i_SG, SG in enumerate(self.cross_section_set['topologies']):
+                    if SG['name'] in self.selected_SGs:
+                        SG_ids.append( (i_SG, SG['name']) )                    
+
+                if len(SG_ids)!=len(self.selected_SGs) or len(SG_ids)==0:
+                    raise HavanaIntegratorError("Not all specified SG names were found in the cross_section set.")
+
+        if not self.MC_over_channels:
+            n_channels_per_SG = None
+        else:
+            n_channels_per_SG = []
+            for (i_SG, SG_name) in SG_ids:
+                n_channels_per_SG.append(len(self.all_supergraphs[SG_name]['multi_channeling_bases']))
+
+        self.havana = HavanaMockUp(
+            n_dimensions, 
+            SG_ids=SG_ids, 
+            n_channels_per_SG=n_channels_per_SG, 
+            target_result=self.target_result, 
+            seed=self.seed,
+            n_integrands = len(self.integrands),
+            reference_integrand_index = 0,
+            phase = self.phase,
+            grid_file = pjoin(self.run_workspace,'havana_grid.yaml'),
+            optimize_on_variance = self.havana_optimize_on_variance,
+            max_prob_ratio = self.havana_max_prob_ratio,
+            fresh_integration = self.fresh_integration
+        )
+
+        # Now perform the integration
+        
+        logger.info("Staring alphaLoop integration with Havana and cluster '%s', lean back and enjoy..."%self.cluster_type)
+        start_time = time.time()
+
+        self.current_iteration = 1
+        current_n_points = self.n_start
+        current_step = self.n_increase
+        self.n_tot_points = 0
+
+        integrands_constructor_args = [
+            integrand.get_constructor_arguments() for integrand in self.integrands
+        ]
+
+        job_ID = 0
+
+        self.canvas = None
+
+        self.n_jobs_awaiting_completion = 0
+
+        n_jobs_total_completed = 0
+        self.cumulative_job_time = 0.
+        self.cumulative_processing_time = 0.
+        self.cumulative_IO_time = 0.
+        self.exit_now = False
+
+        self.al_cluster = AL_cluster(
+            self.cluster_type, self.n_workers, self.run_workspace, self.process_job_result, 
+            monitor_callback=self.process_al_cluster_status_update, cluster_options=None
+        )
+
+        try:
+            asyncio.get_event_loop().set_exception_handler(self.handle_exception)
+
+            logger.info("Now deploying cluster '%s' and waiting for at least one job to become active..."%self.cluster_type)
+            await self.al_cluster.deploy()
+            logger.info("Cluster '%s' now active."%self.cluster_type)
+            
+            while True:
+
+                n_remaining_points = current_n_points
+
+                n_jobs_for_this_iteration = math.ceil(current_n_points/float(self.batch_size))
+                self.n_points_for_this_iteration = 0
+
+                n_submitted = 0
+                n_done = 0
+                last_n_done = 0
+
+                logger.info("Now running iteration #%d"%self.current_iteration)
+                self.update_status(
+                    start_time, n_jobs_total_completed, n_submitted, n_done,
+                    self.n_tot_points, self.n_points_for_this_iteration, current_n_points, self.cumulative_IO_time,
+                    self.cumulative_processing_time, self.cumulative_job_time, self.current_iteration, n_jobs_for_this_iteration=n_jobs_for_this_iteration)
+
+                show_waiting = False
+                while True:
+                    if self.exit_now:
+                        break
+
+                    timeout = 0.3
+                    # Add a threshold of 5% of workers to insure smooth rollover
+                    if n_remaining_points > 0 and self.n_jobs_awaiting_completion < self.n_workers+max(int(self.n_workers/20.),2):
+
+                        this_n_points = min(n_remaining_points, self.batch_size)
+                        n_remaining_points -= this_n_points   
+                        t2 = time.time()           
+                        job_ID += 1
+                        if self._DEBUG: logger.info("Generating sample for job #%d..."%job_ID)
+                        this_sample = self.havana.sample(this_n_points)
+                        if self._DEBUG: logger.info("Done with sample generation.")
+                        self.cumulative_processing_time = time.time() - t2
+                        t0 = time.time()
+                        if self._DEBUG: logger.info("Submitting job %d."%job_ID)
+                        await self.al_cluster.submit_job(
+                            {
+                                'job_id' : job_ID,
+                                'samples_batch' : this_sample,
+                                'integrands_constructor_args' : integrands_constructor_args,
+                                'SG_ids_specified' : self.MC_over_SGs,
+                                'channels_specified' : self.MC_over_channels
+                            },
+                            blocking=False
+                        )
+                        if self._DEBUG: logger.info("Done with submission of job %d."%job_ID)
+                        self.cumulative_IO_time += time.time()-t0
+
+                        self.n_jobs_awaiting_completion += 1
+                        n_submitted += 1
+                        timeout = 0.01
+                        show_waiting = True
+                        self.update_status(
+                            start_time, n_jobs_total_completed, n_submitted, n_done,
+                            self.n_tot_points, self.n_points_for_this_iteration, current_n_points, self.cumulative_IO_time,
+                            self.cumulative_processing_time, self.cumulative_job_time, self.current_iteration, n_jobs_for_this_iteration=n_jobs_for_this_iteration)
+
+                    else:
+                        if show_waiting:
+                            show_waiting = False
+                            if self._DEBUG: logger.info("Now waiting for jobs to complete and freeing workers...")
+
+
+                    await asyncio.sleep(timeout)
+                    n_done = n_submitted - self.n_jobs_awaiting_completion
+
+                    if last_n_done != n_done:
+                        n_jobs_total_completed += n_done-last_n_done
+                        last_n_done = n_done
+
+                        self.update_status(
+                            start_time, n_jobs_total_completed, n_submitted, n_done,
+                            self.n_tot_points, self.n_points_for_this_iteration, current_n_points, self.cumulative_IO_time,
+                            self.cumulative_processing_time, self.cumulative_job_time, self.current_iteration, n_jobs_for_this_iteration=n_jobs_for_this_iteration)
+
+                    if n_remaining_points == 0 and self.n_jobs_awaiting_completion == 0:
+                        break
+
+                if self.exit_now:
+                    break
+
+                t2 = time.time()
+                self.havana.update_iteration_count(dump_grids=self.dump_havana_grids)
+                cumulative_processing_time = time.time() - t2
+
+                if self.n_iterations is not None and self.current_iteration >= self.n_iterations:
+                    logger.info("Max number of iterations %d reached."%self.n_iterations) 
+                    break               
+
+                if self.n_max is not None and self.n_tot_points >= self.n_max:
+                    logger.info("Max number of sample points %d reached."%self.n_max)
+                    break
+
+                res_int, res_error = self.havana.get_current_estimate()
+                if self.accuracy_target is not None and (res_error/abs(res_int) if res_int!=0. else 0.)<self.accuracy_target:
+                    logger.info("Target accuracy of %.2g reached."%self.accuracy_target)
+                    break
+
+                current_n_points += current_step
+                current_step += self.n_increase
+                self.current_iteration += 1
+
+                # Keep printout of last step of this iteration.
+                self.canvas = None
+
+        except KeyboardInterrupt as e:
+            logger.warning("Aborting Havana integration now.")
+        except Exception as e:
+            logger.critical("Exception '%s' occurred during run. Aborting integration now."%str(e))
+
+        if self.exit_now:
+            logger.warning("Aborting Havana integration now.")
 
     def integrate(self):
         """ Return the final integral and error estimates."""
@@ -773,9 +1129,9 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                         'host': socket.gethostname()
                     },
                     job_extra={
-                        'log'    : 'dask_job_output.log',
-                        'output' : 'dask_job_output.out',
-                        'error'  : 'dask_job_output.err',
+                        'log'    : pjoin(self.run_workspace,'dask_job_output.log'),
+                        'output' : pjoin(self.run_workspace,'dask_job_output.out'),
+                        'error'  : pjoin(self.run_workspace,'dask_job_output.err'),
                         'should_transfer_files'   : 'Yes',
                         'when_to_transfer_output' : 'ON_EXIT',
                         '+JobFlavour' : self.dask_condor_options['job_flavour'],
@@ -786,9 +1142,29 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                 logger.info("Scaling condor cluster to %d workers..."%self.n_workers)
                 cluster.scale(self.n_workers)
                 logger.info("Initialising condor cluster...")
-                logger.debug("Condor submission script:\n%s"%cluster.job_script())
-                client = Client(cluster)
+                if self._DEBUG:
+                    logger.debug("Condor submission script:\n%s"%cluster.job_script())
+                    client = Client(cluster)
+                logger.info("Now waiting for at least one worker in the condor queue to be deployed...")
+                def dummy(x):
+                    return x
+                client.submit(dummy, 'A').result()
+                logger.info("Cluster now ready.")
                 return self.dask_integrate(client)
+        
+        elif self.cluster_type in ['local','condor']:
+
+            self.al_cluster = None
+            try:
+                asyncio.get_event_loop().run_until_complete(self.async_integrate())
+            except KeyboardInterrupt:
+                logger.info("Havana integration aborted by user.")
+
+            if self.al_cluster is not None:
+                self.al_cluster.terminate()
+
+            self.tot_func_evals = self.havana.get_n_evals()
+            return self.havana.get_current_estimate()
 
         else:
             raise HavanaIntegratorError("Cluster architecture %s not supported."%self.cluster_type)
