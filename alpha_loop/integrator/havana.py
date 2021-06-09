@@ -438,7 +438,9 @@ class AL_cluster(object):
                 output_match = re.match(r'^run_(\d+)_job_output_worker_(?P<worker_id>\d+).done$',io_file)
                 if not output_match:
                     raise HavanaIntegratorError("Unexpected IO file found: %s"%io_file)
-                output_worker_ids.append(int(output_match.group('worker_id')))
+                worker_id = int(output_match.group('worker_id'))
+                if os.path.exists(pjoin(self.run_workspace, 'run_%d_job_output_worker_%d.pkl'%(self.run_id,worker_id))):
+                    output_worker_ids.append(worker_id)
             
             for output_worker_id in output_worker_ids:
                 output_path = pjoin(self.run_workspace, 'run_%d_job_output_worker_%d.pkl'%(self.run_id, output_worker_id))
@@ -515,11 +517,16 @@ class AL_cluster(object):
             f.write('\n'.join(
                 '%d, %d'%(i_worker*self.n_cores_per_worker, (i_worker+1)*self.n_cores_per_worker-1) for i_worker in range(self.n_workers)
             ))
+        
+        libscsdir_path = pjoin(alphaloop_basedir,'libraries','scs','out','libscsdir.so')
+        if not os.path.exists(libscsdir_path):
+            raise HavanaIntegratorError("Could not find libscsdir.so at '%s'. Make sure it is present and compiled."%libscsdir_path)
 
         with open(pjoin(self.run_workspace,'run_%d_condor_submission.sub'%self.run_id),'w') as f:
             f.write(
 """executable         = %(python)s
 arguments             = %(worker_script)s %(run_id)d $(worker_id_min) $(worker_id_max) %(workspace)s
+environment           = "LD_PRELOAD=%(libscsdir_path)s"
 output                = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).out
 error                 = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).err
 log                   = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).log
@@ -532,6 +539,7 @@ when_to_transfer_output = ON_EXIT
 queue worker_id_min,worker_id_max from %(workspace)s/run_%(run_id)d_condor_worker_arguments.txt
 """%{
         'python' : sys.executable,
+        'libscsdir_path' : libscsdir_path,
         'run_id' : self.run_id,
         'worker_script' : pjoin(alphaloop_basedir,'alpha_loop','integrator','worker.py'),
         'workspace' : self.run_workspace,
@@ -541,13 +549,13 @@ queue worker_id_min,worker_id_max from %(workspace)s/run_%(run_id)d_condor_worke
     }
             )
 
-        submit_proc = subprocess.Popen(['condor_submit',''], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        submit_proc = subprocess.Popen(['condor_submit',pjoin(self.run_workspace,'run_%d_condor_submission.sub'%self.run_id)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         submit_stdout, submit_stderr = submit_proc.communicate()
         if submit_proc.returncode != 0:
             raise HavanaIntegratorError('Could not successfully submit condor jobs. Error:\n%s'%(submit_stderr.decode('utf-8')))
         else:
             submit_stdout_decoded = submit_stdout.decode('utf-8')
-            matched_stdout = re.match('.*cluster\s(?P<cluster_id>(\d+)).*',submit_stdout_decoded)
+            matched_stdout = re.match(r'(.|\n)*cluster\s(?P<cluster_id>(\d+))(.|\n)*',submit_stdout_decoded)
             if matched_stdout:
                 cluster_id = int(matched_stdout.group('cluster_id'))
                 self.all_worker_hooks.append(cluster_id)
@@ -556,13 +564,14 @@ queue worker_id_min,worker_id_max from %(workspace)s/run_%(run_id)d_condor_worke
                 raise HavanaIntegratorError('Could not interpret response from condor cluster:\n%s'%submit_stdout_decoded)
 
     def condor_kill(self):
-
+        if len(self.all_worker_hooks)==0:
+            return
         try:
             kill_proc = subprocess.Popen(['condor_rm',]+[str(hook) for hook in self.all_worker_hooks], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             kill_stdout, kill_stderr = kill_proc.communicate()
             if kill_proc.returncode != 0:
                 logger.warning('Could not successfully clean condor jobs. Error:\n%s'%(kill_stderr.decode('utf-8')))
-            elif self._DEBUG:
+            else:
                 logger.info('Successfully clean condor jobs:\n%s'%(kill_stdout.decode('utf-8')))
         except Exception as e:
             logger.warning("Failed to clean condor run. Error: %s"%str(e))
@@ -596,7 +605,6 @@ queue worker_id_min,worker_id_max from %(workspace)s/run_%(run_id)d_condor_worke
                 pass
 
         elif self.architecture == 'condor':
-
             if os.path.exists(pjoin(self.run_workspace,'run_%d_condor_logs'%self.run_id)):
                 shutil.rmtree(pjoin(self.run_workspace,'run_%d_condor_logs'%self.run_id))
             

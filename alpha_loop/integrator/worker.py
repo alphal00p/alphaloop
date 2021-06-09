@@ -3,7 +3,8 @@ class WorkerException(Exception):
 
 class ALStandaloneIntegrand(object):
 
-    _dask_run_hyperparameters_filename = 'dask_run_hyperparameters.yaml'
+    #TODO make this path specific to the current run (using the unique run id of the HavanaIntegrator session)
+    _dask_run_hyperparameters_filename = 'cluster_run_hyperparameters.yaml'
 
     def __init__(self, n_integration_dimensions, alpha_loop_path, run_workspace, rust_input_folder, 
                         cross_section_set_file_name, E_cm, n_dimensions_per_SG_id=None, frozen_momenta=None):
@@ -42,9 +43,9 @@ class ALStandaloneIntegrand(object):
                 sys.path.insert(0, self.alpha_loop_path)
             # Import the rust bindings
             from ltd import CrossSection
-        except ImportError:
+        except ImportError as e:
             raise WorkerException("Could not import the rust back-end 'ltd' module in '%s'. Compile it first with:\n"%self.alpha_loop_path+
-                " ./make_lib\nfrom within the pyNLoop directory.")
+                " ./make_lib\nfrom within the alphaLoop directory.")
 
         #os.environ['MG_NUMERATOR_PATH'] = proc_path if proc_path.endswith('/') else '%s/'%proc_path
         if not os.path.isfile(pjoin(self.run_workspace, self._dask_run_hyperparameters_filename)):
