@@ -1170,7 +1170,8 @@ aGraph=%s;
                                     shift_map.append(list(shift) + list(extshift))
                                     unique_energy.append(unique_energies[energy_instr])
                             else:
-                                constants.append(energy_instr)
+                                for _ in range(p.power):
+                                    constants.append(energy_instr)
 
                     max_diag_set_id = max(max_diag_set_id, diag_set['id'])
                     max_diag_id = max(max_diag_id, graph_id)
