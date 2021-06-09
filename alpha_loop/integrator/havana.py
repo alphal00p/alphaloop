@@ -374,7 +374,13 @@ class AL_cluster(object):
         self.process_results_callback = process_results_callback
         self.monitor_callback = monitor_callback
         self.architecture = architecture
-        self.cluster_options = cluster_options
+        self.cluster_options = {
+            'RAM_required' : 1024,
+            'job_flavour'  : 'tomorrow'
+        }
+        if cluster_options is not None:
+            self.cluster_options.update(cluster_options)
+        
         self.run_id = 1
         self.current_status = None
         while os.path.exists(pjoin(self.run_workspace,'lock_run_%d'%self.run_id)):
@@ -382,8 +388,12 @@ class AL_cluster(object):
         with open(pjoin(self.run_workspace,'lock_run_%d'%self.run_id),'w') as f:
             f.write("Run #%d currently underway..."%self.run_id)
 
-        self.work_monitoring_path = pjoin(self.run_workspace,'run_%d_follow_workers'%self.run_id)
-        self.worker_monitoring_file = open(self.work_monitoring_path,'a')
+        if self.architecture == 'local':
+            self.work_monitoring_path = pjoin(self.run_workspace,'run_%d_follow_workers'%self.run_id)
+            self.worker_monitoring_file = open(self.work_monitoring_path,'a')
+        else:
+            self.work_monitoring_path = None
+            self.worker_monitoring_file = None
 
         if self.cluster_options is None:
             self.cluster_options = {}
@@ -455,20 +465,30 @@ class AL_cluster(object):
 
     async def deploy(self, wait_for_one_worker=True):
 
-        for i_worker in range(self.n_workers):
+        if self.architecture == 'local':
 
-            worker_id_min = i_worker*self.n_cores_per_worker
-            worker_id_max = (i_worker+1)*self.n_cores_per_worker-1
+            for i_worker in range(self.n_workers):
 
-            if self.architecture == 'local':
+                worker_id_min = i_worker*self.n_cores_per_worker
+                worker_id_max = (i_worker+1)*self.n_cores_per_worker-1
+
                 cmd = [ sys.executable, pjoin(alphaloop_basedir,'alpha_loop','integrator','worker.py'), 
-                          str(self.run_id), str(worker_id_min), str(worker_id_max), str(self.run_workspace) ]
+                        str(self.run_id), str(worker_id_min), str(worker_id_max), str(self.run_workspace) ]
                 self.all_worker_hooks.append(subprocess.Popen(
                         cmd,
                         cwd=self.run_workspace,
                         stdout=(self.worker_monitoring_file if self._FORWARD_WORKER_OUTPUT else subprocess.DEVNULL),
                         stderr=(self.worker_monitoring_file if self._FORWARD_WORKER_OUTPUT else subprocess.DEVNULL)
                     ))
+                    
+        elif self.architecture == 'condor':
+            
+            self.condor_deploy()
+
+        for i_worker in range(self.n_workers):
+
+            worker_id_min = i_worker*self.n_cores_per_worker
+            worker_id_max = (i_worker+1)*self.n_cores_per_worker-1
 
             for worker_id in range(worker_id_min, worker_id_max+1):
                 self.workers[worker_id] = {
@@ -477,14 +497,75 @@ class AL_cluster(object):
                 }
                 await self.send_job( worker_id, 'ping')
 
-            await self.update_status()
-        
+        await self.update_status()
+    
         asyncio.create_task(self.follow_workers())
 
         # Wait for at least one worker to become active
         if wait_for_one_worker:
             available_worker_id = await self.available_worker_ids.get()
             await self.available_worker_ids.put(available_worker_id)
+
+    def condor_deploy(self):
+        
+        if not os.path.exists(pjoin(self.run_workspace,'run_%d_condor_logs'%self.run_id)):
+            os.mkdir(pjoin(self.run_workspace,'run_%d_condor_logs'%self.run_id))
+
+        with open(pjoin(self.run_workspace,'run_%d_condor_worker_arguments.txt'%self.run_id),'w') as f:
+            f.write('\n'.join(
+                '%d, %d'%(i_worker*self.n_cores_per_worker, (i_worker+1)*self.n_cores_per_worker-1) for i_worker in range(self.n_workers)
+            ))
+
+        with open(pjoin(self.run_workspace,'run_%d_condor_submission.sub'%self.run_id),'w') as f:
+            f.write(
+"""executable         = %(python)s
+arguments             = %(worker_script)s %(run_id)d $(worker_id_min) $(worker_id_max) %(workspace)s
+output                = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).out
+error                 = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).err
+log                   = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).log
+RequestCpus           = %(n_cpus_per_worker)d
+RequestMemory         = %(requested_memory_in_MB)d
+RequestDisk           = DiskUsage
+should_transfer_files = Yes
+when_to_transfer_output = ON_EXIT
++JobFlavour           = %(job_flavour)s
+queue worker_id_min,worker_id_max from %(workspace)s/run_%(run_id)d_condor_worker_arguments.txt
+"""%{
+        'python' : sys.executable,
+        'run_id' : self.run_id,
+        'worker_script' : pjoin(alphaloop_basedir,'alpha_loop','integrator','worker.py'),
+        'workspace' : self.run_workspace,
+        'job_flavour' : self.cluster_options['job_flavour'],
+        'n_cpus_per_worker' : self.n_cores_per_worker,
+        'requested_memory_in_MB' : self.cluster_options['RAM_required']
+    }
+            )
+
+        submit_proc = subprocess.Popen(['condor_submit',''], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        submit_stdout, submit_stderr = submit_proc.communicate()
+        if submit_proc.returncode != 0:
+            raise HavanaIntegratorError('Could not successfully submit condor jobs. Error:\n%s'%(submit_stderr.decode('utf-8')))
+        else:
+            submit_stdout_decoded = submit_stdout.decode('utf-8')
+            matched_stdout = re.match('.*cluster\s(?P<cluster_id>(\d+)).*',submit_stdout_decoded)
+            if matched_stdout:
+                cluster_id = int(matched_stdout.group('cluster_id'))
+                self.all_worker_hooks.append(cluster_id)
+                logger.info("A total of %d cluster jobs were submitted to condor cluster id %d"%(self.n_workers,cluster_id))
+            else:
+                raise HavanaIntegratorError('Could not interpret response from condor cluster:\n%s'%submit_stdout_decoded)
+
+    def condor_kill(self):
+
+        try:
+            kill_proc = subprocess.Popen(['condor_rm',]+[str(hook) for hook in self.all_worker_hooks], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            kill_stdout, kill_stderr = kill_proc.communicate()
+            if kill_proc.returncode != 0:
+                logger.warning('Could not successfully clean condor jobs. Error:\n%s'%(kill_stderr.decode('utf-8')))
+            elif self._DEBUG:
+                logger.info('Successfully clean condor jobs:\n%s'%(kill_stdout.decode('utf-8')))
+        except Exception as e:
+            logger.warning("Failed to clean condor run. Error: %s"%str(e))
 
     async def submit_job(self, payload, blocking=False):
 
@@ -513,6 +594,19 @@ class AL_cluster(object):
                     os.remove(self.work_monitoring_path)
             except Exception as e:
                 pass
+
+        elif self.architecture == 'condor':
+
+            if os.path.exists(pjoin(self.run_workspace,'run_%d_condor_logs'%self.run_id)):
+                shutil.rmtree(pjoin(self.run_workspace,'run_%d_condor_logs'%self.run_id))
+            
+            if os.path.exists(pjoin(self.run_workspace,'run_%d_condor_submission.sub'%self.run_id)):
+                os.remove(pjoin(self.run_workspace,'run_%d_condor_submission.sub'%self.run_id))
+            if os.path.exists(pjoin(self.run_workspace,'run_%d_condor_worker_arguments.txt'%self.run_id)):
+                os.remove(pjoin(self.run_workspace,'run_%d_condor_worker_arguments.txt'%self.run_id))
+
+            self.condor_kill()
+
         io_files = \
             [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.pkl'%self.run_id))]+\
             [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.done'%self.run_id))]
@@ -522,7 +616,7 @@ class AL_cluster(object):
 class HavanaIntegrator(integrators.VirtualIntegrator):
     """ Steering of the havana integrator """
     
-    _SUPPORTED_CLUSTER_ARCHITECTURES = [ 'dask_local', 'dask_condor', 'local' ]
+    _SUPPORTED_CLUSTER_ARCHITECTURES = [ 'dask_local', 'dask_condor', 'local', 'condor' ]
     _DEBUG = False
 
     def __init__(self, integrands,
@@ -611,8 +705,10 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
             'disk'    : '1000MB',
             'IO_port' : 8786,
             'n_cores_per_worker' : 1,
-            'job_flavour' : 'tomorrow'
+            'job_flavour' : 'tomorrow',
+            'RAM_required' : 1024
         }
+
         if dask_condor_options is not None:
             self.dask_condor_options.update(dask_condor_options)
 
@@ -1004,9 +1100,12 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.cumulative_IO_time = 0.
         self.exit_now = False
 
+        cluster_options = None
+        if self.cluster_type == 'condor':
+            cluster_options = self.dask_condor_options
         self.al_cluster = AL_cluster(
             self.cluster_type, self.n_workers, self.n_cores_per_worker, self.run_workspace, self.process_job_result, 
-            monitor_callback=self.process_al_cluster_status_update, cluster_options=None
+            monitor_callback=self.process_al_cluster_status_update, cluster_options=cluster_options
         )
 
         try:

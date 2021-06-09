@@ -180,7 +180,7 @@ def main(arg_tuple):
     while True:
 
         try:
-            if (not os.path.exists(input_path_done)) or os.path.exists(output_path_done):
+            if (not os.path.exists(input_path_done) or not os.path.exists(input_path)) or os.path.exists(output_path_done):
                 time.sleep(0.2)
                 continue
         
