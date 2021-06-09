@@ -359,14 +359,16 @@ class AL_cluster(object):
 
     _SUPPORTED_CLUSTER_ARCHITECTURES = ['local', 'condor']
     _JOB_CHECK_FREQUENCY = 0.2
-    _FORWARD_WORKER_OUTPUT = False
+    _FORWARD_WORKER_OUTPUT = True
 
-    def __init__(self, architecture, n_workers, run_workspace, process_results_callback, monitor_callback=None, cluster_options=None):
+    def __init__(self, architecture, n_workers, n_cores_per_worker, run_workspace, process_results_callback, monitor_callback=None, cluster_options=None):
 
         self.n_workers = n_workers
+        self.n_cores_per_worker = n_cores_per_worker
         self.run_workspace = run_workspace
         self.available_worker_ids = asyncio.Queue()
         self.workers = { }
+        self.all_worker_hooks = []
         self.active = True
 
         self.process_results_callback = process_results_callback
@@ -379,6 +381,9 @@ class AL_cluster(object):
             self.run_id += 1
         with open(pjoin(self.run_workspace,'lock_run_%d'%self.run_id),'w') as f:
             f.write("Run #%d currently underway..."%self.run_id)
+
+        self.work_monitoring_path = pjoin(self.run_workspace,'run_%d_follow_workers'%self.run_id)
+        self.worker_monitoring_file = open(self.work_monitoring_path,'a')
 
         if self.cluster_options is None:
             self.cluster_options = {}
@@ -450,21 +455,29 @@ class AL_cluster(object):
 
     async def deploy(self, wait_for_one_worker=True):
 
-        for worker_id in range(self.n_workers):
+        for i_worker in range(self.n_workers):
+
+            worker_id_min = i_worker*self.n_cores_per_worker
+            worker_id_max = (i_worker+1)*self.n_cores_per_worker-1
 
             if self.architecture == 'local':
-                self.workers[worker_id] = {
-                    'hook' : subprocess.Popen(
-                        [sys.executable, pjoin(alphaloop_basedir,'alpha_loop','integrator','worker.py'), str(self.run_id), str(worker_id) ],
+                cmd = [ sys.executable, pjoin(alphaloop_basedir,'alpha_loop','integrator','worker.py'), 
+                          str(self.run_id), str(worker_id_min), str(worker_id_max), str(self.run_workspace) ]
+                self.all_worker_hooks.append(subprocess.Popen(
+                        cmd,
                         cwd=self.run_workspace,
-                        stdout=subprocess.STDOUT if self._FORWARD_WORKER_OUTPUT else subprocess.DEVNULL,
-                        stderr=subprocess.STDOUT if self._FORWARD_WORKER_OUTPUT else subprocess.DEVNULL
-                    ),
+                        stdout=(self.worker_monitoring_file if self._FORWARD_WORKER_OUTPUT else subprocess.DEVNULL),
+                        stderr=(self.worker_monitoring_file if self._FORWARD_WORKER_OUTPUT else subprocess.DEVNULL)
+                    ))
+
+            for worker_id in range(worker_id_min, worker_id_max+1):
+                self.workers[worker_id] = {
+                    'hook' : self.all_worker_hooks[-1],
                     'status' : 'PENDING'
                 }
+                await self.send_job( worker_id, 'ping')
 
             await self.update_status()
-            await self.send_job( worker_id, 'ping')
         
         asyncio.create_task(self.follow_workers())
 
@@ -489,12 +502,17 @@ class AL_cluster(object):
             os.remove(pjoin(self.run_workspace,'lock_run_%d'%self.run_id))
 
         if self.architecture == 'local':
-            for worker_id, worker in self.workers.items():
+            for hook in self.all_worker_hooks:
                 try:
-                    worker['hook'].kill()
+                    hook.kill()
                 except Exception as e:
                     pass
-
+            try:
+                self.worker_monitoring_file.close()
+                if os.path.exists(self.work_monitoring_path):
+                    os.remove(self.work_monitoring_path)
+            except Exception as e:
+                pass
         io_files = \
             [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.pkl'%self.run_id))]+\
             [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.done'%self.run_id))]
@@ -519,6 +537,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                  n_max = None,
                  seed = None,
                  n_workers = None,
+                 n_cores_per_worker = None,
                  batch_size = 1e6,
                  cluster_type = 'dask_local',
                  dask_local_options = None,
@@ -575,6 +594,11 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
             self.n_workers = multiprocessing.cpu_count()
         else:
             self.n_workers = n_workers
+        if n_cores_per_worker is None:
+            self.n_cores_per_worker = 1
+        else:
+            self.n_cores_per_worker = n_cores_per_worker
+        self.n_cpus = self.n_workers*self.n_cores_per_worker
 
         self.dask_local_options = {'n_workers' : self.n_workers}
         if sys.platform == "darwin":
@@ -834,9 +858,9 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         if self.cluster_status_summary is not None:
             monitoring_report.append( '\n'.join('| %s'%line for line in self.cluster_status_summary.split('\n')) )
 
-        monitoring_report.append( '| Jobs completed: overall = %d (avg %s), and for this iteration = %d/%d/%d on %d workers.\n| Total n_pts: %.1fM ( %s ms / pt on one core, %s pts / s overall ). n_pts for this iteration #%d: %.2fM/%.2fM (%.1f%%).'%(
+        monitoring_report.append( '| Jobs completed: overall = %d (avg %s), and for this iteration = %d/%d/%d on %d cpus.\n| Total n_pts: %.1fM ( %s ms / pt on one core, %s pts / s overall ). n_pts for this iteration #%d: %.2fM/%.2fM (%.1f%%).'%(
             n_jobs_total_completed, '%.3g min/job'%((cumulative_job_time/n_jobs_total_completed)/60.) if n_jobs_total_completed>0 else 'N/A', n_done, n_submitted, n_jobs_for_this_iteration if n_jobs_for_this_iteration is not None else n_submitted,
-            self.n_workers, n_tot_points/(1.e6), '%.3g'%((curr_integration_time/n_tot_points)*self.n_workers*1000.) if n_tot_points>0 else 'N/A', 
+            self.n_cpus, n_tot_points/(1.e6), '%.3g'%((curr_integration_time/n_tot_points)*self.n_cpus*1000.) if n_tot_points>0 else 'N/A', 
             ('%.1fK'%(n_tot_points/curr_integration_time/1000.) if n_tot_points>0 else 'N/A'),
             current_iteration_number,
             n_points_for_this_iteration/(1.e6), current_n_points/(1.e6), (float(n_points_for_this_iteration)/current_n_points)*100.
@@ -845,7 +869,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         IO_time = (cumulative_IO_time / wall_time)*100.
         processing_time = (cumulative_processing_time / wall_time)*100.
         cpu_hours = (cumulative_job_time / 3600.)
-        parallelisation_efficiency = (cumulative_job_time / (wall_time*self.n_workers) )*100.
+        parallelisation_efficiency = (cumulative_job_time / (wall_time*self.n_cpus) )*100.
         monitoring_report.append('| Wall time: %.1f h, IO: %.2f%%, processing: %.2f%%, jobs: %.1f CPU-hours, efficiency: %.2f%%'%(
             wall_time/3600., IO_time, processing_time, cpu_hours, parallelisation_efficiency
         ))
@@ -981,7 +1005,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.exit_now = False
 
         self.al_cluster = AL_cluster(
-            self.cluster_type, self.n_workers, self.run_workspace, self.process_job_result, 
+            self.cluster_type, self.n_workers, self.n_cores_per_worker, self.run_workspace, self.process_job_result, 
             monitor_callback=self.process_al_cluster_status_update, cluster_options=None
         )
 
@@ -1016,7 +1040,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
                     timeout = 0.3
                     # Add a threshold of 5% of workers to insure smooth rollover
-                    if n_remaining_points > 0 and self.n_jobs_awaiting_completion < self.n_workers+max(int(self.n_workers/20.),2):
+                    if n_remaining_points > 0 and self.n_jobs_awaiting_completion < self.n_cpus+max(int(self.n_cpus/20.),2):
 
                         this_n_points = min(n_remaining_points, self.batch_size)
                         n_remaining_points -= this_n_points   

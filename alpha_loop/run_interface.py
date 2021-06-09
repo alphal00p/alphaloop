@@ -3370,8 +3370,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='Spread of the h-function in alphaLoop, higher=steeper (default: %(default)s).')
     integrate_parser.add_argument('-v','--verbosity', metavar='verbosity', type=int, default=0,choices=(0,1,2,3),
                     help='verbosity level (default: %(default)s).')
-    integrate_parser.add_argument('-c','--n_cores', metavar='n_cores', type=int, default=multiprocessing.cpu_count(),
-                    help='Number of cores to parallelize on (default: %(default)s).')
+    integrate_parser.add_argument('-c','--n_cores', metavar='n_cores', type=int, default=None,
+                    help='Number of cores to parallelize on (default: cpu count unless Havana run in which case it defaults to 1).')
     integrate_parser.add_argument('-nis','--n_iterations_survey', metavar='n_iterations_survey', type=int, default=10,
                     help='Number of iteration for the survey stage (default: %(default)s).')
     integrate_parser.add_argument('-ni','--n_iterations', metavar='n_iterations', type=int, default=None,
@@ -3485,6 +3485,12 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         args = self.split_arg(line)
         args = self.integrate_parser.parse_args(args)
 
+        if args.n_cores is None:
+            if args.integrator!='havana':
+                args.n_cores = multiprocessing.cpu_count()
+            else:
+                args.n_cores = 1
+
         selected_SGs = args.SG_name
         if len(selected_SGs)>1 and args.integrator!='havana':
             raise alphaLoopInvalidRunCmd("Only the havana integrator supports the joint integration of more than one supergraph.")
@@ -3594,7 +3600,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             selected_integrator = havana.HavanaIntegrator
             if args.debug_havana:
                 havana.HavanaIntegrator._DEBUG = True
-                havana.AL_cluster._FORWARD_WORKER_OUTPUT = True
+                # It is best to always forward the worker output to a log file
+                #havana.AL_cluster._FORWARD_WORKER_OUTPUT = True
 
             integrator_options = {
                  'cross_section_set'   : self.cross_section_set,
@@ -3608,6 +3615,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                  'verbosity'           : args.verbosity+2,
                  'seed'                : args.seed,
                  'n_workers'           : args.n_workers,
+                 'n_cores_per_worker'  : args.n_cores,
                  'batch_size'          : args.batch_size,
                  'cluster_type'        : args.cluster_type, #'dask_local' or 'dask_condor'
                  'dask_local_options'  : {'threads_per_worker' : args.n_dask_threads_per_worker},
