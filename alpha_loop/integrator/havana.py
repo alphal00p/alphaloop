@@ -879,7 +879,6 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         # Now perform the integration
         
         logger.info("Staring alphaLoop integration with Havana and cluster '%s' as run #%d, lean back and enjoy..."%(self.cluster_type, self.run_id))
-        start_time = time.time()
 
         self.current_iteration = 1
         current_n_points = self.n_start
@@ -916,7 +915,8 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
             logger.info("Now deploying cluster '%s' and waiting for at least one job to become active..."%self.cluster_type)
             await self.al_cluster.deploy()
             logger.info("Cluster '%s' now active."%self.cluster_type)
-            
+            start_time = time.time()
+
             while True:
 
                 n_remaining_points = current_n_points
