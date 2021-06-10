@@ -3398,7 +3398,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='Starting number of sample points in Vegas (default: as per hyperparameters).')
     integrate_parser.add_argument('-bs','--batch_size', metavar='batch_size', type=int, default=-1,
                     help='Batch size for parallelisation (default: as per hyperparameters n_vec except for Havana where set to 1e6 by default).')
-    integrate_parser.add_argument('--seed', metavar='seed', type=int, default=0,
+    integrate_parser.add_argument('--seed', metavar='seed', type=int, default=None,
                     help='Specify the random seed for the integration (default: %(default)s).')
     integrate_parser.add_argument('-hp','--hyperparameters', metavar='hyperparameters', type=str, default=[], nargs='+',
                     help='Specify particular hyperparameters to overwrite in pairs of form <hp_name> <hp_str_expression_value>  (default: %(default)s).')
@@ -3470,6 +3470,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser.add_argument(
         '--no_keep', action="store_false", dest="keep", default=True,
         help="Keep integration data after the run completes.")
+    integrate_parser.add_argument(
+        '-lg', '--local_generation', action="store_true", dest="local_generation", default=False,
+        help="Enable the generate of samples on the submission node.")
     def help_integrate(self):
         self.integrate_parser.print_help()
         return
@@ -3559,7 +3562,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             else:
                 args.batch_size = int(1e6)
 
-        if args.seed > 0:
+        if args.seed is not None:
             random.seed(args.seed)
 
         if args.integrator == 'naive':
@@ -3637,7 +3640,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                  'show_grids_sorted_by_variance' : args.show_grids_sorted_by_variance,
                  'fresh_integration'   : args.fresh,
                  'pickle_IO'           : args.pickle_IO,
-                 'keep'                : args.keep
+                 'keep'                : args.keep,
+                 'local_generation'    : args.local_generation
             }
 
         elif args.integrator == 'inspect':
