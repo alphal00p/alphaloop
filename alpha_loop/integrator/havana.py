@@ -438,6 +438,13 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
             pjoin(self.run_workspace, 'run_%d'%self.run_id, ALStandaloneIntegrand._run_hyperparameters_filename),
         )
         self.run_workspace = pjoin(self.run_workspace,'run_%d'%self.run_id)
+        
+        # Clean up of possibly previously crashed run
+        io_files = \
+            [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.pkl'%self.run_id))]+\
+            [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.done'%self.run_id))]
+        for io_file in io_files:
+            os.remove(io_file)
 
         self.havana_optimize_on_variance = havana_optimize_on_variance
         self.havana_max_prob_ratio = havana_max_prob_ratio
@@ -907,6 +914,8 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.cumulative_processing_time = 0.
         self.cumulative_IO_time = 0.
         self.exit_now = False
+
+        self.n_points_for_this_iteration = 0
 
         cluster_options = None
         if self.cluster_type == 'condor':
