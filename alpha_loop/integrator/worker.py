@@ -4,10 +4,10 @@ class WorkerException(Exception):
 class ALStandaloneIntegrand(object):
 
     #TODO make this path specific to the current run (using the unique run id of the HavanaIntegrator session)
-    _dask_run_hyperparameters_filename = 'cluster_run_hyperparameters.yaml'
+    _run_hyperparameters_filename = 'cluster_run_hyperparameters.yaml'
 
     def __init__(self, n_integration_dimensions, alpha_loop_path, run_workspace, rust_input_folder, 
-                        cross_section_set_file_name, E_cm, n_dimensions_per_SG_id=None, frozen_momenta=None):
+                        cross_section_set_file_name, E_cm, run_dir='', n_dimensions_per_SG_id=None, frozen_momenta=None):
 
         import sys
         import os
@@ -48,13 +48,14 @@ class ALStandaloneIntegrand(object):
                 " ./make_lib\nfrom within the alphaLoop directory.")
 
         #os.environ['MG_NUMERATOR_PATH'] = proc_path if proc_path.endswith('/') else '%s/'%proc_path
-        if not os.path.isfile(pjoin(self.run_workspace, self._dask_run_hyperparameters_filename)):
-            raise WorkerException("Could not find hyperparameter file at %s."%pjoin(self.run_workspace, self._dask_run_hyperparameters_filename))
+        hyperparameters_path = pjoin(self.run_workspace, run_dir, self._run_hyperparameters_filename)
+        if not os.path.isfile(hyperparameters_path):
+            raise WorkerException("Could not find hyperparameter file at %s."%hyperparameters_path)
 
         try:
             self.rust_worker = CrossSection(
                 pjoin(self.rust_input_folder, cross_section_set_file_name),
-                pjoin(self.run_workspace, self._dask_run_hyperparameters_filename),
+                hyperparameters_path,
                 cross_section_set = True
             )
         except:
@@ -170,6 +171,7 @@ def main(arg_tuple):
     import pickle
     import time
     import os
+    import sys
 
     standalone_integrands = None
     last_integrands_contructor_args = None
@@ -184,9 +186,11 @@ def main(arg_tuple):
             if (not os.path.exists(input_path_done) or not os.path.exists(input_path)) or os.path.exists(output_path_done):
                 time.sleep(0.2)
                 continue
-        
-            input_payload = pickle.load( open( input_path, 'rb' ) )
             
+            print("Worker #%d received a new job."%(worker_id))
+            t0=time.time()
+            input_payload = pickle.load( open( input_path, 'rb' ) )
+
             output = None
             if input_payload == 'ping':
                 output = 'pong'
@@ -194,16 +198,23 @@ def main(arg_tuple):
                 if last_integrands_contructor_args is None or input_payload['integrands_constructor_args'] != last_integrands_contructor_args:
                     last_integrands_contructor_args = input_payload['integrands_constructor_args']
                     standalone_integrands = [
-                        ALStandaloneIntegrand(**integrand_constructor_args) for integrand_constructor_args in input_payload['integrands_constructor_args']
+                        ALStandaloneIntegrand(run_dir='run_%d'%run_id, **integrand_constructor_args) for integrand_constructor_args in input_payload['integrands_constructor_args']
                     ]
                 call_options = dict(input_payload)
+                print("Worker #%d deserialized input for job #%d in %.5gs."%(worker_id, call_options['job_id'], time.time()-t0 ))
                 call_options['preconstructed_integrands'] = standalone_integrands
+                t0 = time.time()
                 output = HavanaIntegrandWrapper(**call_options)
+                print("Worker #%d completed computation of job #%d in %.5gs."%(worker_id, call_options['job_id'], time.time()-t0 ))
 
+            print("Worker #%d now writing job output."%(worker_id))
+            t0 = time.time()
             with open(output_path,'wb') as f:
                 pickle.dump( output, f )
             with open(output_path_done,'w') as f:
                 f.write("Marker file for job output done.")
+            print("Worker #%d finished serialisation and dump of job output in %.5gs."%( worker_id, time.time()-t0 ))
+            sys.stdout.flush()
 
         except Exception as e:
             print("The following exception was encountered in run #%d and worker #%d: %s"%(run_id, worker_id, str(e)))
@@ -215,26 +226,31 @@ def main(arg_tuple):
 if __name__ == '__main__':
     import sys
 
-    run_id = int(sys.argv[1])
-    worker_id_min = int(sys.argv[2])
-    worker_id_max = int(sys.argv[3])
-    run_workspace = str(sys.argv[4])
+    from argparse import ArgumentParser
 
-    if worker_id_min==worker_id_max:
+    parser = ArgumentParser(prog='al_worker')
+
+    parser.add_argument("--run_id", dest="run_id", type=int)
+    parser.add_argument("--worker_id_min", dest="worker_id_min", type=int)
+    parser.add_argument("--worker_id_max", dest="worker_id_max", type=int)
+    parser.add_argument("--workspace_path", dest="workspace_path", type=str)
+    args = parser.parse_args()
+
+    if args.worker_id_min==args.worker_id_max:
         print("Starting the following worker %d for run #%d for process '%s'."%(
-           worker_id_min, run_id, run_workspace))
+           args.worker_id_min, args.run_id, args.workspace_path))
         sys.stdout.flush()
         try:
-            main(tuple([run_id,worker_id_min,run_workspace]))
+            main(tuple([args.run_id,args.worker_id_min,args.workspace_path]))
         except Exception as e:
-            print("Worker %d finished (%s)."%(worker_id_min, str(e)))
+            print("Worker %d finished (%s)."%(args.worker_id_min, str(e)))
     else:
         print("Starting the following range of workers %d->%d for run #%d for process '%s'."%(
-           worker_id_min, worker_id_max, run_id, run_workspace))
+           args.worker_id_min, args.worker_id_max, args.run_id, args.workspace_path))
         sys.stdout.flush()
         from multiprocessing import Pool
         try:
-            with Pool(worker_id_max-worker_id_min+1) as p:
-                    p.map( main, [ (run_id, worker_id, run_workspace) for worker_id in range(worker_id_min, worker_id_max+1)] )
+            with Pool(args.worker_id_max-args.worker_id_min+1) as p:
+                    p.map( main, [ (args.run_id, worker_id, args.workspace_path) for worker_id in range(args.worker_id_min, args.worker_id_max+1)] )
         except Exception as e:
-            print("Worker %d->%d finished (%s)."%(worker_id_min, worker_id_max, str(e)))
+            print("Worker %d->%d finished (%s)."%(args.worker_id_min, args.worker_id_max, str(e)))

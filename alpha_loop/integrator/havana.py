@@ -27,7 +27,7 @@ import alpha_loop.integrator.integrators as integrators
 import alpha_loop.integrator.integrands as integrands
 import alpha_loop.integrator.functions as functions
 import alpha_loop.utils as utils
-from alpha_loop.integrator.worker import HavanaIntegrandWrapper
+from alpha_loop.integrator.worker import HavanaIntegrandWrapper, ALStandaloneIntegrand
 
 # Dask dependencies
 import dask
@@ -298,11 +298,11 @@ class HavanaMockUp(object):
         sorted_bins = sorted([b for b in self.discrete_grid], key=lambda b: b['error_estimate'] if sort_by_variance else abs(b['integral_estimate']), reverse=True)
         res = ['Distribution of %d SGs:'%len(sorted_bins)]
         for bins_chunk in [sorted_bins[i_chunk:i_chunk+5] for i_chunk in range(0,len(sorted_bins),5)]:
-            res.append('  '+' | '.join( '%-40s'%(
-                '%s(I=%.5g(%.2g%%),p=%.2f%%)'%(
+            res.append('  '+' | '.join( '%-45s'%(
+                '%s(I=%.5g(%.2g%%),p=%.2f%%,n=%.2gM)'%(
                     bin['SG_name'], bin['integral_estimate'], 
                     abs(bin['error_estimate']/bin['integral_estimate'])*100. if bin['integral_estimate']!=0. else 0.,
-                    bin['p']*100.
+                    bin['p']*100., bin['n_points']/1000000.
                 )
             ) for bin in bins_chunk ))
 
@@ -312,11 +312,11 @@ class HavanaMockUp(object):
                     res.append('Distribution of %d channels for SG %s:'%(len(SG_bin['channel_grid']), SG_bin['SG_name']))
                     sorted_channel_bins = sorted([(i_c, b) for i_c, b in enumerate(SG_bin['channel_grid'])], key=lambda b: b[1]['error_estimate'] if sort_by_variance else abs(b[1]['integral_estimate']), reverse=True)
                     for bins_chunk in [sorted_channel_bins[i_chunk:i_chunk+5] for i_chunk in range(0,len(sorted_channel_bins),5)]:
-                        res.append('  '+' | '.join( '%-30s'%(
-                            'C%d(I=%.5g(%.2g%%),p=%.2f%%)'%(
+                        res.append('  '+' | '.join( '%-35s'%(
+                            'C%d(I=%.5g(%.2g%%),p=%.2f%%,n=%.2gM)'%(
                                 i_c, bin['integral_estimate'], 
                                 abs(bin['error_estimate']/bin['integral_estimate'])*100. if bin['integral_estimate']!=0. else 0.,
-                                bin['p']*100.
+                                bin['p']*100., bin['n_points']/1000000.
                             )
                         ) for i_c, bin in bins_chunk ))
 
@@ -358,15 +358,17 @@ class HavanaMockUp(object):
 class AL_cluster(object):
 
     _SUPPORTED_CLUSTER_ARCHITECTURES = ['local', 'condor']
-    _JOB_CHECK_FREQUENCY = 0.2
+    _JOB_CHECK_FREQUENCY = 0.3
     _FORWARD_WORKER_OUTPUT = True
 
-    def __init__(self, architecture, n_workers, n_cores_per_worker, run_workspace, process_results_callback, monitor_callback=None, cluster_options=None):
+    def __init__(self, architecture, n_workers, n_cores_per_worker, run_workspace, process_results_callback, run_id, monitor_callback=None, cluster_options=None, keep=False, debug=False):
 
         self.n_workers = n_workers
         self.n_cores_per_worker = n_cores_per_worker
         self.run_workspace = run_workspace
         self.available_worker_ids = asyncio.Queue()
+        self.n_jobs_in_queue = 0
+        self.jobs_queue = asyncio.Queue()
         self.workers = { }
         self.all_worker_hooks = []
         self.active = True
@@ -381,12 +383,11 @@ class AL_cluster(object):
         if cluster_options is not None:
             self.cluster_options.update(cluster_options)
         
-        self.run_id = 1
+        self.debug  = debug
+        self.keep   = keep
+
+        self.run_id = run_id
         self.current_status = None
-        while os.path.exists(pjoin(self.run_workspace,'lock_run_%d'%self.run_id)):
-            self.run_id += 1
-        with open(pjoin(self.run_workspace,'lock_run_%d'%self.run_id),'w') as f:
-            f.write("Run #%d currently underway..."%self.run_id)
 
         if self.architecture == 'local':
             self.work_monitoring_path = pjoin(self.run_workspace,'run_%d_follow_workers'%self.run_id)
@@ -432,6 +433,7 @@ class AL_cluster(object):
 
     async def follow_workers(self):
         while self.active:
+            if self.debug: logger.info("Scanning for new job results...")
             io_files = [os.path.basename(f) for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_output_worker_*.done'%self.run_id))]
             output_worker_ids = []
             for io_file in io_files:
@@ -441,11 +443,14 @@ class AL_cluster(object):
                 worker_id = int(output_match.group('worker_id'))
                 if os.path.exists(pjoin(self.run_workspace, 'run_%d_job_output_worker_%d.pkl'%(self.run_id,worker_id))):
                     output_worker_ids.append(worker_id)
-            
+
+            if self.debug and len(output_worker_ids)>0: logger.info("Found new available results from workers: %s"%str(output_worker_ids))
             for output_worker_id in output_worker_ids:
                 output_path = pjoin(self.run_workspace, 'run_%d_job_output_worker_%d.pkl'%(self.run_id, output_worker_id))
                 output_path_done = pjoin(self.run_workspace, 'run_%d_job_output_worker_%d.done'%(self.run_id, output_worker_id))
+                if self.debug: logger.info("Deserialising the following job result: %s"%str(output_path))
                 job_result = pickle.load( open( output_path, 'rb' ) )
+                if self.debug: logger.info("Done.")
                 input_path = pjoin(self.run_workspace, 'run_%d_job_input_worker_%d.pkl'%(self.run_id, output_worker_id))
                 input_path_done = pjoin(self.run_workspace, 'run_%d_job_input_worker_%d.done'%(self.run_id, output_worker_id))
                 if not os.path.exists(input_path):
@@ -461,9 +466,15 @@ class AL_cluster(object):
                 await self.update_status()
 
                 if job_result != 'pong':
-                    asyncio.create_task(self.process_results_callback(job_result))
+                    if self.debug: logger.info("Processing results from worker: %d"%output_worker_id)
+                    await self.process_results_callback(job_result)
+                    if self.debug: logger.info("Done.")
+                    #asyncio.create_task(self.process_results_callback(job_result))
 
-            await asyncio.sleep(self._JOB_CHECK_FREQUENCY)
+            if self.architecture == 'local':
+                await asyncio.sleep(self._JOB_CHECK_FREQUENCY)
+            else:
+                await asyncio.sleep(self._JOB_CHECK_FREQUENCY*10.)
 
     async def deploy(self, wait_for_one_worker=True):
 
@@ -475,7 +486,8 @@ class AL_cluster(object):
                 worker_id_max = (i_worker+1)*self.n_cores_per_worker-1
 
                 cmd = [ sys.executable, pjoin(alphaloop_basedir,'alpha_loop','integrator','worker.py'), 
-                        str(self.run_id), str(worker_id_min), str(worker_id_max), str(self.run_workspace) ]
+                        '--run_id', str(self.run_id), '--worker_id_min', str(worker_id_min), '--worker_id_max', str(worker_id_max), 
+                        '--workspace_path', str(self.run_workspace) ]
                 self.all_worker_hooks.append(subprocess.Popen(
                         cmd,
                         cwd=self.run_workspace,
@@ -508,6 +520,8 @@ class AL_cluster(object):
             available_worker_id = await self.available_worker_ids.get()
             await self.available_worker_ids.put(available_worker_id)
 
+        asyncio.create_task(self.job_submitter())
+
     def condor_deploy(self):
         
         if not os.path.exists(pjoin(self.run_workspace,'run_%d_condor_logs'%self.run_id)):
@@ -525,7 +539,7 @@ class AL_cluster(object):
         with open(pjoin(self.run_workspace,'run_%d_condor_submission.sub'%self.run_id),'w') as f:
             f.write(
 """executable         = %(python)s
-arguments             = %(worker_script)s %(run_id)d $(worker_id_min) $(worker_id_max) %(workspace)s
+arguments             = %(worker_script)s --run_id %(run_id)d --worker_id_min $(worker_id_min) --worker_id_max $(worker_id_max) --workspace_path %(workspace)s
 environment           = "LD_PRELOAD=%(libscsdir_path)s"
 output                = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).out
 error                 = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).err
@@ -535,7 +549,7 @@ RequestMemory         = %(requested_memory_in_MB)d
 RequestDisk           = DiskUsage
 should_transfer_files = Yes
 when_to_transfer_output = ON_EXIT
-+JobFlavour           = %(job_flavour)s
++JobFlavour           = "%(job_flavour)s"
 queue worker_id_min,worker_id_max from %(workspace)s/run_%(run_id)d_condor_worker_arguments.txt
 """%{
         'python' : sys.executable,
@@ -582,14 +596,25 @@ queue worker_id_min,worker_id_max from %(workspace)s/run_%(run_id)d_condor_worke
             available_worker_id = await self.available_worker_ids.get()
             await self.send_job( available_worker_id, payload)
         else:
-            asyncio.create_task(self.submit_job(payload, blocking=True))
+            self.n_jobs_in_queue += 1
+            if self.debug: logger.info("Adding a new job to the queue (now pending=%d)..."%self.n_jobs_in_queue)
+            await self.jobs_queue.put(payload)
+            await self.update_status()
+
+    async def job_submitter(self):
+        while self.active:
+            payload = await self.jobs_queue.get()
+            if self.debug: logger.info("Job submitter picked up a new job from the queue and it is now waiting for an available worker...")
+            available_worker_id = await self.available_worker_ids.get()
+            self.n_jobs_in_queue -=1
+            if self.debug: logger.info("Job submitter found a free worker (#%d) to dispatch the job (now pending=%d)..."%(available_worker_id,self.n_jobs_in_queue))
+            await self.send_job( available_worker_id, payload)
+            await self.update_status()
 
     def terminate(self):
         
         logger.info("Cleaning up cluster run #%d..."%self.run_id)
         self.active = False
-        if os.path.exists(pjoin(self.run_workspace,'lock_run_%d'%self.run_id)):
-            os.remove(pjoin(self.run_workspace,'lock_run_%d'%self.run_id))
 
         if self.architecture == 'local':
             for hook in self.all_worker_hooks:
@@ -599,19 +624,21 @@ queue worker_id_min,worker_id_max from %(workspace)s/run_%(run_id)d_condor_worke
                     pass
             try:
                 self.worker_monitoring_file.close()
-                if os.path.exists(self.work_monitoring_path):
-                    os.remove(self.work_monitoring_path)
+                if not self.keep:
+                    if os.path.exists(self.work_monitoring_path):
+                        os.remove(self.work_monitoring_path)
             except Exception as e:
                 pass
 
         elif self.architecture == 'condor':
-            if os.path.exists(pjoin(self.run_workspace,'run_%d_condor_logs'%self.run_id)):
-                shutil.rmtree(pjoin(self.run_workspace,'run_%d_condor_logs'%self.run_id))
-            
-            if os.path.exists(pjoin(self.run_workspace,'run_%d_condor_submission.sub'%self.run_id)):
-                os.remove(pjoin(self.run_workspace,'run_%d_condor_submission.sub'%self.run_id))
-            if os.path.exists(pjoin(self.run_workspace,'run_%d_condor_worker_arguments.txt'%self.run_id)):
-                os.remove(pjoin(self.run_workspace,'run_%d_condor_worker_arguments.txt'%self.run_id))
+            if not self.keep:
+                if os.path.exists(pjoin(self.run_workspace,'run_%d_condor_logs'%self.run_id)):
+                    shutil.rmtree(pjoin(self.run_workspace,'run_%d_condor_logs'%self.run_id))
+                
+                if os.path.exists(pjoin(self.run_workspace,'run_%d_condor_submission.sub'%self.run_id)):
+                    os.remove(pjoin(self.run_workspace,'run_%d_condor_submission.sub'%self.run_id))
+                if os.path.exists(pjoin(self.run_workspace,'run_%d_condor_worker_arguments.txt'%self.run_id)):
+                    os.remove(pjoin(self.run_workspace,'run_%d_condor_worker_arguments.txt'%self.run_id))
 
             self.condor_kill()
 
@@ -658,6 +685,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                  dump_havana_grids = True,
                  fresh_integration = False,
                  pickle_IO = False,
+                 keep=False,
                  **opts):
 
         """ Initialize the simplest MC integrator."""
@@ -671,7 +699,18 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         else:
             self.stream_monitor = False
         self.phase = phase
+
         self.run_workspace = run_workspace
+        self.run_id = 1
+        while os.path.exists(pjoin(self.run_workspace,'run_%d'%self.run_id)):
+            self.run_id += 1
+        os.mkdir(pjoin(self.run_workspace,'run_%d'%self.run_id))
+        shutil.copy(
+            pjoin(self.run_workspace, ALStandaloneIntegrand._run_hyperparameters_filename),
+            pjoin(self.run_workspace, 'run_%d'%self.run_id, ALStandaloneIntegrand._run_hyperparameters_filename),
+        )
+        self.run_workspace = pjoin(self.run_workspace,'run_%d'%self.run_id)
+
         self.havana_optimize_on_variance = havana_optimize_on_variance
         self.havana_max_prob_ratio = havana_max_prob_ratio
         self.show_SG_grid = show_SG_grid
@@ -684,6 +723,8 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.n_start = n_start
         self.n_max = n_max
         self.n_increase = n_increase
+
+        self.keep = keep
 
         self.cluster_status_summary = None
 
@@ -786,7 +827,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
         # Now perform the integration
         
-        logger.info("Staring alphaLoop integration with Havana, lean back and enjoy...")
+        logger.info("Staring alphaLoop integration with Havana as run %d, lean back and enjoy..."%self.run_id)
         logger.info("Visit http://localhost:8787/status to follow Dask jobs from a dashboard.")
         start_time = time.time()
 
@@ -1031,9 +1072,10 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
     async def process_al_cluster_status_update(self, new_status):
         
-        self.cluster_status_summary = 'Status of %d workers: %d pending, %d available, %d running.'%(
+        self.cluster_status_summary = 'Status of %d workers: %d pending, %d available, %d running. A total of %d jobs are pending.'%(
             new_status['PENDING']+new_status['FREE']+new_status['RUNNING'],
-            new_status['PENDING'], new_status['FREE'], new_status['RUNNING']
+            new_status['PENDING'], new_status['FREE'], new_status['RUNNING'],
+            self.al_cluster.n_jobs_in_queue
         )
 
     def handle_exception(self, loop, context):
@@ -1084,7 +1126,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
         # Now perform the integration
         
-        logger.info("Staring alphaLoop integration with Havana and cluster '%s', lean back and enjoy..."%self.cluster_type)
+        logger.info("Staring alphaLoop integration with Havana and cluster '%s' as run #%d, lean back and enjoy..."%(self.cluster_type, self.run_id))
         start_time = time.time()
 
         self.current_iteration = 1
@@ -1112,8 +1154,8 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         if self.cluster_type == 'condor':
             cluster_options = self.dask_condor_options
         self.al_cluster = AL_cluster(
-            self.cluster_type, self.n_workers, self.n_cores_per_worker, self.run_workspace, self.process_job_result, 
-            monitor_callback=self.process_al_cluster_status_update, cluster_options=cluster_options
+            self.cluster_type, self.n_workers, self.n_cores_per_worker, self.run_workspace, self.process_job_result, self.run_id,
+            monitor_callback=self.process_al_cluster_status_update, cluster_options=cluster_options, keep=self.keep, debug=self._DEBUG
         )
 
         try:
@@ -1240,12 +1282,14 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
     def integrate(self):
         """ Return the final integral and error estimates."""
 
+        final_res = None
+
         logger.info("Now deploying the Dask cluster...")
         if self.cluster_type == 'dask_local':
             
             with LocalCluster(**self.dask_local_options) as cluster:                
                 client = Client(cluster)
-                return self.dask_integrate(client)
+                final_res = self.dask_integrate(client)
 
         elif self.cluster_type == 'dask_condor':
 
@@ -1281,7 +1325,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                     return x
                 client.submit(dummy, 'A').result()
                 logger.info("Cluster now ready.")
-                return self.dask_integrate(client)
+                final_res = self.dask_integrate(client)
         
         elif self.cluster_type in ['local','condor']:
 
@@ -1295,7 +1339,15 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                 self.al_cluster.terminate()
 
             self.tot_func_evals = self.havana.get_n_evals()
-            return self.havana.get_current_estimate()
+            final_res = self.havana.get_current_estimate()
 
         else:
             raise HavanaIntegratorError("Cluster architecture %s not supported."%self.cluster_type)
+
+        if not self.keep:
+            try:
+                shutil.rmtree(self.run_workspace)
+            except:
+                pass
+
+        return final_res

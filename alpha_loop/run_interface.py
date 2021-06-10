@@ -3467,6 +3467,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         choices=('espresso', 'microcentury', 'longlunch', 'workday', 'tomorrow', 'testmatch', 'nextweek'), help='Specify the job flavour for condor runs (default: %(default)s)')
     integrate_parser.add_argument('--n_dask_threads_per_worker', metavar='n_dask_threads_per_worker', type=int, default=1,
                     help='Number of threads in dask workers (default: %(default)s).')
+    integrate_parser.add_argument(
+        '--no_keep', action="store_false", dest="keep", default=True,
+        help="Keep integration data after the run completes.")
     def help_integrate(self):
         self.integrate_parser.print_help()
         return
@@ -3633,7 +3636,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                  'dump_havana_grids'   : args.dump_havana_grids,
                  'show_grids_sorted_by_variance' : args.show_grids_sorted_by_variance,
                  'fresh_integration'   : args.fresh,
-                 'pickle_IO'           : args.pickle_IO
+                 'pickle_IO'           : args.pickle_IO,
+                 'keep'                : args.keep
             }
 
         elif args.integrator == 'inspect':
@@ -3680,7 +3684,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if args.integrator=='havana':
 
             self.hyperparameters.set_parameter('General.multi_channeling',True)
-            self.hyperparameters.export_to(pjoin(self.dir_path, self._run_workspace_folder, ALStandaloneIntegrand._dask_run_hyperparameters_filename ))
+            self.hyperparameters.export_to(pjoin(self.dir_path, self._run_workspace_folder, ALStandaloneIntegrand._run_hyperparameters_filename ))
 
             # Adjust dummy SG name for display purposes
             SG_name = '+'.join(selected_SGs) if selected_SGs is not None else 'ALL'

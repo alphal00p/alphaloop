@@ -170,7 +170,7 @@ if __name__ == "__main__":
             integrands.ContinuousDimension('x',lower_bound=2.0, upper_bound=5.0),
             integrands.ContinuousDimension('y' ,lower_bound=1.0, upper_bound=3.0)
              ]) )
-                    
+
     # Define its constituting functions
     my_integrand.function_list = functions.FunctionList([
                 functions.FunctionFromPythonExpression('math.sin(x/y)', dimensions=my_integrand.get_dimensions()),
