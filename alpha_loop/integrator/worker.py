@@ -521,7 +521,7 @@ def HavanaIntegrandWrapper(
 
 def main(arg_tuple):
 
-    run_id, worker_id, run_workspace = arg_tuple
+    run_id, worker_id, run_workspace, timeout = arg_tuple
     import pickle
     import time
     import os
@@ -538,7 +538,7 @@ def main(arg_tuple):
 
         try:
             if (not os.path.exists(input_path_done) or not os.path.exists(input_path)) or os.path.exists(output_path_done):
-                time.sleep(0.2)
+                time.sleep(timeout)
                 continue
             
             print("Worker #%d received a new job."%(worker_id))
@@ -659,6 +659,7 @@ if __name__ == '__main__':
     parser.add_argument("--worker_id_min", dest="worker_id_min", type=int)
     parser.add_argument("--worker_id_max", dest="worker_id_max", type=int)
     parser.add_argument("--workspace_path", dest="workspace_path", type=str)
+    parser.add_argument("--timeout", dest="timeout", default=0.2, type=float)
     args = parser.parse_args()
 
     if args.worker_id_min==args.worker_id_max:
@@ -666,7 +667,7 @@ if __name__ == '__main__':
            args.worker_id_min, args.run_id, args.workspace_path))
         sys.stdout.flush()
         try:
-            main(tuple([args.run_id,args.worker_id_min,args.workspace_path]))
+            main(tuple([args.run_id,args.worker_id_min,args.workspace_path, args.timeout]))
         except Exception as e:
             print("Worker %d finished (%s)."%(args.worker_id_min, str(e)))
     else:
@@ -676,6 +677,6 @@ if __name__ == '__main__':
         from multiprocessing import Pool
         try:
             with Pool(args.worker_id_max-args.worker_id_min+1) as p:
-                    p.map( main, [ (args.run_id, worker_id, args.workspace_path) for worker_id in range(args.worker_id_min, args.worker_id_max+1)] )
+                    p.map( main, [ (args.run_id, worker_id, args.workspace_path, args.timeout) for worker_id in range(args.worker_id_min, args.worker_id_max+1)] )
         except Exception as e:
             print("Worker %d->%d finished (%s)."%(args.worker_id_min, args.worker_id_max, str(e)))

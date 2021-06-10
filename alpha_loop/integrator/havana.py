@@ -188,7 +188,7 @@ class AL_cluster(object):
                 if self.architecture == 'local':
                     await asyncio.sleep(self._JOB_CHECK_FREQUENCY)
                 else:
-                    await asyncio.sleep(self._JOB_CHECK_FREQUENCY*10.)
+                    await asyncio.sleep(self._JOB_CHECK_FREQUENCY*15.)
             except KeyboardInterrupt as e:
                 break
 
@@ -203,7 +203,7 @@ class AL_cluster(object):
 
                 cmd = [ sys.executable, pjoin(alphaloop_basedir,'alpha_loop','integrator','worker.py'), 
                         '--run_id', str(self.run_id), '--worker_id_min', str(worker_id_min), '--worker_id_max', str(worker_id_max), 
-                        '--workspace_path', str(self.run_workspace) ]
+                        '--workspace_path', str(self.run_workspace), '--timeout', '%.2f'%self._JOB_CHECK_FREQUENCY]
                 self.all_worker_hooks.append(subprocess.Popen(
                         cmd,
                         cwd=self.run_workspace,
@@ -255,7 +255,7 @@ class AL_cluster(object):
         with open(pjoin(self.run_workspace,'run_%d_condor_submission.sub'%self.run_id),'w') as f:
             f.write(
 """executable         = %(python)s
-arguments             = %(worker_script)s --run_id %(run_id)d --worker_id_min $(worker_id_min) --worker_id_max $(worker_id_max) --workspace_path %(workspace)s
+arguments             = %(worker_script)s --run_id %(run_id)d --worker_id_min $(worker_id_min) --worker_id_max $(worker_id_max) --workspace_path %(workspace)s --timeout %(timeout)s
 environment           = "LD_PRELOAD=%(libscsdir_path)s"
 output                = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).out
 error                 = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).err
@@ -273,6 +273,7 @@ queue worker_id_min,worker_id_max from %(workspace)s/run_%(run_id)d_condor_worke
         'run_id' : self.run_id,
         'worker_script' : pjoin(alphaloop_basedir,'alpha_loop','integrator','worker.py'),
         'workspace' : self.run_workspace,
+        'timeout' : '%.2f'%(self._JOB_CHECK_FREQUENCY*15.),
         'job_flavour' : self.cluster_options['job_flavour'],
         'n_cpus_per_worker' : self.n_cores_per_worker,
         'requested_memory_in_MB' : self.cluster_options['RAM_required']
