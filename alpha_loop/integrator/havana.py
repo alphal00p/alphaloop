@@ -290,7 +290,7 @@ queue worker_id_min,worker_id_max from %(workspace)s/run_%(run_id)d_condor_worke
             if matched_stdout:
                 cluster_id = int(matched_stdout.group('cluster_id'))
                 self.all_worker_hooks.append(cluster_id)
-                logger.info("A total of %d cluster jobs were submitted to condor cluster id %d"%(self.n_workers,cluster_id))
+                logger.info("A total of %d cluster workers were submitted to condor cluster id %d"%(self.n_workers,cluster_id))
             else:
                 raise HavanaIntegratorError('Could not interpret response from condor cluster:\n%s'%submit_stdout_decoded)
 
@@ -407,6 +407,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                  pickle_IO = False,
                  keep=False,
                  local_generation=False,
+                 run_id = None,
                  **opts):
 
         """ Initialize the simplest MC integrator."""
@@ -422,10 +423,16 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.phase = phase
 
         self.run_workspace = run_workspace
-        self.run_id = 1
-        while os.path.exists(pjoin(self.run_workspace,'run_%d'%self.run_id)):
-            self.run_id += 1
-        os.mkdir(pjoin(self.run_workspace,'run_%d'%self.run_id))
+        if run_id is None:
+            self.run_id = 1
+            while os.path.exists(pjoin(self.run_workspace,'run_%d'%self.run_id)):
+                self.run_id += 1
+        else:
+            self.run_id = run_id
+
+        if not os.path.exists(pjoin(self.run_workspace,'run_%d'%self.run_id)):
+            os.mkdir(pjoin(self.run_workspace,'run_%d'%self.run_id))
+
         shutil.copy(
             pjoin(self.run_workspace, ALStandaloneIntegrand._run_hyperparameters_filename),
             pjoin(self.run_workspace, 'run_%d'%self.run_id, ALStandaloneIntegrand._run_hyperparameters_filename),

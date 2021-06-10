@@ -3408,6 +3408,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='Selected lmb indices for the multichanneling. [-1,] means sum over all. (default: %(default)s).')
     integrate_parser.add_argument('-xs','--xs', metavar='xs', type=float, nargs='+', default=[-1.,],
                     help='Selected random variables to probe with inspect.')
+    integrate_parser.add_argument('--run_id', metavar='run_id', type=int, default=None,
+                    help='Specify a run id integer to start from if existing or to create if not.')
     integrate_parser.add_argument(
         '-mc','--multichanneling',action="store_true", dest="multichanneling", default=False,
         help="Enable multichanneling (default: as per hyperparameters)")
@@ -3640,7 +3642,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                  'show_grids_sorted_by_variance' : args.show_grids_sorted_by_variance,
                  'fresh_integration'   : args.fresh,
                  'pickle_IO'           : args.pickle_IO,
-                 'keep'                : args.keep,
+                 'keep'                : (args.keep or args.run_id is not None),
+                 'run_id'              : args.run_id,
                  'local_generation'    : args.local_generation
             }
 
