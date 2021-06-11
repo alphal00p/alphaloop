@@ -318,7 +318,8 @@ class SquaredTopologyGenerator:
             # TODO: fuse with cut_info['diagram_sets']
             self.cut_diagrams.append(diagram_sets)
 
-    def export(self, output_path, include_integration_channel_info=False):
+    def export(self, output_path, model=None, include_integration_channel_info=False, optimize_channels=False):
+        
         out = {
             'name': self.name,
             'n_loops': self.topo.n_loops,
@@ -369,11 +370,13 @@ class SquaredTopologyGenerator:
             ]
         }
 
+        optimal_channel_ids = []
+
         if include_integration_channel_info:
             
             from alpha_loop.run_interface import SuperGraph
             sg = SuperGraph(copy.deepcopy(out))
-            print("Now handling SG %s"%sg['name'])
+            #print("Now handling SG %s"%sg['name'])
             sg.set_integration_channels()
             multi_channeling_bases = []
             channel_id = 0
@@ -413,6 +416,36 @@ class SquaredTopologyGenerator:
                     )
                     channel_id += 1
 
+            if optimize_channels:
+
+                all_cc_cuts_edges = [ set([cut_edge['edge'] for cut_edge in cuts['cuts']]) for cuts in self.cuts ]
+
+                channels_score = []
+                for i_channel, channel in enumerate(multi_channeling_bases):
+                    
+                    pdg_score = 0
+                    for edge in channel['defining_propagators']:
+                        if model is None:
+                            if self.particle_ids[edge] in [21,22]:
+                                pdg_score +=1
+                        else:
+                            particle = model.get_particle(self.particle_ids[edge])
+                            if particle.get('spin') == 3 and particle.get('mass').upper()=='ZERO':
+                                pdg_score += 1
+                    
+                    cc_score = 0
+                    for cut_edges in all_cc_cuts_edges:
+                        cc_score -= len( cut_edges.difference(set(channel['defining_propagators'])) )
+
+                    channels_score.append( (pdg_score, cc_score, i_channel) )
+                    
+                channels_score.sort( key=lambda chan:(chan[0],chan[1]), reverse=True )
+                optimal_channel_ids = [ multi_channeling_bases[channels_score[0][-1]]['channel_id'], ]
+
+                # selected_channel_id = channels_score[0][-1]
+                # multi_channeling_bases[selected_channel_id]['channel_id'] = 0
+                # multi_channeling_bases = [ multi_channeling_bases[selected_channel_id], ]
+
         else:
 
             multi_channeling_bases = [
@@ -425,6 +458,7 @@ class SquaredTopologyGenerator:
             ]
 
         out['multi_channeling_bases'] = multi_channeling_bases
+        out['optimal_channel_ids'] = optimal_channel_ids
 
         try:
             import yaml

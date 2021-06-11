@@ -432,6 +432,8 @@ pub struct SquaredTopology {
     pub default_fixed_cut_momenta: (Vec<LorentzVector<f64>>, Vec<LorentzVector<f64>>),
     #[serde(default)]
     pub multi_channeling_bases: Vec<MultiChannelingBasis>,
+    #[serde(default)]
+    pub optimal_channel_ids: Option<Vec<usize>>,
     #[serde(skip_deserializing)]
     pub multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)>,
     #[serde(rename = "FORM_numerator")]
@@ -1506,6 +1508,13 @@ impl SquaredTopology {
             vec![];
 
         for mcb in &mut self.multi_channeling_bases {
+
+            if let Some(selected_channel_ids) = &self.optimal_channel_ids {
+                if selected_channel_ids.len() > 0 && !selected_channel_ids.iter().any(|&i| i==mcb.channel_id) {
+                    continue
+                }
+            }
+
             let mut cut_signatures_matrix = vec![];
             let mut lmb_to_cb_mat_i8 = vec![];
             for sig in mcb.signatures.clone() {

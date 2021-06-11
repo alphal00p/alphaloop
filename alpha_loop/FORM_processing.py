@@ -84,6 +84,8 @@ FORM_processing_options = {
     # c) 'removed' : the finitie part of the renormalisation is removed. 
     'renormalisation_finite_terms' : 'together',
     'optimisation_strategy' : 'CSEgreedy',
+    'optimise_generation_lmb' : True,
+    'optimise_integration_channels' : True,
     'FORM_setup': {
     #   'MaxTermSize':'100K',
     #   'Workspace':'1G'
@@ -559,11 +561,11 @@ aGraph=%s;
 
         return topo_generator, edge_name_to_key, original_LMB
 
-    def generate_additional_LMBs(self):
+    def adjust_LMBs(self, model):
         """ Depending on the FORM options 'number_of_lmbs' and 'reference_lmb', this function fills in the attribute 
         additional_lmbs of this class."""
 
-        if FORM_processing_options['number_of_lmbs'] is None:
+        if (FORM_processing_options['number_of_lmbs'] is None) and not FORM_processing_options['optimise_generation_lmb']:
             return
     
         topo_generator, edge_name_to_key, original_LMB = self.get_topo_generator()
@@ -572,9 +574,36 @@ aGraph=%s;
         all_lmbs = topo_generator.loop_momentum_bases()
         all_lmbs= [ tuple([edge_name_to_key[topo_generator.edge_map_lin[e][0]] for e in lmb]) for lmb in all_lmbs]
         
+        forced_LMB_index = None
+        if FORM_processing_options['optimise_generation_lmb']:
+            
+            edge_name_to_pdg = {edge['name']:edge['PDG'] for edge in self.edges.values()}
+            # add the prefix p
+            edge_name_to_pdg= {'p%s'%k: v for k,v in edge_name_to_pdg.items() if not k.startswith('p') }
+
+            lmb_metric = []
+            for (lmb_index, lmb) in enumerate(all_lmbs):
+                lmb_pdgs = [ edge_name_to_pdg[edge_key_to_name[e_key]] for e_key in original_LMB ]
+                lmb_pdg_score = 1
+                for pdg in lmb_pdgs:
+                    if model is None:
+                        if pdg in [21,22]:
+                            lmb_pdg_score +=1
+                    else:
+                        particle = model.get_particle(pdg)
+                        if particle.get('spin') == 3 and particle.get('mass').upper()=='ZERO':
+                            lmb_pdg_score += 1
+                lmb_metric.append((lmb_pdg_score, lmb_index))
+            lmb_metric.sort(key=lambda score:score[0], reverse=True)
+            forced_LMB_index = lmb_metric[0][1]
+
         # Then overwrite the reference LMB if the user requested it
-        if FORM_processing_options['reference_lmb'] is not None:
-            original_LMB = all_lmbs[(FORM_processing_options['reference_lmb']-1)%len(all_lmbs)]
+        if (FORM_processing_options['reference_lmb'] is not None) or (forced_LMB_index is not None):
+            if FORM_processing_options['reference_lmb'] is not None:
+                original_LMB = all_lmbs[(FORM_processing_options['reference_lmb']-1)%len(all_lmbs)]
+            else:
+                original_LMB = all_lmbs[forced_LMB_index]
+
             # Regenerate the topology with this new overwritten LMB
             topo_generator, _, _ = self.get_topo_generator(specified_LMB=[ edge_key_to_name[e_key] for e_key in original_LMB ] )
             # And adjust all signatures (incl. the string momenta assignment accordingly)
@@ -598,6 +627,9 @@ aGraph=%s;
                             ],
                             set_outgoing_equal_to_incoming=False)
                     for e_key in node_data['edge_ids']])
+
+        if FORM_processing_options['number_of_lmbs'] is None:
+            return
 
         original_lmb_signatures = topo_generator.get_signature_map()
         original_lmb_signatures = { edge_name_to_key[edge_name]: [sig[0],
@@ -1308,9 +1340,17 @@ CTable pfmap(0:{},0:{});
 
         if write_yaml:
             if isinstance(self.additional_lmbs, int):
-                topo.export(pjoin(root_output_path, "%s_LMB%d.yaml"%(self.name,self.additional_lmbs)), include_integration_channel_info=include_integration_channel_info)
+                topo.export(pjoin(root_output_path, "%s_LMB%d.yaml"%(self.name,self.additional_lmbs)),
+                    model=model,
+                    include_integration_channel_info=include_integration_channel_info, 
+                    optimize_channels=FORM_processing_options['optimise_integration_channels']
+                )
             else:
-                topo.export(pjoin(root_output_path, "%s.yaml"%self.name), include_integration_channel_info=include_integration_channel_info)
+                topo.export(pjoin(root_output_path, "%s.yaml"%self.name), 
+                    model=model,
+                    include_integration_channel_info=include_integration_channel_info, 
+                    optimize_channels=FORM_processing_options['optimise_integration_channels']
+                )
 
         return True
 
@@ -2449,11 +2489,10 @@ class FORMSuperGraphList(list):
             #    g = iso_graphs[0]
             #    print("#{}\t{:10}: {}".format(iso_id, g.name, g.multiplicity))
 
-
         # Generate additional copies for different LMB of the representative graph of each isomorphic set.
         # Note that depending on the option FORM_processing['representative_lmb'], the function below can also modify the LMB of the representative sg.
         for FORM_iso_sg in FORM_iso_sg_list:
-            FORM_iso_sg[0].generate_additional_LMBs()
+            FORM_iso_sg[0].adjust_LMBs(model)
 
         # Export the drawings corresponding to each ISO supergraphs
         for i_graph, super_graphs in enumerate(FORM_iso_sg_list):
@@ -3637,10 +3676,10 @@ class FORMProcessor(object):
                            "You will thus need to compile numerators.c manually.%s")%(utils.bcolors.GREEN, utils.bcolors.ENDC))
 
     def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None,
-        integrand_type=None, include_integration_channel_info=True):
+        integrand_type=None, include_integration_channel_info=None):
         self.super_graphs_list.generate_squared_topology_files(
             root_output_path, self.model, self.process_definition, n_jets, final_state_particle_ids, jet_ids=jet_ids, filter_non_contributing_graphs=filter_non_contributing_graphs, workspace=workspace,
-            integrand_type=integrand_type, include_integration_channel_info=FORM_processing_options['include_integration_channel_info']
+            integrand_type=integrand_type, include_integration_channel_info=(FORM_processing_options['include_integration_channel_info'] if include_integration_channel_info is None else include_integration_channel_info)
         )
 
 if __name__ == "__main__":
