@@ -540,14 +540,23 @@ def main(arg_tuple):
             if (not os.path.exists(input_path_done) or not os.path.exists(input_path)) or os.path.exists(output_path_done):
                 time.sleep(timeout)
                 continue
-            
-            print("Worker #%d received a new job."%(worker_id))
+
+            t_overall = time.time()
+
+            print("Worker #%d received a new job at time t=%s"%(worker_id, time.time()))
+            sys.stdout.flush()
             t0=time.time()
             input_payload = pickle.load( open( input_path, 'rb' ) )
+            pickling_time = t0 - time.time()
 
             output = None
             if input_payload == 'ping':
                 output = 'pong'
+                with open(output_path,'wb') as f:
+                    pickle.dump( output, f )
+                with open(output_path_done,'w') as f:
+                    f.write("Marker file for job output done.")
+                continue
             else:
                 if last_integrands_contructor_args is None or input_payload['integrands_constructor_args'] != last_integrands_contructor_args:
                     last_integrands_contructor_args = input_payload['integrands_constructor_args']
@@ -579,7 +588,10 @@ def main(arg_tuple):
                     sample_generation_time = time.time()-t0
                     print("Worker #%d completed sample generation in %.5s."%(worker_id, sample_generation_time))
                     call_options['samples_batch'] = this_sample
+                    t0 = time.time()
                     job_id, run_time, samples_evaluated = HavanaIntegrandWrapper(**call_options)
+                    print("Worker #%d evaluated all samples in %.5s."%(worker_id, time.time()-t0))
+                    t0 = time.time()
                     havana_updater_constructor_args = dict(input_payload['havana_grid'])
                     havana_updater_constructor_args['fresh_integration'] = True
                     havana_updater = HavanaMockUp(**havana_updater_constructor_args)
@@ -597,7 +609,6 @@ def main(arg_tuple):
                         'max_eval_negative_xs' : None,
                     } for _ in range(n_integrands) ]
 
-                    t0 = time.time()
                     for res in samples_evaluated:
                         for index in range(0,n_integrands):
                             if is_phase_real:
@@ -630,15 +641,23 @@ def main(arg_tuple):
                         'sample_statistics' : sample_statistics
                     }
                     post_processing_time = time.time()-t0
-                    output = ( job_id, run_time+sample_generation_time+post_processing_time, complete_result)
+                    print("Worker #%d has run_time=%.2f s, sample_generation_time=%.2f s, post_processing_time=%.2f s, pickle_time=%.2f s"%(
+                        worker_id, run_time, sample_generation_time, post_processing_time, pickling_time
+                    ))
+                    output = ( job_id, run_time+sample_generation_time+post_processing_time+pickling_time, complete_result)
 
             print("Worker #%d now writing job output."%(worker_id))
+            cumulative_measured_timing = output[1]
+            # Overwrite with actual timing
+            output = (output[0], time.time()-t_overall, output[2])
             t0 = time.time()
             with open(output_path,'wb') as f:
                 pickle.dump( output, f )
             with open(output_path_done,'w') as f:
                 f.write("Marker file for job output done.")
             print("Worker #%d finished serialisation and dump of job output in %.5gs."%( worker_id, time.time()-t0 ))
+            print("Worker #%d: exact timing vs cumulative one: %.5fs vs %.5fs."%(worker_id, time.time()-t_overall, cumulative_measured_timing) )
+            print("Worker #%d completed job at time t=%s"%(worker_id, time.time()))
             sys.stdout.flush()
 
         except Exception as e:

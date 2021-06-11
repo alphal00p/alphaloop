@@ -752,7 +752,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         processing_time = (cumulative_processing_time / wall_time)*100.
         cpu_hours = (cumulative_job_time / 3600.)
         parallelisation_efficiency = (cumulative_job_time / (wall_time*self.n_cpus) )*100.
-        monitoring_report.append('| Wall time: %.1f h, IO: %.2f%%, processing: %.2f%%, jobs: %.1f CPU-hours, efficiency: %.2f%%'%(
+        monitoring_report.append('| Wall time: %.3f h, IO: %.2f%%, processing: %.2f%%, jobs: %.3f CPU-hours, efficiency: %.2f%%'%(
             wall_time/3600., IO_time, processing_time, cpu_hours, parallelisation_efficiency
         ))
         monitoring_report.append('')
