@@ -24,7 +24,7 @@ name = "ltd"
 [dependencies.pyo3]
 features = ["extension-module"]
 optional = true
-version = "0.12"
+version = "0.13"
 
 [dependencies]
 arrayvec = {version = "^0.5"}# features = ["array-sizes-129-255"]
@@ -48,7 +48,7 @@ mpolynomial = {git = "https://github.com/apelloni/mpolynomial", branch = "master
 nalgebra = "0.18"
 num = "0.3"
 num-traits = "0.2.12"
-rand = "*"
+rand = "0.8"
 rayon = "*"
 scs-rs = "*"
 serde = {version = "1.0", features = ["derive"]}
