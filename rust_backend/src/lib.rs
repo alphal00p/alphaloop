@@ -2,6 +2,8 @@
 extern crate itertools;
 #[cfg(feature = "python_api")]
 use pyo3::prelude::*;
+#[cfg(feature = "python_api")]
+use smallvec::smallvec;
 #[macro_use]
 extern crate dlopen_derive;
 extern crate nalgebra as na;
@@ -701,17 +703,42 @@ impl Settings {
     }
 }
 
+// create a Havana submodule
+fn init_havana(m: &PyModule) -> PyResult<()> {
+    m.add_class::<havana::bindings::HavanaWrapper>()?;
+    m.add_class::<havana::bindings::SampleWrapper>()?;
+    m.add_class::<havana::bindings::GridConstructor>()?;
+    m.add_class::<havana::bindings::ContinuousGridConstructor>()?;
+    m.add_class::<havana::bindings::DiscreteGridConstructor>()?;
+    Ok(())
+}
+
 // add bindings to the generated python module
 #[cfg(feature = "python_api")]
 #[pymodule]
-fn ltd(_py: Python, m: &PyModule) -> PyResult<()> {
+fn ltd(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PythonLTD>()?;
     m.add_class::<PythonCrossSection>()?;
+
+    let submod = PyModule::new(py, "havana")?;
+    init_havana(submod)?;
+    m.add_submodule(submod)?;
+
+    // workaround for https://github.com/PyO3/pyo3/issues/759
+    py.run(
+        "\
+import sys
+sys.modules['ltd.havana'] = havana
+    ",
+        None,
+        Some(m.dict()),
+    )?;
+
     Ok(())
 }
 
 #[cfg(feature = "python_api")]
-#[pyclass(name = CrossSection)]
+#[pyclass(name = "CrossSection")]
 struct PythonCrossSection {
     squared_topology: squared_topologies::SquaredTopology,
     integrand: integrand::Integrand<squared_topologies::SquaredTopologySet>,
@@ -741,11 +768,21 @@ impl PythonCrossSection {
                 )
                 .unwrap();
                 let local_squared_topology_clone = local_squared_topology.clone();
-                ( local_squared_topology, squared_topologies::SquaredTopologySet::from_one(local_squared_topology_clone) )
+                (
+                    local_squared_topology,
+                    squared_topologies::SquaredTopologySet::from_one(local_squared_topology_clone),
+                )
             }
             Some(true) => {
-                let local_squared_topology_set = squared_topologies::SquaredTopologySet::from_file(squared_topology_file, &settings).unwrap();
-                (local_squared_topology_set.topologies[0].clone(), local_squared_topology_set)
+                let local_squared_topology_set = squared_topologies::SquaredTopologySet::from_file(
+                    squared_topology_file,
+                    &settings,
+                )
+                .unwrap();
+                (
+                    local_squared_topology_set.topologies[0].clone(),
+                    local_squared_topology_set,
+                )
             }
             _ => unreachable!(),
         };
@@ -774,47 +811,79 @@ impl PythonCrossSection {
         }
     }
 
-    #[args(sg_ids = "None", channel_ids="None")]
-    fn evaluate_integrand_batch(&mut self, xs: Vec<Vec<f64>>, sg_ids: Option<Vec<usize>>, channel_ids: Option<Vec<usize>>) -> PyResult<Vec<(f64, f64)>> {
+    fn evaluate_integrand_havana(
+        &mut self,
+        havana: &mut havana::bindings::HavanaWrapper,
+    ) -> PyResult<()> {
+        for s in &havana.samples {
+            let integrand_sample = self.integrand.evaluate(
+                integrand::IntegrandSample::Nested(s),
+                s.get_weight(),
+                match &havana.grid {
+                    havana::Grid::ContinuousGrid(cg) => cg.accumulator.cur_iter + 1,
+                    havana::Grid::DiscreteGrid(dg) => dg.accumulator.cur_iter + 1,
+                },
+            );
 
-        use integrand::IntegrandSample;
+            let f = match self.integrand.settings.integrator.integrated_phase {
+                IntegratedPhase::Real => integrand_sample.re,
+                IntegratedPhase::Imag => integrand_sample.im,
+                IntegratedPhase::Both => unimplemented!(),
+            };
+
+            havana
+                .grid
+                .add_training_sample(s, f, self.integrand.settings.integrator.train_on_avg);
+        }
+
+        Ok(())
+    }
+
+    #[args(sg_ids = "None", channel_ids = "None")]
+    fn evaluate_integrand_batch(
+        &mut self,
+        xs: Vec<Vec<f64>>,
+        sg_ids: Option<Vec<usize>>,
+        channel_ids: Option<Vec<usize>>,
+    ) -> PyResult<Vec<(f64, f64)>> {
         use havana;
+        use integrand::IntegrandSample;
         use itertools::izip;
 
         let samples = match (sg_ids, channel_ids) {
             (Some(selected_sg_ids), Some(selected_channel_ids)) => {
                 let mut all_samples = vec![];
                 for (sg_id, channel_id, x) in izip!(selected_sg_ids, selected_channel_ids, xs) {
-                    all_samples.push(
-                        havana::Sample::DiscreteGrid(1., vec![sg_id],
-                            Some(Box::new(havana::Sample::DiscreteGrid(1., vec![channel_id],
-                                Some(Box::new(havana::Sample::ContinuousGrid(1., x)))
-                            )))
-                        )
-                    )
+                    all_samples.push(havana::Sample::DiscreteGrid(
+                        1.,
+                        smallvec![sg_id],
+                        Some(Box::new(havana::Sample::DiscreteGrid(
+                            1.,
+                            smallvec![channel_id],
+                            Some(Box::new(havana::Sample::ContinuousGrid(1., x))),
+                        ))),
+                    ))
                 }
                 all_samples
-            },
+            }
             (Some(selected_sg_ids), _) => {
                 let mut all_samples = vec![];
                 for (sg_id, x) in izip!(selected_sg_ids, xs) {
-                    all_samples.push(
-                        havana::Sample::DiscreteGrid(1., vec![sg_id],
-                            Some(Box::new(havana::Sample::ContinuousGrid(1., x)))
-                        )
-                    )
+                    all_samples.push(havana::Sample::DiscreteGrid(
+                        1.,
+                        smallvec![sg_id],
+                        Some(Box::new(havana::Sample::ContinuousGrid(1., x))),
+                    ))
                 }
                 all_samples
-            },
+            }
             (_, Some(_)) => {
                 panic!("Cannot sum over SGs for specific integration channels.")
-            },
+            }
             (_, _) => {
                 let mut all_samples = vec![];
                 for x in xs {
-                    all_samples.push(
-                        havana::Sample::ContinuousGrid(1., x)
-                    );
+                    all_samples.push(havana::Sample::ContinuousGrid(1., x));
                 }
                 all_samples
             }
@@ -825,7 +894,7 @@ impl PythonCrossSection {
             let res = self
                 .integrand
                 .evaluate(IntegrandSample::Nested(&sample), 1.0, 1);
-                all_res.push((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()));
+            all_res.push((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()));
         }
 
         Ok(all_res)
@@ -1135,7 +1204,7 @@ impl PythonCrossSection {
 }
 
 #[cfg(feature = "python_api")]
-#[pyclass(name = LTD)]
+#[pyclass(name = "LTD")]
 struct PythonLTD {
     topo: topologies::Topology,
     integrand: integrand::Integrand<topologies::Topology>,

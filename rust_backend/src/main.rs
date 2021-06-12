@@ -263,7 +263,7 @@ where
 
         for (s, f) in samples[..cur_points].iter().zip(&f[..cur_points]) {
             grid.add_training_sample(s, *f, settings.integrator.train_on_avg);
-            integral.add_sample(*f * s.get_weight());
+            integral.add_sample(*f * s.get_weight(), s);
         }
 
         grid.update(
