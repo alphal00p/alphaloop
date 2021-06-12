@@ -704,6 +704,7 @@ impl Settings {
 }
 
 // create a Havana submodule
+#[cfg(feature = "python_api")]
 fn init_havana(m: &PyModule) -> PyResult<()> {
     m.add_class::<havana::bindings::HavanaWrapper>()?;
     m.add_class::<havana::bindings::SampleWrapper>()?;
