@@ -814,9 +814,10 @@ impl PythonCrossSection {
 
     fn evaluate_integrand_havana(
         &mut self,
+        py: Python,
         havana: &mut havana::bindings::HavanaWrapper,
     ) -> PyResult<()> {
-        for s in &havana.samples {
+        for (i, s) in havana.samples.iter().enumerate() {
             let integrand_sample = self.integrand.evaluate(
                 integrand::IntegrandSample::Nested(s),
                 s.get_weight(),
@@ -835,6 +836,11 @@ impl PythonCrossSection {
             havana
                 .grid
                 .add_training_sample(s, f, self.integrand.settings.integrator.train_on_avg);
+
+            // periodically check for ctrl-c
+            if i % 1000 == 0 {
+                py.check_signals()?;
+            }
         }
 
         Ok(())
@@ -843,6 +849,7 @@ impl PythonCrossSection {
     #[args(sg_ids = "None", channel_ids = "None")]
     fn evaluate_integrand_batch(
         &mut self,
+        py: Python,
         xs: Vec<Vec<f64>>,
         sg_ids: Option<Vec<usize>>,
         channel_ids: Option<Vec<usize>>,
@@ -891,11 +898,16 @@ impl PythonCrossSection {
         };
 
         let mut all_res = vec![];
-        for sample in samples {
+        for (i, sample) in samples.iter().enumerate() {
             let res = self
                 .integrand
                 .evaluate(IntegrandSample::Nested(&sample), 1.0, 1);
             all_res.push((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()));
+
+            // periodically check for ctrl-c
+            if i % 1000 == 0 {
+                py.check_signals()?;
+            }
         }
 
         Ok(all_res)
