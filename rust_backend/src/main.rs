@@ -262,13 +262,14 @@ where
         }
 
         for (s, f) in samples[..cur_points].iter().zip(&f[..cur_points]) {
-            grid.add_training_sample(s, *f, settings.integrator.train_on_avg);
-            integral.add_sample(*f * s.get_weight(), s);
+            grid.add_training_sample(s, *f);
+            integral.add_sample(*f * s.get_weight(), Some(s));
         }
 
         grid.update(
             settings.integrator.learning_rate,
             settings.integrator.n_bins,
+            settings.integrator.train_on_avg,
         );
         integral.update_iter();
 
@@ -1773,8 +1774,11 @@ fn main() -> Result<(), Report> {
         settings.integrator.internal_parallelization = false;
     }
 
-    let mut dashboard =
-        Dashboard::new(settings.integrator.dashboard, settings.integrator.show_plot);
+    let mut dashboard = Dashboard::new(
+        settings.integrator.dashboard,
+        settings.integrator.show_plot,
+        settings.integrator.quiet_mode,
+    );
 
     let mut diagram = if let Some(cs_opt) = matches.value_of("cross_section") {
         Diagram::CrossSection(SquaredTopologySet::from_one(SquaredTopology::from_file(

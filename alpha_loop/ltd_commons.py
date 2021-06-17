@@ -193,6 +193,8 @@ hyperparameters = HyperParameters({
         'internal_parallelization'  : True,
         # Use the dashboard. Make sure to run Cuba with 0 cores or enable internal_parallelization.
         'dashboard'         :   True,
+        # Do not output integrand statistics when the dashboard is disabled.
+        'quiet_mode'        :   False,
         'show_plot'         :   False,
         # The integrator can be havana, vegas, divonne, cuhre or suave
         'integrator'        :   'havana',

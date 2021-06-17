@@ -531,6 +531,7 @@ pub struct GeneralSettings {
 pub struct IntegratorSettings {
     pub internal_parallelization: bool,
     pub dashboard: bool,
+    pub quiet_mode: bool,
     pub show_plot: bool,
     pub integrator: Integrator,
     pub n_vec: usize,
@@ -583,6 +584,7 @@ impl Default for IntegratorSettings {
         IntegratorSettings {
             internal_parallelization: false,
             dashboard: false,
+            quiet_mode: false,
             show_plot: false,
             integrator: Integrator::Vegas,
             n_increase: 0,
@@ -792,7 +794,7 @@ impl PythonCrossSection {
             float_cache,
             quad_cache,
         } = squared_topology_set.create_cache();
-        let dashboard = dashboard::Dashboard::minimal_dashboard();
+        let dashboard = dashboard::Dashboard::minimal_dashboard(settings.integrator.quiet_mode);
         let integrand = integrand::Integrand::new(
             squared_topology_set.get_maximum_loop_count(),
             squared_topology_set,
@@ -833,9 +835,7 @@ impl PythonCrossSection {
                 IntegratedPhase::Both => unimplemented!(),
             };
 
-            havana
-                .grid
-                .add_training_sample(s, f, self.integrand.settings.integrator.train_on_avg);
+            havana.grid.add_training_sample(s, f);
 
             // periodically check for ctrl-c
             if i % 1000 == 0 {
@@ -1257,7 +1257,7 @@ impl PythonLTD {
 
         let cache = topologies::LTDCache::<float>::new(&topo);
         let cache_f128 = topologies::LTDCache::<f128::f128>::new(&topo);
-        let dashboard = dashboard::Dashboard::minimal_dashboard();
+        let dashboard = dashboard::Dashboard::minimal_dashboard(settings.integrator.quiet_mode);
         let integrand = integrand::Integrand::new(
             topo.n_loops,
             topo.clone(),
@@ -1278,7 +1278,8 @@ impl PythonLTD {
     }
 
     fn __copy__(&self) -> PyResult<PythonLTD> {
-        let dashboard = dashboard::Dashboard::minimal_dashboard();
+        let dashboard =
+            dashboard::Dashboard::minimal_dashboard(self.topo.settings.integrator.quiet_mode);
         let integrand = integrand::Integrand::new(
             self.topo.n_loops,
             self.topo.clone(),
