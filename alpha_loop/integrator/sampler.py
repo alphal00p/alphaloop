@@ -383,7 +383,7 @@ class TestHFuncIntegrand(integrands.VirtualIntegrand):
 
         return final_res
 
-class DaskHavanaALIntegrand(integrands.VirtualIntegrand):
+class HavanaALIntegrand(integrands.VirtualIntegrand):
 
     def __init__(self, MC_over_SGs, MC_over_channels, n_integration_dimensions, *args, **opts):
 
@@ -398,9 +398,11 @@ class DaskHavanaALIntegrand(integrands.VirtualIntegrand):
         if MC_over_channels:
             self.dimensions.append(integrands.DiscreteDimension('channel',values=[1.,]))
 
+        self.n_dimensions_per_SG_id = opts.get('n_dimensions_per_SG_id',None)
+
         self.worker = ALStandaloneIntegrand(n_integration_dimensions, *args, **opts)
 
-        super(DaskHavanaALIntegrand, self).__init__( self.dimensions )
+        super(HavanaALIntegrand, self).__init__( self.dimensions )
 
     def __call__(self, *args, **opts):
         return self.worker(*args, **opts)

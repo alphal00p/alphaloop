@@ -814,28 +814,82 @@ impl PythonCrossSection {
         }
     }
 
+    #[args(havana_updater_re = "None", havana_updater_im = "None", train_on_avg="None", real_phase="None")]
     fn evaluate_integrand_havana(
         &mut self,
         py: Python,
-        havana: &mut havana::bindings::HavanaWrapper,
+        havana_sampler: &mut havana::bindings::HavanaWrapper,
+        mut havana_updater_re: Option<&mut havana::bindings::HavanaWrapper>,
+        mut havana_updater_im: Option<&mut havana::bindings::HavanaWrapper>,
+        real_phase: Option<bool>
     ) -> PyResult<()> {
-        for (i, s) in havana.samples.iter().enumerate() {
+        for (i, s) in havana_sampler.samples.iter().enumerate() {
             let integrand_sample = self.integrand.evaluate(
                 integrand::IntegrandSample::Nested(s),
                 s.get_weight(),
-                match &havana.grid {
+                match &havana_sampler.grid {
                     havana::Grid::ContinuousGrid(cg) => cg.accumulator.cur_iter + 1,
                     havana::Grid::DiscreteGrid(dg) => dg.accumulator.cur_iter + 1,
                 },
             );
 
-            let f = match self.integrand.settings.integrator.integrated_phase {
-                IntegratedPhase::Real => integrand_sample.re,
-                IntegratedPhase::Imag => integrand_sample.im,
-                IntegratedPhase::Both => unimplemented!(),
+            let phase = if let Some(selected_real_phase) = real_phase {
+                if selected_real_phase {
+                    IntegratedPhase::Real
+                } else {
+                    IntegratedPhase::Imag
+                }
+            } else {
+                self.integrand.settings.integrator.integrated_phase
             };
 
-            havana.grid.add_training_sample(s, f);
+            match (&mut havana_updater_re, &mut havana_updater_im) {
+                (Some(a_havana_updater_re), Some(a_havana_updater_im)) => {
+                    a_havana_updater_re.grid.add_training_sample(
+                        s,
+                        integrand_sample.re
+                    );
+                    a_havana_updater_im.grid.add_training_sample(
+                        s,
+                        integrand_sample.im
+                    );
+                }
+                (Some(a_havana_updater_re), _) => {
+                    a_havana_updater_re.grid.add_training_sample(
+                        s,
+                        integrand_sample.re
+                    );
+                    if phase==IntegratedPhase::Imag {
+                        havana_sampler.grid.add_training_sample(
+                            s,
+                            integrand_sample.im
+                        );
+                    }
+                }
+                (_, Some(a_havana_updater_im)) => {
+                    if phase==IntegratedPhase::Real {
+                        havana_sampler.grid.add_training_sample(
+                            s,
+                            integrand_sample.re
+                        );
+                    }
+                    a_havana_updater_im.grid.add_training_sample(
+                        s,
+                        integrand_sample.im
+                    );
+                }
+                _ => {
+                    let f = match phase {
+                        IntegratedPhase::Real => integrand_sample.re,
+                        IntegratedPhase::Imag => integrand_sample.im,
+                        IntegratedPhase::Both => unimplemented!(),
+                    };
+                    havana_sampler.grid.add_training_sample(
+                        s,
+                        f
+                    );
+                }
+            }
 
             // periodically check for ctrl-c
             if i % 1000 == 0 {

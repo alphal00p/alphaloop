@@ -27,7 +27,8 @@ import alpha_loop.integrator.integrators as integrators
 import alpha_loop.integrator.integrands as integrands
 import alpha_loop.integrator.functions as functions
 import alpha_loop.utils as utils
-from alpha_loop.integrator.worker import HavanaIntegrandWrapper, ALStandaloneIntegrand, HavanaMockUp
+from alpha_loop.utils import bcolors
+from alpha_loop.integrator.worker import HavanaIntegrandWrapper, ALStandaloneIntegrand, HavanaMockUp, Havana
 
 # Dask dependencies
 import dask
@@ -67,6 +68,9 @@ logger.addHandler(console_handler)
 logger.propagate = False
 
 pjoin = os.path.join
+
+class HavanaIntegratorError(Exception):
+    pass
 
 class AL_cluster(object):
 
@@ -123,7 +127,6 @@ class AL_cluster(object):
             'PENDING' : all_statuses.count('PENDING'),
             'RUNNING' : all_statuses.count('RUNNING')
         }
-
         if self.current_status is None or new_status!=self.current_status:
             self.current_status = new_status
             if self.monitor_callback is not None:
@@ -169,6 +172,7 @@ class AL_cluster(object):
                     input_path_done = pjoin(self.run_workspace, 'run_%d_job_input_worker_%d.done'%(self.run_id, output_worker_id))
                     if not os.path.exists(input_path):
                         raise HavanaIntegratorError("Matching input file for worker %d not found."%output_worker_id)
+                        
                     os.remove(input_path)
                     os.remove(input_path_done)
                     os.remove(output_path)
@@ -364,7 +368,9 @@ queue worker_id_min,worker_id_max from %(workspace)s/run_%(run_id)d_condor_worke
 
         io_files = \
             [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.pkl'%self.run_id))]+\
-            [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.done'%self.run_id))]
+            [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.done'%self.run_id))]+\
+            [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.bin'%self.run_id))]+\
+            [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.yaml'%self.run_id))]
         for io_file in io_files:
             os.remove(io_file)
 
@@ -373,6 +379,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
     
     _SUPPORTED_CLUSTER_ARCHITECTURES = [ 'dask_local', 'dask_condor', 'local', 'condor' ]
     _DEBUG = False
+    _USE_HAVANA_MOCKUP = True
 
     def __init__(self, integrands,
                  cross_section_set=None,
@@ -388,7 +395,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                  n_workers = None,
                  n_cores_per_worker = None,
                  batch_size = 1e6,
-                 cluster_type = 'dask_local',
+                 cluster_type = 'local',
                  dask_local_options = None,
                  dask_condor_options = None,
                  target_result = None,
@@ -404,10 +411,14 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                  show_grids_sorted_by_variance = False,
                  dump_havana_grids = True,
                  fresh_integration = False,
-                 pickle_IO = False,
                  keep=False,
-                 local_generation=False,
                  run_id = None,
+                 havana_starting_n_bins = 128,
+                 havana_n_points_min = 1000,
+                 havana_learning_rate = 1.5,
+                 havana_bin_increase_factor_schedule = None,
+                 show_selected_phase_only = False,
+                 show_all_information_for_all_integrands = False,
                  **opts):
 
         """ Initialize the simplest MC integrator."""
@@ -422,27 +433,15 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
             self.stream_monitor = False
         self.phase = phase
 
-        self.run_workspace = run_workspace
-        if run_id is None:
-            self.run_id = 1
-            while os.path.exists(pjoin(self.run_workspace,'run_%d'%self.run_id)):
-                self.run_id += 1
-        else:
-            self.run_id = run_id
-
-        if not os.path.exists(pjoin(self.run_workspace,'run_%d'%self.run_id)):
-            os.mkdir(pjoin(self.run_workspace,'run_%d'%self.run_id))
-
-        shutil.copy(
-            pjoin(self.run_workspace, ALStandaloneIntegrand._run_hyperparameters_filename),
-            pjoin(self.run_workspace, 'run_%d'%self.run_id, ALStandaloneIntegrand._run_hyperparameters_filename),
-        )
-        self.run_workspace = pjoin(self.run_workspace,'run_%d'%self.run_id)
+        self.run_id = run_id
+        self.run_workspace = pjoin(run_workspace,'run_%d'%self.run_id)
         
         # Clean up of possibly previously crashed run
         io_files = \
             [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.pkl'%self.run_id))]+\
-            [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.done'%self.run_id))]
+            [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.done'%self.run_id))]+\
+            [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.bin'%self.run_id))]+\
+            [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.yaml'%self.run_id))]
         for io_file in io_files:
             os.remove(io_file)
 
@@ -451,17 +450,25 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.show_SG_grid = show_SG_grid
         self.show_channel_grid = show_channel_grid
         self.show_grids_sorted_by_variance = show_grids_sorted_by_variance
+        self.show_selected_phase_only = show_selected_phase_only
+        self.show_all_information_for_all_integrands = show_all_information_for_all_integrands
         self.dump_havana_grids = dump_havana_grids
         self.fresh_integration = fresh_integration
-        self.pickle_IO = pickle_IO
 
         self.n_start = n_start
         self.n_max = n_max
         self.n_increase = n_increase
 
-        self.keep = keep
+        self.havana_starting_n_bins = havana_starting_n_bins
+        self.havana_n_points_min = havana_n_points_min
+        self.havana_learning_rate = havana_learning_rate
+        if havana_bin_increase_factor_schedule is None:
+            # This is a reasonable default: double the number of bins every 5 iterations for the first 20
+            self.havana_bin_increase_factor_schedule = tuple(sum([[1,1,1,1,2],]*4,[]))
+        else:
+            self.havana_bin_increase_factor_schedule = havana_bin_increase_factor_schedule
 
-        self.local_generation = local_generation
+        self.keep = keep
 
         self.cluster_status_summary = None
 
@@ -511,14 +518,14 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.MC_over_channels = MC_over_channels
         self.selected_SGs = selected_SGs
 
-        if (self.selected_SGs is not None) and (not self.MC_over_SGs):
-            raise HavanaIntegratorError("A selection of supergraphs can only be specified when Monte-Carlo'ing over them.")
-
         self.seed = seed
+        if not self._USE_HAVANA_MOCKUP and self.seed is None:
+            # We must use a definite seed when not using havana mockup.
+            self.seed = random.randint(1,1001)
+
         self.havana = None
 
         super(HavanaIntegrator, self).__init__(integrands, **opts)
-        #misc.sprint(self.integrands)
         
     def dask_integrate(self, client):
 
@@ -545,15 +552,18 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         else:
             n_channels_per_SG = []
             for (i_SG, SG_name) in SG_ids:
-                n_channels_per_SG.append(len(self.all_supergraphs[SG_name]['multi_channeling_bases']))
+                n_channels_per_SG.append(
+                    len(self.all_supergraphs[SG_name]['multi_channeling_bases']) if len(self.all_supergraphs[SG_name]['optimal_channel_ids'])==0 
+                    else len(self.all_supergraphs[SG_name]['optimal_channel_ids']) 
+                )
 
         self.havana = HavanaMockUp(
             n_dimensions, 
+            self.integrands,
             SG_ids=SG_ids, 
             n_channels_per_SG=n_channels_per_SG, 
             target_result=self.target_result, 
             seed=self.seed,
-            n_integrands = len(self.integrands),
             reference_integrand_index = 0,
             phase = self.phase,
             grid_file = pjoin(self.run_workspace,'havana_grid.yaml'),
@@ -607,19 +617,11 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                 cumulative_processing_time = time.time() - t2
     
                 t0 = time.time()
-                if self.pickle_IO:
-                    if self._DEBUG: logger.info("Dumping input of job %d to pickle..."%job_ID)
-                    IO_path = pjoin(self.run_workspace,'dask_input_job_%d.pkl'%job_ID)
-                    with open(IO_path, 'wb') as f:
-                        pickle.dump( this_sample, f )
-                    if self._DEBUG: logger.info("Done with pickle dump.")
-                    this_scattered_sample = str(IO_path)
-                else:
-                    # Scattering data is not really necessary as I believe this is the right thing to do only for data common to multiple jobs. 
-                    # But I don't like the warning when not doing so, so I'll put it.
-                    if self._DEBUG: logger.info("Scattering sampling input for job #%d..."%job_ID)
-                    this_scattered_sample = client.scatter(this_sample)
-                    if self._DEBUG: logger.info("Done with scattering sampling input.")
+                # Scattering data is not really necessary as I believe this is the right thing to do only for data common to multiple jobs. 
+                # But I don't like the warning when not doing so, so I'll put it.
+                if self._DEBUG: logger.info("Scattering sampling input for job #%d..."%job_ID)
+                this_scattered_sample = client.scatter(this_sample)
+                if self._DEBUG: logger.info("Done with scattering sampling input.")
 
                 if self._DEBUG: logger.info("Submitting job %d."%job_ID)
                 futures.append(client.submit(HavanaIntegrandWrapper, 
@@ -651,14 +653,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                     t1 = time.time()
                     if self._DEBUG: logger.info("Now receiving result from a job...")
                     job_ID, run_time, results = completed_future.result()
-                    if self.pickle_IO:
-                        if self._DEBUG: logger.info("Loading pickled results for job %d..."%job_ID)
-                        results_pickle_path = results
-                        results = pickle.load( open( results_pickle_path, 'rb' ) )
-                        os.remove(results_pickle_path)
-                        if self._DEBUG: logger.info("Finished loading pickled results of %d samples."%len(results))
-                    else:
-                        if self._DEBUG: logger.info("Finished receiving %d sample result from job %d..."%(len(results),job_ID))
+                    if self._DEBUG: logger.info("Finished receiving %d sample result from job %d..."%(len(results),job_ID))
 
                     cumulative_IO_time += time.time()-t1
                     cumulative_job_time += run_time
@@ -740,20 +735,20 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         if self.cluster_status_summary is not None:
             monitoring_report.append( '\n'.join('| %s'%line for line in self.cluster_status_summary.split('\n')) )
 
-        monitoring_report.append( '| Jobs completed: overall = %d (avg %s), and for this iteration = %d/%d/%d on %d cpus.\n| Total n_pts: %.1fM ( %s ms / pt on one core, %s pts / s overall ). n_pts for this iteration #%d: %.2fM/%.2fM (%.1f%%).'%(
+        monitoring_report.append( '| Jobs completed: overall = %d (avg %s), and for this iteration = %d/%d/%d on %d cpus.\n| Total n_pts: %s%.1fM%s ( %s%s ms / pt%s on one core, %s %s pts / s%s overall ). n_pts for this iteration %s#%d: %.2fM/%.2fM (%.1f%%)%s.'%(
             n_jobs_total_completed, '%.3g min/job'%((cumulative_job_time/n_jobs_total_completed)/60.) if n_jobs_total_completed>0 else 'N/A', n_done, n_submitted, n_jobs_for_this_iteration if n_jobs_for_this_iteration is not None else n_submitted,
-            self.n_cpus, n_tot_points/(1.e6), '%.3g'%((curr_integration_time/n_tot_points)*self.n_cpus*1000.) if n_tot_points>0 else 'N/A', 
-            ('%.1fK'%(n_tot_points/curr_integration_time/1000.) if n_tot_points>0 else 'N/A'),
+            self.n_cpus, bcolors.GREEN, n_tot_points/(1.e6),bcolors.END, bcolors.GREEN, '%.3g'%((curr_integration_time/n_tot_points)*self.n_cpus*1000.) if n_tot_points>0 else 'N/A', bcolors.END,
+            bcolors.GREEN, ('%.1fK'%(n_tot_points/curr_integration_time/1000.) if n_tot_points>0 else 'N/A'), bcolors.END, bcolors.BLUE,
             current_iteration_number,
-            n_points_for_this_iteration/(1.e6), current_n_points/(1.e6), (float(n_points_for_this_iteration)/current_n_points)*100.
+            n_points_for_this_iteration/(1.e6), current_n_points/(1.e6), (float(n_points_for_this_iteration)/current_n_points)*100., bcolors.END
         ))
         wall_time = curr_integration_time
         IO_time = (cumulative_IO_time / wall_time)*100.
         processing_time = (cumulative_processing_time / wall_time)*100.
         cpu_hours = (cumulative_job_time / 3600.)
         parallelisation_efficiency = (cumulative_job_time / (wall_time*self.n_cpus) )*100.
-        monitoring_report.append('| Wall time: %.3f h, IO: %.2f%%, processing: %.2f%%, jobs: %.3f CPU-hours, efficiency: %.2f%%'%(
-            wall_time/3600., IO_time, processing_time, cpu_hours, parallelisation_efficiency
+        monitoring_report.append('| Wall time: %.3f h, IO: %.2f%%, processing: %.2f%%, jobs: %.3f CPU-hours, efficiency: %s%.2f%%%s'%(
+            wall_time/3600., IO_time, processing_time, cpu_hours, bcolors.GREEN if parallelisation_efficiency > 90. else bcolors.RED, parallelisation_efficiency, bcolors.END
         ))
         monitoring_report.append('')
         monitoring_report.append( self.havana.get_summary() )
@@ -761,7 +756,9 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         if self.show_SG_grid:
             grid_summary = self.havana.get_grid_summary( 
                 sort_by_variance=self.show_grids_sorted_by_variance, 
-                show_channel_grid= (self.MC_over_channels and self.show_channel_grid)
+                show_channel_grid= (self.MC_over_channels and self.show_channel_grid),
+                show_selected_phase_only = self.show_selected_phase_only,
+                show_all_information_for_all_integrands = self.show_all_information_for_all_integrands
             )
             if grid_summary != '':
                 monitoring_report.append( grid_summary )
@@ -784,39 +781,24 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
             t2 = time.time()
             if self._DEBUG: logger.info("Accumulating new results from job %d into havana..."%job_ID)
 
-            if self.local_generation:
+            havana_constructor_args = results['havana_updater']
+            havana_constructor_args['integrands'] = self.integrands
 
-                self.havana.accumulate_results(results)
-                max_prob_ratio_for_this_iteration = max( self.havana_max_prob_ratio / max( 100. - 10.*(self.current_iteration-1) , 1.), 3.)
-                if self._DEBUG: logger.info("Syncing Havana grids with the new results...")
-                self.havana.sync_grids( max_prob_ratio = max_prob_ratio_for_this_iteration )
-                if self._DEBUG: logger.info("Done updating Havana grids...")
-                
-                self.n_points_for_this_iteration += len(results)
-                self.n_tot_points += len(results)
-
-                is_phase_real = (self.phase=='real')
-                n_integrands = len(self.integrands)
-                for res in results:
-                    xs = res[1+n_integrands*2:]
-                    for index in range(0,n_integrands):
-                        if is_phase_real:
-                            wgt = res[index*2]
-                        else:
-                            wgt = res[1+index*2]
-                        havana_jacobian = res[n_integrands*2]
-                        self.integrands[index].update_evaluation_statistics(xs, wgt*havana_jacobian)
-
+            if self._USE_HAVANA_MOCKUP:
+                havana_updater = HavanaMockUp(**havana_constructor_args)
             else:
-                havana_updater = HavanaMockUp(**results['havana_updater'])
-                self.havana.accumulate_from_havana_grid(havana_updater)
+                havana_updater = Havana(**havana_constructor_args)
+                # Clean-up job output
+                for grid_file_path in havana_constructor_args['flat_record']['grid_files']:
+                    os.remove(grid_file_path)
+            
+            self.havana.accumulate_from_havana_grid(havana_updater)
+            
+            if self._USE_HAVANA_MOCKUP:
                 max_prob_ratio_for_this_iteration = max( self.havana_max_prob_ratio / max( 100. - 10.*(self.current_iteration-1) , 1.), 3.)
                 if self._DEBUG: logger.info("Syncing Havana grids with the new results...")
                 self.havana.sync_grids( max_prob_ratio = max_prob_ratio_for_this_iteration )
                 if self._DEBUG: logger.info("Done updating Havana grids...")
-
-                self.n_points_for_this_iteration += havana_updater.n_points
-                self.n_tot_points += havana_updater.n_points
 
                 for index in range(0,len(self.integrands)):
                     self.integrands[index].n_evals.value += results['sample_statistics'][index]['n_evals']
@@ -829,6 +811,10 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                         self.integrands[index].max_eval_negative.value = results['sample_statistics'][index]['max_eval_negative']
                         self.integrands[index].max_eval_negative_xs[:] = results['sample_statistics'][index]['max_eval_negative_xs']
 
+            self.n_points_for_this_iteration += havana_updater.n_points
+            self.n_tot_points += havana_updater.n_points
+
+
             self.cumulative_processing_time = time.time() - t2
 
             self.n_jobs_awaiting_completion -= 1
@@ -838,11 +824,13 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
     async def process_al_cluster_status_update(self, new_status):
         
-        self.cluster_status_summary = 'Status of %d workers: %d pending, %d available, %d running. A total of %d jobs are pending.'%(
+        self.cluster_status_summary = 'Status of %d workers: %d pending, %d available, %s%d%s running. A total of %d jobs are pending.'%(
             new_status['PENDING']+new_status['FREE']+new_status['RUNNING'],
-            new_status['PENDING'], new_status['FREE'], new_status['RUNNING'],
+            new_status['PENDING'], new_status['FREE'], bcolors.GREEN, new_status['RUNNING'], bcolors.END,
             self.al_cluster.n_jobs_in_queue
         )
+        if self.canvas is not None and self.stream_monitor:
+            self.canvas.print(self.cluster_status_summary)
 
     def handle_exception(self, loop, context):
         self.exit_now = True
@@ -853,6 +841,9 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         n_dimensions = len(self.integrands[0].dimensions.get_continuous_dimensions())
         if not all(len(integrand.dimensions.get_continuous_dimensions())==n_dimensions for integrand in self.integrands):
             raise HavanaIntegratorError("In Havana implementations, all integrands must have the same dimension.")
+
+        if not self.MC_over_SGs and self.MC_over_channels:
+            raise HavanaIntegratorError("Havana cannot perform a Monte-Carlo over channels but not over supergraphs.")
 
         if not self.MC_over_SGs:
             SG_ids = None
@@ -870,29 +861,77 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
         if not self.MC_over_channels:
             n_channels_per_SG = None
+            total_number_of_integration_channels = sum(
+                len(self.all_supergraphs[SG['name']]['multi_channeling_bases']) if len(self.all_supergraphs[SG['name']]['optimal_channel_ids'])==0 
+                    else len(self.all_supergraphs[SG['name']]['optimal_channel_ids']) for SG in self.cross_section_set['topologies']
+            )
         else:
             n_channels_per_SG = []
             for (i_SG, SG_name) in SG_ids:
-                n_channels_per_SG.append(len(self.all_supergraphs[SG_name]['multi_channeling_bases']))
+                n_channels_per_SG.append(
+                    len(self.all_supergraphs[SG_name]['multi_channeling_bases']) if len(self.all_supergraphs[SG_name]['optimal_channel_ids'])==0 
+                    else len(self.all_supergraphs[SG_name]['optimal_channel_ids'])
+                )
+        
+        if SG_ids is None:
+            total_number_of_integration_channels = sum(
+                len(self.all_supergraphs[SG['name']]['multi_channeling_bases']) if len(self.all_supergraphs[SG['name']]['optimal_channel_ids'])==0 
+                    else len(self.all_supergraphs[SG['name']]['optimal_channel_ids']) for SG in self.cross_section_set['topologies']
+            )
+        else:
+            total_number_of_integration_channels = 0
+            for (i_SG, SG_name) in SG_ids:
+                total_number_of_integration_channels += (
+                    len(self.all_supergraphs[SG_name]['multi_channeling_bases']) if len(self.all_supergraphs[SG_name]['optimal_channel_ids'])==0 
+                    else len(self.all_supergraphs[SG_name]['optimal_channel_ids'])
+                )
 
-        self.havana = HavanaMockUp(
-            n_dimensions, 
-            SG_ids=SG_ids, 
-            n_channels_per_SG=n_channels_per_SG, 
-            target_result=self.target_result, 
-            seed=self.seed,
-            n_integrands = len(self.integrands),
-            reference_integrand_index = 0,
-            phase = self.phase,
-            grid_file = pjoin(self.run_workspace,'havana_grid.yaml'),
-            optimize_on_variance = self.havana_optimize_on_variance,
-            max_prob_ratio = self.havana_max_prob_ratio,
-            fresh_integration = self.fresh_integration
-        )
+        if self._USE_HAVANA_MOCKUP:
+            self.havana = HavanaMockUp(
+                n_dimensions, 
+                self.integrands,
+                SG_ids=SG_ids, 
+                n_channels_per_SG=n_channels_per_SG, 
+                target_result=self.target_result, 
+                seed=self.seed,
+                reference_integrand_index = 0,
+                phase = self.phase,
+                grid_file = pjoin(self.run_workspace,'havana_grid.yaml'),
+                optimize_on_variance = self.havana_optimize_on_variance,
+                max_prob_ratio = self.havana_max_prob_ratio,
+                fresh_integration = self.fresh_integration
+            )
+        else:
+            self.havana = Havana(
+                n_dimensions, 
+                self.integrands,
+                SG_ids=SG_ids, 
+                n_channels_per_SG=n_channels_per_SG, 
+                target_result=self.target_result, 
+                seed=self.seed,
+                reference_integrand_index = 0,
+                phase = self.phase,
+                grid_file = pjoin(self.run_workspace,'havana_grid.yaml'),
+                optimize_on_variance = self.havana_optimize_on_variance,
+                max_prob_ratio = self.havana_max_prob_ratio,
+                fresh_integration = self.fresh_integration,
+                n_bins = self.havana_starting_n_bins,
+                n_points_min = self.havana_n_points_min,
+                learning_rate = self.havana_learning_rate,
+                bin_increase_factor_schedule = self.havana_bin_increase_factor_schedule,
+                alpha_loop_path = alphaloop_basedir,
+            )
 
         # Now perform the integration
         
-        logger.info("Staring alphaLoop integration with Havana and cluster '%s' as run #%d, lean back and enjoy..."%(self.cluster_type, self.run_id))
+        logger.info("Staring alphaLoop integration with Havana and cluster '%s' as run #%d"%(self.cluster_type, self.run_id))
+        logger.info("Number of SG considered: %s (%s)"%(
+            len(self.cross_section_set['topologies']) if SG_ids is None else len(SG_ids), "Monte-Carlo'ed over" if self.MC_over_SGs else 'explicitly summed per sample'
+        ))
+        logger.info("Total number of integration channels considered: %s (%s)"%(
+            total_number_of_integration_channels, "Monte-Carlo'ed over" if self.MC_over_channels else 'explicitly summed per sample'
+        ))
+        logger.info("Lean back and enjoy...")
 
         self.current_iteration = 1
         current_n_points = self.n_start
@@ -940,8 +979,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                 n_jobs_for_this_iteration = math.ceil(current_n_points/float(self.batch_size))
                 self.n_points_for_this_iteration = 0
                 
-                if not self.local_generation:
-                    sampling_grid_constructor_arguments = self.havana.get_constructor_arguments()
+                sampling_grid_constructor_arguments = self.havana.get_constructor_arguments()
 
                 n_submitted = 0
                 n_done = 0
@@ -974,23 +1012,16 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                                 'channels_specified' : self.MC_over_channels
                             }
 
-                        if self.local_generation:
-                            if self._DEBUG: logger.info("Generating sample for job #%d..."%job_ID)
-                            this_sample = self.havana.sample(this_n_points)
-                            if self._DEBUG: logger.info("Done with sample generation.")
-                            job_payload['samples_batch'] = this_sample
-                            job_payload['worker_generates_samples'] = False
+                        havana_grid_constructor_arguments = dict(sampling_grid_constructor_arguments)
+                        if self.seed:
+                            havana_grid_constructor_arguments['seed'] = int(self.seed+100000*job_ID)
                         else:
-                            havana_grid_constructor_arguments = dict(sampling_grid_constructor_arguments)
-                            if self.seed:
-                                havana_grid_constructor_arguments['seed'] = int(self.seed+100000*job_ID)
-                            else:
-                                havana_grid_constructor_arguments['seed'] = None
-                            havana_grid_constructor_arguments['fresh_integration'] = False
-                            job_payload['phase'] = self.phase
-                            job_payload['havana_grid'] = havana_grid_constructor_arguments
-                            job_payload['worker_generates_samples'] = True
-                            job_payload['n_points_to_sample'] = this_n_points
+                            havana_grid_constructor_arguments['seed'] = None
+                        havana_grid_constructor_arguments['fresh_integration'] = False
+                        job_payload['phase'] = self.phase
+                        job_payload['havana_grid'] = havana_grid_constructor_arguments
+                        job_payload['havana_mockup'] = self._USE_HAVANA_MOCKUP
+                        job_payload['n_points_to_sample'] = this_n_points
 
                         self.cumulative_processing_time = time.time() - t2
                         t0 = time.time()
@@ -1036,8 +1067,24 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                     break
 
                 t2 = time.time()
+                if self._USE_HAVANA_MOCKUP and self._DEBUG: logger.info("Updating Havana grids for iteration #%d..."%self.current_iteration)
                 self.havana.update_iteration_count(dump_grids=self.dump_havana_grids)
-                cumulative_processing_time = time.time() - t2
+                if not self._USE_HAVANA_MOCKUP:
+                    for i_itg, integrand in enumerate(self.integrands):
+                        grid_index = ( i_itg*2 if self.phase=='real' else ( i_itg*2 + 1 ) )
+                        avg, err, chi_sq, max_eval_negative, max_eval_positive, n_evals, n_zero_evals = self.havana.havana_grids[grid_index].get_current_estimate()
+                        integrand.n_evals.value = n_evals
+                        integrand.n_evals_failed.value = 0
+                        integrand.n_zero_evals.value = n_zero_evals
+                        integrand.max_eval_positive.value = max_eval_positive
+                        #TODO propagate this info too
+                        integrand.max_eval_positive_xs[:] = [0.,]*len(integrand.max_eval_positive_xs)
+                        integrand.max_eval_negative.value = max_eval_negative
+                        #TODO propagate this info too
+                        integrand.max_eval_negative_xs[:] = [0.,]*len(integrand.max_eval_negative_xs)
+
+                if self._USE_HAVANA_MOCKUP and self._DEBUG: logger.info("Done updating Havana grids in %.3g ms."%((time.time()-t2)*1000.))
+                self.cumulative_processing_time += time.time() - t2
 
                 if self.n_iterations is not None and self.current_iteration >= self.n_iterations:
                     logger.info("Max number of iterations %d reached."%self.n_iterations) 
@@ -1061,11 +1108,26 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
         except KeyboardInterrupt as e:
             logger.warning("Aborting Havana integration now.")
+
         except Exception as e:
-            logger.critical("Exception '%s' occurred during run. Aborting integration now."%str(e))
+            logger.critical("Exception '%s' occurred during run:\n%s\nAborting integration now."%(str(e),str(traceback.format_exc())))
 
         if self.exit_now:
             logger.warning("Aborting Havana integration now.")
+
+        if not self._USE_HAVANA_MOCKUP:
+            for i_itg, integrand in enumerate(self.integrands):
+                grid_index = ( i_itg*2 if self.phase=='real' else ( i_itg*2 + 1 ) )
+                avg, err, chi_sq, max_eval_negative, max_eval_positive, n_evals, n_zero_evals = self.havana.havana_grids[grid_index].get_current_estimate()
+                integrand.n_evals.value = n_evals
+                integrand.n_evals_failed.value = 0
+                integrand.n_zero_evals.value = n_zero_evals
+                integrand.max_eval_positive.value = max_eval_positive
+                #TODO propagate this info too
+                integrand.max_eval_positive_xs[:] = [0.,]*len(integrand.max_eval_positive_xs)
+                integrand.max_eval_negative.value = max_eval_negative
+                #TODO propagate this info too
+                integrand.max_eval_negative_xs[:] = [0.,]*len(integrand.max_eval_negative_xs)
 
     def integrate(self):
         """ Return the final integral and error estimates."""

@@ -1,15 +1,431 @@
 import math 
 
+class bcolors:
+    HEADER = '\033[95m'
+    BLUE = '\033[94m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    WARNING = YELLOW
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    PURPLE = '\033[95m'
+    CYAN = '\033[96m'
+    DARKCYAN = '\033[36m'
+    RED = '\033[91m'
+    END = ENDC
+
 class HavanaIntegratorError(Exception):
     """Exception raised if an exception is triggered in Havana.""" 
+
+class Havana(object):
+    """ A wrapper class around the Havana rust bindings."""
+
+    def __init__(self, 
+            n_dimensions, integrands, n_bins=128, n_points_min=1000, SG_ids=None, n_channels_per_SG=None, target_result=None, seed=None, 
+            reference_integrand_index=0, phase='real', grid_file='havana_grid.yaml', 
+            optimize_on_variance=True, max_prob_ratio=1000., fresh_integration=False,
+            flat_record = None, alpha_loop_path=None, learning_rate=1.5, bin_increase_factor_schedule=None, **opts
+        ):
+
+        self.alpha_loop_path = alpha_loop_path
+
+        self.n_dimensions = n_dimensions
+        self.target_result = target_result
+        self.integrands = integrands
+        self.n_integrands = len(self.integrands)
+        self.n_bins = n_bins
+        self.n_points_min = n_points_min
+        self.reference_integrand_index = reference_integrand_index
+        self.phase = phase
+        self.optimize_on_variance = optimize_on_variance
+        self.max_prob_ratio = max_prob_ratio
+
+        if self.phase=='real':
+            self.reference_result_index = reference_integrand_index*2
+        else:
+            self.reference_result_index = reference_integrand_index*2+1
+
+        self.n_discrete_dimension = 0
+        if SG_ids is not None:
+            self.n_discrete_dimension += 1
+        if n_channels_per_SG is not None:
+            self.n_discrete_dimension += 1
+
+        self.SG_ids = SG_ids
+        self.n_channels_per_SG = n_channels_per_SG
+        self.seed = seed
+
+        self.havana_grids = None
+
+        self.learning_rate = learning_rate
+        if bin_increase_factor_schedule is None:
+            self.bin_increase_factor_schedule = []
+        else:
+            self.bin_increase_factor_schedule = bin_increase_factor_schedule
+
+        self.grid_file = grid_file
+        self.fresh_integration = fresh_integration
+
+        self.reset( clean = self.fresh_integration, flat_record=flat_record )
+    
+
+    def get_constructor_arguments(self, dump_format='bin'):
+        
+        import copy
+        return {
+            'n_dimensions' : self.n_dimensions,
+            'SG_ids' : self.SG_ids,
+            'n_channels_per_SG' : self.n_channels_per_SG,
+            'target_result' : self.target_result,
+            'seed' : self.seed,
+            'integrands' : None, # will be filled in at runtime
+            'reference_integrand_index' : self.reference_integrand_index,
+            'phase' : self.phase,
+            'n_bins' : self.n_bins,
+            'n_points_min' : self.n_points_min,
+            'grid_file' : self.grid_file,
+            'optimize_on_variance' : self.optimize_on_variance,
+            'max_prob_ratio' :self.max_prob_ratio,
+            'learning_rate' : self.learning_rate,
+            'bin_increase_factor_schedule' : self.bin_increase_factor_schedule,
+            'flat_record' : copy.deepcopy(self.get_flat_record(dump_format=dump_format))
+        }
+
+
+    def reset(self, clean=False, flat_record = None):
+
+        import os
+        import sys
+
+        # Access havana bindings
+        try:
+            if self.alpha_loop_path not in sys.path:
+                sys.path.insert(0, self.alpha_loop_path)
+            # Import the havana bindings, in the form of the ltd shared object library that contains the following submodule:
+            #import ltd.havana as havana
+            from ltd.havana import Havana, Sample, GridConstructor, ContinuousGridConstructor, DiscreteGridConstructor
+        except ImportError as e:
+            raise HavanaIntegratorError("Could not import the rust back-end 'ltd' module in '%s'. Compile it first with:\n"%self.alpha_loop_path+
+                " ./make_lib\nfrom within the alphaLoop directory.")
+
+        if not clean and ( (flat_record is not None) or os.path.exists(self.grid_file) ):
+            
+            if flat_record is None:
+                import yaml
+                with open(self.grid_file,'r') as f:
+                    flat_record = yaml.load(f, Loader=yaml.Loader)
+            self.n_points = flat_record['n_points']
+            self.n_iterations = flat_record['n_iterations']
+            self.havana_grids = [
+                Havana.load_grid(grid_file_path, seed=self.seed, format=grid_file_path.split('.')[-1]) for grid_file_path in flat_record['grid_files']
+            ]
+
+        else:
+
+            self.n_points = 0
+            self.n_iterations = 0
+            self.havana_grids = []
+            for i_itg, integrand in enumerate(self.integrands):
+                # Add one havana grid for the real and imaginary part
+                for phase in ['real','imag']:
+                    if self.SG_ids is None:
+                        a_grid = GridConstructor(cgc=ContinuousGridConstructor(self.n_dimensions, self.n_bins, self.n_points_min))
+                    elif self.n_channels_per_SG is None:                    
+                        a_grid=GridConstructor(dgc=DiscreteGridConstructor(
+                            [len(self.SG_ids),],
+                            [
+                                GridConstructor(cgc=ContinuousGridConstructor(integrand.n_dimensions_per_SG_id[SG_id], self.n_bins, self.n_points_min))
+                                for (SG_id, SG_name) in self.SG_ids 
+                            ],
+                            self.max_prob_ratio 
+                        ))
+                    else:
+                        a_grid=GridConstructor(dgc=DiscreteGridConstructor(
+                            [len(self.SG_ids),],
+                            [
+                                GridConstructor(dgc=DiscreteGridConstructor(
+                                    [n_channels,],
+                                    [
+                                        GridConstructor(cgc=ContinuousGridConstructor(integrand.n_dimensions_per_SG_id[SG_id], self.n_bins, self.n_points_min))
+                                        for i_channel in range(n_channels) 
+                                    ],
+                                    self.max_prob_ratio 
+                                ))
+                                for n_channels, (SG_id, SG_name) in zip(self.n_channels_per_SG, self.SG_ids) 
+                            ],
+                            self.max_prob_ratio 
+                        ))
+                    self.havana_grids.append(Havana(a_grid, seed=self.seed))
+
+
+    def get_havana_grid_filenames(self, top_level_grid_filename, dump_format='bin'):
+
+        import os
+        subgrid_file_paths = []
+        for i_itg in range(0,len(self.havana_grids)//2):
+            for i_phase, phase in enumerate(['real','imag']):
+                grid_base_path = os.path.dirname(top_level_grid_filename)
+                grid_name = '.'.join(s for s in os.path.basename(top_level_grid_filename).split('.')[:-1])
+                grid_suffix = os.path.basename(top_level_grid_filename).split('.')[-1]
+                subgrid_file_paths.append(
+                    os.path.join(grid_base_path,'%s_itg_%d_%s.%s'%(
+                        grid_name, i_itg+1, phase, dump_format
+                    ))
+                )
+        return subgrid_file_paths
+
+    def get_flat_record(self, file_name=None, dump_format='bin'):
+        import time
+        import sys
+
+        havana_grid_file_paths = self.get_havana_grid_filenames(self.grid_file if file_name is None else file_name, dump_format=dump_format)
+        for havana_grid, grid_file_path in zip(self.havana_grids, havana_grid_file_paths):
+            havana_grid.save_grid(grid_file_path, format=dump_format)
+
+        return {
+            'n_points' : self.n_points,
+            'grid_files' : havana_grid_file_paths,
+            'n_iterations' :self.n_iterations
+        }
+
+    def dump_grid(self, file_name=None, dump_format='yaml'):
+
+        flat_record = self.get_flat_record(file_name=file_name, dump_format=dump_format)
+
+        with open(self.grid_file if file_name is None else file_name,'w') as f:
+            import yaml
+            class NoAliasDumper(yaml.SafeDumper):
+                def ignore_aliases(self, data):
+                    return True
+            f.write(yaml.dump(flat_record, Dumper=NoAliasDumper, default_flow_style=False))
+
+    def sample(self, batch_size, in_place=True):
+
+        self.havana_grids[self.reference_result_index].sample(batch_size)
+        self.n_points += batch_size
+
+        # Return None if we use an Havana in-place sampling approach
+        if in_place:
+            return self
+        else:
+            return self.havana_grids[self.reference_result_index].get_samples()
+
+    def accumulate_from_havana_grid(self, grid):
+
+        if grid.n_points == 0:
+            return
+
+        self.n_points += grid.n_points
+
+        for index in range(0,self.n_integrands*2):
+            self.havana_grids[index].merge(grid.havana_grids[index])
+
+    def accumulate_results(self, results):
+        
+        if isinstance(results, Havana):
+            return self.accumulate_from_havana_grid(results)
+
+        raise NotImplementedError("Currently the Havana wrapper only supports accumulating results by merging other havana grids.")
+
+    def sync_grids(self, max_prob_ratio=None):
+        
+        # Havana grids should only be updated at the end of an iteration round.
+        # The current estimate gets automatically synced every time a new grid is merged into this.
+        pass
+
+    def update_iteration_count(self, dump_grids=True):
+        
+        import os
+
+        self.n_iterations += 1
+
+        # Sync the grid at this stage
+        if len(self.bin_increase_factor_schedule)<self.n_iterations:
+            bin_increase_factor = 1
+        else:
+            bin_increase_factor = int(self.bin_increase_factor_schedule[self.n_iterations-1])
+        self.n_bins = bin_increase_factor*self.n_bins
+        for havana_grid in self.havana_grids:
+            havana_grid.update(alpha = self.learning_rate, new_bin_length=self.n_bins, train_on_avg=(not self.optimize_on_variance) )
+        
+        if dump_grids:
+            # Dump current grid and a copy to keep track of its evolution at each iteration.
+            self.dump_grid()
+            file_path_for_this_iteration = os.path.join(
+                os.path.dirname(self.grid_file),
+                '%s_iteration_%d.%s'%(
+                    '.'.join(os.path.basename(self.grid_file).split('.')[:-1]),
+                    self.n_iterations,
+                    os.path.basename(self.grid_file).split('.')[-1]
+                )
+            )
+            self.dump_grid(file_name=file_path_for_this_iteration)
+
+    def get_grid_summary(self, sort_by_variance=True, show_channel_grid=True, 
+                            show_all_information_for_all_integrands=False, show_selected_phase_only = False):
+
+        if (self.havana_grids is None):
+            return ''
+
+        from prettytable import PrettyTable
+        pt = PrettyTable()
+        all_results = []
+        reference_result_index_here=None
+        for i_havana_grid, havana_grid in enumerate(self.havana_grids):
+            if show_selected_phase_only and ((self.phase=='real' and i_havana_grid%2==1) or (self.phase=='imag' and i_havana_grid%2==0)):
+                continue
+            avg, err, chi_sq, max_eval_negative, max_eval_positive, n_evals, n_zero_evals = havana_grid.get_current_estimate()
+            integrand_result = [
+                    {
+                        'i_SG'             : -1,
+                        'SG_name'          : 'Total',
+                        'avg'              : avg,
+                        'err'              : err,
+                        'chi_sq_per_dof'   : chi_sq/self.n_iterations if self.n_iterations > 0 else 0.,
+                        'max_wgt_infl'     : 0. if n_evals==0 else max(abs(max_eval_negative),max_eval_positive)/(err*n_evals),
+                        'n_evals'          : n_evals,
+                        'n_zero_evals'     : n_zero_evals,
+                        'p'                : None
+                    }                
+            ]
+            if self.SG_ids is not None:
+                integrand_result.extend([ 
+                        {
+                            'i_SG'             : i_SG,
+                            'SG_name'          : self.SG_ids[i_SG][1],
+                            'avg'              : avg,
+                            'err'              : err,
+                            'chi_sq_per_dof'   : chi_sq/self.n_iterations if self.n_iterations > 0 else 0.,
+                            'max_wgt_infl'     : 0. if n_evals==0 else max(abs(max_eval_negative),max_eval_positive)/(err*n_evals),
+                            'n_evals'          : n_evals,
+                            'n_zero_evals'     : n_zero_evals
+                        }
+                        for i_SG, (avg, err, chi_sq, max_eval_negative, max_eval_positive, n_evals, n_zero_evals) in enumerate(havana_grid.get_top_level_accumulators()) 
+                    ]
+                )
+                cdfs = havana_grid.get_top_level_cdfs()
+                pdfs = [ cdfs[i]-(0. if i==0 else cdfs[i-1]) for i in range(len(cdfs)) ]
+                for i_SG, pdf in enumerate(pdfs):
+                    integrand_result[i_SG+1]['p'] = pdf
+
+            if i_havana_grid==self.reference_result_index:
+                reference_result_index_here = len(all_results)
+            all_results.append(('%s[I%d]'%('Re' if i_havana_grid%2==0 else 'Im', i_havana_grid//2),integrand_result) )
+
+        # Place the reference result first
+        all_results = [all_results[reference_result_index_here],]+[r for i_r, r in enumerate(all_results) if i_r!=reference_result_index_here]
+
+        # Now sort SGs
+        if self.SG_ids is not None:
+            sorted_SG_ids = sorted( 
+                [ 
+                    ( (sg['err'] if sort_by_variance else abs(sg['avg'])), sg['i_SG']) for sg in all_results[0][1][1:]
+                ], key=lambda el: el[0], reverse=True 
+            )
+            sorted_all_results = []
+            for integrand_name, integrand_results in all_results:
+                sorted_all_results.append(
+                    (integrand_name, 
+                        [integrand_results[0],]+
+                        [
+                            integrand_results[i_SG+1] for metric, i_SG in sorted_SG_ids
+                        ]
+                    )
+                )
+            all_results = sorted_all_results
+
+        def format_entry(r, short=False, show_p=False):
+            str_res = '%s%-12.6g +- %-8.2g%-8s%s'%(
+                bcolors.RED if (r['avg']==0. or abs(r['err']/r['avg'])>0.01) else bcolors.GREEN,
+                r['avg'],r['err'],
+                '(%.2g%%)'%(0. if r['avg']==0. else abs(r['err']/r['avg'])*100.),
+                bcolors.END
+            )
+            if short:
+                return str_res
+            str_res += ' | chi2=%s%.3g%s'%(
+                bcolors.RED if r['chi_sq_per_dof'] > 5. else bcolors.GREEN,
+                r['chi_sq_per_dof'],
+                bcolors.END
+            )
+            str_res += '|mwi=%s%.3g%s'%(
+                bcolors.RED if r['max_wgt_infl'] > 5. else bcolors.GREEN,
+                r['max_wgt_infl'],
+                bcolors.END
+            )
+            str_res += '|n=%.1fM(%.2g%%)'%(
+                r['n_evals']/1.0e6,
+                0. if self.n_points == 0 else (r['n_evals']/self.n_points)*100.
+            )
+            str_res += '|n0=%.1fM(%.2g%%)'%(
+                r['n_zero_evals']/1.0e6,
+                0. if r['n_evals'] == 0 else (r['n_zero_evals']/r['n_evals'])*100.
+            )
+            if show_p and r['p'] is not None:
+                str_res += '|p=%.2g%%'%(r['p']*100.0)
+            return str_res
+
+        pt.add_column("Result",[ entry['SG_name'] for entry in all_results[0][1] ])
+
+        for i_res, (integrand_name, integrand_results) in enumerate(all_results):
+            pt.add_column(integrand_name, [ format_entry(integrand_result, short=((i_res!=0) and not show_all_information_for_all_integrands), show_p=(i_res==0) ) for integrand_result in integrand_results] )
+            pt.align[integrand_name] = 'l'
+
+        return pt.get_string()
+
+    def get_summary(self):
+
+        avg, err, chi_sq, max_eval_negative, max_eval_positive, n_evals, n_zero_evals = self.havana_grids[self.reference_result_index].get_current_estimate()
+
+        # One can do a consistency check of comparing self.n_points and n_evals
+        #print(avg, err, chi_sq, max_eval_negative, max_eval_positive, n_evals, n_zero_evals)
+        #print(err,self.n_points)
+        max_wgt_infl = 0. if self.n_points==0 else max(abs(max_eval_negative),max_eval_positive)/(err*self.n_points)
+
+        res = ["Result after %.1fM evaluations and %d iterations: %s%.6g +/- %.4g (%.2g%%)%s, chi2=%s%.3g%s, max_wgt_infl=%s%.3g%s, zero_evals=%.3g%%"%(
+            self.n_points/1.0e6, self.n_iterations, bcolors.RED if avg==0. or abs(err/avg)>0.01 else bcolors.GREEN, avg, err, 
+            0. if avg==0. else (abs(err/avg))*100., bcolors.END,
+            bcolors.RED if self.n_iterations==0. or chi_sq/self.n_iterations > 5. else bcolors.GREEN, chi_sq/self.n_iterations if self.n_iterations>0 else 0., bcolors.END, 
+            bcolors.RED if max_wgt_infl>5. else bcolors.GREEN, max_wgt_infl, bcolors.END, 
+            (n_zero_evals/float(self.n_points))*100. if self.n_points>0 else 0.
+        )]
+        if self.target_result is not None:
+            res.append( ("%-{}s".format(len('Result after %d evaluations and %d iterations'%(self.n_points, self.n_iterations))))%("vs target")+
+                ": %.5g del %.5g (%.2g%%)"%(
+                    self.target_result, 
+                    avg-self.target_result, 
+                    0. if self.target_result==0. else ((avg-self.target_result)/self.target_result)*100.0
+                ))
+        for res_index, havana_grid in enumerate(self.havana_grids):
+            avg, err, chi_sq, max_eval_negative, max_eval_positive, n_evals, n_zero_evals = havana_grid.get_current_estimate()
+            max_wgt_infl = 0. if self.n_points==0 else max(abs(max_eval_negative),max_eval_positive)/(err*self.n_points)
+            res.append('  %s %s[I%d] = %.5g +/- %.5g (%.2g%%), chi2=%.3g, max_wgt_infl=%.3g, zero_evals=%.3g%%'%(
+                '  ' if res_index!=self.reference_result_index else '->',
+                'Re' if res_index%2==0 else 'Im',
+                res_index//2,
+                avg, err, 0. if avg==0. else (abs(err/avg))*100.,
+                chi_sq, max_wgt_infl, (n_zero_evals/float(self.n_points))*100. if self.n_points>0 else 0.
+            ))
+
+        return '\n'.join(res)
+
+    def get_current_estimate(self):
+        avg, err, chi_sq, max_eval_negative, max_eval_positive, n_evals, n_zero_evals = self.havana_grids[self.reference_result_index].get_current_estimate()
+        return (avg, err)
+
+    def get_n_evals(self):
+        avg, err, chi_sq, max_eval_negative, max_eval_positive, n_evals, n_zero_evals = self.havana_grids[self.reference_result_index].get_current_estimate()
+        return n_evals
 
 class HavanaMockUp(object):
 
     def __init__(self, 
-            n_dimensions, SG_ids=None, n_channels_per_SG=None, target_result=None, seed=None, n_integrands=1, 
+            n_dimensions, integrands, SG_ids=None, n_channels_per_SG=None, target_result=None, seed=None, 
             reference_integrand_index=0, phase='real', grid_file='havana_grid.yaml', 
             optimize_on_variance=True, max_prob_ratio=1000., fresh_integration=False,
-            flat_record = None
+            flat_record = None, **opts
         ):
 
         import numpy
@@ -17,7 +433,8 @@ class HavanaMockUp(object):
 
         self.n_dimensions = n_dimensions
         self.target_result = target_result
-        self.n_integrands = n_integrands
+        self.integrands = integrands
+        self.n_integrands = len(self.integrands)
         self.reference_integrand_index = reference_integrand_index
         self.phase = phase
         self.optimize_on_variance = optimize_on_variance
@@ -57,7 +474,7 @@ class HavanaMockUp(object):
             'n_channels_per_SG' : self.n_channels_per_SG,
             'target_result' : self.target_result,
             'seed' : self.seed,
-            'n_integrands' : self.n_integrands,
+            'integrands' : None, # Will be filled at runtime
             'reference_integrand_index' : self.reference_integrand_index,
             'phase' : self.phase,
             'grid_file' : self.grid_file,
@@ -287,7 +704,7 @@ class HavanaMockUp(object):
                 bin['p'] /= running_p_sum
                 bin['p_cum'] /= running_p_sum
 
-    def get_grid_summary(self, sort_by_variance=False, show_channel_grid=True):
+    def get_grid_summary(self, sort_by_variance=True, show_channel_grid=True, **opts):
 
         if self.discrete_grid is None:
             return ''
@@ -357,30 +774,29 @@ class WorkerException(Exception):
 
 class ALStandaloneIntegrand(object):
 
-    #TODO make this path specific to the current run (using the unique run id of the HavanaIntegrator session)
-    _run_hyperparameters_filename = 'cluster_run_hyperparameters.yaml'
-
     def __init__(self, n_integration_dimensions, alpha_loop_path, run_workspace, rust_input_folder, 
-                        cross_section_set_file_name, E_cm, run_dir='', n_dimensions_per_SG_id=None, frozen_momenta=None):
+                        cross_section_set_file_path, E_cm, run_dir='', n_dimensions_per_SG_id=None, frozen_momenta=None,
+                        run_hyperparameters_filename=None):
 
         import sys
         import os
-        pjoin = os.path.join
 
         self.constructor_arguments = {
             'alpha_loop_path' : alpha_loop_path,
             'run_workspace' : run_workspace,
-            'cross_section_set_file_name' : cross_section_set_file_name,
+            'cross_section_set_file_path' : cross_section_set_file_path,
             'rust_input_folder' : rust_input_folder,
             'n_integration_dimensions' : n_integration_dimensions,
             'n_dimensions_per_SG_id' : n_dimensions_per_SG_id,
             'frozen_momenta' : frozen_momenta,
-            'E_cm' : E_cm
+            'run_dir' : run_dir,
+            'E_cm' : E_cm,
+            'run_hyperparameters_filename' : run_hyperparameters_filename
         }
         self.alpha_loop_path = alpha_loop_path
         self.run_workspace = run_workspace
         self.rust_input_folder = rust_input_folder
-        self.cross_section_set_file_name = cross_section_set_file_name
+        self.cross_section_set_file_path = cross_section_set_file_path
         self.frozen_momenta = frozen_momenta
         self.E_cm = E_cm
 
@@ -390,6 +806,8 @@ class ALStandaloneIntegrand(object):
         self.n_dimensions_per_SG_id = n_dimensions_per_SG_id
 
         self.frozen_momenta = frozen_momenta
+
+        self.run_hyperparameters_filename = run_hyperparameters_filename
 
         # Now start a rust worker
         try:
@@ -401,14 +819,14 @@ class ALStandaloneIntegrand(object):
             raise WorkerException("Could not import the rust back-end 'ltd' module in '%s'. Compile it first with:\n"%self.alpha_loop_path+
                 " ./make_lib\nfrom within the alphaLoop directory.")
 
-        #os.environ['MG_NUMERATOR_PATH'] = proc_path if proc_path.endswith('/') else '%s/'%proc_path
-        hyperparameters_path = pjoin(self.run_workspace, run_dir, self._run_hyperparameters_filename)
+        os.environ['MG_NUMERATOR_PATH'] = os.path.abspath(os.path.join(self.rust_input_folder, os.path.pardir))
+        hyperparameters_path = os.path.join(self.run_workspace, run_dir, self.run_hyperparameters_filename)
         if not os.path.isfile(hyperparameters_path):
             raise WorkerException("Could not find hyperparameter file at %s."%hyperparameters_path)
 
         try:
             self.rust_worker = CrossSection(
-                pjoin(self.rust_input_folder, cross_section_set_file_name),
+                cross_section_set_file_path,
                 hyperparameters_path,
                 cross_section_set = True
             )
@@ -456,26 +874,13 @@ def HavanaIntegrandWrapper(
         integrands_constructor_args,
         SG_ids_specified=True,
         channels_specified=True,
-        preconstructed_integrands=None
+        preconstructed_integrands=None,
+        havana_mockup=False
     ):
 
     import time
     start_time = time.time()
 
-    #import random
-    #time.sleep(20+10*random.random())
-
-    import os
-    import numpy
-    
-    IO_pickle_out_name = None
-    if isinstance(samples_batch, str):
-        import pickle
-        IO_pickle_out_name = os.path.join(os.path.dirname(samples_batch),'dask_output_job_%d.pkl'%job_id )
-        sample_pickle_path = samples_batch
-        samples_batch = pickle.load( open( sample_pickle_path, 'rb' ) )
-        os.remove(sample_pickle_path)
-    
     if preconstructed_integrands is None:
         integrands = [
             ALStandaloneIntegrand(**integrand_constructor_args) for integrand_constructor_args in integrands_constructor_args
@@ -483,41 +888,68 @@ def HavanaIntegrandWrapper(
     else:
         integrands =preconstructed_integrands
 
-    all_res = numpy.ndarray(shape=(len(samples_batch),2*len(integrands)+len(samples_batch[0])), dtype=float)
-    for i_sample, sample in enumerate(samples_batch):
-        all_res[i_sample][2*len(integrands):] = sample
+    #import random
+    #time.sleep(20+10*random.random())
+    if not havana_mockup:
+        # In this case samples_batch is a complete HavanaInstance with all samples generated in-place
+        havana_sampler = samples_batch
+        for i_integrand, integrand in enumerate(integrands):
+            if i_integrand != havana_sampler.reference_integrand_index:
+                integrand.rust_worker.evaluate_integrand_havana(
+                    havana_sampler.havana_grids[havana_sampler.reference_result_index],
+                    havana_updater_re = havana_sampler.havana_grids[i_integrand*2],
+                    havana_updater_im = havana_sampler.havana_grids[i_integrand*2 + 1]
+                )
+            else:
+                if havana_sampler.phase == 'real':
+                    integrand.rust_worker.evaluate_integrand_havana(
+                        havana_sampler.havana_grids[havana_sampler.reference_result_index],
+                        havana_updater_im = havana_sampler.havana_grids[i_integrand*2 + 1],
+                        real_phase = True
+                    )
+                else:
+                    integrand.rust_worker.evaluate_integrand_havana(
+                        havana_sampler.havana_grids[havana_sampler.reference_result_index],
+                        havana_updater_re = havana_sampler.havana_grids[i_integrand*2],
+                        real_phase = False
+                    )
 
-    if SG_ids_specified and channels_specified:
-        SG_id_per_sample = [int(s[1]) for s in samples_batch]
-        channel_id_per_sample = [int(s[2]) for s in samples_batch]
-        xs_batch = [list(s[3:]) for s in samples_batch]
-    elif SG_ids_specified and (not channels_specified):
-        SG_id_per_sample = [int(s[1]) for s in samples_batch]
-        channel_id_per_sample = None
-        xs_batch = [list(s[2:]) for s in samples_batch]
-    elif (not SG_ids_specified) and (not channels_specified):
-        SG_id_per_sample = None
-        channel_id_per_sample = None
-        xs_batch = [list(s[1:]) for s in samples_batch]
+        return (job_id, time.time()-start_time, havana_sampler)
+    
     else:
-        raise Exception("Havana cannot integrate specific integration channels while summing over all supergraphs.")
 
-    for i_integrand, integrand in enumerate(integrands):
+        import os
+        import numpy
 
-        #for _ in range(10):
-        results = integrand(xs_batch, SG_id_per_sample = SG_id_per_sample, channel_id_per_sample = channel_id_per_sample)
-        for i_res, res in enumerate(results):
-            all_res[i_res][0+i_integrand*2] = res.real
-            all_res[i_res][1+i_integrand*2] = res.imag
+        all_res = numpy.ndarray(shape=(len(samples_batch),2*len(integrands)+len(samples_batch[0])), dtype=float)
+        for i_sample, sample in enumerate(samples_batch):
+            all_res[i_sample][2*len(integrands):] = sample
 
-    if IO_pickle_out_name is not None:
-        import pickle
-        with open(IO_pickle_out_name, 'wb') as f:
-            pickle.dump( all_res, f )
-        all_res = IO_pickle_out_name
+        if SG_ids_specified and channels_specified:
+            SG_id_per_sample = [int(s[1]) for s in samples_batch]
+            channel_id_per_sample = [int(s[2]) for s in samples_batch]
+            xs_batch = [list(s[3:]) for s in samples_batch]
+        elif SG_ids_specified and (not channels_specified):
+            SG_id_per_sample = [int(s[1]) for s in samples_batch]
+            channel_id_per_sample = None
+            xs_batch = [list(s[2:]) for s in samples_batch]
+        elif (not SG_ids_specified) and (not channels_specified):
+            SG_id_per_sample = None
+            channel_id_per_sample = None
+            xs_batch = [list(s[1:]) for s in samples_batch]
+        else:
+            raise Exception("Havana cannot integrate specific integration channels while summing over all supergraphs.")
 
-    #print('run_time=%s'%str(time.time()-start_time))
-    return (job_id, time.time()-start_time, all_res)
+        for i_integrand, integrand in enumerate(integrands):
+
+            #for _ in range(10):
+            results = integrand(xs_batch, SG_id_per_sample = SG_id_per_sample, channel_id_per_sample = channel_id_per_sample)
+            for i_res, res in enumerate(results):
+                all_res[i_res][0+i_integrand*2] = res.real
+                all_res[i_res][1+i_integrand*2] = res.imag
+
+        #print('run_time=%s'%str(time.time()-start_time))
+        return (job_id, time.time()-start_time, all_res)
 
 def main(arg_tuple):
 
@@ -542,12 +974,13 @@ def main(arg_tuple):
                 continue
 
             t_overall = time.time()
-
+            print('')
             print("Worker #%d received a new job at time t=%s"%(worker_id, time.time()))
             sys.stdout.flush()
             t0=time.time()
             input_payload = pickle.load( open( input_path, 'rb' ) )
-            pickling_time = t0 - time.time()
+            pickling_time = time.time() - t0
+            print("Worker #%d unpickle job payload in %.5f s."%(worker_id, pickling_time))
 
             output = None
             if input_payload == 'ping':
@@ -561,9 +994,8 @@ def main(arg_tuple):
                 if last_integrands_contructor_args is None or input_payload['integrands_constructor_args'] != last_integrands_contructor_args:
                     last_integrands_contructor_args = input_payload['integrands_constructor_args']
                     standalone_integrands = [
-                        ALStandaloneIntegrand(run_dir='run_%d'%run_id, **integrand_constructor_args) for integrand_constructor_args in input_payload['integrands_constructor_args']
+                        ALStandaloneIntegrand(**integrand_constructor_args) for integrand_constructor_args in input_payload['integrands_constructor_args']
                     ]
-
                 call_options = {
                     'job_id' : input_payload['job_id'],
                     'integrands_constructor_args' : input_payload['integrands_constructor_args'],
@@ -571,29 +1003,58 @@ def main(arg_tuple):
                     'channels_specified' : input_payload['channels_specified'],
                     'preconstructed_integrands' : standalone_integrands
                 }
-                if not input_payload['worker_generates_samples']:
 
-                    call_options['samples_batch'] = input_payload['samples_batch']
-                    print("Worker #%d deserialized input for job #%d in %.5gs."%(worker_id, call_options['job_id'], time.time()-t0 ))
-                    t0 = time.time()
-                    output = HavanaIntegrandWrapper(**call_options)
-                    print("Worker #%d completed computation of job #%d in %.5gs."%(worker_id, call_options['job_id'], time.time()-t0 ))
-
+                print("Worker #%d processes a sample of %d points for job #%d..."%(worker_id, input_payload['n_points_to_sample'], call_options['job_id']))
+                t0 = time.time()
+                havana_constructor_arguments = input_payload['havana_grid']
+                havana_constructor_arguments['integrands'] = standalone_integrands
+                if input_payload['havana_mockup']:
+                    havana_sampler = HavanaMockUp(**havana_constructor_arguments)
                 else:
+                    print("Worker #%d loads the havana sampler grid from files %s"%(
+                        worker_id, ', '.join(os.path.basename(fp) for fp in havana_constructor_arguments['flat_record']['grid_files'])
+                    ))
+                    t0 = time.time()
+                    havana_constructor_arguments['flat_record']['n_points'] = 0
+                    havana_constructor_arguments['grid_file'] =  os.path.join(
+                        os.path.dirname(output_path),
+                        'run_%d_job_output_%d_grids.yaml'%(run_id, input_payload['job_id'] )
+                    )
+                    havana_sampler = Havana(**havana_constructor_arguments)
+                    havana_loading_time = time.time()-t0
+                    print("Worker #%d loaded the havana grids in %.5fs"%(worker_id, havana_loading_time))
 
-                    print("Worker #%d generates a sample of %d points for job #%d..."%(worker_id, input_payload['n_points_to_sample'], call_options['job_id']))
+                   
+                this_sample = havana_sampler.sample(input_payload['n_points_to_sample'])
+                sample_generation_time = time.time()-t0
+                print("Worker #%d completed sample generation in %.5fs."%(worker_id, sample_generation_time))
+                call_options['samples_batch'] = this_sample
+                call_options['havana_mockup'] = input_payload['havana_mockup']
+                t0 = time.time()
+                job_id, run_time, samples_evaluated = HavanaIntegrandWrapper(**call_options)
+                print("Worker #%d evaluated all samples in %.5s."%(worker_id, time.time()-t0))
+
+                if not input_payload['havana_mockup']:
+                    # In this case, samples_evaluated is a complete Havana instance with all evaluations accumulated in-place
+                    havana_updater = samples_evaluated
+                    print("Worker #%d now dumps havana updater grid ..."%(worker_id))
                     t0 = time.time()
-                    havana_sampler = HavanaMockUp(**input_payload['havana_grid'])
-                    this_sample = havana_sampler.sample(input_payload['n_points_to_sample'])
-                    sample_generation_time = time.time()-t0
-                    print("Worker #%d completed sample generation in %.5s."%(worker_id, sample_generation_time))
-                    call_options['samples_batch'] = this_sample
-                    t0 = time.time()
-                    job_id, run_time, samples_evaluated = HavanaIntegrandWrapper(**call_options)
-                    print("Worker #%d evaluated all samples in %.5s."%(worker_id, time.time()-t0))
+                    havana_updater_constructor_arguments = havana_updater.get_constructor_arguments()
+                    havana_dumping_time = time.time()-t0
+                    print("Worker #%d dumped Havana updater grids in %.5fs to files %s"%(worker_id, 
+                        havana_dumping_time,
+                        ', '.join(os.path.basename(fp) for fp in havana_updater_constructor_arguments['flat_record']['grid_files'])
+                    ))
+                    complete_result = {
+                        'havana_updater' : havana_updater_constructor_arguments,
+                    }
+                    output = ( job_id, havana_loading_time+run_time+sample_generation_time+pickling_time+havana_dumping_time, complete_result)
+    
+                else:
                     t0 = time.time()
                     havana_updater_constructor_args = dict(input_payload['havana_grid'])
                     havana_updater_constructor_args['fresh_integration'] = True
+                    havana_updater_constructor_args['integrands'] = standalone_integrands
                     havana_updater = HavanaMockUp(**havana_updater_constructor_args)
                     havana_updater.accumulate_results(samples_evaluated)
 
@@ -644,7 +1105,7 @@ def main(arg_tuple):
                     print("Worker #%d has run_time=%.2f s, sample_generation_time=%.2f s, post_processing_time=%.2f s, pickle_time=%.2f s"%(
                         worker_id, run_time, sample_generation_time, post_processing_time, pickling_time
                     ))
-                    output = ( job_id, run_time+sample_generation_time+post_processing_time+pickling_time, complete_result)
+                    output = ( job_id, run_time+sample_generation_time+post_processing_time+pickling_time, complete_result )
 
             print("Worker #%d now writing job output."%(worker_id))
             cumulative_measured_timing = output[1]
@@ -656,7 +1117,7 @@ def main(arg_tuple):
             with open(output_path_done,'w') as f:
                 f.write("Marker file for job output done.")
             print("Worker #%d finished serialisation and dump of job output in %.5gs."%( worker_id, time.time()-t0 ))
-            print("Worker #%d: exact timing vs cumulative one: %.5fs vs %.5fs."%(worker_id, time.time()-t_overall, cumulative_measured_timing) )
+            print("Worker #%d exact timing vs cumulative one: %.5fs vs %.5fs."%(worker_id, time.time()-t_overall, cumulative_measured_timing) )
             print("Worker #%d completed job at time t=%s"%(worker_id, time.time()))
             sys.stdout.flush()
 
@@ -687,7 +1148,8 @@ if __name__ == '__main__':
         sys.stdout.flush()
         try:
             main(tuple([args.run_id,args.worker_id_min,args.workspace_path, args.timeout]))
-        except Exception as e:
+        except ImportError as e:
+            #VHTOFIX
             print("Worker %d finished (%s)."%(args.worker_id_min, str(e)))
     else:
         print("Starting the following range of workers %d->%d for run #%d for process '%s'."%(

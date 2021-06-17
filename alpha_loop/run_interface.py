@@ -3382,7 +3382,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='Number of sample points per iteration for the survey stage (default: %(default)s).')
     integrate_parser.add_argument('-npr','--n_points_refine', metavar='n_points_refine', type=int, default=int(1.0e5),
                     help='Number of sample points per iteration for the refine stage (default: %(default)s).')
-    integrate_parser.add_argument('--n_max', metavar='n_max', type=int, default=int(1.0e7),
+    integrate_parser.add_argument('--n_max', metavar='n_max', type=int, default=int(1.0e10),
                     help='Maximum number of sample points in Vegas (default: as per hyperparameters).')
     integrate_parser.add_argument('--n_max_survey', metavar='n_max_survey', type=int, default=-1,
                     help='Maximum number of sample points in Vegas for survey (default: no survey).')
@@ -3451,17 +3451,20 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         '--show_channel_grid', action="store_true", dest="show_channel_grid", default=False,
         help="Disable the monitoring of the discrete grids over integration channel in Havana.")
     integrate_parser.add_argument(
-        '--show_grids_sorted_by_variance', action="store_true", dest="show_grids_sorted_by_variance", default=False,
+        '--show_grids_sorted_by_importance', action="store_false", dest="show_grids_sorted_by_variance", default=True,
         help="Show havana grids with bins sorted by their variance.")
     integrate_parser.add_argument(
         '--no_dump_havana_grids', action="store_false", dest="dump_havana_grids", default=True,
         help="Disable the dumping of havana grids to disk at every iteration.")
     integrate_parser.add_argument(
+        '--show_selected_phase_only', action="store_true", dest="show_selected_phase_only", default=False,
+        help="Only show selected phase in the discrete grid report.")
+    integrate_parser.add_argument(
+        '--show_all_information_for_all_integrands', action="store_true", dest="show_all_information_for_all_integrands", default=False,
+        help="Show detailed information for all integrands in the SG discrete grid report.")
+    integrate_parser.add_argument(
         '-f', '--fresh', action="store_true", dest="fresh", default=False,
         help="Force integration to start fresh, without loading pre-exising grids/results.")
-    integrate_parser.add_argument(
-        '--pickle_IO', action="store_true", dest="pickle_IO", default=False,
-        help="Communicate integration samples to Dask workers using on-disk pickle dumps as opposed to Dask TCP socket.")
     integrate_parser.add_argument(
         '--debug_havana', action="store_true", dest="debug_havana", default=False,
         help="Add verbose printouts about the innerworking of Dask+Havana parallelisation.")
@@ -3469,12 +3472,19 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         choices=('espresso', 'microcentury', 'longlunch', 'workday', 'tomorrow', 'testmatch', 'nextweek'), help='Specify the job flavour for condor runs (default: %(default)s)')
     integrate_parser.add_argument('--n_dask_threads_per_worker', metavar='n_dask_threads_per_worker', type=int, default=1,
                     help='Number of threads in dask workers (default: %(default)s).')
+    integrate_parser.add_argument('-itg','--integrands', dest='integrand_hyperparameters', type=str, nargs='+', default=None,
+                    help='Specify paths to hyperparameter files to use for the simultaneous integration of multiple integrands. Grids are adapted on the first only. (default: a single integrand with automatic hyperparams).')
     integrate_parser.add_argument(
         '--no_keep', action="store_false", dest="keep", default=True,
         help="Keep integration data after the run completes.")
-    integrate_parser.add_argument(
-        '-lg', '--local_generation', action="store_true", dest="local_generation", default=False,
-        help="Enable the generate of samples on the submission node.")
+    integrate_parser.add_argument('--havana_starting_n_bins', dest='havana_starting_n_bins', type=int, default=128,
+        help='Number of starting bins in Havana continuous grids (default: %(default)d).')
+    integrate_parser.add_argument('--havana_n_points_min', dest='havana_n_points_min', type=int, default=1000,
+        help='Minimum number of points in Havana continuous grids before update (default: %(default)d).')
+    integrate_parser.add_argument('--havana_learning_rate', dest='havana_learning_rate', type=float, default=1.5,
+        help='Learning rate in Havana (default: %(default)f).')
+    integrate_parser.add_argument('--havana_bin_increase_factor_schedule', dest='havana_bin_increase_factor_schedule', type=int, nargs='+', default=None,
+        help='Bin increase factor schedule in Havana (default: automatic).')
     def help_integrate(self):
         self.integrate_parser.print_help()
         return
@@ -3499,6 +3509,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             else:
                 args.n_cores = 1
 
+        if args.integrand_hyperparameters is not None and len(args.integrand_hyperparameters)>1:
+            raise alphaLoopInvalidRunCmd("Support for more than one integrand is currently bugged. The central value for the SG sum is correct, but the breakdown per SG is corrupted. Comment out this crash if you still want to proceed. For the life of me, I can't fix it.")
+
         selected_SGs = args.SG_name
         if len(selected_SGs)>1 and args.integrator!='havana':
             raise alphaLoopInvalidRunCmd("Only the havana integrator supports the joint integration of more than one supergraph.")
@@ -3507,6 +3520,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             selected_SGs = None
             if args.integrator!='havana':
                 raise alphaLoopInvalidRunCmd("Only the havana integrator supports the joint integration of all supergraphs.")
+
+        if selected_SGs is not None and len(selected_SGs)==1:
+            args.MC_over_SGs = False
+            args.MC_over_channels = False
 
         if args.MC_over_channels and not args.MC_over_channels:
             raise alphaLoopInvalidRunCmd("Havana can only MC over integration channels when also MC-ing over supergraphs.")
@@ -3611,10 +3628,19 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 # It is best to always forward the worker output to a log file
                 #havana.AL_cluster._FORWARD_WORKER_OUTPUT = True
 
+            run_workspace = pjoin(self.dir_path, self._run_workspace_folder)
+            if args.run_id is None:
+                args.run_id = 1
+                while os.path.exists(pjoin(run_workspace,'run_%d'%args.run_id)):
+                    args.run_id += 1
+
+            if not os.path.exists(pjoin(run_workspace,'run_%d'%args.run_id)):
+                os.mkdir(pjoin(run_workspace,'run_%d'%args.run_id))
+
             integrator_options = {
                  'cross_section_set'   : self.cross_section_set,
                  'all_supergraphs'     : self.all_supergraphs,
-                 'run_workspace'       : pjoin(self.dir_path, self._run_workspace_folder),
+                 'run_workspace'       : run_workspace,
                  'accuracy_target'     : args.target_accuracy,
                  'n_iterations'        : args.n_iterations,
                  'n_start'             : args.n_start,
@@ -3641,10 +3667,14 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                  'dump_havana_grids'   : args.dump_havana_grids,
                  'show_grids_sorted_by_variance' : args.show_grids_sorted_by_variance,
                  'fresh_integration'   : args.fresh,
-                 'pickle_IO'           : args.pickle_IO,
                  'keep'                : (args.keep or args.run_id is not None),
                  'run_id'              : args.run_id,
-                 'local_generation'    : args.local_generation
+                 'show_selected_phase_only' : args.show_selected_phase_only,
+                 'show_all_information_for_all_integrands' : args.show_all_information_for_all_integrands,
+                 'havana_starting_n_bins' : args.havana_starting_n_bins,
+                 'havana_n_points_min' : args.havana_n_points_min,
+                 'havana_learning_rate' : args.havana_learning_rate,
+                 'havana_bin_increase_factor_schedule' : args.havana_bin_increase_factor_schedule
             }
 
         elif args.integrator == 'inspect':
@@ -3691,7 +3721,23 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if args.integrator=='havana':
 
             self.hyperparameters.set_parameter('General.multi_channeling',True)
-            self.hyperparameters.export_to(pjoin(self.dir_path, self._run_workspace_folder, ALStandaloneIntegrand._run_hyperparameters_filename ))
+
+            integrands_hyperparameter_filenames = []
+            if args.integrand_hyperparameters is None:
+                self.hyperparameters.export_to(pjoin(self.dir_path, self._run_workspace_folder, 'run_%d'%args.run_id, 'cluster_run_hyperparameters.yaml' ))
+                integrands_hyperparameter_filenames.append('cluster_run_hyperparameters.yaml')
+            else:
+                for i_itg, run_hyperparameters_path in enumerate(args.integrand_hyperparameters):
+                    if not os.path.exists(run_hyperparameters_path):
+                        raise alphaLoopInvalidRunCmd("Could not find hyperparameter file specified for integrand #%d: '%s'."%(i_itg+1, run_hyperparameters_path))
+                    integrands_hyperparameter_filenames.append(os.path.basename(run_hyperparameters_path))
+                    try:
+                        shutil.copy(
+                            run_hyperparameters_path,
+                            pjoin( self.dir_path, self._run_workspace_folder, 'run_%d'%args.run_id, os.path.basename(run_hyperparameters_path) ),
+                        )
+                    except shutil.SameFileError:
+                        pass
 
             # Adjust dummy SG name for display purposes
             SG_name = '+'.join(selected_SGs) if selected_SGs is not None else 'ALL'
@@ -3710,21 +3756,46 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             run_workspace = pjoin(self.dir_path, self._run_workspace_folder)
             rust_input_folder = pjoin(self.dir_path, self._rust_inputs_folder)
             alpha_loop_path = os.path.abspath(pjoin(plugin_path,os.path.pardir))
-            all_integrands = [
-                sampler.DaskHavanaALIntegrand(
+
+            
+            if havana.HavanaIntegrator._USE_HAVANA_MOCKUP:
+                cross_section_set_file_path = pjoin(rust_input_folder, self.cross_section_set_file_name)
+            else: 
+                if selected_SGs is None:
+                    cross_section_set_file_path = pjoin(rust_input_folder, self.cross_section_set_file_name)
+                else:
+                    if not os.path.exists(pjoin(self.dir_path, self._run_workspace_folder, 'run_%d'%args.run_id,'Rust_inputs')):
+                        os.makedirs(pjoin(self.dir_path, self._run_workspace_folder, 'run_%d'%args.run_id,'Rust_inputs'))
+                    cross_section_set_file_path = pjoin(self.dir_path, self._run_workspace_folder, 'run_%d'%args.run_id, 'Rust_inputs', self.cross_section_set_file_name )
+                    cross_section_set_for_run = dict(copy.deepcopy(self.cross_section_set))
+                    new_topologies_list = []
+                    for topology in cross_section_set_for_run['topologies']:
+                        if topology['name'] in selected_SGs:
+                            new_topologies_list.append(topology)
+                            shutil.copy(
+                                pjoin(rust_input_folder, '%s.yaml'%topology['name']),
+                                pjoin(self.dir_path, self._run_workspace_folder, 'run_%d'%args.run_id, 'Rust_inputs', '%s.yaml'%topology['name'] )
+                            )
+                    cross_section_set_for_run['topologies'] = new_topologies_list
+                    with open(cross_section_set_file_path,'w') as f:
+                        f.write(yaml.dump(dict(cross_section_set_for_run), Dumper=Dumper, default_flow_style=False))
+
+            my_integrand = [
+                sampler.HavanaALIntegrand(
                     args.MC_over_SGs,
                     args.MC_over_channels,
                     n_integration_dimensions, 
                     alpha_loop_path, 
                     run_workspace, 
                     rust_input_folder, 
-                    self.cross_section_set_file_name, 
-                    E_cm, 
+                    cross_section_set_file_path,
+                    E_cm,
+                    run_dir = 'run_%d'%args.run_id,
+                    run_hyperparameters_filename=hyperparam_file_name,
                     n_dimensions_per_SG_id=n_dimensions_per_SG_id, 
                     frozen_momenta=frozen_momenta
-                ),
+                ) for i_itg, hyperparam_file_name in enumerate(integrands_hyperparameter_filenames)
             ]
-            my_integrand = all_integrands[0]
 
         else:
 
@@ -3922,6 +3993,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         # RAvg.Q    : p-value of the weighted average 
         # RAvg.itn_results : list of the integral estimates for each iteration
         # RAvg.summary() : summary of the integration
+        
+        # Only report below the details integration statistics for the main integrand
+        my_integrand = my_integrator.integrands[0]
 
         logger.info('')
         if my_integrand.n_evals_failed.value > 0:
