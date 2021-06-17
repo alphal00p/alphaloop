@@ -337,7 +337,7 @@ class Havana(object):
             all_results = sorted_all_results
 
         def format_entry(r, short=False, show_p=False):
-            str_res = '%s%-12.6g +- %-8.2g%-8s%s'%(
+            str_res = '%s%-12.6g +- %-9.3g%-8s%s'%(
                 bcolors.RED if (r['avg']==0. or abs(r['err']/r['avg'])>0.01) else bcolors.GREEN,
                 r['avg'],r['err'],
                 '(%.2g%%)'%(0. if r['avg']==0. else abs(r['err']/r['avg'])*100.),

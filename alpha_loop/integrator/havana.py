@@ -30,14 +30,6 @@ import alpha_loop.utils as utils
 from alpha_loop.utils import bcolors
 from alpha_loop.integrator.worker import HavanaIntegrandWrapper, ALStandaloneIntegrand, HavanaMockUp, Havana
 
-# Dask dependencies
-import dask
-from dask_jobqueue import HTCondorCluster
-from distributed import Client, LocalCluster
-from dask import delayed
-from dask.distributed import progress
-from dask.distributed import as_completed
-
 import asyncio
 import yaml
 from yaml import Loader
@@ -377,9 +369,9 @@ queue worker_id_min,worker_id_max from %(workspace)s/run_%(run_id)d_condor_worke
 class HavanaIntegrator(integrators.VirtualIntegrator):
     """ Steering of the havana integrator """
     
-    _SUPPORTED_CLUSTER_ARCHITECTURES = [ 'dask_local', 'dask_condor', 'local', 'condor' ]
+    _SUPPORTED_CLUSTER_ARCHITECTURES = [ 'local', 'condor' ]
     _DEBUG = False
-    _USE_HAVANA_MOCKUP = True
+    _USE_HAVANA_MOCKUP = False
 
     def __init__(self, integrands,
                  cross_section_set=None,
@@ -396,8 +388,8 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                  n_cores_per_worker = None,
                  batch_size = 1e6,
                  cluster_type = 'local',
-                 dask_local_options = None,
-                 dask_condor_options = None,
+                 local_options = None,
+                 condor_options = None,
                  target_result = None,
                  MC_over_SGs = True,
                  MC_over_channels = True,
@@ -487,13 +479,11 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
             self.n_cores_per_worker = n_cores_per_worker
         self.n_cpus = self.n_workers*self.n_cores_per_worker
 
-        self.dask_local_options = {'n_workers' : self.n_workers}
-        if sys.platform == "darwin":
-            self.dask_local_options['interface'] = 'lo0'
-        if dask_local_options is not None:
-            self.dask_local_options.update(dask_local_options)
+        self.local_options = {'n_workers' : self.n_workers}
+        if local_options is not None:
+            self.local_options.update(local_options)
 
-        self.dask_condor_options = {
+        self.condor_options = {
             'memory'  : '2000MB',
             'disk'    : '1000MB',
             'IO_port' : 8786,
@@ -502,8 +492,8 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
             'RAM_required' : 1024
         }
 
-        if dask_condor_options is not None:
-            self.dask_condor_options.update(dask_condor_options)
+        if condor_options is not None:
+            self.condor_options.update(condor_options)
 
         if cluster_type not in self._SUPPORTED_CLUSTER_ARCHITECTURES:
             raise HavanaIntegratorError("Integrator %s only support the following cluster_types: %s, not '%s'."%(
@@ -526,200 +516,6 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.havana = None
 
         super(HavanaIntegrator, self).__init__(integrands, **opts)
-        
-    def dask_integrate(self, client):
-
-        n_dimensions = len(self.integrands[0].dimensions.get_continuous_dimensions())
-        if not all(len(integrand.dimensions.get_continuous_dimensions())==n_dimensions for integrand in self.integrands):
-            raise HavanaIntegratorError("In Havana implementations, all integrands must have the same dimension.")
-
-        if not self.MC_over_SGs:
-            SG_ids = None
-        else:
-            if self.selected_SGs is None:
-                SG_ids = [ (i_SG, SG['name']) for i_SG, SG in enumerate(self.cross_section_set['topologies']) ]
-            else:
-                SG_ids = []
-                for i_SG, SG in enumerate(self.cross_section_set['topologies']):
-                    if SG['name'] in self.selected_SGs:
-                        SG_ids.append( (i_SG, SG['name']) )                    
-
-                if len(SG_ids)!=len(self.selected_SGs) or len(SG_ids)==0:
-                    raise HavanaIntegratorError("Not all specified SG names were found in the cross_section set.")
-
-        if not self.MC_over_channels:
-            n_channels_per_SG = None
-        else:
-            n_channels_per_SG = []
-            for (i_SG, SG_name) in SG_ids:
-                n_channels_per_SG.append(
-                    len(self.all_supergraphs[SG_name]['multi_channeling_bases']) if len(self.all_supergraphs[SG_name]['optimal_channel_ids'])==0 
-                    else len(self.all_supergraphs[SG_name]['optimal_channel_ids']) 
-                )
-
-        self.havana = HavanaMockUp(
-            n_dimensions, 
-            self.integrands,
-            SG_ids=SG_ids, 
-            n_channels_per_SG=n_channels_per_SG, 
-            target_result=self.target_result, 
-            seed=self.seed,
-            reference_integrand_index = 0,
-            phase = self.phase,
-            grid_file = pjoin(self.run_workspace,'havana_grid.yaml'),
-            optimize_on_variance = self.havana_optimize_on_variance,
-            max_prob_ratio = self.havana_max_prob_ratio,
-            fresh_integration = self.fresh_integration
-        )
-
-        # Now perform the integration
-        
-        logger.info("Staring alphaLoop integration with Havana as run %d, lean back and enjoy..."%self.run_id)
-        logger.info("Visit http://localhost:8787/status to follow Dask jobs from a dashboard.")
-        start_time = time.time()
-
-        current_iteration = 1
-        current_n_points = self.n_start
-        current_step = self.n_increase
-        n_tot_points = 0
-
-        integrands_constructor_args = [
-            integrand.get_constructor_arguments() for integrand in self.integrands
-        ]
-        scattered_integrands_constructor_args = client.scatter(integrands_constructor_args)
-
-        job_ID = 0
-
-        self.canvas = None
-
-        n_jobs_total_completed = 0
-        cumulative_job_time = 0.
-        cumulative_processing_time = 0.
-        cumulative_IO_time = 0.
-        
-        while True:
-            
-            n_remaining_points = current_n_points
-
-            n_points_for_this_iteration = 0
-
-            futures = []
-            logger.info("Preparing samples and submission for iteration #%d"%current_iteration)
-            if self._DEBUG: logger.info("Starting submission now...")
-            while n_remaining_points > 0:
-                this_n_points = min(n_remaining_points, self.batch_size)
-                n_remaining_points -= this_n_points   
-                t2 = time.time()           
-                job_ID += 1
-                if self._DEBUG: logger.info("Generating sample for job #%d..."%job_ID)
-                this_sample = self.havana.sample(this_n_points)
-                if self._DEBUG: logger.info("Done with sample generation.")
-                cumulative_processing_time = time.time() - t2
-    
-                t0 = time.time()
-                # Scattering data is not really necessary as I believe this is the right thing to do only for data common to multiple jobs. 
-                # But I don't like the warning when not doing so, so I'll put it.
-                if self._DEBUG: logger.info("Scattering sampling input for job #%d..."%job_ID)
-                this_scattered_sample = client.scatter(this_sample)
-                if self._DEBUG: logger.info("Done with scattering sampling input.")
-
-                if self._DEBUG: logger.info("Submitting job %d."%job_ID)
-                futures.append(client.submit(HavanaIntegrandWrapper, 
-                    job_ID,
-                    this_scattered_sample,
-                    scattered_integrands_constructor_args,
-                    self.MC_over_SGs,
-                    self.MC_over_channels
-                ))
-                if self._DEBUG: logger.info("Done with job submission.")
-                cumulative_IO_time += time.time()-t0
-
-            logger.info("Now running iteration #%d"%current_iteration)
-
-            #print("DONE SUBMITTING")
-            n_submitted = len(futures)
-            n_done = 0
-
-            self.update_status(
-                    start_time, n_jobs_total_completed, n_submitted, 0,
-                    n_tot_points, n_points_for_this_iteration, current_n_points, cumulative_IO_time,
-                    cumulative_processing_time, cumulative_job_time, current_iteration)
-
-            try:
-
-                if self._DEBUG: logger.info("Now waiting for a job to complete...")
-                for completed_future in as_completed(futures):
-                    
-                    t1 = time.time()
-                    if self._DEBUG: logger.info("Now receiving result from a job...")
-                    job_ID, run_time, results = completed_future.result()
-                    if self._DEBUG: logger.info("Finished receiving %d sample result from job %d..."%(len(results),job_ID))
-
-                    cumulative_IO_time += time.time()-t1
-                    cumulative_job_time += run_time
-
-                    t2 = time.time()
-                    #logger.debug("Job #%d completed in %.0f s for %d points."%(job_ID, run_time, len(results) ))
-                    if self._DEBUG: logger.info("Accumulating new results from job %d into havana..."%job_ID)
-                    self.havana.accumulate_results(results)
-                    max_prob_ratio_for_this_iteration = max( self.havana_max_prob_ratio / max( 100. - 10.*(current_iteration-1) , 1.), 3.)
-                    if self._DEBUG: logger.info("Syncing Havana grids with the new results...")
-                    self.havana.sync_grids( max_prob_ratio = max_prob_ratio_for_this_iteration)
-                    if self._DEBUG: logger.info("Done updating Havana grids...")
-
-                    for res in results:
-                        xs = res[1+len(self.integrands)*2:]
-                        for index in range(0,len(self.integrands)):
-                            if self.phase=='real':
-                                wgt = res[index*2]
-                            else:
-                                wgt = res[1+index*2]
-                            havana_jacobian = res[len(self.integrands)*2]
-                            self.integrands[index].update_evaluation_statistics(xs, wgt*havana_jacobian)                
-                    cumulative_processing_time = time.time() - t2
-
-                    n_done += 1
-                    n_jobs_total_completed += 1
-                    n_tot_points += len(results)
-                    n_points_for_this_iteration += len(results)
-                    
-                    self.update_status(
-                        start_time, n_jobs_total_completed, n_submitted, n_done,
-                        n_tot_points, n_points_for_this_iteration, current_n_points, cumulative_IO_time,
-                        cumulative_processing_time, cumulative_job_time, current_iteration)
-
-                    if self._DEBUG: logger.info("Now waiting for a job to complete...")
-
-                t2 = time.time()
-                self.havana.update_iteration_count(dump_grids=self.dump_havana_grids)
-                cumulative_processing_time = time.time() - t2
-
-            except KeyboardInterrupt:
-                logger.warning("Aborting Havana integration now.")
-                break
-
-            if self.n_iterations is not None and current_iteration >= self.n_iterations:
-                logger.info("Max number of iterations %d reached."%self.n_iterations) 
-                break               
-
-            if self.n_max is not None and n_tot_points >= self.n_max:
-                logger.info("Max number of sample points %d reached."%self.n_max)
-                break
-
-            res_int, res_error = self.havana.get_current_estimate()
-            if self.accuracy_target is not None and (res_error/abs(res_int) if res_int!=0. else 0.)<self.accuracy_target:
-                logger.info("Target accuracy of %.2g reached."%self.accuracy_target)
-                break
-
-            current_n_points += current_step
-            current_step += self.n_increase
-            current_iteration += 1
-
-            # Keep printout of last step of this iteration.
-            self.canvas = None
-
-        self.tot_func_evals = self.havana.get_n_evals()
-        return self.havana.get_current_estimate()
 
     def update_status( self,
         start_time, n_jobs_total_completed, n_submitted, n_done,
@@ -830,7 +626,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
             self.al_cluster.n_jobs_in_queue
         )
         if self.canvas is not None and self.stream_monitor:
-            self.canvas.print(self.cluster_status_summary)
+            self.canvas.print('| %s'%self.cluster_status_summary)
 
     def handle_exception(self, loop, context):
         self.exit_now = True
@@ -931,7 +727,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         logger.info("Total number of integration channels considered: %s (%s)"%(
             total_number_of_integration_channels, "Monte-Carlo'ed over" if self.MC_over_channels else 'explicitly summed per sample'
         ))
-        logger.info("Lean back and enjoy...")
+        logger.info("%s%s%s"%(bcolors.GREEN, "Lean back and enjoy...", bcolors.END))
 
         self.current_iteration = 1
         current_n_points = self.n_start
@@ -958,7 +754,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
         cluster_options = None
         if self.cluster_type == 'condor':
-            cluster_options = self.dask_condor_options
+            cluster_options = self.condor_options
         self.al_cluster = AL_cluster(
             self.cluster_type, self.n_workers, self.n_cores_per_worker, self.run_workspace, self.process_job_result, self.run_id,
             monitor_callback=self.process_al_cluster_status_update, cluster_options=cluster_options, keep=self.keep, debug=self._DEBUG
@@ -985,7 +781,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                 n_done = 0
                 last_n_done = 0
 
-                logger.info("Now running iteration #%d"%self.current_iteration)
+                logger.info("Now running iteration %s#%d%s"%(bcolors.GREEN, self.current_iteration, bcolors.END))
                 self.update_status(
                     start_time, n_jobs_total_completed, n_submitted, n_done,
                     self.n_tot_points, self.n_points_for_this_iteration, current_n_points, self.cumulative_IO_time,
@@ -1134,50 +930,9 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
         final_res = None
 
-        logger.info("Now deploying the Dask cluster...")
-        if self.cluster_type == 'dask_local':
-            
-            with LocalCluster(**self.dask_local_options) as cluster:                
-                client = Client(cluster)
-                final_res = self.dask_integrate(client)
-
-        elif self.cluster_type == 'dask_condor':
-
-            with HTCondorCluster(
-                    cores=self.dask_condor_options['n_cores_per_worker'],
-                    memory=self.dask_condor_options['memory'],
-                    disk=self.dask_condor_options['disk'],
-                    death_timeout = '60',
-                    nanny = False,
-                    scheduler_options={
-                        'port': self.dask_condor_options['IO_port'],
-                        'host': socket.gethostname()
-                    },
-                    job_extra={
-                        'log'    : pjoin(self.run_workspace,'dask_job_output.log'),
-                        'output' : pjoin(self.run_workspace,'dask_job_output.out'),
-                        'error'  : pjoin(self.run_workspace,'dask_job_output.err'),
-                        'should_transfer_files'   : 'Yes',
-                        'when_to_transfer_output' : 'ON_EXIT',
-                        '+JobFlavour' : self.dask_condor_options['job_flavour'],
-                    },
-                    extra = [ '--worker-port {}'.format(self.dask_condor_options['IO_port']) ]
-            ) as cluster:
-
-                logger.info("Scaling condor cluster to %d workers..."%self.n_workers)
-                cluster.scale(self.n_workers)
-                logger.info("Initialising condor cluster...")
-                if self._DEBUG:
-                    logger.debug("Condor submission script:\n%s"%cluster.job_script())
-                    client = Client(cluster)
-                logger.info("Now waiting for at least one worker in the condor queue to be deployed...")
-                def dummy(x):
-                    return x
-                client.submit(dummy, 'A').result()
-                logger.info("Cluster now ready.")
-                final_res = self.dask_integrate(client)
+        logger.info("Now deploying the running cluster...")
         
-        elif self.cluster_type in ['local','condor']:
+        if self.cluster_type in ['local','condor']:
 
             self.al_cluster = None
             try:

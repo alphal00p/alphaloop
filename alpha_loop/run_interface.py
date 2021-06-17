@@ -3423,7 +3423,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         '-no_warn','--no_warnings',action="store_false", dest="show_warnings", default=True,
         help="Disable the printout of numerical warnings during the integration.")
     integrate_parser.add_argument('-nw','--n_workers', metavar='n_workers', type=int, default=psutil.cpu_count(logical=False),
-        help='Number of dask workers to spawn for parallelisation.')
+        help='Number of workers to spawn for parallelisation.')
     integrate_parser.add_argument('--cluster_type', metavar='cluster_type', type=str, default='local', 
         choices=tuple(havana.HavanaIntegrator._SUPPORTED_CLUSTER_ARCHITECTURES), help='Specify the integrator (default: %(default)s)')
     integrate_parser.add_argument('-tr', '--target_result', metavar='target_result', type=float, default=None,
@@ -3470,8 +3470,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         help="Add verbose printouts about the innerworking of Dask+Havana parallelisation.")
     integrate_parser.add_argument('--condor_job_flavour', metavar='condor_job_flavour', type=str, default='tomorrow', 
         choices=('espresso', 'microcentury', 'longlunch', 'workday', 'tomorrow', 'testmatch', 'nextweek'), help='Specify the job flavour for condor runs (default: %(default)s)')
-    integrate_parser.add_argument('--n_dask_threads_per_worker', metavar='n_dask_threads_per_worker', type=int, default=1,
-                    help='Number of threads in dask workers (default: %(default)s).')
+    integrate_parser.add_argument('--n_threads_per_worker', metavar='n_threads_per_worker', type=int, default=1,
+                    help='Number of threads in workers (default: %(default)s).')
     integrate_parser.add_argument('-itg','--integrands', dest='integrand_hyperparameters', type=str, nargs='+', default=None,
                     help='Specify paths to hyperparameter files to use for the simultaneous integration of multiple integrands. Grids are adapted on the first only. (default: a single integrand with automatic hyperparams).')
     integrate_parser.add_argument(
@@ -3651,9 +3651,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                  'n_workers'           : args.n_workers,
                  'n_cores_per_worker'  : args.n_cores,
                  'batch_size'          : args.batch_size,
-                 'cluster_type'        : args.cluster_type, #'dask_local' or 'dask_condor'
-                 'dask_local_options'  : {'threads_per_worker' : args.n_dask_threads_per_worker},
-                 'dask_condor_options' : {'job_flavour' : args.condor_job_flavour},
+                 'cluster_type'        : args.cluster_type,
+                 'local_options'  : {'threads_per_worker' : args.n_threads_per_worker},
+                 'condor_options' : {'job_flavour' : args.condor_job_flavour},
                  'target_result'       : args.target_result,
                  'MC_over_SGs'         : args.MC_over_SGs,
                  'MC_over_channels'    : args.MC_over_channels,
