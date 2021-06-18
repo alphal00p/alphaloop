@@ -31,6 +31,7 @@ from alpha_loop.utils import bcolors
 from alpha_loop.integrator.worker import HavanaIntegrandWrapper, ALStandaloneIntegrand, HavanaMockUp, Havana
 
 import asyncio
+import subprocess
 import yaml
 from yaml import Loader
 
@@ -378,9 +379,13 @@ queue worker_id_min,worker_id_max from %(workspace)s/run_%(run_id)d_condor_worke
             [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.pkl'%self.run_id))]+\
             [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.done'%self.run_id))]+\
             [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.bin'%self.run_id))]+\
-            [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.yaml'%self.run_id))]
+            [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.yaml'%self.run_id))]+\
+            [f for f in glob.glob(pjoin(self.run_workspace, '*trashcan*'))]
         for io_file in io_files:
-            os.remove(io_file)
+            if os.path.isdir(io_file):
+                shutil.rmtree(io_file)
+            else:
+                os.remove(io_file)
 
 class HavanaIntegrator(integrators.VirtualIntegrator):
     """ Steering of the havana integrator """
@@ -449,9 +454,13 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
             [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.pkl'%self.run_id))]+\
             [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.done'%self.run_id))]+\
             [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.bin'%self.run_id))]+\
-            [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.yaml'%self.run_id))]
+            [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.yaml'%self.run_id))]+\
+            [f for f in glob.glob(pjoin(self.run_workspace, '*trashcan*'))]
         for io_file in io_files:
-            os.remove(io_file)
+            if os.path.isdir(io_file):
+                shutil.rmtree(io_file)
+            else:
+                os.remove(io_file)
 
         # Setup a trashcan
         self.trashcan = pjoin(self.run_workspace,'run_%s_trashcan'%self.run_id)
@@ -657,13 +666,15 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         logger.critical("The following exception happened in a coroutine:\n%s\nAborting integration now."%str(context))
 
     @staticmethod
-    async def async_rm(rm_target, is_file=False):
+    def custom_rm(rm_target):
         if os.path.isdir(rm_target):
             shutil.rmtree(rm_target)
         else:
             os.remove(rm_target)
 
     async def async_integrate(self):
+
+        global trash_counter
 
         n_dimensions = len(self.integrands[0].dimensions.get_continuous_dimensions())
         if not all(len(integrand.dimensions.get_continuous_dimensions())==n_dimensions for integrand in self.integrands):
@@ -890,10 +901,10 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                     if n_remaining_points == 0 and self.n_jobs_awaiting_completion == 0:
                         break
                 
-                shutil.move(self.trashcan, self.trashcan+'_being_removed')
+                trash_counter += 1
+                shutil.move(self.trashcan, '%s_%d_%s'%(self.trashcan,trash_counter,'being_removed'))
                 os.mkdir(self.trashcan)
-                asyncio.create_task(self.async_rm(self.trashcan+'_being_removed'))
-
+                subprocess.Popen('rm -rf %s_%d_%s'%(self.trashcan,trash_counter,'being_removed'), shell=True, stdout=subprocess.PIPE)
                 if self.exit_now:
                     break
 
