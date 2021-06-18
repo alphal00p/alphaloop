@@ -62,14 +62,17 @@ logger.propagate = False
 pjoin = os.path.join
 
 
+trash_counter=0
 def fast_remove(path, trashcan):
+    global trash_counter
     if trashcan is None:
         if os.path.isdir(path):
             shutil.rmtree(path)
         else:
             os.remove(path)
     else:
-        shutil.move(path, pjoin(trashcan, os.path.basename(path)))
+        trash_counter += 1
+        shutil.move(path, pjoin(trashcan, '%d_%s'%(trash_counter,os.path.basename(path))))
 
 class HavanaIntegratorError(Exception):
     pass
