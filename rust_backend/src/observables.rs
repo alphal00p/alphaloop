@@ -35,6 +35,7 @@ pub struct EventInfo {
     pub accepted_event_counter: usize,
     pub rejected_event_counter: usize,
     pub no_phase_space_counter: usize,
+    pub zero_eval_counter: usize
 }
 
 #[derive(Debug, Default, Clone)]
@@ -119,6 +120,7 @@ pub struct EventManager {
     pub accepted_event_counter: usize,
     pub rejected_event_counter: usize,
     pub no_phase_space_counter: usize,
+    pub zero_eval_counter: usize,
     pub time_integrand_evaluation: bool,
     pub integrand_evaluation_timing: u128,
     pub integrand_evaluation_timing_start: Option<std::time::Instant>,
@@ -174,6 +176,7 @@ impl EventManager {
             accepted_event_counter: 0,
             rejected_event_counter: 0,
             no_phase_space_counter: 0,
+            zero_eval_counter : 0,
             time_integrand_evaluation: false,
             integrand_evaluation_timing: 0,
             integrand_evaluation_timing_start: None,
@@ -256,12 +259,14 @@ impl EventManager {
         self.accepted_event_counter += other.accepted_event_counter;
         self.rejected_event_counter += other.rejected_event_counter;
         self.no_phase_space_counter += other.no_phase_space_counter;
+        self.zero_eval_counter += other.zero_eval_counter;
         self.event_group_counter += other.event_group_counter;
         self.integrand_evaluation_timing = other.integrand_evaluation_timing;
         other.accepted_event_counter = 0;
         other.rejected_event_counter = 0;
         other.event_group_counter = 0;
         other.no_phase_space_counter = 0;
+        other.zero_eval_counter = 0;
         other.integrand_evaluation_timing = 0;
     }
 
@@ -277,6 +282,7 @@ impl EventManager {
                 accepted_event_counter: self.accepted_event_counter,
                 rejected_event_counter: self.rejected_event_counter,
                 no_phase_space_counter: self.no_phase_space_counter,
+                zero_eval_counter: self.zero_eval_counter
             }))
             .unwrap();
     }
@@ -297,6 +303,7 @@ impl EventManager {
                 accepted_event_counter: self.accepted_event_counter,
                 rejected_event_counter: self.rejected_event_counter,
                 no_phase_space_counter: self.no_phase_space_counter,
+                zero_eval_counter : self.zero_eval_counter
             }))
             .unwrap();
     }

@@ -144,7 +144,7 @@ class RunHyperparameters(HyperParameters):
             'Selectors.jet.dR'                              : 0.4,
             'Selectors.jet.min_jpt'                         : 10.0,
             'General.multi_channeling'                      : True,
-            'General.multi_channeling_including_massive_propagators' : True,
+            'General.use_optimal_channels'                  : True,
             'CrossSection.incoming_momenta'                 : [[125.0, 0.0, 0.0 ,0.0],],
             'CrossSection.m_uv_sq'                          : 155.0**2,
             'CrossSection.mu_r_sq'                          : 155.0**2,
@@ -1753,7 +1753,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         if args.multi_channeling:
             self.hyperparameters.set_parameter('General.multi_channeling',True)
-            self.hyperparameters.set_parameter('General.multi_channeling_including_massive_propagators',True)
+            self.hyperparameters.set_parameter('General.use_optimal_channels',True)
 
         if args.SG_name is None:
             selected_SGs = list(self.all_supergraphs.keys())

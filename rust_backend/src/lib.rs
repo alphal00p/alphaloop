@@ -504,7 +504,7 @@ pub struct StabilityCheckSettings {
 pub struct GeneralSettings {
     pub multi_channeling: bool,
     pub multi_channeling_channel: Option<isize>,
-    pub multi_channeling_including_massive_propagators: bool,
+    pub use_optimal_channels: bool,
     pub res_file_prefix: String,
     pub derive_overlap_structure: bool,
     pub deformation_strategy: DeformationStrategy,

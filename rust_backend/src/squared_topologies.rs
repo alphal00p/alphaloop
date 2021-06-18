@@ -4,6 +4,7 @@ use crate::observables::EventManager;
 use crate::topologies::{
     FixedDeformationLimit, LTDCache, LTDNumerator, SOCPProblem, Topology,
 };
+use crate::IntegratedPhase;
 use crate::utils;
 use crate::{
     float, DeformationStrategy, FloatLike, IRHandling, IntegrandType, NormalisingFunction,
@@ -1508,10 +1509,12 @@ impl SquaredTopology {
             vec![];
 
         for mcb in &mut self.multi_channeling_bases {
-
-            if let Some(selected_channel_ids) = &self.optimal_channel_ids {
-                if selected_channel_ids.len() > 0 && !selected_channel_ids.iter().any(|&i| i==mcb.channel_id) {
-                    continue
+            
+            if self.settings.general.use_optimal_channels {
+                if let Some(selected_channel_ids) = &self.optimal_channel_ids {
+                    if selected_channel_ids.len() > 0 && !selected_channel_ids.iter().any(|&i| i==mcb.channel_id) {
+                        continue
+                    }
                 }
             }
 
@@ -1785,6 +1788,18 @@ impl SquaredTopology {
 
         if self.settings.general.debug >= 1 {
             println!("Final result = {:e}", result);
+        }
+
+        let test_zero_res = match self.settings.integrator.integrated_phase {
+            IntegratedPhase::Real => result.re,
+            IntegratedPhase::Imag => result.im,
+            IntegratedPhase::Both => result.re,
+        };
+        if test_zero_res==T::zero() {
+            
+            if let Some(em) = event_manager {
+                em.zero_eval_counter += 1;
+            }
         }
 
         result

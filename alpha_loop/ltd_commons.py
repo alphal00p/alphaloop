@@ -125,7 +125,7 @@ hyperparameters = HyperParameters({
         # the channel IDs to consider. A channel ID corresponds to its index in the list produced by the
         # cartesian product of the cut_structure with the propagators in each of the loop lines.
         'multi_channeling_channel': None,
-        'multi_channeling_including_massive_propagators': True,
+        'use_optimal_channels': True,
         # Derive the overlap structure required for the fixed deformation in Rust.
         'derive_overlap_structure':  False,
         # can be additive, fixed, constant or none

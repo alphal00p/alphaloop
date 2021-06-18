@@ -315,6 +315,13 @@ impl Dashboard {
                                 Style::default()
                             },
                         ),
+                        Text::styled(
+                            format!(
+                                "Evaluations yielding zero: {}",
+                                event_info.zero_eval_counter.separate_with_spaces()
+                            ),
+                            Style::default()
+                        ),
                     ]);
 
                     let stats_list = List::new(stats.into_iter())
