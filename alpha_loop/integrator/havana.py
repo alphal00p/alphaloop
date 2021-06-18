@@ -61,6 +61,16 @@ logger.propagate = False
 
 pjoin = os.path.join
 
+
+def fast_remove(path, trashcan):
+    if trashcan is None:
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        else:
+            os.remove(path)
+    else:
+        shutil.move(path, pjoin(trashcan, os.path.basename(path)))
+
 class HavanaIntegratorError(Exception):
     pass
 
@@ -70,7 +80,7 @@ class AL_cluster(object):
     _JOB_CHECK_FREQUENCY = 0.3
     _FORWARD_WORKER_OUTPUT = True
 
-    def __init__(self, architecture, n_workers, n_cores_per_worker, run_workspace, process_results_callback, run_id, monitor_callback=None, cluster_options=None, keep=False, debug=False):
+    def __init__(self, architecture, n_workers, n_cores_per_worker, run_workspace, process_results_callback, run_id, monitor_callback=None, cluster_options=None, keep=False, debug=False, trashcan=None):
 
         self.n_workers = n_workers
         self.n_cores_per_worker = n_cores_per_worker
@@ -104,6 +114,8 @@ class AL_cluster(object):
         else:
             self.work_monitoring_path = None
             self.worker_monitoring_file = None
+
+        self.trashcan = trashcan
 
         if self.cluster_options is None:
             self.cluster_options = {}
@@ -164,14 +176,15 @@ class AL_cluster(object):
                     input_path_done = pjoin(self.run_workspace, 'run_%d_job_input_worker_%d.done'%(self.run_id, output_worker_id))
                     if not os.path.exists(input_path):
                         raise HavanaIntegratorError("Matching input file for worker %d not found."%output_worker_id)
-                        
-                    os.remove(input_path)
-                    os.remove(input_path_done)
-                    os.remove(output_path)
-                    os.remove(output_path_done)
+
+                    fast_remove(input_path, self.trashcan)
+                    fast_remove(input_path_done, self.trashcan)
+                    fast_remove(output_path, self.trashcan)
+                    fast_remove(output_path_done, self.trashcan)
                     
                     await self.available_worker_ids.put(output_worker_id)
                     self.workers[output_worker_id]['status'] = 'FREE'
+                    await asyncio.sleep(0.01)
 
                     await self.update_status()
 
@@ -437,6 +450,14 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         for io_file in io_files:
             os.remove(io_file)
 
+        # Setup a trashcan
+        self.trashcan = pjoin(self.run_workspace,'run_%s_trashcan'%self.run_id)
+        if os.path.exists(self.trashcan):
+            shutil.rmtree(self.trashcan)
+        if os.path.exists(self.trashcan+'_being_removed'):
+            shutil.rmtree(self.trashcan+'_being_removed')
+        os.mkdir(self.trashcan)
+
         self.havana_optimize_on_variance = havana_optimize_on_variance
         self.havana_max_prob_ratio = havana_max_prob_ratio
         self.show_SG_grid = show_SG_grid
@@ -586,7 +607,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                 havana_updater = Havana(**havana_constructor_args)
                 # Clean-up job output
                 for grid_file_path in havana_constructor_args['flat_record']['grid_files']:
-                    os.remove(grid_file_path)
+                    fast_remove(grid_file_path, self.trashcan)
             
             self.havana.accumulate_from_havana_grid(havana_updater)
             
@@ -631,6 +652,13 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
     def handle_exception(self, loop, context):
         self.exit_now = True
         logger.critical("The following exception happened in a coroutine:\n%s\nAborting integration now."%str(context))
+
+    @staticmethod
+    async def async_rm(rm_target, is_file=False):
+        if os.path.isdir(rm_target):
+            shutil.rmtree(rm_target)
+        else:
+            os.remove(rm_target)
 
     async def async_integrate(self):
 
@@ -757,7 +785,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
             cluster_options = self.condor_options
         self.al_cluster = AL_cluster(
             self.cluster_type, self.n_workers, self.n_cores_per_worker, self.run_workspace, self.process_job_result, self.run_id,
-            monitor_callback=self.process_al_cluster_status_update, cluster_options=cluster_options, keep=self.keep, debug=self._DEBUG
+            monitor_callback=self.process_al_cluster_status_update, cluster_options=cluster_options, keep=self.keep, debug=self._DEBUG, trashcan=self.trashcan
         )
 
         try:
@@ -858,6 +886,10 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
                     if n_remaining_points == 0 and self.n_jobs_awaiting_completion == 0:
                         break
+                
+                shutil.move(self.trashcan, self.trashcan+'_being_removed')
+                os.mkdir(self.trashcan)
+                asyncio.create_task(self.async_rm(self.trashcan+'_being_removed'))
 
                 if self.exit_now:
                     break
