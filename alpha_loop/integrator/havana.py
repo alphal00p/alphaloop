@@ -432,6 +432,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                  havana_bin_increase_factor_schedule = None,
                  show_selected_phase_only = False,
                  show_all_information_for_all_integrands = False,
+                 use_optimal_integration_channels = True,
                  **opts):
 
         """ Initialize the simplest MC integrator."""
@@ -479,6 +480,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.show_all_information_for_all_integrands = show_all_information_for_all_integrands
         self.dump_havana_grids = dump_havana_grids
         self.fresh_integration = fresh_integration
+        self.use_optimal_integration_channels = use_optimal_integration_channels
 
         self.n_start = n_start
         self.n_max = n_max
@@ -700,27 +702,27 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         if not self.MC_over_channels:
             n_channels_per_SG = None
             total_number_of_integration_channels = sum(
-                len(self.all_supergraphs[SG['name']]['multi_channeling_bases']) if len(self.all_supergraphs[SG['name']]['optimal_channel_ids'])==0 
+                len(self.all_supergraphs[SG['name']]['multi_channeling_bases']) if (len(self.all_supergraphs[SG['name']]['optimal_channel_ids'])==0 or not self.use_optimal_integration_channels)
                     else len(self.all_supergraphs[SG['name']]['optimal_channel_ids']) for SG in self.cross_section_set['topologies']
             )
         else:
             n_channels_per_SG = []
             for (i_SG, SG_name) in SG_ids:
                 n_channels_per_SG.append(
-                    len(self.all_supergraphs[SG_name]['multi_channeling_bases']) if len(self.all_supergraphs[SG_name]['optimal_channel_ids'])==0 
+                    len(self.all_supergraphs[SG_name]['multi_channeling_bases']) if (len(self.all_supergraphs[SG_name]['optimal_channel_ids'])==0 or not self.use_optimal_integration_channels)
                     else len(self.all_supergraphs[SG_name]['optimal_channel_ids'])
                 )
         
         if SG_ids is None:
             total_number_of_integration_channels = sum(
-                len(self.all_supergraphs[SG['name']]['multi_channeling_bases']) if len(self.all_supergraphs[SG['name']]['optimal_channel_ids'])==0 
+                len(self.all_supergraphs[SG['name']]['multi_channeling_bases']) if (len(self.all_supergraphs[SG['name']]['optimal_channel_ids'])==0 or not self.use_optimal_integration_channels)
                     else len(self.all_supergraphs[SG['name']]['optimal_channel_ids']) for SG in self.cross_section_set['topologies']
             )
         else:
             total_number_of_integration_channels = 0
             for (i_SG, SG_name) in SG_ids:
                 total_number_of_integration_channels += (
-                    len(self.all_supergraphs[SG_name]['multi_channeling_bases']) if len(self.all_supergraphs[SG_name]['optimal_channel_ids'])==0 
+                    len(self.all_supergraphs[SG_name]['multi_channeling_bases']) if (len(self.all_supergraphs[SG_name]['optimal_channel_ids'])==0 or not self.use_optimal_integration_channels)
                     else len(self.all_supergraphs[SG_name]['optimal_channel_ids'])
                 )
 

@@ -3477,12 +3477,15 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser.add_argument(
         '--no_keep', action="store_false", dest="keep", default=True,
         help="Keep integration data after the run completes.")
+    integrate_parser.add_argument(
+        '--no_use_optimal_channels', action="store_false", dest="use_optimal_integration_channels", default=None,
+        help="Do not use optimal channels (default: as per hyperparameters).")
     integrate_parser.add_argument('--havana_starting_n_bins', dest='havana_starting_n_bins', type=int, default=128,
         help='Number of starting bins in Havana continuous grids (default: %(default)d).')
     integrate_parser.add_argument('--havana_n_points_min', dest='havana_n_points_min', type=int, default=1000,
         help='Minimum number of points in Havana continuous grids before update (default: %(default)d).')
     integrate_parser.add_argument('--havana_learning_rate', dest='havana_learning_rate', type=float, default=1.5,
-        help='Learning rate in Havana (default: %(default)f).')
+        help='Learning rate in Havana (default: %(default)f).')        
     integrate_parser.add_argument('--havana_bin_increase_factor_schedule', dest='havana_bin_increase_factor_schedule', type=int, nargs='+', default=None,
         help='Bin increase factor schedule in Havana (default: automatic).')
     def help_integrate(self):
@@ -3547,6 +3550,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 raise alphaLoopInvalidRunCmd("Make sure the number of frozen momenta specified in the 'external_data' of the cross_section_set yaml is only the *independent* frozen momenta.")
 
         self.hyperparameters.set_parameter('General.multi_channeling',args.multichanneling)
+
+        if args.use_optimal_integration_channels is None:
+            args.use_optimal_integration_channels = self.hyperparameters['General']['use_optimal_channels']
+        else:
+            self.hyperparameters.set_parameter('General.use_optimal_channels',args.use_optimal_integration_channels)
 
         args.hyperparameters = [( args.hyperparameters[i],eval(args.hyperparameters[i+1]) ) for i in range(0,len(args.hyperparameters),2)]
         for hp_name, value in args.hyperparameters:
@@ -3674,7 +3682,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                  'havana_starting_n_bins' : args.havana_starting_n_bins,
                  'havana_n_points_min' : args.havana_n_points_min,
                  'havana_learning_rate' : args.havana_learning_rate,
-                 'havana_bin_increase_factor_schedule' : args.havana_bin_increase_factor_schedule
+                 'havana_bin_increase_factor_schedule' : args.havana_bin_increase_factor_schedule,
+                 'use_optimal_integration_channels' : args.use_optimal_integration_channels
             }
 
         elif args.integrator == 'inspect':
