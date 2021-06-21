@@ -15,6 +15,9 @@ import pickle
 import subprocess
 import glob
 import re
+import socket
+import tempfile
+from pprint import pprint, pformat
 
 alphaloop_basedir = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.pardir, os.path.pardir))
 if alphaloop_basedir not in sys.path:
@@ -28,12 +31,20 @@ import alpha_loop.integrator.integrands as integrands
 import alpha_loop.integrator.functions as functions
 import alpha_loop.utils as utils
 from alpha_loop.utils import bcolors
-from alpha_loop.integrator.worker import HavanaIntegrandWrapper, ALStandaloneIntegrand, HavanaMockUp, Havana
+from alpha_loop.integrator.worker import HavanaIntegrandWrapper, ALStandaloneIntegrand, HavanaMockUp, Havana, run_job
 
 import asyncio
 import subprocess
 import yaml
 from yaml import Loader
+
+
+try:
+    from redis import Redis
+    import rq
+except ImportError as e:
+    # This is fine if not using the redis-based parallelisation implementation
+    pass
 
 class NoAliasDumper(yaml.SafeDumper):
     def ignore_aliases(self, data):
@@ -84,7 +95,9 @@ class AL_cluster(object):
     _JOB_CHECK_FREQUENCY = 0.3
     _FORWARD_WORKER_OUTPUT = True
 
-    def __init__(self, architecture, n_workers, n_cores_per_worker, run_workspace, process_results_callback, run_id, monitor_callback=None, cluster_options=None, keep=False, debug=False, trashcan=None):
+    def __init__(self, architecture, n_workers, n_cores_per_worker, run_workspace, process_results_callback, run_id, 
+                monitor_callback=None, cluster_options=None, keep=False, debug=False, trashcan=None, 
+                use_redis=False, redis_port=8786):
 
         self.n_workers = n_workers
         self.n_cores_per_worker = n_cores_per_worker
@@ -108,6 +121,22 @@ class AL_cluster(object):
         
         self.debug  = debug
         self.keep   = keep
+        
+        self.use_redis = use_redis
+        self.redis_server_process = None
+        self.redis_port = redis_port
+        self.redis_jobs = []
+        self.rq_path = None
+        self.redis_initialization = None
+        self.redis_queue = None
+        self.redis_connection = None
+        self.redis_submitter_hostname = None
+        if self.use_redis:
+            self.redis_submitter_hostname = socket.gethostname()
+            self.redis_initialization = asyncio.Event()
+            self.rq_path = shutil.which('rq')
+            if self.rq_path is None:
+                raise HavanaIntegratorError("The executable 'rq' could not be found within the current PATH environment. Make sure to install it with pip install rq.")
 
         self.run_id = run_id
         self.current_status = None
@@ -128,17 +157,83 @@ class AL_cluster(object):
             raise HavanaIntegratorError("Cluster architecture not supported by ALcluster: %s"%architecture)
     
     async def update_status(self):
+        
+        if self.use_redis:
+            workers = rq.Worker.all(connection=self.redis_connection)
+            # Possible worker states are suspended, started, busy and idle
+            worker_statuses = [worker.state for worker in workers]
+            n_idle_workers = worker_statuses.count('idle')
+            n_running_workers = worker_statuses.count('busy')
+            new_status = {
+                'FREE' : n_idle_workers,
+                'PENDING' : len(worker_statuses)-n_idle_workers-n_running_workers,
+                'RUNNING' : n_running_workers
+            }
+            new_status['jobs'] = {}
+            new_status['jobs']['started'] = self.redis_queue.started_job_registry.count
+            new_status['jobs']['deferred'] = self.redis_queue.deferred_job_registry.count
+            new_status['jobs']['finished_and_not_processed'] = self.redis_queue.finished_job_registry.count
+            new_status['jobs']['failed'] = self.redis_queue.failed_job_registry.count
+            new_status['jobs']['scheduled'] = self.redis_queue.scheduled_job_registry.count
+        else:
+            all_statuses = [ v['status'] for v in self.workers.values() ]
+            new_status = {
+                'FREE' : all_statuses.count('FREE'),
+                'PENDING' : all_statuses.count('PENDING'),
+                'RUNNING' : all_statuses.count('RUNNING')
+            }
 
-        all_statuses = [ v['status'] for v in self.workers.values() ]
-        new_status = {
-            'FREE' : all_statuses.count('FREE'),
-            'PENDING' : all_statuses.count('PENDING'),
-            'RUNNING' : all_statuses.count('RUNNING')
-        }
         if self.current_status is None or new_status!=self.current_status:
             self.current_status = new_status
             if self.monitor_callback is not None:
-                await self.monitor_callback(self.current_status)
+                cluster_status_str = 'Status of %d workers: %d pending, %d available, %s%d%s running. '%(
+                            new_status['PENDING']+new_status['FREE']+new_status['RUNNING'],
+                            new_status['PENDING'], new_status['FREE'], bcolors.GREEN, new_status['RUNNING'], bcolors.END   
+                        )
+                if 'jobs' in new_status:
+                    n_jobs_tot = sum(new_status['jobs'].values())
+                    cluster_status_str += '\nStatus of %d jobs: %s%d%s scheduled, %s%d%s started, %s%d%s finished and not processed'%(
+                        n_jobs_tot, 
+                        bcolors.BLUE, new_status['jobs']['scheduled'], bcolors.END,
+                        bcolors.GREEN, new_status['jobs']['started'], bcolors.END,
+                        bcolors.RED, new_status['jobs']['finished_and_not_processed'], bcolors.END
+                    )
+                    if new_status['jobs']['deferred'] != 0:
+                        cluster_status_str += ', %s%d%s deferred'%(bcolors.BLUE, new_status['jobs']['deferred'], bcolors.END)
+                    if new_status['jobs']['failed'] != 0:
+                        cluster_status_str += ', %s%d%s failed'%(bcolors.RED, new_status['jobs']['failed'], bcolors.END)
+                else:
+                    cluster_status_str += 'A total of %d jobs are pending.'%(self.n_jobs_in_queue)
+                await self.monitor_callback(cluster_status_str)
+
+    async def send_redis_job(self, payload):
+
+        # result_ttl is how long (in seconds) to keep the job (if successful) and its results
+        # ttl can also be supplied, and it if it is it provides a maximum queued time (in seconds) of the job before it's discarded.
+        # job = rq.job.Job.create( func=run_job, result_ttl=3600, connection=self.redis_connection, retry=rq.Retry(3),
+        #   args=(payload,),
+        #   kwargs={}
+        # )
+        #self.redis_queue.enqueue_job( job )
+
+        sent_job = self.redis_queue.enqueue( 
+            run_job, result_ttl=3600, connection=self.redis_connection, retry=rq.Retry(3),
+            args=(payload,self.run_id),
+            kwargs={}
+        )
+        # if payload=='ping':
+        #     print("Just sent REDIS job with payload: %s"%pformat(payload))
+        #     sent_job_record = rq.job.Job.fetch(sent_job.id, connection=self.redis_connection)
+        #     print("Sent job record immediately after: %s, %s"%(
+        #         sent_job_record.get_status(), str(sent_job_record.result)
+        #     ))
+        #     await asyncio.sleep(1.)
+        #     sent_job_record = rq.job.Job.fetch(sent_job.id, connection=self.redis_connection)
+        #     print("Sent job record after one second: %s, %s"%(
+        #         sent_job_record.get_status(), str(sent_job_record.result)
+        #     ))
+
+        await self.update_status()
 
     async def send_job(self, worker_id, payload):
 
@@ -154,6 +249,75 @@ class AL_cluster(object):
 
         self.workers[worker_id]['status'] = 'RUNNING'
         await self.update_status()
+
+    async def follow_redis_workers(self):
+
+        # Possible job statuses are: queued, started, deferred, finished, stopped, scheduled and failed
+        last_status = None
+        job_ids_already_handled = set([])
+        while self.active:
+
+            try:
+
+                if self.architecture == 'local':
+                    await asyncio.sleep(self._JOB_CHECK_FREQUENCY)
+                else:
+                    await asyncio.sleep(self._JOB_CHECK_FREQUENCY*5.)
+
+                await self.update_status()
+
+                new_status = {
+                    'started' : self.redis_queue.started_job_registry.count,
+                    'deferred' : self.redis_queue.deferred_job_registry.count,
+                    'finished_and_not_processed' : self.redis_queue.finished_job_registry.count,
+                    'failed' : self.redis_queue.failed_job_registry.count,
+                    'scheduled' : self.redis_queue.scheduled_job_registry.count
+                }
+                #pprint(new_status)
+                if last_status is not None and new_status==last_status and new_status['finished_and_not_processed']==0:
+                    continue
+
+                # For now we should only have to act on the finished statuses, the failed ones will be resubmitted automatically
+                finished_jobs = rq.job.Job.fetch_many(self.redis_queue.finished_job_registry.get_job_ids(), connection=self.redis_connection)
+                for finished_job in finished_jobs:
+                    do_process_result = True
+                    job_result = None
+                    job_id = finished_job.id
+                    if job_id in job_ids_already_handled:
+                        logger.warning("The following job ID '%s' appeared on multiple occasions in the list of finished jobs, this should not happen."%str(job_id))
+                        do_process_result = False
+                    else:
+                        finished_job = rq.job.Job.fetch(job_id, connection=self.redis_connection)
+                        if finished_job.get_status()!='finished':
+                            logger.warning("The following redis job '%s' was in the register of finished jobs but its status is '%s'."%(str(job_id), finished_job.get_status()))
+                            do_process_result = False
+                        else:
+                            job_result = finished_job.result
+                            if job_result is None:
+                                logger.warning("The following redis job '%s' was in the register of finished jobs but its result is still None.")
+                                do_process_result = False
+
+                    if do_process_result:
+                        if job_result == 'pong':
+                            self.redis_initialization.set()
+                        else:
+                            await self.process_results_callback(job_result)
+                            job_ids_already_handled.add(job_id)
+                    
+                    # Remove the completed job so that it should no longer show up upon future queries
+                    self.redis_queue.finished_job_registry.remove(job_id, delete_job=True)
+
+                    new_status = {
+                        'started' : self.redis_queue.started_job_registry.count,
+                        'deferred' : self.redis_queue.deferred_job_registry.count,
+                        'finished_and_not_processed' : self.redis_queue.finished_job_registry.count,
+                        'failed' : self.redis_queue.failed_job_registry.count,
+                        'scheduled' : self.redis_queue.scheduled_job_registry.count
+                    }
+                    last_status = new_status
+
+            except KeyboardInterrupt as e:
+                break
 
     async def follow_workers(self):
         while self.active:
@@ -187,6 +351,7 @@ class AL_cluster(object):
                     fast_remove(output_path_done, self.trashcan)
                     
                     await self.available_worker_ids.put(output_worker_id)
+
                     self.workers[output_worker_id]['status'] = 'FREE'
                     await asyncio.sleep(0.01)
 
@@ -207,6 +372,21 @@ class AL_cluster(object):
 
     async def deploy(self, wait_for_one_worker=True):
 
+        if self.use_redis:
+            redis_server_directory = pjoin(self.run_workspace,'redis_server')
+            if os.path.exists(redis_server_directory):
+                shutil.rmtree(redis_server_directory)
+            else:
+                os.mkdir(redis_server_directory)
+            # Start the redis server
+            logger.info("Starting up a redis server in %s"%redis_server_directory)
+            redis_monitor_file = open(pjoin(redis_server_directory,'redis_server_live_log.txt'),'a')
+            self.redis_server_process = subprocess.Popen(['redis-server','--port','%d'%self.redis_port,'--protected-mode','no'], cwd=redis_server_directory, stdout=redis_monitor_file, stderr=redis_monitor_file)
+            # Let the server boot (there may be more elegant ways of doing this, but w/e)
+            time.sleep(1.)
+            self.redis_connection = Redis(host=self.redis_submitter_hostname, port=self.redis_port)
+            self.redis_queue = rq.Queue(connection=self.redis_connection)
+
         if self.architecture == 'local':
 
             for i_worker in range(self.n_workers):
@@ -214,42 +394,69 @@ class AL_cluster(object):
                 worker_id_min = i_worker*self.n_cores_per_worker
                 worker_id_max = (i_worker+1)*self.n_cores_per_worker-1
 
-                cmd = [ sys.executable, pjoin(alphaloop_basedir,'alpha_loop','integrator','worker.py'), 
-                        '--run_id', str(self.run_id), '--worker_id_min', str(worker_id_min), '--worker_id_max', str(worker_id_max), 
-                        '--workspace_path', str(self.run_workspace), '--timeout', '%.2f'%self._JOB_CHECK_FREQUENCY]
+                if self.use_redis:
+                    cmd = [ sys.executable, pjoin(alphaloop_basedir,'alpha_loop','integrator','redis_worker.py'), 
+                            '--run_id', str(self.run_id), '--worker_id_min', str(worker_id_min), '--worker_id_max', str(worker_id_max), 
+                            '--workspace_path', str(self.run_workspace), '--redis_server', 'redis://%s:%d'%(self.redis_submitter_hostname, self.redis_port),
+                            '--rq_path', self.rq_path, '--work_monitoring_path', ('none' if not self.work_monitoring_path else self.work_monitoring_path)
+                        ]
+                else:
+                    cmd = [ sys.executable, pjoin(alphaloop_basedir,'alpha_loop','integrator','worker.py'), 
+                            '--run_id', str(self.run_id), '--worker_id_min', str(worker_id_min), '--worker_id_max', str(worker_id_max), 
+                            '--workspace_path', str(self.run_workspace), '--timeout', '%.2f'%self._JOB_CHECK_FREQUENCY]
+
+                worker_env = os.environ.copy()
+                worker_env['LD_PRELOAD'] = pjoin(alphaloop_basedir,'libraries','scs','out','libscsdir.so')
                 self.all_worker_hooks.append(subprocess.Popen(
                         cmd,
                         cwd=self.run_workspace,
                         stdout=(self.worker_monitoring_file if self._FORWARD_WORKER_OUTPUT else subprocess.DEVNULL),
-                        stderr=(self.worker_monitoring_file if self._FORWARD_WORKER_OUTPUT else subprocess.DEVNULL)
+                        stderr=(self.worker_monitoring_file if self._FORWARD_WORKER_OUTPUT else subprocess.DEVNULL),
+                        env = worker_env
                     ))
                     
         elif self.architecture == 'condor':
             
             self.condor_deploy()
 
-        for i_worker in range(self.n_workers):
+        if not self.use_redis:
 
-            worker_id_min = i_worker*self.n_cores_per_worker
-            worker_id_max = (i_worker+1)*self.n_cores_per_worker-1
+            for i_worker in range(self.n_workers):
 
-            for worker_id in range(worker_id_min, worker_id_max+1):
-                self.workers[worker_id] = {
-                    'hook' : self.all_worker_hooks[-1],
-                    'status' : 'PENDING'
-                }
-                await self.send_job( worker_id, 'ping')
+                worker_id_min = i_worker*self.n_cores_per_worker
+                worker_id_max = (i_worker+1)*self.n_cores_per_worker-1
+
+                for worker_id in range(worker_id_min, worker_id_max+1):
+                    self.workers[worker_id] = {
+                        'hook' : self.all_worker_hooks[-1],
+                        'status' : 'PENDING'
+                    }
+                    await self.send_job( worker_id, 'ping')
+        else:
+
+            await self.send_redis_job('ping')
 
         await self.update_status()
-    
-        asyncio.create_task(self.follow_workers())
+
+        if self.use_redis:
+            asyncio.create_task(self.follow_redis_workers())
+        else:
+            asyncio.create_task(self.follow_workers())
 
         # Wait for at least one worker to become active
         if wait_for_one_worker:
-            available_worker_id = await self.available_worker_ids.get()
-            await self.available_worker_ids.put(available_worker_id)
+            if self.use_redis:
+                # Find a way to lock on initialisation
+                logger.info("Starting for the redis parallelisation scheme to be properly setup...")
+                await self.redis_initialization.wait()
+            else:
+                available_worker_id = await self.available_worker_ids.get()
+                await self.available_worker_ids.put(available_worker_id)
 
-        asyncio.create_task(self.job_submitter())
+        await self.update_status()
+
+        if not self.use_redis:
+            asyncio.create_task(self.job_submitter())
 
     def condor_deploy(self):
         
@@ -266,32 +473,53 @@ class AL_cluster(object):
             raise HavanaIntegratorError("Could not find libscsdir.so at '%s'. Make sure it is present and compiled."%libscsdir_path)
 
         with open(pjoin(self.run_workspace,'run_%d_condor_submission.sub'%self.run_id),'w') as f:
-            f.write(
-"""executable         = %(python)s
-arguments             = %(worker_script)s --run_id %(run_id)d --worker_id_min $(worker_id_min) --worker_id_max $(worker_id_max) --workspace_path %(workspace)s --timeout %(timeout)s
-environment           = "LD_PRELOAD=%(libscsdir_path)s"
-output                = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).out
-error                 = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).err
-log                   = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).log
-RequestCpus           = %(n_cpus_per_worker)d
-RequestMemory         = %(requested_memory_in_MB)d
-RequestDisk           = DiskUsage
-should_transfer_files = Yes
-when_to_transfer_output = ON_EXIT
-+JobFlavour           = "%(job_flavour)s"
-queue worker_id_min,worker_id_max from %(workspace)s/run_%(run_id)d_condor_worker_arguments.txt
-"""%{
-        'python' : sys.executable,
-        'libscsdir_path' : libscsdir_path,
-        'run_id' : self.run_id,
-        'worker_script' : pjoin(alphaloop_basedir,'alpha_loop','integrator','worker.py'),
-        'workspace' : self.run_workspace,
-        'timeout' : '%.2f'%(self._JOB_CHECK_FREQUENCY*15.),
-        'job_flavour' : self.cluster_options['job_flavour'],
-        'n_cpus_per_worker' : self.n_cores_per_worker,
-        'requested_memory_in_MB' : self.cluster_options['RAM_required']
-    }
-            )
+            
+            format_dict = {
+                'python' : sys.executable,
+                'libscsdir_path' : libscsdir_path,
+                'run_id' : self.run_id,
+                'workspace' : self.run_workspace,
+                'timeout' : '%.2f'%(self._JOB_CHECK_FREQUENCY*15.),
+                'job_flavour' : self.cluster_options['job_flavour'],
+                'n_cpus_per_worker' : self.n_cores_per_worker,
+                'requested_memory_in_MB' : self.cluster_options['RAM_required'],
+                'redis_server' : 'redis://%s:%d'%(self.redis_submitter_hostname, self.redis_port),
+                'rq_path' : self.rq_path
+            }
+            if self.use_redis:
+                format_dict['worker_script'] = pjoin(alphaloop_basedir,'alpha_loop','integrator','redis_worker.py')
+                f.write(
+    """executable         = %(python)s
+    arguments             = %(worker_script)s --run_id %(run_id)d --worker_id_min $(worker_id_min) --worker_id_max $(worker_id_max) --workspace_path %(workspace)s --redis_server %(redis_server)s --rq_path %(rq_path)s --work_monitoring_path none
+    environment           = "LD_PRELOAD=%(libscsdir_path)s"
+    output                = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).out
+    error                 = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).err
+    log                   = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).log
+    RequestCpus           = %(n_cpus_per_worker)d
+    RequestMemory         = %(requested_memory_in_MB)d
+    RequestDisk           = DiskUsage
+    should_transfer_files = Yes
+    when_to_transfer_output = ON_EXIT
+    +JobFlavour           = "%(job_flavour)s"
+    queue worker_id_min,worker_id_max from %(workspace)s/run_%(run_id)d_condor_worker_arguments.txt
+    """%format_dict)
+            else:
+                format_dict['worker_script'] = pjoin(alphaloop_basedir,'alpha_loop','integrator','worker.py')
+                f.write(
+    """executable         = %(python)s
+    arguments             = %(worker_script)s --run_id %(run_id)d --worker_id_min $(worker_id_min) --worker_id_max $(worker_id_max) --workspace_path %(workspace)s --timeout %(timeout)s
+    environment           = "LD_PRELOAD=%(libscsdir_path)s"
+    output                = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).out
+    error                 = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).err
+    log                   = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).log
+    RequestCpus           = %(n_cpus_per_worker)d
+    RequestMemory         = %(requested_memory_in_MB)d
+    RequestDisk           = DiskUsage
+    should_transfer_files = Yes
+    when_to_transfer_output = ON_EXIT
+    +JobFlavour           = "%(job_flavour)s"
+    queue worker_id_min,worker_id_max from %(workspace)s/run_%(run_id)d_condor_worker_arguments.txt
+    """%format_dict)
 
         submit_proc = subprocess.Popen(['condor_submit',pjoin(self.run_workspace,'run_%d_condor_submission.sub'%self.run_id)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         submit_stdout, submit_stderr = submit_proc.communicate()
@@ -321,6 +549,10 @@ queue worker_id_min,worker_id_max from %(workspace)s/run_%(run_id)d_condor_worke
             logger.warning("Failed to clean condor run. Error: %s"%str(e))
 
     async def submit_job(self, payload, blocking=False):
+
+        if self.use_redis:
+            await self.send_redis_job(payload)
+            return
 
         if blocking:
             available_worker_id = await self.available_worker_ids.get()
@@ -374,6 +606,18 @@ queue worker_id_min,worker_id_max from %(workspace)s/run_%(run_id)d_condor_worke
                     os.remove(pjoin(self.run_workspace,'run_%d_condor_worker_arguments.txt'%self.run_id))
 
             self.condor_kill()
+
+        if self.redis_server_process:
+            logger.info("Terminating redis server...")
+            try:
+                self.redis_server_process.terminate()
+                time.sleep(0.5)
+                self.redis_server_process.kill()
+            except Exception as e:
+                pass
+            redis_server_directory = pjoin(self.run_workspace,'redis_server')
+            if os.path.exists(redis_server_directory):
+                shutil.rmtree(redis_server_directory)
 
         io_files = \
             [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.pkl'%self.run_id))]+\
@@ -433,6 +677,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                  show_selected_phase_only = False,
                  show_all_information_for_all_integrands = False,
                  use_optimal_integration_channels = True,
+                 use_redis = False,
                  **opts):
 
         """ Initialize the simplest MC integrator."""
@@ -481,6 +726,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.dump_havana_grids = dump_havana_grids
         self.fresh_integration = fresh_integration
         self.use_optimal_integration_channels = use_optimal_integration_channels
+        self.use_redis = use_redis
 
         self.n_start = n_start
         self.n_max = n_max
@@ -605,7 +851,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
             return
         try:
             job_ID, run_time, results = job_result
-            if self._DEBUG: logger.info("Processing result of %d samples from job #%d."%(len(results), job_ID))
+            if self._DEBUG: logger.info("Processing result from job #%d."%job_ID)
 
             self.cumulative_job_time += run_time
 
@@ -619,9 +865,10 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                 havana_updater = HavanaMockUp(**havana_constructor_args)
             else:
                 havana_updater = Havana(**havana_constructor_args)
-                # Clean-up job output
-                for grid_file_path in havana_constructor_args['flat_record']['grid_files']:
-                    fast_remove(grid_file_path, self.trashcan)
+                if havana_constructor_args['flat_record']['tmp_folder'] is None:
+                    # Clean-up job output
+                    for grid_file_path in havana_constructor_args['flat_record']['grid_files']:
+                        fast_remove(grid_file_path, self.trashcan)
             
             self.havana.accumulate_from_havana_grid(havana_updater)
             
@@ -655,13 +902,9 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
     async def process_al_cluster_status_update(self, new_status):
         
-        self.cluster_status_summary = 'Status of %d workers: %d pending, %d available, %s%d%s running. A total of %d jobs are pending.'%(
-            new_status['PENDING']+new_status['FREE']+new_status['RUNNING'],
-            new_status['PENDING'], new_status['FREE'], bcolors.GREEN, new_status['RUNNING'], bcolors.END,
-            self.al_cluster.n_jobs_in_queue
-        )
+        self.cluster_status_summary = new_status
         if self.canvas is not None and self.stream_monitor:
-            self.canvas.print('| %s'%self.cluster_status_summary)
+            self.canvas.print('\n'.join('| %s'%line for line in self.cluster_status_summary.split('\n')))
 
     def handle_exception(self, loop, context):
         self.exit_now = True
@@ -801,7 +1044,8 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
             cluster_options = self.condor_options
         self.al_cluster = AL_cluster(
             self.cluster_type, self.n_workers, self.n_cores_per_worker, self.run_workspace, self.process_job_result, self.run_id,
-            monitor_callback=self.process_al_cluster_status_update, cluster_options=cluster_options, keep=self.keep, debug=self._DEBUG, trashcan=self.trashcan
+            monitor_callback=self.process_al_cluster_status_update, cluster_options=cluster_options, keep=self.keep, debug=self._DEBUG, 
+            trashcan=self.trashcan, use_redis=self.use_redis
         )
 
         try:
@@ -819,7 +1063,9 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                 n_jobs_for_this_iteration = math.ceil(current_n_points/float(self.batch_size))
                 self.n_points_for_this_iteration = 0
                 
-                sampling_grid_constructor_arguments = self.havana.get_constructor_arguments()
+                sampling_grid_constructor_arguments = self.havana.get_constructor_arguments(
+                    tmp_folder = (None if not self.use_redis else tempfile.gettempdir())
+                )
 
                 n_submitted = 0
                 n_done = 0

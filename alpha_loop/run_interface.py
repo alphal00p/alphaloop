@@ -3488,6 +3488,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         help='Learning rate in Havana (default: %(default)f).')        
     integrate_parser.add_argument('--havana_bin_increase_factor_schedule', dest='havana_bin_increase_factor_schedule', type=int, nargs='+', default=None,
         help='Bin increase factor schedule in Havana (default: automatic).')
+    integrate_parser.add_argument(
+        '--use_redis', action="store_true", dest="use_redis", default=False,
+        help="Enable Redis for node communication, and not the filesystem.")
     def help_integrate(self):
         self.integrate_parser.print_help()
         return
@@ -3683,7 +3686,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                  'havana_n_points_min' : args.havana_n_points_min,
                  'havana_learning_rate' : args.havana_learning_rate,
                  'havana_bin_increase_factor_schedule' : args.havana_bin_increase_factor_schedule,
-                 'use_optimal_integration_channels' : args.use_optimal_integration_channels
+                 'use_optimal_integration_channels' : args.use_optimal_integration_channels,
+                 'use_redis' : args.use_redis
             }
 
         elif args.integrator == 'inspect':
