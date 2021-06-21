@@ -371,6 +371,7 @@ class AL_cluster(object):
                     failed_jobs = rq.job.Job.fetch_many(self.redis_queue.failed_job_registry.get_job_ids(), connection=self.redis_connection)
                     for failed_job in failed_jobs:
                         job_id = failed_job.id
+                        logger.warning("\n\n\nRedis job '%s' failed with the following execution info:\n%s\n\n\n"%(job_id, str(failed_job.exc_info)))
                         if job_id in job_ids_already_handled:
                             logger.warning("The following job ID '%s' appeared on multiple occasions in the list of failed jobs, this should not happen."%str(job_id))
                         else:
@@ -464,7 +465,7 @@ class AL_cluster(object):
             # Start the redis server
             logger.info("Starting up a redis server in %s"%redis_server_directory)
             redis_monitor_file = open(pjoin(redis_server_directory,'redis_server_live_log.txt'),'a')
-            self.redis_server_process = subprocess.Popen(['redis-server','--port','%d'%self.redis_port,'--protected-mode','no'], cwd=redis_server_directory, stdout=redis_monitor_file, stderr=redis_monitor_file)
+            self.redis_server_process = subprocess.Popen(['redis-server','--port','%d'%self.redis_port,'--protected-mode','no','--save','""','--appendonly','no'], cwd=redis_server_directory, stdout=redis_monitor_file, stderr=redis_monitor_file)
             # Let the server boot (there may be more elegant ways of doing this, but w/e)
             time.sleep(1.)
             self.redis_connection = Redis(host=self.redis_submitter_hostname, port=self.redis_port)
