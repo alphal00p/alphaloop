@@ -97,7 +97,7 @@ class AL_cluster(object):
 
     def __init__(self, architecture, n_workers, n_cores_per_worker, run_workspace, process_results_callback, run_id, 
                 monitor_callback=None, cluster_options=None, keep=False, debug=False, trashcan=None, 
-                use_redis=False, redis_port=8786):
+                use_redis=False, redis_port=8786, redis_max_wait_time=None):
 
         self.n_workers = n_workers
         self.n_cores_per_worker = n_cores_per_worker
@@ -125,12 +125,14 @@ class AL_cluster(object):
         self.use_redis = use_redis
         self.redis_server_process = None
         self.redis_port = redis_port
-        self.redis_jobs = []
         self.rq_path = None
         self.redis_initialization = None
         self.redis_queue = None
         self.redis_connection = None
         self.redis_submitter_hostname = None
+        self.jobs_for_current_iteration = {}
+        self.redis_max_wait_time = redis_max_wait_time
+        self.n_redis_job_failed_for_this_iteration = 0
         if self.use_redis:
             self.redis_submitter_hostname = socket.gethostname()
             self.redis_initialization = asyncio.Event()
@@ -173,7 +175,8 @@ class AL_cluster(object):
             new_status['jobs']['started'] = self.redis_queue.started_job_registry.count
             new_status['jobs']['deferred'] = self.redis_queue.deferred_job_registry.count
             new_status['jobs']['finished_and_not_processed'] = self.redis_queue.finished_job_registry.count
-            new_status['jobs']['failed'] = self.redis_queue.failed_job_registry.count
+            new_status['jobs']['failed'] = self.n_redis_job_failed_for_this_iteration
+            #new_status['jobs']['failed'] = self.redis_queue.failed_job_registry.count
             new_status['jobs']['scheduled'] = self.redis_queue.scheduled_job_registry.count
         else:
             all_statuses = [ v['status'] for v in self.workers.values() ]
@@ -192,16 +195,17 @@ class AL_cluster(object):
                         )
                 if 'jobs' in new_status:
                     n_jobs_tot = sum(new_status['jobs'].values())
-                    cluster_status_str += '\nStatus of %d jobs: %s%d%s scheduled, %s%d%s started, %s%d%s finished and not processed'%(
+                    cluster_status_str += '\nStatus of %d jobs: %s%d%s scheduled, %s%d%s ongoing for this iteration, %s%d%s started, %s%d%s finished and not processed'%(
                         n_jobs_tot, 
                         bcolors.BLUE, new_status['jobs']['scheduled'], bcolors.END,
+                        bcolors.BLUE, len(self.jobs_for_current_iteration), bcolors.END,
                         bcolors.GREEN, new_status['jobs']['started'], bcolors.END,
                         bcolors.RED, new_status['jobs']['finished_and_not_processed'], bcolors.END
                     )
                     if new_status['jobs']['deferred'] != 0:
                         cluster_status_str += ', %s%d%s deferred'%(bcolors.BLUE, new_status['jobs']['deferred'], bcolors.END)
                     if new_status['jobs']['failed'] != 0:
-                        cluster_status_str += ', %s%d%s failed'%(bcolors.RED, new_status['jobs']['failed'], bcolors.END)
+                        cluster_status_str += ', %s%d%s failed for this iteration'%(bcolors.RED, new_status['jobs']['failed'], bcolors.END)
                 else:
                     cluster_status_str += 'A total of %d jobs are pending.'%(self.n_jobs_in_queue)
                 await self.monitor_callback(cluster_status_str)
@@ -216,11 +220,18 @@ class AL_cluster(object):
         # )
         #self.redis_queue.enqueue_job( job )
 
+        # One could add retry=rq.Retry(3) below to add an automated retry, but that is not necessary here
+
         sent_job = self.redis_queue.enqueue( 
-            run_job, result_ttl=3600, connection=self.redis_connection, retry=rq.Retry(3),
+            run_job, result_ttl=3600, connection=self.redis_connection,
             args=(payload,self.run_id),
             kwargs={}
         )
+        if 'job_id' in payload:
+            self.jobs_for_current_iteration[sent_job.id] = {
+                'alpha_loop_job_id' : payload['job_id'],
+                'sent_time' : time.time()
+            }
         # if payload=='ping':
         #     print("Just sent REDIS job with payload: %s"%pformat(payload))
         #     sent_job_record = rq.job.Job.fetch(sent_job.id, connection=self.redis_connection)
@@ -248,8 +259,34 @@ class AL_cluster(object):
             f.write("Marker file for job input dump done.")
 
         self.workers[worker_id]['status'] = 'RUNNING'
+
+        if 'job_id' in payload:
+            self.jobs_for_current_iteration[payload['job_id']] = {'alpha_loop_job_id': payload['job_id'], 'sent_time': time.time()}
+
         await self.update_status()
 
+    def start_new_iteration(self):
+        # Make sure to reset the internal redis jobs records when starting a new iteration, so as to be sure
+        # to not send the job result from an older iteration for processing.
+        if self.use_redis:
+            for job_id in self.jobs_for_current_iteration:
+                try:
+                    job_to_delete = rq.job.Job.fetch(job_id, connection=self.redis_connection)
+                    job_to_delete.delete()
+                except Exception as e:
+                    logger.warning("Failed to delete redis job %s. Exception: %s"%(job_id, str(e)))
+            self.n_redis_job_failed_for_this_iteration = 0
+        else:
+            for _ in range(self.n_jobs_in_queue):
+                try:
+                    self.jobs_queue.get_nowait()
+                    self.jobs_queue.task_done()
+                except Exception as e:
+                    pass
+            self.n_jobs_in_queue = 0
+
+        self.jobs_for_current_iteration = {}
+                
     async def follow_redis_workers(self):
 
         # Possible job statuses are: queued, started, deferred, finished, stopped, scheduled and failed
@@ -266,6 +303,20 @@ class AL_cluster(object):
 
                 await self.update_status()
 
+                if self.redis_max_wait_time is not None:
+                    curr_time = time.time()
+                    jobs_to_slow = [ (job_id, job_info) for job_id, job_info in self.jobs_for_current_iteration.items() if (curr_time-job_info['sent_time'])>self.redis_max_wait_time ]
+                    for job_id, job_info in jobs_to_slow:
+                        del self.jobs_for_current_iteration[job_id]
+                        # Notify that this job failed
+                        await self.process_results_callback(job_info['alpha_loop_job_id'])
+                        job_ids_already_handled.add(job_id)
+                        try:
+                            job_to_delete = rq.job.Job.fetch(job_id, connection=self.redis_connection)
+                            job_to_delete.delete()
+                        except Exception as e:
+                            logger.warning("Failed to delete redis job %s. Exception: %s"%(job_id, str(e)))
+
                 new_status = {
                     'started' : self.redis_queue.started_job_registry.count,
                     'deferred' : self.redis_queue.deferred_job_registry.count,
@@ -273,48 +324,79 @@ class AL_cluster(object):
                     'failed' : self.redis_queue.failed_job_registry.count,
                     'scheduled' : self.redis_queue.scheduled_job_registry.count
                 }
+
                 #pprint(new_status)
-                if last_status is not None and new_status==last_status and new_status['finished_and_not_processed']==0:
+                if last_status is not None and new_status==last_status and new_status['finished_and_not_processed']==0 and new_status['failed']==0:
                     continue
 
                 # For now we should only have to act on the finished statuses, the failed ones will be resubmitted automatically
-                finished_jobs = rq.job.Job.fetch_many(self.redis_queue.finished_job_registry.get_job_ids(), connection=self.redis_connection)
-                for finished_job in finished_jobs:
-                    do_process_result = True
-                    job_result = None
-                    job_id = finished_job.id
-                    if job_id in job_ids_already_handled:
-                        logger.warning("The following job ID '%s' appeared on multiple occasions in the list of finished jobs, this should not happen."%str(job_id))
-                        do_process_result = False
-                    else:
-                        finished_job = rq.job.Job.fetch(job_id, connection=self.redis_connection)
-                        if finished_job.get_status()!='finished':
-                            logger.warning("The following redis job '%s' was in the register of finished jobs but its status is '%s'."%(str(job_id), finished_job.get_status()))
+                if new_status['finished_and_not_processed']>0:
+                    finished_jobs = rq.job.Job.fetch_many(self.redis_queue.finished_job_registry.get_job_ids(), connection=self.redis_connection)
+                    for finished_job in finished_jobs:
+                        do_process_result = True
+                        job_result = None
+                        job_id = finished_job.id
+                        if job_id in job_ids_already_handled:
+                            logger.warning("The following job ID '%s' appeared on multiple occasions in the list of finished jobs, this should not happen."%str(job_id))
                             do_process_result = False
                         else:
-                            job_result = finished_job.result
-                            if job_result is None:
-                                logger.warning("The following redis job '%s' was in the register of finished jobs but its result is still None.")
+                            finished_job = rq.job.Job.fetch(job_id, connection=self.redis_connection)
+                            if finished_job.get_status()!='finished':
+                                logger.warning("The following redis job '%s' was in the register of finished jobs but its status is '%s'."%(str(job_id), finished_job.get_status()))
                                 do_process_result = False
+                            else:
+                                job_result = finished_job.result
+                                if job_result is None:
+                                    logger.warning("The following redis job '%s' was in the register of finished jobs but its result is still None.")
+                                    do_process_result = False
 
-                    if do_process_result:
-                        if job_result == 'pong':
-                            self.redis_initialization.set()
+                        if do_process_result:
+                            if job_result == 'pong':
+                                self.redis_initialization.set()
+                            else:
+                                if job_id in self.jobs_for_current_iteration:
+                                    await self.process_results_callback(job_result)
+                                job_ids_already_handled.add(job_id)
+                        
+                        # Remove the completed job so that it should no longer show up upon future queries
+                        try:
+                            self.redis_queue.finished_job_registry.remove(job_id, delete_job=True)
+                        except Exception as e:
+                            logger.warning("Failed to remove rq job %s, even though it should have been successful: %s."%(str(job_id), str(e)))
+                            pass
+                        if job_id in self.jobs_for_current_iteration:
+                            del self.jobs_for_current_iteration[job_id]
+                
+                if new_status['failed']>0:
+                    failed_jobs = rq.job.Job.fetch_many(self.redis_queue.failed_job_registry.get_job_ids(), connection=self.redis_connection)
+                    for failed_job in failed_jobs:
+                        job_id = failed_job.id
+                        if job_id in job_ids_already_handled:
+                            logger.warning("The following job ID '%s' appeared on multiple occasions in the list of failed jobs, this should not happen."%str(job_id))
                         else:
-                            await self.process_results_callback(job_result)
+                            # Notify that this job failed
+                            if job_id in self.jobs_for_current_iteration:
+                                self.n_redis_job_failed_for_this_iteration += 1
+                                await self.process_results_callback(self.jobs_for_current_iteration[job_id]['alpha_loop_job_id'])
                             job_ids_already_handled.add(job_id)
-                    
-                    # Remove the completed job so that it should no longer show up upon future queries
-                    self.redis_queue.finished_job_registry.remove(job_id, delete_job=True)
 
-                    new_status = {
-                        'started' : self.redis_queue.started_job_registry.count,
-                        'deferred' : self.redis_queue.deferred_job_registry.count,
-                        'finished_and_not_processed' : self.redis_queue.finished_job_registry.count,
-                        'failed' : self.redis_queue.failed_job_registry.count,
-                        'scheduled' : self.redis_queue.scheduled_job_registry.count
-                    }
-                    last_status = new_status
+                        # Remove the failed job so that it should no longer show up upon future queries
+                        try:
+                            self.redis_queue.failed_job_registry.remove(job_id, delete_job=True)
+                        except Exception as e:
+                            logger.warning("Failed to remove rq job %s, even though it should have been successful: %s."%(str(job_id), str(e)))
+                            pass
+                        if job_id in self.jobs_for_current_iteration:
+                            del self.jobs_for_current_iteration[job_id]
+
+                new_status = {
+                    'started' : self.redis_queue.started_job_registry.count,
+                    'deferred' : self.redis_queue.deferred_job_registry.count,
+                    'finished_and_not_processed' : self.redis_queue.finished_job_registry.count,
+                    'failed' : self.redis_queue.failed_job_registry.count,
+                    'scheduled' : self.redis_queue.scheduled_job_registry.count
+                }
+                last_status = new_status
 
             except KeyboardInterrupt as e:
                 break
@@ -358,10 +440,11 @@ class AL_cluster(object):
                     await self.update_status()
 
                     if job_result != 'pong':
-                        if self.debug: logger.info("Processing results from worker: %d"%output_worker_id)
-                        await self.process_results_callback(job_result)
-                        if self.debug: logger.info("Done.")
-                        #asyncio.create_task(self.process_results_callback(job_result))
+                        if job_result[0] in self.jobs_for_current_iteration:
+                            if self.debug: logger.info("Processing results from worker: %d"%output_worker_id)
+                            await self.process_results_callback(job_result)
+                            if self.debug: logger.info("Done.")
+                            #asyncio.create_task(self.process_results_callback(job_result))
 
                 if self.architecture == 'local':
                     await asyncio.sleep(self._JOB_CHECK_FREQUENCY)
@@ -613,11 +696,13 @@ class AL_cluster(object):
                 self.redis_server_process.terminate()
                 time.sleep(0.5)
                 self.redis_server_process.kill()
+
+                redis_server_directory = pjoin(self.run_workspace,'redis_server')
+                if os.path.exists(redis_server_directory):
+                    shutil.rmtree(redis_server_directory)
+
             except Exception as e:
                 pass
-            redis_server_directory = pjoin(self.run_workspace,'redis_server')
-            if os.path.exists(redis_server_directory):
-                shutil.rmtree(redis_server_directory)
 
         io_files = \
             [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.pkl'%self.run_id))]+\
@@ -678,6 +763,8 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                  show_all_information_for_all_integrands = False,
                  use_optimal_integration_channels = True,
                  use_redis = False,
+                 redis_max_wait_time = None,
+                 max_iteration_time = None,
                  **opts):
 
         """ Initialize the simplest MC integrator."""
@@ -716,6 +803,8 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
             shutil.rmtree(self.trashcan+'_being_removed')
         os.mkdir(self.trashcan)
 
+        self.max_iteration_time = max_iteration_time
+
         self.havana_optimize_on_variance = havana_optimize_on_variance
         self.havana_max_prob_ratio = havana_max_prob_ratio
         self.show_SG_grid = show_SG_grid
@@ -727,6 +816,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.fresh_integration = fresh_integration
         self.use_optimal_integration_channels = use_optimal_integration_channels
         self.use_redis = use_redis
+        self.redis_max_wait_time = redis_max_wait_time
 
         self.n_start = n_start
         self.n_max = n_max
@@ -850,6 +940,11 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         if self.exit_now:
             return
         try:
+            if isinstance(job_result,int):
+                if self._DEBUG: logger.info("Job #%d failed and will thus be ignored."%job_result)
+                self.n_jobs_awaiting_completion -= 1
+                return
+
             job_ID, run_time, results = job_result
             if self._DEBUG: logger.info("Processing result from job #%d."%job_ID)
 
@@ -1045,7 +1140,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.al_cluster = AL_cluster(
             self.cluster_type, self.n_workers, self.n_cores_per_worker, self.run_workspace, self.process_job_result, self.run_id,
             monitor_callback=self.process_al_cluster_status_update, cluster_options=cluster_options, keep=self.keep, debug=self._DEBUG, 
-            trashcan=self.trashcan, use_redis=self.use_redis
+            trashcan=self.trashcan, use_redis=self.use_redis, redis_max_wait_time = self.redis_max_wait_time
         )
 
         try:
@@ -1072,6 +1167,10 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                 last_n_done = 0
 
                 logger.info("Now running iteration %s#%d%s"%(bcolors.GREEN, self.current_iteration, bcolors.END))
+                iteration_start_time = time.time()
+                # Notify the cluster that a new iteration starts now, so that all potentially still running/pending jobs will be ignore when returning,
+                # as they would pertain to an older iteration
+                self.al_cluster.start_new_iteration()
                 self.update_status(
                     start_time, n_jobs_total_completed, n_submitted, n_done,
                     self.n_tot_points, self.n_points_for_this_iteration, current_n_points, self.cumulative_IO_time,
@@ -1146,9 +1245,20 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                             self.n_tot_points, self.n_points_for_this_iteration, current_n_points, self.cumulative_IO_time,
                             self.cumulative_processing_time, self.cumulative_job_time, self.current_iteration, n_jobs_for_this_iteration=n_jobs_for_this_iteration)
 
-                    if n_remaining_points == 0 and self.n_jobs_awaiting_completion == 0:
-                        break
+                    if self.n_points_for_this_iteration>0:
+                        if n_remaining_points == 0 and self.n_jobs_awaiting_completion == 0:
+                            break
+                        if self.max_iteration_time is not None:
+                            curr_iteration_time = time.time()-iteration_start_time
+                            if curr_iteration_time >  self.max_iteration_time:
+                                logger.warning("Max iteration time reached: %.5g > %.5g. Forcing the termination of this iteration #%d now."%(
+                                    curr_iteration_time, self.max_iteration_time, self.current_iteration
+                                ))
+                                break
                 
+                # Force the number of jobs awaiting completion to be 0
+                self.n_jobs_awaiting_completion = 0
+
                 trash_counter += 1
                 shutil.move(self.trashcan, '%s_%d_%s'%(self.trashcan,trash_counter,'being_removed'))
                 os.mkdir(self.trashcan)

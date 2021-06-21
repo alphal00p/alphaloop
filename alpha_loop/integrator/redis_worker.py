@@ -25,7 +25,7 @@ def run_redis_worker(args):
 
 if __name__ == '__main__':
 
-    print("Got called with %s"%str(sys.argv))
+    print("Redis worker was called with: %s"%str(' '.join(sys.argv)))
     sys.stdout.flush()
     parser = ArgumentParser(prog='al_worker')
 
