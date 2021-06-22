@@ -3488,8 +3488,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         help='Learning rate in Havana (default: %(default)f).')        
     integrate_parser.add_argument('--havana_bin_increase_factor_schedule', dest='havana_bin_increase_factor_schedule', type=int, nargs='+', default=None,
         help='Bin increase factor schedule in Havana (default: automatic).')
-    integrate_parser.add_argument('--redis_max_wait_time', dest='redis_max_wait_time', type=float, default=None,
-        help='Maximum wait time for a job when using redis (default: none).')
+    integrate_parser.add_argument('--redis_max_job_time', dest='redis_max_job_time', type=int, default=86400,
+        help='Maximum wait time for a job when using redis (default: %(default)d).')
     integrate_parser.add_argument('--max_iteration_time', dest='max_iteration_time', type=float, default=None,
         help='Maximum completion time of an iteration before it get forcefully removed (default: none).')
     integrate_parser.add_argument(
@@ -3692,7 +3692,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                  'havana_bin_increase_factor_schedule' : args.havana_bin_increase_factor_schedule,
                  'use_optimal_integration_channels' : args.use_optimal_integration_channels,
                  'use_redis' : args.use_redis,
-                 'redis_max_wait_time' : args.redis_max_wait_time,
+                 'redis_max_job_time' : args.redis_max_job_time,
                  'max_iteration_time' : args.max_iteration_time
             }
 

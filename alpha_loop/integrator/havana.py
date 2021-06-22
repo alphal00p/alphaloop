@@ -97,7 +97,7 @@ class AL_cluster(object):
 
     def __init__(self, architecture, n_workers, n_cores_per_worker, run_workspace, process_results_callback, run_id, 
                 monitor_callback=None, cluster_options=None, keep=False, debug=False, trashcan=None, 
-                use_redis=False, redis_port=8786, redis_max_wait_time=None):
+                use_redis=False, redis_port=8786, redis_max_job_time=None):
 
         self.n_workers = n_workers
         self.n_cores_per_worker = n_cores_per_worker
@@ -131,7 +131,7 @@ class AL_cluster(object):
         self.redis_connection = None
         self.redis_submitter_hostname = None
         self.jobs_for_current_iteration = {}
-        self.redis_max_wait_time = redis_max_wait_time
+        self.redis_max_job_time = redis_max_job_time
         self.n_redis_job_failed_for_this_iteration = 0
         if self.use_redis:
             self.redis_submitter_hostname = socket.gethostname()
@@ -223,7 +223,7 @@ class AL_cluster(object):
         # One could add retry=rq.Retry(3) below to add an automated retry, but that is not necessary here
 
         sent_job = self.redis_queue.enqueue( 
-            run_job, result_ttl=3600, connection=self.redis_connection,
+            run_job, result_ttl=3600, connection=self.redis_connection, job_timeout=self.redis_max_job_time,
             args=(payload,self.run_id),
             kwargs={}
         )
@@ -303,19 +303,20 @@ class AL_cluster(object):
 
                 await self.update_status()
 
-                if self.redis_max_wait_time is not None:
-                    curr_time = time.time()
-                    jobs_to_slow = [ (job_id, job_info) for job_id, job_info in self.jobs_for_current_iteration.items() if (curr_time-job_info['sent_time'])>self.redis_max_wait_time ]
-                    for job_id, job_info in jobs_to_slow:
-                        del self.jobs_for_current_iteration[job_id]
-                        # Notify that this job failed
-                        await self.process_results_callback(job_info['alpha_loop_job_id'])
-                        job_ids_already_handled.add(job_id)
-                        try:
-                            job_to_delete = rq.job.Job.fetch(job_id, connection=self.redis_connection)
-                            job_to_delete.delete()
-                        except Exception as e:
-                            logger.warning("Failed to delete redis job %s. Exception: %s"%(job_id, str(e)))
+                # This no longer necessary really
+                # if self.redis_max_job_time is not None:
+                #     curr_time = time.time()
+                #     jobs_to_slow = [ (job_id, job_info) for job_id, job_info in self.jobs_for_current_iteration.items() if (curr_time-job_info['sent_time'])>self.redis_max_job_time ]
+                #     for job_id, job_info in jobs_to_slow:
+                #         del self.jobs_for_current_iteration[job_id]
+                #         # Notify that this job failed
+                #         await self.process_results_callback(job_info['alpha_loop_job_id'])
+                #         job_ids_already_handled.add(job_id)
+                #         try:
+                #             job_to_delete = rq.job.Job.fetch(job_id, connection=self.redis_connection)
+                #             job_to_delete.delete()
+                #         except Exception as e:
+                #             logger.warning("Failed to delete redis job %s. Exception: %s"%(job_id, str(e)))
 
                 new_status = {
                     'started' : self.redis_queue.started_job_registry.count,
@@ -764,7 +765,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                  show_all_information_for_all_integrands = False,
                  use_optimal_integration_channels = True,
                  use_redis = False,
-                 redis_max_wait_time = None,
+                 redis_max_job_time = None,
                  max_iteration_time = None,
                  **opts):
 
@@ -817,7 +818,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.fresh_integration = fresh_integration
         self.use_optimal_integration_channels = use_optimal_integration_channels
         self.use_redis = use_redis
-        self.redis_max_wait_time = redis_max_wait_time
+        self.redis_max_job_time = redis_max_job_time
 
         self.n_start = n_start
         self.n_max = n_max
@@ -1141,7 +1142,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.al_cluster = AL_cluster(
             self.cluster_type, self.n_workers, self.n_cores_per_worker, self.run_workspace, self.process_job_result, self.run_id,
             monitor_callback=self.process_al_cluster_status_update, cluster_options=cluster_options, keep=self.keep, debug=self._DEBUG, 
-            trashcan=self.trashcan, use_redis=self.use_redis, redis_max_wait_time = self.redis_max_wait_time
+            trashcan=self.trashcan, use_redis=self.use_redis, redis_max_job_time = self.redis_max_job_time
         )
 
         try:
