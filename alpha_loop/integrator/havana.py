@@ -198,7 +198,7 @@ class AL_cluster(object):
                         )
                 if 'jobs' in new_status:
                     n_jobs_tot = sum(new_status['jobs'].values())
-                    cluster_status_str += '\nStatus of %d jobs: %s%d%s scheduled, %s%d%s ongoing for this iteration, %s%d%s started, %s%d%s finished and not processed'%(
+                    cluster_status_str += '\nStatus of %d jobs: %s%d%s scheduled, %s%d%s submitted for this iteration, %s%d%s started, %s%d%s finished and not processed'%(
                         n_jobs_tot, 
                         bcolors.BLUE, new_status['jobs']['scheduled'], bcolors.END,
                         bcolors.BLUE, len(self.jobs_for_current_iteration), bcolors.END,
@@ -375,7 +375,7 @@ class AL_cluster(object):
                     failed_jobs = rq.job.Job.fetch_many(self.redis_queue.failed_job_registry.get_job_ids(), connection=self.redis_connection)
                     for failed_job in failed_jobs:
                         job_id = failed_job.id
-                        logger.warning("\n\n\nRedis job '%s' failed with the following execution info:\n%s\n\n\n"%(job_id, str(failed_job.exc_info)))
+                        logger.warning("%sRedis job '%s' failed with the following execution info:\n%s%s"%('\n'*50,str(job_id), str(failed_job.exc_info),'\n'*5))
                         if job_id in job_ids_already_handled:
                             logger.warning("The following job ID '%s' appeared on multiple occasions in the list of failed jobs, this should not happen."%str(job_id))
                         else:
