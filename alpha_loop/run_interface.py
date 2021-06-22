@@ -3495,6 +3495,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser.add_argument(
         '--use_redis', action="store_true", dest="use_redis", default=False,
         help="Enable Redis for node communication, and not the filesystem.")
+    integrate_parser.add_argument(
+        '--external_redis', action="store_true", dest="external_redis", default=False,
+        help="Wheter to us an existing redis server instance and not start one.")
     def help_integrate(self):
         self.integrate_parser.print_help()
         return
@@ -3693,7 +3696,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                  'use_optimal_integration_channels' : args.use_optimal_integration_channels,
                  'use_redis' : args.use_redis,
                  'redis_max_job_time' : args.redis_max_job_time,
-                 'max_iteration_time' : args.max_iteration_time
+                 'max_iteration_time' : args.max_iteration_time,
+                 'external_redis' : args.external_redis
             }
 
         elif args.integrator == 'inspect':

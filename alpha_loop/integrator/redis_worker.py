@@ -8,7 +8,7 @@ from argparse import ArgumentParser
 
 def run_redis_worker(args):
     run_id, worker_id, work_monitoring_path, worker_path, redis_server, rq_path = args
-    rq_cmd = [rq_path, 'worker', '--with-scheduler', '--url', redis_server, '--path', worker_path]
+    rq_cmd = [rq_path, 'worker','--with-scheduler', '--url', redis_server, '--path', worker_path, 'run_%d'%run_id]
     print("Starting redis worker with command: %s"%(' '.join(rq_cmd)))
     if work_monitoring_path != 'none':
         with open(work_monitoring_path, 'a') as f:

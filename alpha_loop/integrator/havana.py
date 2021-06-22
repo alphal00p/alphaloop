@@ -40,6 +40,7 @@ from yaml import Loader
 
 
 try:
+    import redis
     from redis import Redis
     import rq
 except ImportError as e:
@@ -97,7 +98,7 @@ class AL_cluster(object):
 
     def __init__(self, architecture, n_workers, n_cores_per_worker, run_workspace, process_results_callback, run_id, 
                 monitor_callback=None, cluster_options=None, keep=False, debug=False, trashcan=None, 
-                use_redis=False, redis_port=8786, redis_max_job_time=None):
+                use_redis=False, redis_port=8786, redis_max_job_time=None, external_redis=False):
 
         self.n_workers = n_workers
         self.n_cores_per_worker = n_cores_per_worker
@@ -125,6 +126,7 @@ class AL_cluster(object):
         self.use_redis = use_redis
         self.redis_server_process = None
         self.redis_port = redis_port
+        self.external_redis = external_redis
         self.rq_path = None
         self.redis_initialization = None
         self.redis_queue = None
@@ -161,7 +163,8 @@ class AL_cluster(object):
     async def update_status(self):
         
         if self.use_redis:
-            workers = rq.Worker.all(connection=self.redis_connection)
+            #workers = rq.Worker.all(connection=self.redis_connection)
+            workers = rq.worker.Worker.all(queue=self.redis_queue)
             # Possible worker states are suspended, started, busy and idle
             worker_statuses = [worker.state for worker in workers]
             n_idle_workers = worker_statuses.count('idle')
@@ -458,19 +461,39 @@ class AL_cluster(object):
     async def deploy(self, wait_for_one_worker=True):
 
         if self.use_redis:
-            redis_server_directory = pjoin(self.run_workspace,'redis_server')
-            if os.path.exists(redis_server_directory):
-                shutil.rmtree(redis_server_directory)
+            redis_server_cmd = ['redis-server','--port','%d'%self.redis_port,'--protected-mode','no','--save','""','--appendonly','no']
+            if self.external_redis:
+                warned = False
+                while True:
+                    try:
+                        self.redis_connection = Redis(host=self.redis_submitter_hostname, port=self.redis_port)
+                        # Test if the connection is established
+                        self.redis_connection.ping()
+                    except redis.exceptions.RedisError as e:
+                        if not warned:
+                            warned = True
+                            logger.info("You specified using an external instance of a redis server, but alphaLoop could not connect to any because of: %s."%str(e))
+                            logger.info("You can now manually start a redis instance with the following command for example:\n\n%s\n\nand alphaLoop will attempt to connect to it again every 3 seconds."%(
+                                ' '.join(redis_server_cmd)
+                            ))
+                        time.sleep(3.)
+                        continue
+                    break
             else:
-                os.mkdir(redis_server_directory)
-            # Start the redis server
-            logger.info("Starting up a redis server in %s"%redis_server_directory)
-            redis_monitor_file = open(pjoin(redis_server_directory,'redis_server_live_log.txt'),'a')
-            self.redis_server_process = subprocess.Popen(['redis-server','--port','%d'%self.redis_port,'--protected-mode','no','--save','""','--appendonly','no'], cwd=redis_server_directory, stdout=redis_monitor_file, stderr=redis_monitor_file)
-            # Let the server boot (there may be more elegant ways of doing this, but w/e)
-            time.sleep(1.)
-            self.redis_connection = Redis(host=self.redis_submitter_hostname, port=self.redis_port)
-            self.redis_queue = rq.Queue(connection=self.redis_connection)
+                redis_server_directory = pjoin(self.run_workspace,'redis_server')
+                if os.path.exists(redis_server_directory):
+                    shutil.rmtree(redis_server_directory)
+                else:
+                    os.mkdir(redis_server_directory)
+                # Start the redis server
+                logger.info("Starting up a redis server in %s"%redis_server_directory)
+                redis_monitor_file = open(pjoin(redis_server_directory,'redis_server_live_log.txt'),'a')
+                self.redis_server_process = subprocess.Popen(redis_server_cmd, cwd=redis_server_directory, stdout=redis_monitor_file, stderr=redis_monitor_file)
+                # Let the server boot (there may be more elegant ways of doing this, but w/e)
+                time.sleep(1.)
+                self.redis_connection = Redis(host=self.redis_submitter_hostname, port=self.redis_port)
+            
+            self.redis_queue = rq.Queue('run_%d'%self.run_id, connection=self.redis_connection)
 
         if self.architecture == 'local':
 
@@ -532,7 +555,7 @@ class AL_cluster(object):
         if wait_for_one_worker:
             if self.use_redis:
                 # Find a way to lock on initialisation
-                logger.info("Starting for the redis parallelisation scheme to be properly setup...")
+                logger.info("Waiting for the redis parallelisation scheme to be properly setup...")
                 await self.redis_initialization.wait()
             else:
                 available_worker_id = await self.available_worker_ids.get()
@@ -692,6 +715,16 @@ class AL_cluster(object):
 
             self.condor_kill()
 
+        if self.use_redis:
+            # Shutdown workers
+            workers = rq.worker.Worker.all(queue=self.redis_queue)
+            for worker in workers:
+                try:
+                    rq.command.send_shutdown_command(self.redis_connection, worker.name)
+                except Exception as e:
+                    pass
+            time.sleep(0.5)
+    
         if self.redis_server_process:
             logger.info("Terminating redis server...")
             try:
@@ -767,6 +800,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                  use_redis = False,
                  redis_max_job_time = None,
                  max_iteration_time = None,
+                 external_redis = False,
                  **opts):
 
         """ Initialize the simplest MC integrator."""
@@ -818,6 +852,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.fresh_integration = fresh_integration
         self.use_optimal_integration_channels = use_optimal_integration_channels
         self.use_redis = use_redis
+        self.external_redis = external_redis
         self.redis_max_job_time = redis_max_job_time
 
         self.n_start = n_start
@@ -1142,7 +1177,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.al_cluster = AL_cluster(
             self.cluster_type, self.n_workers, self.n_cores_per_worker, self.run_workspace, self.process_job_result, self.run_id,
             monitor_callback=self.process_al_cluster_status_update, cluster_options=cluster_options, keep=self.keep, debug=self._DEBUG, 
-            trashcan=self.trashcan, use_redis=self.use_redis, redis_max_job_time = self.redis_max_job_time
+            trashcan=self.trashcan, use_redis=self.use_redis, redis_max_job_time = self.redis_max_job_time, external_redis = self.external_redis
         )
 
         try:
