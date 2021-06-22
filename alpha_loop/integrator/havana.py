@@ -717,12 +717,15 @@ class AL_cluster(object):
 
         if self.use_redis:
             # Shutdown workers
-            workers = rq.worker.Worker.all(queue=self.redis_queue)
-            for worker in workers:
-                try:
-                    rq.command.send_shutdown_command(self.redis_connection, worker.name)
-                except Exception as e:
-                    pass
+            try:
+                workers = rq.worker.Worker.all(queue=self.redis_queue)
+                for worker in workers:
+                    try:
+                        rq.command.send_shutdown_command(self.redis_connection, worker.name)
+                    except Exception as e:
+                        pass
+            except Exception as e:
+                pass
             time.sleep(0.5)
     
         if self.redis_server_process:
