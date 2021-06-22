@@ -334,6 +334,7 @@ class AL_cluster(object):
                     continue
 
                 # For now we should only have to act on the finished statuses, the failed ones will be resubmitted automatically
+                jobs_to_remove = []
                 if new_status['finished_and_not_processed']>0:
                     finished_jobs = rq.job.Job.fetch_many(self.redis_queue.finished_job_registry.get_job_ids(), connection=self.redis_connection)
                     for finished_job in finished_jobs:
@@ -362,14 +363,9 @@ class AL_cluster(object):
                                     await self.process_results_callback(job_result)
                                 job_ids_already_handled.add(job_id)
                         
-                        # Remove the completed job so that it should no longer show up upon future queries
-                        try:
-                            self.redis_queue.finished_job_registry.remove(job_id, delete_job=True)
-                        except Exception as e:
-                            logger.warning("Failed to remove rq job %s, even though it should have been successful: %s."%(str(job_id), str(e)))
-                            pass
                         if job_id in self.jobs_for_current_iteration:
                             del self.jobs_for_current_iteration[job_id]
+                        jobs_to_remove.append(finished_job)
                 
                 if new_status['failed']>0:
                     failed_jobs = rq.job.Job.fetch_many(self.redis_queue.failed_job_registry.get_job_ids(), connection=self.redis_connection)
@@ -393,6 +389,16 @@ class AL_cluster(object):
                             pass
                         if job_id in self.jobs_for_current_iteration:
                             del self.jobs_for_current_iteration[job_id]
+                        jobs_to_remove.append(failed_job)
+
+                # Remove the completed job so that it should no longer show up upon future queries
+                for job in jobs_to_remove:
+                    try:
+                        #self.redis_queue.finished_job_registry.remove(job_id, delete_job=True)
+                        job.delete()
+                    except Exception as e:
+                        logger.warning("Failed to remove rq job %s, even though it should have been successful: %s."%(str(job.id), str(e)))
+                        pass
 
                 new_status = {
                     'started' : self.redis_queue.started_job_registry.count,
@@ -483,8 +489,7 @@ class AL_cluster(object):
                 redis_server_directory = pjoin(self.run_workspace,'redis_server')
                 if os.path.exists(redis_server_directory):
                     shutil.rmtree(redis_server_directory)
-                else:
-                    os.mkdir(redis_server_directory)
+                os.mkdir(redis_server_directory)
                 # Start the redis server
                 logger.info("Starting up a redis server in %s"%redis_server_directory)
                 redis_monitor_file = open(pjoin(redis_server_directory,'redis_server_live_log.txt'),'a')
