@@ -259,7 +259,7 @@ class AL_cluster(object):
             jobs = self.redis_queue.enqueue_many(
                 [
                     rq.Queue.prepare_data(
-                        run_job, result_ttl=3600, connection=self.redis_connection, job_timeout=self.redis_max_job_time,
+                        run_job, result_ttl=3600, timeout=self.redis_max_job_time,
                         args=(payload,self.run_id),
                         kwargs={}
                     ) for payload in payloads
@@ -268,13 +268,13 @@ class AL_cluster(object):
             )
             pipe.execute()
 
-        for payload in payloads:
             sent_time = time.time()
-            if 'job_id' in payload:
-                self.jobs_for_current_iteration[sent_job.id] = {
-                    'alpha_loop_job_id' : payload['job_id'],
-                    'sent_time' : sent_time
-                }
+            for sent_job, payload in zip(jobs, payloads):
+                if 'job_id' in payload:
+                    self.jobs_for_current_iteration[sent_job.id] = {
+                        'alpha_loop_job_id' : payload['job_id'],
+                        'sent_time' : sent_time
+                    }
 
     async def send_job(self, worker_id, payload):
 
@@ -1276,6 +1276,9 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                     self.cumulative_processing_time, self.cumulative_job_time, self.current_iteration, n_jobs_for_this_iteration=n_jobs_for_this_iteration
                 )
 
+                # Collect jobs here in case we want to do bulk submission
+                job_payloads = []
+
                 show_waiting = False
                 while True:
                     if self.exit_now:
@@ -1283,7 +1286,6 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
                     timeout = 0.3
                     # Add a threshold of 5% of workers to insure smooth rollover
-                    job_payloads = []
                     if n_remaining_points > 0 and self.n_jobs_awaiting_completion < self.n_cpus+max(int(self.n_cpus/20.),2):
 
                         this_n_points = min(n_remaining_points, self.batch_size)
@@ -1334,7 +1336,12 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                         if self.use_redis and len(job_payloads)>0:
                             if self._DEBUG: logger.info("Submitting batch of %d jobs."%(len(job_payloads)))
                             await self.al_cluster.submit_many_jobs(job_payloads)
+                            job_payloads.clear()
                             if self._DEBUG: logger.info("Done with submission of batch of %s jobs."%(len(job_payloads)))
+                            self.update_status(
+                                start_time, n_jobs_total_completed, n_submitted, n_done,
+                                self.n_tot_points, self.n_points_for_this_iteration, current_n_points, self.cumulative_IO_time,
+                                self.cumulative_processing_time, self.cumulative_job_time, self.current_iteration, n_jobs_for_this_iteration=n_jobs_for_this_iteration)
 
                         if show_waiting:
                             show_waiting = False
