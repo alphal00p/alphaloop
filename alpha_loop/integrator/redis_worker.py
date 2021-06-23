@@ -7,8 +7,8 @@ from argparse import ArgumentParser
 # python3 run_rq_worker.py worker --with-scheduler --url redis://lxplus733.cern.ch:8786 --path /afs/cern.ch/work/v/vjhirsch/private/MG_v3_0_2_py3/PLUGIN/alphaloop/alpha_loop/integrator
 
 def run_redis_worker(args):
-    run_id, worker_id, work_monitoring_path, worker_path, redis_server, rq_path = args
-    rq_cmd = [rq_path, 'worker','--with-scheduler', '--url', redis_server, '--path', worker_path, 'run_%d'%run_id]
+    run_id, worker_id, work_monitoring_path, worker_path, redis_server, rq_path, redis_queue_name = args
+    rq_cmd = [rq_path, 'worker','--with-scheduler', '--url', redis_server, '--path', worker_path, redis_queue_name]
     print("Starting redis worker with command: %s"%(' '.join(rq_cmd)))
     if work_monitoring_path != 'none':
         with open(work_monitoring_path, 'a') as f:
@@ -36,6 +36,7 @@ if __name__ == '__main__':
     parser.add_argument("--redis_server", dest="redis_server", type=str)
     parser.add_argument("--rq_path", dest="rq_path", type=str)
     parser.add_argument("--work_monitoring_path", dest="work_monitoring_path", type=str)
+    parser.add_argument("--redis_queue_name", dest="redis_queue_name", type=str)
     
     args = parser.parse_args()
 
@@ -46,7 +47,7 @@ if __name__ == '__main__':
            args.worker_id_min, args.run_id, worker_path, args.redis_server))
         sys.stdout.flush()
         try:
-            run_redis_worker(tuple([args.run_id,args.worker_id_min, args.work_monitoring_path, worker_path, args.redis_server, args.rq_path]))
+            run_redis_worker(tuple([args.run_id,args.worker_id_min, args.work_monitoring_path, worker_path, args.redis_server, args.rq_path, args.redis_queue_name]))
         except Exception as e:
             print("Worker %d finished (%s)."%(args.worker_id_min, str(e)))
             sys.stdout.flush()
@@ -57,7 +58,7 @@ if __name__ == '__main__':
         from multiprocessing import Pool
         try:
             with Pool(args.worker_id_max-args.worker_id_min+1) as p:
-                p.map( run_redis_worker, [ (args.run_id, worker_id, args.work_monitoring_path, worker_path, args.redis_server, args.rq_path) for worker_id in range(args.worker_id_min, args.worker_id_max+1)] )
+                p.map( run_redis_worker, [ (args.run_id, worker_id, args.work_monitoring_path, worker_path, args.redis_server, args.rq_path, args.redis_queue_name) for worker_id in range(args.worker_id_min, args.worker_id_max+1)] )
         except Exception as e:
             print("Worker %d->%d finished (%s)."%(args.worker_id_min, args.worker_id_max, str(e)))
             sys.stdout.flush()

@@ -3500,8 +3500,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         help="Wheter to us an existing redis server instance and not start one.")
     integrate_parser.add_argument('--redis_hostname', dest='redis_hostname', type=str, default=None,
         help='Redis server hostname (default: localhost).')
+    integrate_parser.add_argument('--redis_queue', dest='redis_queue', type=str, default=None,
+        help='Redis rq queue name to use. (default: a new uniquely named one is created).')
     integrate_parser.add_argument('--redis_port', dest='redis_port', type=int, default=8786,
         help='Redis server port (default: %(default)d).')
+    integrate_parser.add_argument(
+        '--bulk_redis_enqueuing', action="store_true", dest="bulk_redis_enqueuing", default=False,
+        help="Wheter to enqueue jobs in bulk to be more efficient. Requires rq v 1.9+!")
     def help_integrate(self):
         self.integrate_parser.print_help()
         return
@@ -3525,6 +3530,12 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 args.n_cores = multiprocessing.cpu_count()
             else:
                 args.n_cores = 1
+
+        if args.bulk_redis_enqueuing:
+            import rq
+            from packaging import version
+            if version.parse(rq.VERSION) < version.parse("1.9"):
+                raise alphaLoopInvalidRunCmd("The 'bulk_redis_enqueuing' option requires rq v1.9+ and the version installed is only %s."%rq.VERSION)
 
         # This should now be fixed and work! :)
         # if args.integrand_hyperparameters is not None and len(args.integrand_hyperparameters)>1:
@@ -3704,7 +3715,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                  'max_iteration_time' : args.max_iteration_time,
                  'external_redis' : args.external_redis,
                  'redis_port' : args.redis_port,
-                 'redis_hostname' : args.redis_hostname
+                 'redis_hostname' : args.redis_hostname,
+                 'redis_queue' : args.redis_queue,
+                 'bulk_redis_enqueuing' : args.bulk_redis_enqueuing
             }
 
         elif args.integrator == 'inspect':

@@ -98,7 +98,9 @@ class AL_cluster(object):
 
     def __init__(self, architecture, n_workers, n_cores_per_worker, run_workspace, process_results_callback, run_id, 
                 monitor_callback=None, cluster_options=None, keep=False, debug=False, trashcan=None, 
-                use_redis=False, redis_port=8786, redis_hostname=None, redis_max_job_time=None, external_redis=False):
+                use_redis=False, redis_port=8786, redis_hostname=None, redis_max_job_time=None, external_redis=False,
+                redis_queue_name = None
+                ):
 
         self.n_workers = n_workers
         self.n_cores_per_worker = n_cores_per_worker
@@ -132,6 +134,7 @@ class AL_cluster(object):
         self.redis_queue = None
         self.redis_connection = None
         self.redis_submitter_hostname = redis_hostname
+        self.redis_queue_name = redis_queue_name
         self.jobs_for_current_iteration = {}
         self.redis_max_job_time = redis_max_job_time
         self.n_redis_job_failed_for_this_iteration = 0
@@ -249,6 +252,29 @@ class AL_cluster(object):
         #     ))
 
         await self.update_status()
+
+    async def send_many_redis_jobs(self, payloads):
+
+        with self.redis_queue.connection.pipeline() as pipe:
+            jobs = self.redis_queue.enqueue_many(
+                [
+                    rq.Queue.prepare_data(
+                        run_job, result_ttl=3600, connection=self.redis_connection, job_timeout=self.redis_max_job_time,
+                        args=(payload,self.run_id),
+                        kwargs={}
+                    ) for payload in payloads
+                ],
+                pipeline=pipe
+            )
+            pipe.execute()
+
+        for payload in payloads:
+            sent_time = time.time()
+            if 'job_id' in payload:
+                self.jobs_for_current_iteration[sent_job.id] = {
+                    'alpha_loop_job_id' : payload['job_id'],
+                    'sent_time' : sent_time
+                }
 
     async def send_job(self, worker_id, payload):
 
@@ -499,7 +525,18 @@ class AL_cluster(object):
                 time.sleep(1.)
                 self.redis_connection = Redis(host=self.redis_submitter_hostname, port=self.redis_port)
             
-            self.redis_queue = rq.Queue('run_%d'%self.run_id, connection=self.redis_connection)
+            # Now use a unique queue
+            if self.redis_queue_name is None:
+                existing_queue_names = [q.name for q in rq.Queue.all(self.redis_connection)]
+                suffix = 0
+                this_queue_name = 'run_%d'%self.run_id
+                while this_queue_name+'_%d'%suffix in existing_queue_names:
+                    suffix += 1
+                this_queue_name = this_queue_name+'_%d'%suffix
+            else:
+                this_queue_name = self.redis_queue_name
+
+            self.redis_queue = rq.Queue(this_queue_name, connection=self.redis_connection)
 
         if self.architecture == 'local':
 
@@ -512,7 +549,8 @@ class AL_cluster(object):
                     cmd = [ sys.executable, pjoin(alphaloop_basedir,'alpha_loop','integrator','redis_worker.py'), 
                             '--run_id', str(self.run_id), '--worker_id_min', str(worker_id_min), '--worker_id_max', str(worker_id_max), 
                             '--workspace_path', str(self.run_workspace), '--redis_server', 'redis://%s:%d'%(self.redis_submitter_hostname, self.redis_port),
-                            '--rq_path', self.rq_path, '--work_monitoring_path', ('none' if not self.work_monitoring_path else self.work_monitoring_path)
+                            '--rq_path', self.rq_path, '--work_monitoring_path', ('none' if not self.work_monitoring_path else self.work_monitoring_path),
+                            '--redis_queue_name', self.redis_queue.name
                         ]
                 else:
                     cmd = [ sys.executable, pjoin(alphaloop_basedir,'alpha_loop','integrator','worker.py'), 
@@ -602,9 +640,10 @@ class AL_cluster(object):
             }
             if self.use_redis:
                 format_dict['worker_script'] = pjoin(alphaloop_basedir,'alpha_loop','integrator','redis_worker.py')
+                format_dict['redis_queue_name'] = self.redis_queue.name
                 f.write(
     """executable         = %(python)s
-    arguments             = %(worker_script)s --run_id %(run_id)d --worker_id_min $(worker_id_min) --worker_id_max $(worker_id_max) --workspace_path %(workspace)s --redis_server %(redis_server)s --rq_path %(rq_path)s --work_monitoring_path none
+    arguments             = %(worker_script)s --run_id %(run_id)d --worker_id_min $(worker_id_min) --worker_id_max $(worker_id_max) --workspace_path %(workspace)s --redis_server %(redis_server)s --rq_path %(rq_path)s --work_monitoring_path none --redis_queue_name %(redis_queue_name)s
     environment           = "LD_PRELOAD=%(libscsdir_path)s"
     output                = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).out
     error                 = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).err
@@ -661,6 +700,11 @@ class AL_cluster(object):
                 logger.info('Successfully clean condor jobs:\n%s'%(kill_stdout.decode('utf-8')))
         except Exception as e:
             logger.warning("Failed to clean condor run. Error: %s"%str(e))
+
+    async def submit_many_jobs(self, payloads):
+        if not self.use_redis:
+            raise HavanaIntegratorError("Submitting many jobs at once is not supported nor useful when not using redis.")
+        await self.send_many_redis_jobs(payloads)
 
     async def submit_job(self, payload, blocking=False):
 
@@ -812,6 +856,8 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                  external_redis = False,
                  redis_port=8786,
                  redis_hostname=None,
+                 bulk_redis_enqueuing=False,
+                 redis_queue = None,
                  **opts):
 
         """ Initialize the simplest MC integrator."""
@@ -871,6 +917,8 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.n_increase = n_increase
         self.redis_port = redis_port
         self.redis_hostname = redis_hostname
+        self.redis_queue = redis_queue
+        self.bulk_redis_enqueuing = bulk_redis_enqueuing
 
         self.havana_starting_n_bins = havana_starting_n_bins
         self.havana_n_points_min = havana_n_points_min
@@ -1191,7 +1239,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
             self.cluster_type, self.n_workers, self.n_cores_per_worker, self.run_workspace, self.process_job_result, self.run_id,
             monitor_callback=self.process_al_cluster_status_update, cluster_options=cluster_options, keep=self.keep, debug=self._DEBUG, 
             trashcan=self.trashcan, use_redis=self.use_redis, redis_max_job_time = self.redis_max_job_time, external_redis = self.external_redis,
-            redis_hostname=self.redis_hostname, redis_port=self.redis_port
+            redis_hostname=self.redis_hostname, redis_port=self.redis_port, redis_queue_name = self.redis_queue
         )
 
         try:
@@ -1235,6 +1283,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
                     timeout = 0.3
                     # Add a threshold of 5% of workers to insure smooth rollover
+                    job_payloads = []
                     if n_remaining_points > 0 and self.n_jobs_awaiting_completion < self.n_cpus+max(int(self.n_cpus/20.),2):
 
                         this_n_points = min(n_remaining_points, self.batch_size)
@@ -1261,17 +1310,20 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
                         self.cumulative_processing_time = time.time() - t2
                         t0 = time.time()
-                        if self._DEBUG: logger.info("Submitting job %d."%job_ID)
-                        await self.al_cluster.submit_job(
-                            job_payload,
-                            blocking=False
-                        )
-                        if self._DEBUG: logger.info("Done with submission of job %d."%job_ID)
+                        if self.use_redis and self.bulk_redis_enqueuing:
+                            job_payloads.append(job_payload)
+                        else:
+                            if self._DEBUG: logger.info("Submitting job %d."%job_ID)
+                            await self.al_cluster.submit_job(
+                                job_payload,
+                                blocking=False
+                            )
+                            if self._DEBUG: logger.info("Done with submission of job %d."%job_ID)
                         self.cumulative_IO_time += time.time()-t0
 
                         self.n_jobs_awaiting_completion += 1
                         n_submitted += 1
-                        timeout = 0.01
+                        timeout = 0.001
                         show_waiting = True
                         self.update_status(
                             start_time, n_jobs_total_completed, n_submitted, n_done,
@@ -1279,6 +1331,11 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                             self.cumulative_processing_time, self.cumulative_job_time, self.current_iteration, n_jobs_for_this_iteration=n_jobs_for_this_iteration)
 
                     else:
+                        if self.use_redis and len(job_payloads)>0:
+                            if self._DEBUG: logger.info("Submitting batch of %d jobs."%(len(job_payloads)))
+                            await self.al_cluster.submit_many_jobs(job_payloads)
+                            if self._DEBUG: logger.info("Done with submission of batch of %s jobs."%(len(job_payloads)))
+
                         if show_waiting:
                             show_waiting = False
                             if self._DEBUG: logger.info("Now waiting for jobs to complete and freeing workers...")
