@@ -126,9 +126,7 @@ class Havana(object):
                 self.havana_grids = []
                 for grid_file_path in flat_record['grid_files']:
                     with open(grid_file_path, 'rb') as f:
-                        self.havana_grids.append(
-                            Havana.load_grid(f.read(), seed=self.seed, format=grid_file_path.split('.')[-1]) for grid_file_path in flat_record['grid_files']
-                        )
+                        self.havana_grids.append( Havana.load_grid(f.read(), seed=self.seed, format=grid_file_path.split('.')[-1]) )
             else:
                 self.havana_grids = []
                 for serialized_grid in flat_record['grid_files']:
@@ -1175,7 +1173,10 @@ def main(arg_tuple):
             sys.stdout.flush()
 
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             print("The following exception was encountered in run #%d and worker #%d: %s"%(run_id, worker_id, str(e)))
+            sys.stdout.flush()
             break
         except KeyboardInterrupt as e:
             #print("Keyboard interrupts in run #%d and worker #%d."%(run_id, worker_id))
