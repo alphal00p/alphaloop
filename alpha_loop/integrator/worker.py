@@ -123,19 +123,16 @@ class Havana(object):
             self.n_points = flat_record['n_points']
             self.n_iterations = flat_record['n_iterations']
             if flat_record['tmp_folder'] is None:
-                self.havana_grids = [
-                    Havana.load_grid(grid_file_path, seed=self.seed, format=grid_file_path.split('.')[-1]) for grid_file_path in flat_record['grid_files']
-                ]
+                self.havana_grids = []
+                for grid_file_path in flat_record['grid_files']:
+                    with open(grid_file_path, 'rb') as f:
+                        self.havana_grids.append(
+                            Havana.load_grid(f.read(), seed=self.seed, format=grid_file_path.split('.')[-1]) for grid_file_path in flat_record['grid_files']
+                        )
             else:
                 self.havana_grids = []
-                for grid_file_path, serialized_grid in flat_record['grid_files']:
-                    #file_path = os.path.join(flat_record['tmp_folder'], os.path.basename(grid_file_path))
-                    #file_path = tempfile.mkstemp(dir=flat_record['tmp_folder'])
-                    file_path = tempfile.mkstemp()[1]
-                    with open(file_path,'wb') as f:
-                        f.write(serialized_grid)
-                    self.havana_grids.append( Havana.load_grid(file_path, seed=self.seed, format='bin') )
-                    os.remove(file_path)
+                for serialized_grid in flat_record['grid_files']:
+                    self.havana_grids.append( Havana.load_grid(serialized_grid, seed=self.seed, format='bin') )
         else:
 
             self.n_points = 0
@@ -198,19 +195,15 @@ class Havana(object):
         havana_grid_file_paths = self.get_havana_grid_filenames(self.grid_file if file_name is None else file_name, dump_format=dump_format)
         if tmp_folder is None:
             for havana_grid, grid_file_path in zip(self.havana_grids, havana_grid_file_paths):
-                havana_grid.save_grid(grid_file_path, format=dump_format)
+                bytesvec = havana_grid.dump_grid(format=dump_format)
+                with open(grid_file_path, 'wb') as f:
+                    f.write(bytesvec)
             grid_files = havana_grid_file_paths
         else:
             grid_files = []
             for havana_grid, grid_file_path in zip(self.havana_grids, havana_grid_file_paths):
-                #file_path = os.path.join(tmp_folder, os.path.basename(grid_file_path))
-                file_path = tempfile.mkstemp()[1]
-                havana_grid.save_grid(file_path, format='bin')
-                with open(file_path,'rb') as f:
-                    serialized_grid = f.read()
-                grid_files.append( (file_path, serialized_grid) )
-                os.remove(file_path)
-
+                bytesvec = havana_grid.dump_grid(format=dump_format)
+                grid_files.append( bytesvec )
         return {
             'tmp_folder' : tmp_folder,
             'n_points' : self.n_points,

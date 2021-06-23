@@ -3498,6 +3498,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser.add_argument(
         '--external_redis', action="store_true", dest="external_redis", default=False,
         help="Wheter to us an existing redis server instance and not start one.")
+    integrate_parser.add_argument('--redis_hostname', dest='redis_hostname', type=str, default=None,
+        help='Redis server hostname (default: localhost).')
+    integrate_parser.add_argument('--redis_port', dest='redis_port', type=int, default=8786,
+        help='Redis server port (default: %(default)d).')
     def help_integrate(self):
         self.integrate_parser.print_help()
         return
@@ -3522,8 +3526,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             else:
                 args.n_cores = 1
 
-        if args.integrand_hyperparameters is not None and len(args.integrand_hyperparameters)>1:
-            raise alphaLoopInvalidRunCmd("Support for more than one integrand is currently bugged. The central value for the SG sum is correct, but the breakdown per SG is corrupted. Comment out this crash if you still want to proceed. For the life of me, I can't fix it.")
+        # This should now be fixed and work! :)
+        # if args.integrand_hyperparameters is not None and len(args.integrand_hyperparameters)>1:
+        #     raise alphaLoopInvalidRunCmd("Support for more than one integrand is currently bugged. The central value for the SG sum is correct, but the breakdown per SG is corrupted. Comment out this crash if you still want to proceed. For the life of me, I can't fix it.")
 
         selected_SGs = args.SG_name
         if len(selected_SGs)>1 and args.integrator!='havana':
@@ -3697,7 +3702,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                  'use_redis' : args.use_redis,
                  'redis_max_job_time' : args.redis_max_job_time,
                  'max_iteration_time' : args.max_iteration_time,
-                 'external_redis' : args.external_redis
+                 'external_redis' : args.external_redis,
+                 'redis_port' : args.redis_port,
+                 'redis_hostname' : args.redis_hostname
             }
 
         elif args.integrator == 'inspect':

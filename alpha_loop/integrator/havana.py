@@ -98,7 +98,7 @@ class AL_cluster(object):
 
     def __init__(self, architecture, n_workers, n_cores_per_worker, run_workspace, process_results_callback, run_id, 
                 monitor_callback=None, cluster_options=None, keep=False, debug=False, trashcan=None, 
-                use_redis=False, redis_port=8786, redis_max_job_time=None, external_redis=False):
+                use_redis=False, redis_port=8786, redis_hostname=None, redis_max_job_time=None, external_redis=False):
 
         self.n_workers = n_workers
         self.n_cores_per_worker = n_cores_per_worker
@@ -131,12 +131,13 @@ class AL_cluster(object):
         self.redis_initialization = None
         self.redis_queue = None
         self.redis_connection = None
-        self.redis_submitter_hostname = None
+        self.redis_submitter_hostname = redis_hostname
         self.jobs_for_current_iteration = {}
         self.redis_max_job_time = redis_max_job_time
         self.n_redis_job_failed_for_this_iteration = 0
         if self.use_redis:
-            self.redis_submitter_hostname = socket.gethostname()
+            if self.redis_submitter_hostname is None:
+                self.redis_submitter_hostname = socket.gethostname()
             self.redis_initialization = asyncio.Event()
             self.rq_path = shutil.which('rq')
             if self.rq_path is None:
@@ -809,6 +810,8 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                  redis_max_job_time = None,
                  max_iteration_time = None,
                  external_redis = False,
+                 redis_port=8786,
+                 redis_hostname=None,
                  **opts):
 
         """ Initialize the simplest MC integrator."""
@@ -866,6 +869,8 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.n_start = n_start
         self.n_max = n_max
         self.n_increase = n_increase
+        self.redis_port = redis_port
+        self.redis_hostname = redis_hostname
 
         self.havana_starting_n_bins = havana_starting_n_bins
         self.havana_n_points_min = havana_n_points_min
@@ -1185,7 +1190,8 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.al_cluster = AL_cluster(
             self.cluster_type, self.n_workers, self.n_cores_per_worker, self.run_workspace, self.process_job_result, self.run_id,
             monitor_callback=self.process_al_cluster_status_update, cluster_options=cluster_options, keep=self.keep, debug=self._DEBUG, 
-            trashcan=self.trashcan, use_redis=self.use_redis, redis_max_job_time = self.redis_max_job_time, external_redis = self.external_redis
+            trashcan=self.trashcan, use_redis=self.use_redis, redis_max_job_time = self.redis_max_job_time, external_redis = self.external_redis,
+            redis_hostname=self.redis_hostname, redis_port=self.redis_port
         )
 
         try:

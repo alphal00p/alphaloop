@@ -161,7 +161,8 @@ def main():
         havana_sampler = Havana(grid, seed=_SEED)
     else:
         # One must specify the format, either 'bin' or 'yaml', which we take here from the file extension
-        havana_sampler = Havana.load_grid( _START_GRID, seed=_SEED, format=_START_GRID.split('.')[-1] )
+        with open(_START_GRID,'rb') as f:
+            havana_sampler = Havana.load_grid( f.read(), seed=_SEED, format=_START_GRID.split('.')[-1] )
 
     target_result = (math.sqrt(math.pi)/2.)**_N_DIMS
 
@@ -200,7 +201,9 @@ def main():
         ))
 
         # Dump the sampling grid obtained at the end of this iteration
-        havana_sampler.save_grid(os.path.join(_OUTPUT_DIR,'havana_grid_iteration_%03d.yaml'%(i_iteration+1)), format='yaml')
+        bytesvec = havana_sampler.dump_grid(format='yaml')
+        with open(os.path.join(_OUTPUT_DIR,'havana_grid_iteration_%03d.yaml'%(i_iteration+1)),'wb') as f:
+            f.write(bytesvec)
 
         # Dump the histograms obtained from this iteration
         my_observable.draw(os.path.join(_OUTPUT_DIR,'my_observable_iteration_%03d.py'%(i_iteration+1)), format='raw')
