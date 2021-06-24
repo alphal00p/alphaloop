@@ -858,6 +858,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                  redis_hostname=None,
                  bulk_redis_enqueuing=0,
                  redis_queue = None,
+                 write_common_grid_inputs_to_disk=True,
                  **opts):
 
         """ Initialize the simplest MC integrator."""
@@ -919,6 +920,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.redis_hostname = redis_hostname
         self.redis_queue = redis_queue
         self.bulk_redis_enqueuing = bulk_redis_enqueuing
+        self.write_common_grid_inputs_to_disk = write_common_grid_inputs_to_disk
 
         self.havana_starting_n_bins = havana_starting_n_bins
         self.havana_n_points_min = havana_n_points_min
@@ -1058,7 +1060,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                 havana_updater = HavanaMockUp(**havana_constructor_args)
             else:
                 havana_updater = Havana(**havana_constructor_args)
-                if havana_constructor_args['flat_record']['tmp_folder'] is None:
+                if havana_constructor_args['flat_record']['on_disk']:
                     # Clean-up job output
                     for grid_file_path in havana_constructor_args['flat_record']['grid_files']:
                         fast_remove(grid_file_path, self.trashcan)
@@ -1257,9 +1259,12 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                 n_jobs_for_this_iteration = math.ceil(current_n_points/float(self.batch_size))
                 self.n_points_for_this_iteration = 0
                 
-                sampling_grid_constructor_arguments = self.havana.get_constructor_arguments(
-                    tmp_folder = (None if not self.use_redis else tempfile.gettempdir())
-                )
+                # Because these input grids will be common to all jobs, it is often more efficient to write it once and for all on disk and have the jobs read it from there
+                write_common_grid_inputs_to_disk = True
+                # except if explicitly asked not to do this
+                if self.use_redis and (not self.write_common_grid_inputs_to_disk):
+                    write_common_grid_inputs_to_disk = False
+                sampling_grid_constructor_arguments = self.havana.get_constructor_arguments( on_disk = write_common_grid_inputs_to_disk )
 
                 n_submitted = 0
                 n_done = 0

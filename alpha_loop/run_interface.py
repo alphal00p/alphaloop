@@ -3493,6 +3493,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser.add_argument('--max_iteration_time', dest='max_iteration_time', type=float, default=None,
         help='Maximum completion time of an iteration before it get forcefully removed (default: none).')
     integrate_parser.add_argument(
+        '--no_write_common_grid_inputs_to_disk', action="store_false", dest="write_common_grid_inputs_to_disk", default=True,
+        help="Do not use the filesystem for communicating the sampling grid inputs common to all jobs, even though it is typically more efficient.")
+    integrate_parser.add_argument(
         '--use_redis', action="store_true", dest="use_redis", default=False,
         help="Enable Redis for node communication, and not the filesystem.")
     integrate_parser.add_argument(
@@ -3716,7 +3719,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                  'redis_port' : args.redis_port,
                  'redis_hostname' : args.redis_hostname,
                  'redis_queue' : args.redis_queue,
-                 'bulk_redis_enqueuing' : args.bulk_redis_enqueuing
+                 'bulk_redis_enqueuing' : args.bulk_redis_enqueuing,
+                 'write_common_grid_inputs_to_disk' : args.write_common_grid_inputs_to_disk
             }
 
         elif args.integrator == 'inspect':

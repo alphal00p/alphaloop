@@ -73,7 +73,7 @@ class Havana(object):
         self.reset( clean = self.fresh_integration, flat_record=flat_record )
     
 
-    def get_constructor_arguments(self, dump_format='bin', tmp_folder=None):
+    def get_constructor_arguments(self, dump_format='bin', on_disk=True):
         """ Is a tmp folder is specified, it will be used to temporary write out grid from rust, 
         but it will be transmitted over network."""
         
@@ -94,7 +94,7 @@ class Havana(object):
             'max_prob_ratio' :self.max_prob_ratio,
             'learning_rate' : self.learning_rate,
             'bin_increase_factor_schedule' : self.bin_increase_factor_schedule,
-            'flat_record' : self.get_flat_record(dump_format=dump_format,tmp_folder=tmp_folder)
+            'flat_record' : self.get_flat_record(dump_format=dump_format,on_disk=on_disk)
         }
 
 
@@ -122,7 +122,7 @@ class Havana(object):
                     flat_record = yaml.load(f, Loader=yaml.Loader)
             self.n_points = flat_record['n_points']
             self.n_iterations = flat_record['n_iterations']
-            if flat_record['tmp_folder'] is None:
+            if flat_record['on_disk']:
                 self.havana_grids = []
                 for grid_file_path in flat_record['grid_files']:
                     with open(grid_file_path, 'rb') as f:
@@ -185,13 +185,13 @@ class Havana(object):
                 )
         return subgrid_file_paths
 
-    def get_flat_record(self, file_name=None, dump_format='bin', tmp_folder=None):
+    def get_flat_record(self, file_name=None, dump_format='bin', on_disk=True):
         import time
         import sys
         import os
 
         havana_grid_file_paths = self.get_havana_grid_filenames(self.grid_file if file_name is None else file_name, dump_format=dump_format)
-        if tmp_folder is None:
+        if on_disk:
             for havana_grid, grid_file_path in zip(self.havana_grids, havana_grid_file_paths):
                 bytesvec = havana_grid.dump_grid(format=dump_format)
                 with open(grid_file_path, 'wb') as f:
@@ -203,7 +203,7 @@ class Havana(object):
                 bytesvec = havana_grid.dump_grid(format=dump_format)
                 grid_files.append( bytesvec )
         return {
-            'tmp_folder' : tmp_folder,
+            'on_disk' : on_disk,
             'n_points' : self.n_points,
             'grid_files' : grid_files,
             'n_iterations' :self.n_iterations
@@ -1008,7 +1008,7 @@ def run_job(input_payload, run_id, worker_id=-1, cache=None, output_path=None):
     if input_payload['havana_mockup']:
         havana_sampler = HavanaMockUp(**havana_constructor_arguments)
     else:
-        if havana_constructor_arguments['flat_record']['tmp_folder'] is None:
+        if havana_constructor_arguments['flat_record']['on_disk']:
             print("Worker #%d loads the havana sampler grid from files %s"%(
                 worker_id, ', '.join(os.path.basename(fp) for fp in havana_constructor_arguments['flat_record']['grid_files'])
             ))
@@ -1017,9 +1017,7 @@ def run_job(input_payload, run_id, worker_id=-1, cache=None, output_path=None):
         t0 = time.time()
         havana_constructor_arguments['flat_record']['n_points'] = 0
         if output_path is None:
-            assert(havana_constructor_arguments['flat_record']['tmp_folder'] is not None)
             havana_constructor_arguments['grid_file'] =  os.path.join(
-                havana_constructor_arguments['flat_record']['tmp_folder'],
                 'run_%d_job_output_%d_grids.yaml'%(run_id, input_payload['job_id'] )
             )
         else:
@@ -1046,9 +1044,9 @@ def run_job(input_payload, run_id, worker_id=-1, cache=None, output_path=None):
         havana_updater = samples_evaluated
         print("Worker #%d now dumps havana updater grid ..."%(worker_id))
         t0 = time.time()
-        havana_updater_constructor_arguments = havana_updater.get_constructor_arguments(tmp_folder=havana_constructor_arguments['flat_record']['tmp_folder'])
+        havana_updater_constructor_arguments = havana_updater.get_constructor_arguments(on_disk=(not (output_path is None)))
         havana_dumping_time = time.time()-t0
-        if havana_constructor_arguments['flat_record']['tmp_folder'] is None:
+        if havana_updater_constructor_arguments['flat_record']['on_disk']:
             print("Worker #%d dumped Havana updater grids in %.5fs to files %s"%(worker_id, 
                 havana_dumping_time,
                 ', '.join(os.path.basename(fp) for fp in havana_updater_constructor_arguments['flat_record']['grid_files'])
