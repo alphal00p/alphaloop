@@ -649,14 +649,15 @@ id subgraph(?a,uvconf(?b),?c) = subgraph(?a,uvconf(?b));
 
     id uvconf(?a,x2?,x3?) = tmax^x2*x3;
 
-* fill in results from subdiagrams
+* fill in results from subdiagrams, adding a marker to count the number of subgraphs added
     #do ext={`uvdiagtotalstart'+1},`uvdiagstart'
-        id uvconf1(`ext') = uvdiag`ext';
+        id uvconf1(`ext') = uvdiag`ext'*xsg;
     #enddo
     .sort:uv-subgrap-fillin;
     Hide tensorforest1,...,tensorforest`tensorforestcount';
 
 * Apply Feynman rules to the UV subgraph
+    id opengammastring(?a) = gamma(?a);
     #call FeynmanRulesMomentum()
 
 * linearize the gamma matrices and convert them to tensors
@@ -677,7 +678,7 @@ id subgraph(?a,uvconf(?b),?c) = subgraph(?a,uvconf(?b));
         id t = 1;
     endargument;
 
-* rescale all masses in the numerator
+* rescale all masses in the numerator coming from the expansion
     repeat id m?allmasses = tmp(m);
     id tmp(m?) = t*m;
 
@@ -716,10 +717,11 @@ id subgraph(?a,uvconf(?b),?c) = subgraph(?a,uvconf(?b));
     id uvprop(k?,t1?ts,n?) = uvprop(k, n);
 
 * select what to keep for the local UV vs integrated UV CT
-    Multiply replace_(vxs, uvx);
-    if (count(uvx, 1) == 0);
+* only allow integrated CT at the deepest level
+    if (count(vxs, 1) == 0);
         id uvprop(?a) = 1;
     else;
+        id xsg = 0;
         id uvtopo(?a) = 1;
     endif;
 
@@ -729,23 +731,16 @@ id subgraph(?a,uvconf(?b),?c) = subgraph(?a,uvconf(?b));
         exit "Critical error";
     endif;
 
-    chainin uvprop;
-    id uvprop(?a) = uvprop(?a, 1);
-    repeat id uvx(?a)*uvprop(?b,x?) = uvprop(?b, x*uvx(?a));
-    Multiply replace_(uvx, vxs);
-    id uvprop(?a) = integrateduv(?a);
-
 * compute the integrated UV counterterm
     Multiply counter(1);
     repeat id k1?.k2?*counter(n?) = vec(k1,n)*vec(k2,n)*counter(n + 1);
     id opengammastring(?a) = gamma(?a);
     repeat id gamma(s1?,?a,k1?,?b,s2?)*counter(n?) = gamma(s1,?a,n,?b,s2)*vec(k1,n)*counter(n + 1);
+    repeat id k1?(mu?)*counter(n?) = vec(k1,n)*vec1(mu,n)*counter(n + 1);
 
 * convert every k^0 into k.p0select, where p0select is effectively (1,0,0,0)
     repeat id penergy(k1?)*counter(n?) = vec(k1,n)*vec(p0select,n)*counter(n + 1);
     id counter(x?) = 1;
-
-    id once integrateduv(?a,x?) = uvprop(?a)*x;
 
     Multiply replace_(vec, vec1); * consider all vectors as external
     repeat id uvprop(k1?,n?)*vec1(k1?,n1?) = uvprop(k1,n)*vec(k1,n1);
@@ -760,24 +755,30 @@ id subgraph(?a,uvconf(?b),?c) = subgraph(?a,uvconf(?b));
     .sort:tensor-projection-loop;
 
     if (count(uvprop,1));
+        id k1?.k2? = g(k1,k2);
+
 * divide by the normalizing factor of the denominator that is added to the topology
 * this is always 1/(k^2 - m_UV^2)^3 = -i / (4 pi)^2 * 1/2 * 1/mUV^2
-        Multiply i_ * (4 * pi)^2 * 2 * mUV^2;
-
-        #call IntegrateUV()
+* use mUV2 so that it is ignored in the Taylor expansion
+        Multiply i_ * (4 * pi)^2 * 2 * mUV2^2;
     endif;
+
+    #call IntegrateUV()
 
     Multiply replace_(D, 4 - 2 * ep);
     id ep^n1? = rat(ep^n1,1);
 
     .sort:ibp-reduction;
 
+    id g(k1?,k2?) = k1.k2; * k1,k2 should be external only
+    id vec1(p?,n1?)*vec1(mu?,n1?) = p(mu);
     id vec1(k1?,n?)*vec1(k2?,n?) = k1.k2;
     id k1?.p0select = penergy(k1);
 
     repeat id gamma(s1?,?a,n?,?b,s2?) = gamma(s1,?a,lorentzdummy[n],?b,s2);
     id g(n1?,n2?) = d_(lorentzdummy[n1], lorentzdummy[n2]);
     id vec1(k1?,n?) = k1(lorentzdummy[n]);
+    id vec1(mu?,n1?) = d_(mu, lorentzdummy[n1]);
     id gamma(?a) = opengammastring(?a);
 
 * Simplify all open gamma strings so that the Ds are contracted out
@@ -792,9 +793,11 @@ id subgraph(?a,uvconf(?b),?c) = subgraph(?a,uvconf(?b));
     #call SubstituteMasters()
 
 * subtract MS-bar contributions (the poles)
-    argument rat;
-        id ep^n? = ep^n*theta_(n);
-    endargument;
+    #ifndef `NOMSBARSUBTRACTION'
+        argument rat;
+            id ep^n? = ep^n*theta_(n);
+        endargument;
+    #endif
 
     .sort:uv-subgraph-done;
     UnHide tensorforest1,...,tensorforest`tensorforestcount';
@@ -809,6 +812,8 @@ id subgraph(?a,uvconf(?b),?c) = subgraph(?a,uvconf(?b));
     .sort:uv3;
 #enddo
 
+id xsg = 1;
+Multiply replace_(mUV2, mUV);
 .sort:local-uv-done;
 Drop uvdiag`uvdiagtotalstart',...,uvdiag`uvdiagend';
 delete extrasymbols>`uvdiagtotalstart';
