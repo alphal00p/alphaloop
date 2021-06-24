@@ -1095,8 +1095,8 @@ aGraph=%s;
                                 graphs.append((signature_offset, dg['id'], dg['loop_topo'], None))
                             graphs.append((signature_offset, uv_subgraph['integrated_ct_id'], uv_subgraph['integrated_ct_bubble_graph'], None))
                             signature_offset += uv_subgraph['derived_graphs'][0]['loop_topo'].n_loops
-                        if len(uv_structure['uv_subgraphs']) == 0 and len(diag_info['bubble']) > 0:
-                            for bubble in diag_info['bubble']:
+                        if len(uv_structure['bubble']) > 0:
+                            for bubble in uv_structure['bubble']:
                                 graphs.append((signature_offset, bubble['id'], bubble['remaining_graph_loop_topo'], None))
                         else:
                             graphs.append((signature_offset, uv_structure['remaining_graph_id'], uv_structure['remaining_graph_loop_topo'], None))
@@ -1110,15 +1110,16 @@ aGraph=%s;
                     on_shell_condition = {}
                     if internal_bubble_ext_edges is not None:
                         # construct the on-shell condition
-                        ext_edge_sig = next(ee for ee in self.edges.values() if ee['name'] == internal_bubble_ext_edges[0])
-                        edge_mass = 'masses({})'.format(ext_edge_sig['PDG'])
+                        ext_edge = next(ee for ee in self.edges.values() if ee['name'] == internal_bubble_ext_edges[0])
+                        edge_mass = 'masses({})'.format(ext_edge['PDG'])
                         # TODO: could there have been a sign flip in the loop topology?
-                        totalmom = self.momenta_decomposition_to_string(ext_edge_sig['signature'], False)
-                        energy_instr = '{},{}'.format(totalmom, edge_mass if not p.uv else 'mUV')
+                        totalmom = self.momenta_decomposition_to_string(ext_edge['signature'], False)
+                        energy_instr = '{},{}'.format(totalmom, edge_mass)
                         if energy_instr not in unique_energies:
                             unique_energies[energy_instr] = len(unique_energies)
                         energies.append('E{},{}'.format(unique_energies[energy_instr], energy_instr))
-                        on_shell_condition[tuple(ext_edge_sig['signature'][0] + ext_edge_sig['signature'][1])] = 'E{}'.format(unique_energies[energy_instr])
+                        on_shell_condition[tuple(ext_edge['signature'][0] +
+                            ext_edge['signature'][1] + [0]*len( ext_edge['signature'][1]))] = 'E{}'.format(unique_energies[energy_instr])
 
                     for li, l in enumerate(g.loop_lines):
                         is_constant = all(s == 0 for s in l.signature)
@@ -1149,8 +1150,7 @@ aGraph=%s;
                                 for s, c in zip(p.parametric_shift[1], ext_edge_sigs):
                                     shift += s * np.array(c[0])
                                     extshift += s * np.array(c[1])
-                                extshift = np.array(list(extshift[:len(extshift)//2]) + [0]*(len(extshift)//2)) +\
-                                    np.array(list(extshift[len(extshift)//2:]) + [0]*(len(extshift)//2))
+                                extshift = np.array(list(extshift) + [0]*len(extshift))
 
                             totalmom = self.momenta_decomposition_to_string((lmp + shift, extshift), True)
 
@@ -1442,10 +1442,10 @@ CTable ltdmap(0:{},0:{});
 
                         diag_moms = ','.join(self.momenta_decomposition_to_string(lmm, False) for lmm in uv_structure['remaining_graph_loop_topo'].loop_momentum_map)
 
-                        if uv_index == 0 and len(diag_info['bubble']) > 0:
-                            # we have a bubble: replace the non-UV spinney remaining graph by the bubble derivative graphs
+                        if len(uv_structure['bubble']) > 0:
+                            # we have a bubble: replace the remaining graphs by the sum of bubble derivative graphs
                             bubbles = []
-                            for bubble in diag_info['bubble']:
+                            for bubble in uv_structure['bubble']:
                                 trans = []
 
                                 # if the cutkosky cut has a negative sign, we derive in -p^0 instead of p^0.
@@ -1467,7 +1467,10 @@ CTable ltdmap(0:{},0:{});
                                     assert(len(set(signs)) == 1)
                                     trans.append('-2*{}der({},0)'.format('1*' if signs[0] == 1 else '-1*', der_mom))
 
-                                trans.append('diag({},{},{})'.format(diag_set['id'], bubble['id'], diag_moms))
+                                if diag_moms != '':
+                                    trans.append('diag({},{},{})'.format(diag_set['id'], bubble['id'], diag_moms))
+                                else:
+                                    trans.append('diag({},{})'.format(diag_set['id'], bubble['id']))
                                 bubbles.append('*'.join(trans))
 
                             forest_element.append('({})'.format('+'.join(bubbles)))

@@ -692,7 +692,7 @@ fn ltd(_py: Python, m: &PyModule) -> PyResult<()> {
 }
 
 #[cfg(feature = "python_api")]
-#[pyclass(name = CrossSection)]
+#[pyclass(name = "CrossSection")]
 struct PythonCrossSection {
     squared_topology: squared_topologies::SquaredTopology,
     integrand: integrand::Integrand<squared_topologies::SquaredTopologySet>,
@@ -1042,7 +1042,7 @@ impl PythonCrossSection {
 }
 
 #[cfg(feature = "python_api")]
-#[pyclass(name = LTD)]
+#[pyclass(name = "LTD")]
 struct PythonLTD {
     topo: topologies::Topology,
     integrand: integrand::Integrand<topologies::Topology>,

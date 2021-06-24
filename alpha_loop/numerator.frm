@@ -839,8 +839,7 @@ id der(p1?,0) = p1.energyselector; * numerator contribution of the bubble propag
 if (count(der, 1));
 * we use that the cmb momenta that make up the bubble external momentum only appear in that combination
     splitfirstarg der;
-    id der(p1?,p2?) = replace_(p2, t*energyselector-p1);
-    id der(p1?) = replace_(p1, t*energyselector);
+    id der(?a,p?) = replace_(p, p + t*energyselector); * note: only one momentum is used
     id t^n? = delta_(n, 1);
 endif;
 
