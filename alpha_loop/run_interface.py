@@ -3504,9 +3504,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         help='Redis rq queue name to use. (default: a new uniquely named one is created).')
     integrate_parser.add_argument('--redis_port', dest='redis_port', type=int, default=8786,
         help='Redis server port (default: %(default)d).')
-    integrate_parser.add_argument(
-        '--bulk_redis_enqueuing', action="store_true", dest="bulk_redis_enqueuing", default=False,
-        help="Wheter to enqueue jobs in bulk to be more efficient. Requires rq v 1.9+!")
+    integrate_parser.add_argument('--bulk_redis_enqueuing', dest='bulk_redis_enqueuing', type=int, default=0,
+        help='How many rq jobs to batch-enqueue at once, zero meaning no batch submission (default: %(default)d).')
     def help_integrate(self):
         self.integrate_parser.print_help()
         return
@@ -3531,7 +3530,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             else:
                 args.n_cores = 1
 
-        if args.bulk_redis_enqueuing:
+        if args.bulk_redis_enqueuing > 0:
             import rq
             from packaging import version
             if version.parse(rq.VERSION) < version.parse("1.9"):

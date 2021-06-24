@@ -856,7 +856,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                  external_redis = False,
                  redis_port=8786,
                  redis_hostname=None,
-                 bulk_redis_enqueuing=False,
+                 bulk_redis_enqueuing=0,
                  redis_queue = None,
                  **opts):
 
@@ -1312,8 +1312,13 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
                         self.cumulative_processing_time = time.time() - t2
                         t0 = time.time()
-                        if self.use_redis and self.bulk_redis_enqueuing:
+                        if self.use_redis and self.bulk_redis_enqueuing>0:
                             job_payloads.append(job_payload)
+                            if len(job_payloads)>=self.bulk_redis_enqueuing:
+                                if self._DEBUG: logger.info("Submitting batch of %d jobs."%(len(job_payloads)))
+                                await self.al_cluster.submit_many_jobs(job_payloads)
+                                job_payloads.clear()
+                                if self._DEBUG: logger.info("Done with submission of batch of %s jobs."%(len(job_payloads)))
                         else:
                             if self._DEBUG: logger.info("Submitting job %d."%job_ID)
                             await self.al_cluster.submit_job(
