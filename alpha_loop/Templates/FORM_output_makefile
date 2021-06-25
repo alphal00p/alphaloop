@@ -11,13 +11,13 @@ SGWC=$(patsubst integrand_PF_%_f64.c,../lib/libFORM_sg_%.so, $(FILES))
 all: $(SGWC)
 
 OPTIMIZATION_LVL = 3
-CFLAGS=-Wconversion -O$(OPTIMIZATION_LVL) -fcx-fortran-rules -fcx-limited-range -lm -lquadmath -lmpfr -lgmp
+CFLAGS=-Wconversion -fPIC -O$(OPTIMIZATION_LVL) -fcx-fortran-rules -fcx-limited-range -lm -lquadmath -lmpfr -lgmp
 
 OPTIMIZATION_LVL_f128 = 0
-CFLAGSf128=-Wconversion -O$(OPTIMIZATION_LVL_f128) -fcx-fortran-rules -fcx-limited-range -lm -lquadmath -lmpfr -lgmp
+CFLAGSf128=-Wconversion -fPIC -O$(OPTIMIZATION_LVL_f128) -fcx-fortran-rules -fcx-limited-range -lm -lquadmath -lmpfr -lgmp
 
 OPTIMIZATION_LVL_f128 = 0
-CFLAGSFMPR=-Wconversion -O$(OPTIMIZATION_LVL_f128) -fcx-fortran-rules -fcx-limited-range -lm -lquadmath -lmpfr -lgmp
+CFLAGSFMPR=-Wconversion -fPIC -O$(OPTIMIZATION_LVL_f128) -fcx-fortran-rules -fcx-limited-range -lm -lquadmath -lmpfr -lgmp
 
 %_f64.o: %_f64.c
 	$(GCC) -c $(CFLAGS) $< -o $@

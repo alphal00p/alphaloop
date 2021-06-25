@@ -30,6 +30,7 @@ import LTD.ltd_utils as ltd_utils
 from LTD.vectors import LorentzVector, LorentzVectorList
 
 import alpha_loop.integrator.integrands as integrands
+from alpha_loop.integrator.worker import ALStandaloneIntegrand
 import alpha_loop.integrator.vegas3_integrator as vegas3
 
 try:
@@ -381,6 +382,33 @@ class TestHFuncIntegrand(integrands.VirtualIntegrand):
         self.update_evaluation_statistics([x,],final_res)
 
         return final_res
+
+class HavanaALIntegrand(integrands.VirtualIntegrand):
+
+    def __init__(self, MC_over_SGs, MC_over_channels, n_integration_dimensions, *args, **opts):
+
+        # This dimensions specification is not really used for now, only the length of the set of 
+        # continuous and discrete dimensions matters for now.
+        self.dimensions = integrands.DimensionList([ 
+                            integrands.ContinuousDimension('x_%d'%i_dim,lower_bound=0.0, upper_bound=1.0) 
+                            for i_dim in range(1,n_integration_dimensions+1)
+                        ])
+        if MC_over_SGs:
+            self.dimensions.append(integrands.DiscreteDimension('SG',values=[1.,]))
+        if MC_over_channels:
+            self.dimensions.append(integrands.DiscreteDimension('channel',values=[1.,]))
+
+        self.n_dimensions_per_SG_id = opts.get('n_dimensions_per_SG_id',None)
+
+        self.worker = ALStandaloneIntegrand(n_integration_dimensions, *args, **opts)
+
+        super(HavanaALIntegrand, self).__init__( self.dimensions )
+
+    def __call__(self, *args, **opts):
+        return self.worker(*args, **opts)
+
+    def get_constructor_arguments(self,*args, **opts):
+        return self.worker.get_constructor_arguments(*args, **opts)
 
 class DefaultALIntegrand(integrands.VirtualIntegrand):
     """An integrand for this phase-space volume test."""
@@ -1479,10 +1507,9 @@ class CustomGenerator(object):
 
 class generator_aL(CustomGenerator):
 
-    def __init__(self, dimensions, rust_worker, SG_info, model, h_function, hyperparameters, debug=0, frozen_momenta=None, **opts):
+    def __init__(self, dimensions, rust_worker, SG_info, h_function, hyperparameters, debug=0, frozen_momenta=None, **opts):
 
         self.rust_worker = rust_worker
-        self.model = model
         self.SG_info = SG_info
         self.hyperparameters = hyperparameters
         self.dimensions = dimensions

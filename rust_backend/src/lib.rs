@@ -2,6 +2,8 @@
 extern crate itertools;
 #[cfg(feature = "python_api")]
 use pyo3::prelude::*;
+#[cfg(feature = "python_api")]
+use smallvec::smallvec;
 extern crate nalgebra as na;
 
 use color_eyre::{Help, Report};
@@ -500,7 +502,7 @@ pub struct StabilityCheckSettings {
 pub struct GeneralSettings {
     pub multi_channeling: bool,
     pub multi_channeling_channel: Option<isize>,
-    pub multi_channeling_including_massive_propagators: bool,
+    pub use_optimal_channels: bool,
     pub res_file_prefix: String,
     pub derive_overlap_structure: bool,
     pub deformation_strategy: DeformationStrategy,
@@ -527,6 +529,7 @@ pub struct GeneralSettings {
 pub struct IntegratorSettings {
     pub internal_parallelization: bool,
     pub dashboard: bool,
+    pub quiet_mode: bool,
     pub show_plot: bool,
     pub integrator: Integrator,
     pub n_vec: usize,
@@ -579,6 +582,7 @@ impl Default for IntegratorSettings {
         IntegratorSettings {
             internal_parallelization: false,
             dashboard: false,
+            quiet_mode: false,
             show_plot: false,
             integrator: Integrator::Vegas,
             n_increase: 0,
@@ -682,12 +686,38 @@ impl Settings {
     }
 }
 
+// create a Havana submodule
+#[cfg(feature = "python_api")]
+fn init_havana(m: &PyModule) -> PyResult<()> {
+    m.add_class::<havana::bindings::HavanaWrapper>()?;
+    m.add_class::<havana::bindings::SampleWrapper>()?;
+    m.add_class::<havana::bindings::GridConstructor>()?;
+    m.add_class::<havana::bindings::ContinuousGridConstructor>()?;
+    m.add_class::<havana::bindings::DiscreteGridConstructor>()?;
+    Ok(())
+}
+
 // add bindings to the generated python module
 #[cfg(feature = "python_api")]
 #[pymodule]
-fn ltd(_py: Python, m: &PyModule) -> PyResult<()> {
+fn ltd(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PythonLTD>()?;
     m.add_class::<PythonCrossSection>()?;
+
+    let submod = PyModule::new(py, "havana")?;
+    init_havana(submod)?;
+    m.add_submodule(submod)?;
+
+    // workaround for https://github.com/PyO3/pyo3/issues/759
+    py.run(
+        "\
+import sys
+sys.modules['ltd.havana'] = havana
+    ",
+        None,
+        Some(m.dict()),
+    )?;
+
     Ok(())
 }
 
@@ -705,20 +735,47 @@ struct PythonCrossSection {
 #[pymethods]
 impl PythonCrossSection {
     #[new]
-    fn new(squared_topology_file: &str, settings_file: &str) -> PythonCrossSection {
+    #[args(cross_section_set = false)]
+    fn new(
+        squared_topology_file: &str,
+        settings_file: &str,
+        cross_section_set: Option<bool>,
+    ) -> PythonCrossSection {
         use integrand::IntegrandImplementation;
 
         let settings = Settings::from_file(settings_file).unwrap();
-        let squared_topology =
-            squared_topologies::SquaredTopology::from_file(squared_topology_file, &settings)
+        let (squared_topology, squared_topology_set) = match cross_section_set {
+            Some(false) => {
+                let local_squared_topology = squared_topologies::SquaredTopology::from_file(
+                    squared_topology_file,
+                    &settings,
+                )
                 .unwrap();
-        let squared_topology_set =
-            squared_topologies::SquaredTopologySet::from_one(squared_topology.clone());
+                let local_squared_topology_clone = local_squared_topology.clone();
+                (
+                    local_squared_topology,
+                    squared_topologies::SquaredTopologySet::from_one(local_squared_topology_clone),
+                )
+            }
+            Some(true) => {
+                let local_squared_topology_set = squared_topologies::SquaredTopologySet::from_file(
+                    squared_topology_file,
+                    &settings,
+                )
+                .unwrap();
+                (
+                    local_squared_topology_set.topologies[0].clone(),
+                    local_squared_topology_set,
+                )
+            }
+            _ => unreachable!(),
+        };
+
         let squared_topologies::SquaredTopologyCacheCollection {
             float_cache,
             quad_cache,
         } = squared_topology_set.create_cache();
-        let dashboard = dashboard::Dashboard::minimal_dashboard();
+        let dashboard = dashboard::Dashboard::minimal_dashboard(settings.integrator.quiet_mode);
         let integrand = integrand::Integrand::new(
             squared_topology_set.get_maximum_loop_count(),
             squared_topology_set,
@@ -736,6 +793,159 @@ impl PythonCrossSection {
             caches_f128: quad_cache,
             _dashboard: dashboard,
         }
+    }
+
+    #[args(havana_updater_re = "None", havana_updater_im = "None", train_on_avg="None", real_phase="None")]
+    fn evaluate_integrand_havana(
+        &mut self,
+        py: Python,
+        havana_sampler: &mut havana::bindings::HavanaWrapper,
+        mut havana_updater_re: Option<&mut havana::bindings::HavanaWrapper>,
+        mut havana_updater_im: Option<&mut havana::bindings::HavanaWrapper>,
+        real_phase: Option<bool>
+    ) -> PyResult<()> {
+        for (i, s) in havana_sampler.samples.iter().enumerate() {
+            let integrand_sample = self.integrand.evaluate(
+                integrand::IntegrandSample::Nested(s),
+                s.get_weight(),
+                match &havana_sampler.grid {
+                    havana::Grid::ContinuousGrid(cg) => cg.accumulator.cur_iter + 1,
+                    havana::Grid::DiscreteGrid(dg) => dg.accumulator.cur_iter + 1,
+                },
+            );
+
+            let phase = if let Some(selected_real_phase) = real_phase {
+                if selected_real_phase {
+                    IntegratedPhase::Real
+                } else {
+                    IntegratedPhase::Imag
+                }
+            } else {
+                self.integrand.settings.integrator.integrated_phase
+            };
+
+            match (&mut havana_updater_re, &mut havana_updater_im) {
+                (Some(a_havana_updater_re), Some(a_havana_updater_im)) => {
+                    a_havana_updater_re.grid.add_training_sample(
+                        s,
+                        integrand_sample.re
+                    );
+                    a_havana_updater_im.grid.add_training_sample(
+                        s,
+                        integrand_sample.im
+                    );
+                }
+                (Some(a_havana_updater_re), _) => {
+                    a_havana_updater_re.grid.add_training_sample(
+                        s,
+                        integrand_sample.re
+                    );
+                    if phase==IntegratedPhase::Imag {
+                        havana_sampler.grid.add_training_sample(
+                            s,
+                            integrand_sample.im
+                        );
+                    }
+                }
+                (_, Some(a_havana_updater_im)) => {
+                    if phase==IntegratedPhase::Real {
+                        havana_sampler.grid.add_training_sample(
+                            s,
+                            integrand_sample.re
+                        );
+                    }
+                    a_havana_updater_im.grid.add_training_sample(
+                        s,
+                        integrand_sample.im
+                    );
+                }
+                _ => {
+                    let f = match phase {
+                        IntegratedPhase::Real => integrand_sample.re,
+                        IntegratedPhase::Imag => integrand_sample.im,
+                        IntegratedPhase::Both => unimplemented!(),
+                    };
+                    havana_sampler.grid.add_training_sample(
+                        s,
+                        f
+                    );
+                }
+            }
+
+            // periodically check for ctrl-c
+            if i % 1000 == 0 {
+                py.check_signals()?;
+            }
+        }
+
+        Ok(())
+    }
+
+    #[args(sg_ids = "None", channel_ids = "None")]
+    fn evaluate_integrand_batch(
+        &mut self,
+        py: Python,
+        xs: Vec<Vec<f64>>,
+        sg_ids: Option<Vec<usize>>,
+        channel_ids: Option<Vec<usize>>,
+    ) -> PyResult<Vec<(f64, f64)>> {
+        use havana;
+        use integrand::IntegrandSample;
+        use itertools::izip;
+
+        let samples = match (sg_ids, channel_ids) {
+            (Some(selected_sg_ids), Some(selected_channel_ids)) => {
+                let mut all_samples = vec![];
+                for (sg_id, channel_id, x) in izip!(selected_sg_ids, selected_channel_ids, xs) {
+                    all_samples.push(havana::Sample::DiscreteGrid(
+                        1.,
+                        smallvec![sg_id],
+                        Some(Box::new(havana::Sample::DiscreteGrid(
+                            1.,
+                            smallvec![channel_id],
+                            Some(Box::new(havana::Sample::ContinuousGrid(1., x))),
+                        ))),
+                    ))
+                }
+                all_samples
+            }
+            (Some(selected_sg_ids), _) => {
+                let mut all_samples = vec![];
+                for (sg_id, x) in izip!(selected_sg_ids, xs) {
+                    all_samples.push(havana::Sample::DiscreteGrid(
+                        1.,
+                        smallvec![sg_id],
+                        Some(Box::new(havana::Sample::ContinuousGrid(1., x))),
+                    ))
+                }
+                all_samples
+            }
+            (_, Some(_)) => {
+                panic!("Cannot sum over SGs for specific integration channels.")
+            }
+            (_, _) => {
+                let mut all_samples = vec![];
+                for x in xs {
+                    all_samples.push(havana::Sample::ContinuousGrid(1., x));
+                }
+                all_samples
+            }
+        };
+
+        let mut all_res = vec![];
+        for (i, sample) in samples.iter().enumerate() {
+            let res = self
+                .integrand
+                .evaluate(IntegrandSample::Nested(&sample), 1.0, 1);
+            all_res.push((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()));
+
+            // periodically check for ctrl-c
+            if i % 1000 == 0 {
+                py.check_signals()?;
+            }
+        }
+
+        Ok(all_res)
     }
 
     fn evaluate_integrand(&mut self, x: Vec<f64>) -> PyResult<(f64, f64)> {
@@ -1082,7 +1292,7 @@ impl PythonLTD {
 
         let cache = topologies::LTDCache::<float>::new(&topo);
         let cache_f128 = topologies::LTDCache::<f128::f128>::new(&topo);
-        let dashboard = dashboard::Dashboard::minimal_dashboard();
+        let dashboard = dashboard::Dashboard::minimal_dashboard(settings.integrator.quiet_mode);
         let integrand = integrand::Integrand::new(
             topo.n_loops,
             topo.clone(),
@@ -1103,7 +1313,8 @@ impl PythonLTD {
     }
 
     fn __copy__(&self) -> PyResult<PythonLTD> {
-        let dashboard = dashboard::Dashboard::minimal_dashboard();
+        let dashboard =
+            dashboard::Dashboard::minimal_dashboard(self.topo.settings.integrator.quiet_mode);
         let integrand = integrand::Integrand::new(
             self.topo.n_loops,
             self.topo.clone(),

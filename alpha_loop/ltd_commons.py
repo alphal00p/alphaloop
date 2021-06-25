@@ -125,7 +125,7 @@ hyperparameters = HyperParameters({
         # the channel IDs to consider. A channel ID corresponds to its index in the list produced by the
         # cartesian product of the cut_structure with the propagators in each of the loop lines.
         'multi_channeling_channel': None,
-        'multi_channeling_including_massive_propagators': True,
+        'use_optimal_channels': True,
         # Derive the overlap structure required for the fixed deformation in Rust.
         'derive_overlap_structure':  False,
         # can be additive, fixed, constant or none
@@ -193,6 +193,8 @@ hyperparameters = HyperParameters({
         'internal_parallelization'  : True,
         # Use the dashboard. Make sure to run Cuba with 0 cores or enable internal_parallelization.
         'dashboard'         :   True,
+        # Do not output integrand statistics when the dashboard is disabled.
+        'quiet_mode'        :   False,
         'show_plot'         :   False,
         # The integrator can be havana, vegas, divonne, cuhre or suave
         'integrator'        :   'havana',
@@ -264,7 +266,7 @@ hyperparameters = HyperParameters({
             'expansion_threshold'       : -0.3,
             'branch_cut_check'          : True,
             # take the branch cut lambda to a higher power to dampen faster around focal points
-            'branch_cut_alpha'          : 1.0,
+            'branch_cut_alpha'          : 2.0,
             # The two branchcut M parameters below allow the argument of the square roots
             # to visit all four complex quadrants while still never crossing a branchcut
             'branch_cut_m'              : -1.0,
@@ -305,7 +307,7 @@ hyperparameters = HyperParameters({
             'dampen_on_pinch': True,
             # dampen the deformation on pinches (if dampen_on_pinch is set) after the lambda scaling
             'dampen_on_pinch_after_lambda': True,
-            'pinch_dampening_alpha': 1.,
+            'pinch_dampening_alpha': 2.0,
             'pinch_dampening_k_com': 1.,
             'pinch_dampening_k_shift': 0.,
             # Specify a strategy to veto small problematic regions close to IR singularities

@@ -30,19 +30,23 @@ pub struct Dashboard {
 }
 
 impl Dashboard {
-    pub fn new(full: bool, show_plot: bool) -> Dashboard {
+    pub fn new(full: bool, show_plot: bool, quiet_mode: bool) -> Dashboard {
         if full {
             Dashboard::full_dashboard(show_plot)
         } else {
-            Dashboard::minimal_dashboard()
+            Dashboard::minimal_dashboard(quiet_mode)
         }
     }
 
-    pub fn minimal_dashboard() -> Dashboard {
+    pub fn minimal_dashboard(quiet_mode: bool) -> Dashboard {
         let (log_sender, log_receiver) = channel();
 
         thread::spawn(move || loop {
             while let Ok(x) = log_receiver.recv() {
+                if quiet_mode {
+                    continue;
+                }
+
                 match x {
                     StatusUpdate::Message(m) => println!("{}", m),
                     StatusUpdate::IntegratorUpdate(_) => {}
@@ -310,6 +314,13 @@ impl Dashboard {
                             } else {
                                 Style::default()
                             },
+                        ),
+                        Text::styled(
+                            format!(
+                                "Evaluations yielding zero: {}",
+                                event_info.zero_eval_counter.separate_with_spaces()
+                            ),
+                            Style::default()
                         ),
                     ]);
 

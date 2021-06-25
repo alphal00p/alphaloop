@@ -2,8 +2,9 @@ use crate::dashboard::{StatusUpdate, StatusUpdateSender};
 use crate::integrand::{IntegrandImplementation, IntegrandSample};
 use crate::observables::EventManager;
 use crate::topologies::{
-    Cut, FixedDeformationLimit, LTDCache, LTDNumerator, SOCPProblem, Topology,
+    FixedDeformationLimit, LTDCache, LTDNumerator, SOCPProblem, Topology,
 };
+use crate::IntegratedPhase;
 use crate::utils;
 use crate::{float, DeformationStrategy, FloatLike, IntegrandType, NormalisingFunction, Settings};
 use arrayvec::ArrayVec;
@@ -356,7 +357,10 @@ pub struct FORMIntegrand {
 
 #[derive(Clone, Deserialize)]
 pub struct MultiChannelingBasis {
-    pub defining_propagators: Vec<(usize, usize)>,
+    pub channel_id: usize,
+    pub cutkosky_cut_id: i8,
+    pub defining_propagators: Vec<String>,
+    pub signatures: Vec<(Vec<i8>, Vec<i8>)>
 }
 
 #[derive(Clone, Deserialize)]
@@ -368,14 +372,17 @@ pub struct SquaredTopology {
     pub overall_numerator: f64,
     pub external_momenta: Vec<LorentzVector<f64>>,
     pub cutkosky_cuts: Vec<CutkoskyCuts>,
+    pub analytical_result_real: Option<f64>,
+    pub analytical_result_imag: Option<f64>,
     #[serde(skip_deserializing)]
     pub settings: Settings,
     #[serde(skip_deserializing)]
     pub rotation_matrix: [[float; 3]; 3],
-    pub topo: Topology,
     pub default_fixed_cut_momenta: (Vec<LorentzVector<f64>>, Vec<LorentzVector<f64>>),
     #[serde(default)]
     pub multi_channeling_bases: Vec<MultiChannelingBasis>,
+    #[serde(default)]
+    pub optimal_channel_ids: Option<Vec<usize>>,
     #[serde(skip_deserializing)]
     pub multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)>,
     #[serde(rename = "FORM_integrand")]
@@ -388,7 +395,7 @@ pub struct SquaredTopology {
 pub struct SquaredTopologySet {
     pub name: String,
     pub e_cm_squared: f64,
-    topologies: Vec<SquaredTopology>,
+    pub topologies: Vec<SquaredTopology>,
     additional_topologies: Vec<Vec<(SquaredTopology, Vec<(Vec<i8>, Vec<i8>)>)>>,
     pub multiplicity: Vec<f64>,
     pub settings: Settings,
@@ -714,7 +721,7 @@ impl SquaredTopologySet {
             .unwrap();
 
         if n_topologies == 1 {
-            if let Some(imag_res) = self.topologies[0].topo.analytical_result_imag {
+            if let Some(imag_res) = self.topologies[0].analytical_result_imag {
                 if imag_res != 0.0 {
                     status_update_sender
                         .send(StatusUpdate::Message(format!(
@@ -724,7 +731,7 @@ impl SquaredTopologySet {
                         .unwrap();
                 }
             }
-            if let Some(real_res) = self.topologies[0].topo.analytical_result_real {
+            if let Some(real_res) = self.topologies[0].analytical_result_real {
                 if real_res != 0.0 {
                     status_update_sender
                         .send(StatusUpdate::Message(format!(
@@ -1038,7 +1045,7 @@ impl SquaredTopologySet {
                     *xi = xi.max(0.).min(1.0);
                 }
             }
-            
+
             let (l_energy, (l_space, jac)) = if i < n_loops - n_fixed {
                 // set the loop index to i + 1 so that we can also shift k
                 (
@@ -1234,22 +1241,6 @@ impl SquaredTopology {
             squared_topo.n_loops
         );
 
-        // update the UV mass and small mass in the squared topology
-        // this affects the multi-channeling
-        for ll in &mut squared_topo.topo.loop_lines {
-            for p in &mut ll.propagators {
-                if p.uv {
-                    p.m_squared = settings.cross_section.m_uv_sq;
-                }
-                if p.m_squared == 0. {
-                    p.m_squared = settings.cross_section.small_mass_sq;
-                }
-            }
-        }
-
-        // save memory by removing the SOCP allocations for the supergraph
-        squared_topo.topo.socp_problem = SOCPProblem::default();
-
         squared_topo.settings = settings.clone();
         for cutkosky_cuts in &mut squared_topo.cutkosky_cuts {
             for cut in &mut cutkosky_cuts.cuts {
@@ -1396,121 +1387,51 @@ impl SquaredTopology {
     }
 
     pub fn generate_multi_channeling_channels(&mut self) {
-        // construct the channels from all loop momentum basis (i.e. the LTD cuts)
-        self.topo.process(true);
-
-        for mcb in &mut self.multi_channeling_bases {
-            mcb.defining_propagators.sort();
-        }
-
-        // make sure all except the last of the fixed cut momenta are in the basis
-        // to avoid duplicating channels
-        let mut fixed_cut_propagators = vec![];
-        if self.settings.cross_section.fixed_cut_momenta.len() > 0 {
-            // we only have 1 cutkosky cut set and we skip the dependent cut
-            'nextcut: for c in
-                self.cutkosky_cuts[0].cuts[..self.cutkosky_cuts[0].cuts.len() - 1].iter()
-            {
-                for (lli, ll) in self.topo.loop_lines.iter().enumerate() {
-                    for (pi, p) in ll.propagators.iter().enumerate() {
-                        if p.name == c.name {
-                            fixed_cut_propagators.push((lli, pi));
-                            continue 'nextcut;
-                        }
-                    }
-                }
-                println!("Could not find cut in topology: {}", c.name);
-            }
-            fixed_cut_propagators.sort();
-        }
 
         let mut multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)> =
             vec![];
-        for (cuts, mat) in self
-            .topo
-            .ltd_cut_options
-            .iter()
-            .zip_eq(self.topo.cb_to_lmb_mat.iter())
-        {
-            for cut in cuts {
-                let mut lmb_to_cb_mat = vec![];
-                let mut cut_shifts = vec![];
 
-                if self.multi_channeling_bases.len() > 0
-                    || self.settings.cross_section.fixed_cut_momenta.len() > 0
-                {
-                    let cut_defining_propagators: Vec<(usize, usize)> = cut
-                        .iter()
-                        .enumerate()
-                        .filter_map(|(i, x)| {
-                            if let Cut::PositiveCut(j) | Cut::NegativeCut(j) = x {
-                                Some((i, *j))
-                            } else {
-                                None
-                            }
-                        })
-                        .sorted()
-                        .collect();
-
-                    if !fixed_cut_propagators
-                        .iter()
-                        .all(|c| cut_defining_propagators.contains(c))
-                    {
-                        continue;
-                    }
-
-                    if !self.multi_channeling_bases.iter().any(|mcb| {
-                        mcb.defining_propagators
-                            .iter()
-                            .all(|p| cut_defining_propagators.contains(p))
-                    }) {
-                        continue;
-                    }
-                }
-
-                let mut include = true;
-                for (ll_cut_sig, ll_cut) in cut.iter().zip_eq(&self.topo.loop_lines) {
-                    if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = ll_cut_sig {
-                        // optionally leave out massive propagators for efficiency
-                        if !self
-                            .settings
-                            .general
-                            .multi_channeling_including_massive_propagators
-                            && ll_cut.propagators[*i].m_squared > 0.
-                        {
-                            include = false;
-                            break;
-                        }
-                        cut_shifts.push(ll_cut.propagators[*i].q);
-                        lmb_to_cb_mat.extend(&ll_cut.signature);
-                    }
-                }
-
-                if include {
-                    // check if we have seen the channel before
-                    // this is possible since we only look at the spatial parts of the shift
-                    for uc in &multi_channeling_channels {
-                        if &uc.0 == mat && uc.1 == lmb_to_cb_mat {
-                            // test for true equality
-                            if uc
-                                .2
-                                .iter()
-                                .zip(cut_shifts.iter())
-                                .all(|(s1, s2)| (s1 - s2).spatial_squared() < 1.0e-15)
-                            {
-                                include = false;
-                            }
-                        }
-                    }
-
-                    if include {
-                        multi_channeling_channels.push((mat.clone(), lmb_to_cb_mat, cut_shifts));
+        for mcb in &mut self.multi_channeling_bases {
+            
+            if self.settings.general.use_optimal_channels {
+                if let Some(selected_channel_ids) = &self.optimal_channel_ids {
+                    if selected_channel_ids.len() > 0 && !selected_channel_ids.iter().any(|&i| i==mcb.channel_id) {
+                        continue
                     }
                 }
             }
+
+            let mut cut_signatures_matrix = vec![];
+            let mut lmb_to_cb_mat_i8 = vec![];
+            for sig in mcb.signatures.clone() {
+                for s in sig.0 {
+                    cut_signatures_matrix.push(s as f64);
+                    lmb_to_cb_mat_i8.push(s);
+                }
+            }
+            let lmb_to_cb_mat = na::DMatrix::from_row_slice(
+                mcb.signatures.len(),
+                mcb.signatures.len(),
+                &cut_signatures_matrix,
+            );
+            let c = lmb_to_cb_mat.try_inverse().unwrap();
+            // note: this transpose is ONLY there because the iteration is column-wise instead of row-wise
+            let cb_to_lmb_mat:Vec<i8> = c.transpose().iter().map(|x| *x as i8).collect();
+
+            let mut shifts = vec![];
+            for sig in mcb.signatures.clone() {
+                shifts.push(utils::evaluate_signature(&sig.1, &self.external_momenta));
+            }
+
+            multi_channeling_channels.push((
+                cb_to_lmb_mat.clone(),
+                lmb_to_cb_mat_i8.clone(),
+                shifts.clone(),
+            ));
         }
 
         self.multi_channeling_channels = multi_channeling_channels;
+
     }
 
     pub fn create_caches<T: FloatLike>(&self) -> Vec<Vec<Vec<LTDCache<T>>>> {
@@ -1750,6 +1671,18 @@ impl SquaredTopology {
             println!("Final result = {:e}", result);
         }
 
+        let test_zero_res = match self.settings.integrator.integrated_phase {
+            IntegratedPhase::Real => result.re,
+            IntegratedPhase::Imag => result.im,
+            IntegratedPhase::Both => result.re,
+        };
+        if test_zero_res==T::zero() {
+            
+            if let Some(em) = event_manager {
+                em.zero_eval_counter += 1;
+            }
+        }
+
         result
     }
 
@@ -1845,7 +1778,7 @@ impl SquaredTopology {
                         ) * (Float::powi(scaling, 2) + T::one())
                             / scaling))
                             .exp(),
-                            // Float::powi(scaling, 12),
+                        // Float::powi(scaling, 12),
                         if self.settings.cross_section.normalising_function.spread == 1. {
                             Into::<T>::into(0.27973176363304485456919761407082)
                             // Into::<T>::into(3.6462924162048315061277675650969e7)
@@ -2421,10 +2354,10 @@ impl IntegrandImplementation for SquaredTopologySet {
         let mut target = Complex::zero();
 
         for (t, m) in self.topologies.iter().zip(&self.multiplicity) {
-            if t.topo.analytical_result_real.is_some() || t.topo.analytical_result_imag.is_some() {
+            if t.analytical_result_real.is_some() || t.analytical_result_imag.is_some() {
                 target += Complex::new(
-                    t.topo.analytical_result_real.unwrap_or(0.),
-                    t.topo.analytical_result_imag.unwrap_or(0.),
+                    t.analytical_result_real.unwrap_or(0.),
+                    t.analytical_result_imag.unwrap_or(0.),
                 ) * *m;
             }
         }

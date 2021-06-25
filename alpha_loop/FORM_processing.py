@@ -76,6 +76,7 @@ FORM_processing_options = {
     'generate_arb_prec_output': False,
     'generate_integrated_UV_CTs' : True,
     'generate_renormalisation_graphs' : True,
+    'include_integration_channel_info' : True,
     'UV_min_dod_to_subtract' : 0,
     'selected_epsilon_UV_order' : 0,
     # Select how to include the finite part of the renormalisation. Possible values are:
@@ -84,6 +85,8 @@ FORM_processing_options = {
     # c) 'removed' : the finitie part of the renormalisation is removed. 
     'renormalisation_finite_terms' : 'together',
     'optimisation_strategy' : 'CSEgreedy',
+    'optimise_generation_lmb' : True,
+    'optimise_integration_channels' : True,
     'FORM_setup': {
     #   'MaxTermSize':'100K',
     #   'Workspace':'1G'
@@ -549,11 +552,11 @@ aGraph=%s;
 
         return topo_generator, edge_name_to_key, original_LMB
 
-    def generate_additional_LMBs(self):
+    def adjust_LMBs(self, model):
         """ Depending on the FORM options 'number_of_lmbs' and 'reference_lmb', this function fills in the attribute 
         additional_lmbs of this class."""
 
-        if FORM_processing_options['number_of_lmbs'] is None:
+        if (FORM_processing_options['number_of_lmbs'] is None) and not FORM_processing_options['optimise_generation_lmb']:
             return
     
         topo_generator, edge_name_to_key, original_LMB = self.get_topo_generator()
@@ -561,16 +564,37 @@ aGraph=%s;
 
         all_lmbs = topo_generator.loop_momentum_bases()
         all_lmbs= [ tuple([edge_name_to_key[topo_generator.edge_map_lin[e][0]] for e in lmb]) for lmb in all_lmbs]
+        
+        forced_LMB_index = None
+        if FORM_processing_options['optimise_generation_lmb']:
+            
+            edge_name_to_pdg = {edge['name']:edge['PDG'] for edge in self.edges.values()}
+            # add the prefix p
+            edge_name_to_pdg= {'p%s'%k: v for k,v in edge_name_to_pdg.items() if not k.startswith('p') }
 
-        # You can hack in here your desired LMB when using the FORM processing options:
-        #   set_FORM_option number_of_lmbs 1
-        #   set_FORM_option reference_lmb 1
-        # and then specify below your pq<i> desired basis, keeping in mind that the integers below must be '<i>-1'.
-        #all_lmbs = [ tuple([edge_name_to_key[topo_generator.edge_map_lin[e][0]] for e in (3,5,11,12)]), ]
+            lmb_metric = []
+            for (lmb_index, lmb) in enumerate(all_lmbs):
+                lmb_pdgs = [ edge_name_to_pdg[edge_key_to_name[e_key]] for e_key in original_LMB ]
+                lmb_pdg_score = 1
+                for pdg in lmb_pdgs:
+                    if model is None:
+                        if pdg in [21,22]:
+                            lmb_pdg_score +=1
+                    else:
+                        particle = model.get_particle(pdg)
+                        if particle.get('spin') == 3 and particle.get('mass').upper()=='ZERO':
+                            lmb_pdg_score += 1
+                lmb_metric.append((lmb_pdg_score, lmb_index))
+            lmb_metric.sort(key=lambda score:score[0], reverse=True)
+            forced_LMB_index = lmb_metric[0][1]
 
         # Then overwrite the reference LMB if the user requested it
-        if FORM_processing_options['reference_lmb'] is not None:
-            original_LMB = all_lmbs[(FORM_processing_options['reference_lmb']-1)%len(all_lmbs)]
+        if (FORM_processing_options['reference_lmb'] is not None) or (forced_LMB_index is not None):
+            if FORM_processing_options['reference_lmb'] is not None:
+                original_LMB = all_lmbs[(FORM_processing_options['reference_lmb']-1)%len(all_lmbs)]
+            else:
+                original_LMB = all_lmbs[forced_LMB_index]
+
             # Regenerate the topology with this new overwritten LMB
             topo_generator, _, _ = self.get_topo_generator(specified_LMB=[ edge_key_to_name[e_key] for e_key in original_LMB ])
             # And adjust all signatures (incl. the string momenta assignment accordingly)
@@ -594,6 +618,9 @@ aGraph=%s;
                             ],
                             set_outgoing_equal_to_incoming=False)
                     for e_key in node_data['edge_ids']])
+
+        if FORM_processing_options['number_of_lmbs'] is None:
+            return
 
         original_lmb_signatures = topo_generator.get_signature_map()
         original_lmb_signatures = { edge_name_to_key[edge_name]: [sig[0],
@@ -1259,7 +1286,7 @@ CTable ltdmap(0:{},0:{});
             return 0
 
     def generate_squared_topology_files(self, root_output_path, model, process_definition, n_jets, numerator_call, final_state_particle_ids=(),jet_ids=None, write_yaml=True, bar=None,
-        integrand_type=None, workspace=None):
+        integrand_type=None, workspace=None, include_integration_channel_info=True):
         if workspace is None:
             workspace = pjoin(root_output_path, os.pardir, 'workspace')
 
@@ -1282,7 +1309,7 @@ CTable ltdmap(0:{},0:{});
         assert(e[0] != 'q' or int(e[1:]) < 5 for e in edge_map_lin)
 
         particle_ids = { e['name']: e['PDG'] for e in self.edges.values() }
-        particle_masses = {e['name']: model['parameter_dict'][model.get_particle(e['PDG']).get('mass')].real for e in self.edges.values()}
+        particle_masses = { e['name']: model['parameter_dict'][model.get_particle(e['PDG']).get('mass')].real for e in self.edges.values() }
 
         num_incoming = sum(1 for e in edge_map_lin if e[0][0] == 'q') // 2
 
@@ -1291,7 +1318,7 @@ CTable ltdmap(0:{},0:{});
             #external_momenta = {'q1': [1., 0., 0., 0.], 'q2': [1., 0., 0., 0.]}
             p = np.array(external_momenta['q1'])
         else:
-            external_momenta = {'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.]}
+            external_momenta = { 'q1': [500., 0., 0., 500.], 'q2': [500., 0., 0., -500.], 'q3': [500., 0., 0., 500.], 'q4': [500., 0., 0., -500.] }
             #external_momenta = {'q1': [1., 0., 0., 1.], 'q2': [1., 0., 0., -1.], 'q3': [1., 0., 0., 1.], 'q4': [1., 0., 0., -1.]}
             p = np.array(external_momenta['q1']) + np.array(external_momenta['q2'])
 
@@ -1345,16 +1372,24 @@ CTable ltdmap(0:{},0:{});
                     bar.update(i_lmb='%d'%(i_lmb+2))
                 other_lmb_supergraph.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call, 
                         final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, write_yaml=write_yaml,workspace=workspace,
-                        bar=bar, integrand_type=integrand_type)
+                        bar=bar, integrand_type=integrand_type, include_integration_channel_info=False)
 
         self.generate_integrand(topo, integrand_type, workspace, call_signature_ID, progress_bar = bar)
         self.generate_form_input(topo)
 
         if write_yaml:
             if isinstance(self.additional_lmbs, int):
-                topo.export(pjoin(root_output_path, "%s_LMB%d.yaml"%(self.name,self.additional_lmbs)))
+                topo.export(pjoin(root_output_path, "%s_LMB%d.yaml"%(self.name,self.additional_lmbs)),
+                    model=model,
+                    include_integration_channel_info=include_integration_channel_info, 
+                    optimize_channels=FORM_processing_options['optimise_integration_channels']
+                )
             else:
-                topo.export(pjoin(root_output_path, "%s.yaml"%self.name))
+                topo.export(pjoin(root_output_path, "%s.yaml"%self.name), 
+                    model=model,
+                    include_integration_channel_info=include_integration_channel_info, 
+                    optimize_channels=FORM_processing_options['optimise_integration_channels']
+                )
 
         return True
 
@@ -1890,7 +1925,7 @@ class FORMSuperGraphIsomorphicList(list):
         return args[0].multiplicity_factor(*args[1:])
 
     def generate_squared_topology_files(self, root_output_path, model, process_definition, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None, workspace=None, bar=None,
-            integrand_type=None):
+            integrand_type=None,include_integration_channel_info=True):
         for i, g in enumerate(self):
             # Now we generate the squared topology only for the first isomorphic graph
             # to obtain the replacement rules for the bubble.
@@ -1898,7 +1933,8 @@ class FORMSuperGraphIsomorphicList(list):
             # numerator 
             if i==0:
                 r = g.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call, 
-                                final_state_particle_ids, jet_ids=jet_ids, write_yaml=i==0, workspace=workspace, bar=bar, integrand_type=integrand_type)
+                                final_state_particle_ids, jet_ids=jet_ids, write_yaml=i==0, workspace=workspace, bar=bar, integrand_type=integrand_type, 
+                                include_integration_channel_info=include_integration_channel_info)
         #print(r)
         return r
 
@@ -2434,11 +2470,10 @@ class FORMSuperGraphList(list):
             #    g = iso_graphs[0]
             #    print("#{}\t{:10}: {}".format(iso_id, g.name, g.multiplicity))
 
-
         # Generate additional copies for different LMB of the representative graph of each isomorphic set.
         # Note that depending on the option FORM_processing['representative_lmb'], the function below can also modify the LMB of the representative sg.
         for FORM_iso_sg in FORM_iso_sg_list:
-            FORM_iso_sg[0].generate_additional_LMBs()
+            FORM_iso_sg[0].adjust_LMBs(model)
 
         # Export the drawings corresponding to each ISO supergraphs
         for i_graph, super_graphs in enumerate(FORM_iso_sg_list):
@@ -2851,7 +2886,7 @@ void %(header)sevaluate_{}_{}_mpfr(__complex128 lm[], __complex128 params[], int
         self.code_generation_statistics['generation_time_in_s'] = float('%.1f'%generation_time)
 
     def generate_squared_topology_files(self, root_output_path, model, process_definition, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None,
-        integrand_type=None):
+        integrand_type=None, include_integration_channel_info=True):
         if workspace is None:
             workspace = pjoin(root_output_path, os.pardir, 'workspace')
         topo_collection = {
@@ -2874,7 +2909,8 @@ void %(header)sevaluate_{}_{}_mpfr(__complex128 lm[], __complex128 params[], int
                 bar.update(i_graph='%d'%(i+1))
                 if g.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call=non_zero_graph, 
                                                             final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, 
-                                                            workspace=workspace, bar=bar, integrand_type=integrand_type):
+                                                            workspace=workspace, bar=bar, integrand_type=integrand_type,
+                                                            include_integration_channel_info=include_integration_channel_info):
                     topo_collection['topologies'].append({
                         'name': g[0].name,
                         # Let us not put it there but in the topology itself
@@ -2915,7 +2951,8 @@ void %(header)sevaluate_{}_{}_mpfr(__complex128 lm[], __complex128 params[], int
                 bar.update(i_graph='%d'%(i+1))
                 if g.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call=non_zero_graph, 
                                                             final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids,
-                                                            workspace=workspace, bar=bar, integrand_type=integrand_type):
+                                                            workspace=workspace, bar=bar, integrand_type=integrand_type,
+                                                            include_integration_channel_info=include_integration_channel_info):
                     topo_collection['topologies'].append({
                         'name': g.name,
                         'multiplicity': g.multiplicity,
@@ -3454,7 +3491,8 @@ void %(header)sevaluate_{}_{}_mpfr(__complex128 lm[], __complex128 params[], int
         #FORM_processing_options['compilation-options'] += ['-e', "OPTIMIZATION_LVL=2"]
         form_processor.generate_squared_topology_files(TMP_OUTPUT, 0,
                     workspace=TMP_workspace,
-                    integrand_type='PF')
+                    integrand_type='PF',
+                    include_integration_channel_info=True)
         form_processor.generate_numerator_functions(TMP_FORM, output_format='c',
                     workspace=TMP_workspace,
                     integrand_type='PF')
@@ -3589,12 +3627,11 @@ class FORMProcessor(object):
                            "You will thus need to compile numerators.c manually.%s")%(utils.bcolors.GREEN, utils.bcolors.ENDC))
 
     def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None,
-        integrand_type=None):
+        integrand_type=None, include_integration_channel_info=None):
         self.super_graphs_list.generate_squared_topology_files(
             root_output_path, self.model, self.process_definition, n_jets, final_state_particle_ids, jet_ids=jet_ids, filter_non_contributing_graphs=filter_non_contributing_graphs, workspace=workspace,
-            integrand_type=integrand_type
+            integrand_type=integrand_type, include_integration_channel_info=(FORM_processing_options['include_integration_channel_info'] if include_integration_channel_info is None else include_integration_channel_info)
         )
-
 
 if __name__ == "__main__":
    

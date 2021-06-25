@@ -13,7 +13,7 @@ lto = "thin"
 
 [features]
 higher_loops = []
-python_api = ["pyo3"]
+python_api = ["pyo3", "havana/python_bindings"]
 use_f128 = []
 use_mpi = ["mpi"]
 

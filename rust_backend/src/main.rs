@@ -1774,8 +1774,11 @@ fn main() -> Result<(), Report> {
         settings.integrator.internal_parallelization = false;
     }
 
-    let mut dashboard =
-        Dashboard::new(settings.integrator.dashboard, settings.integrator.show_plot);
+    let mut dashboard = Dashboard::new(
+        settings.integrator.dashboard,
+        settings.integrator.show_plot,
+        settings.integrator.quiet_mode,
+    );
 
     let mut diagram = if let Some(cs_opt) = matches.value_of("cross_section") {
         Diagram::CrossSection(SquaredTopologySet::from_one(SquaredTopology::from_file(

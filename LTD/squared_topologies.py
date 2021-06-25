@@ -1,6 +1,7 @@
 import os
 import sys
 root_path = os.path.dirname(os.path.realpath( __file__ ))
+sys.path.insert(0, os.path.abspath( os.path.join(root_path,os.path.pardir) ) )
 sys.path.insert(0, root_path)
 
 from ltd_utils import TopologyGenerator
@@ -418,7 +419,8 @@ class SquaredTopologyGenerator:
                             uv_structure['forest_to_cb_matrix'] = ([[]], [[]], [[]], [[]])
             self.cuts.append(cut_info)
 
-    def export(self, output_path):
+    def export(self, output_path, model=None, include_integration_channel_info=False, optimize_channels=False):
+        
         out = {
             'name': self.name,
             'n_loops': self.topo.n_loops,
@@ -467,13 +469,106 @@ class SquaredTopologyGenerator:
             ]
         }
 
+        optimal_channel_ids = []
+
+        if include_integration_channel_info:
+            
+            from alpha_loop.run_interface import SuperGraph
+            sg = SuperGraph(copy.deepcopy(out))
+            #print("Now handling SG %s"%sg['name'])
+            sg.set_integration_channels()
+            multi_channeling_bases = []
+            channel_id = 0
+            all_channels_added_so_far = []
+            for channel in sg['SG_multichannel_info']:
+                # Ignore left-side vs right-side cut and only take the left-side representative
+                if channel['side'] != 'left':
+                    continue
+
+                edge_names_in_basis = []
+
+                # First add the momenta from the Cutkosky cut. Prefer to select vector bosons as independent momenta
+                identified_dependent_edge = False
+                for cut_edge in sg['cutkosky_cuts'][channel['cutkosky_cut_id']]['cuts']:
+                    if not identified_dependent_edge and abs(cut_edge['particle_id']) not in [21,22,23,24]:
+                        identified_dependent_edge = True
+                        continue
+                    edge_names_in_basis.append(cut_edge['name'])
+                if not identified_dependent_edge:
+                    del edge_names_in_basis[-1]
+
+                # Now complement the basis with all possible ones from the remaining loops to the left and right of the cut
+                for LMB in channel['loop_LMBs']:
+                    defining_edges_for_this_channel = edge_names_in_basis+LMB['loop_edges']
+                    signatures = [ sg['edge_signatures'][edge_name] for edge_name in defining_edges_for_this_channel ]
+                    canonical_signatures = set([ (tuple(sig[0]),tuple(sig[1])) for sig in signatures] )
+                    if set(canonical_signatures) in all_channels_added_so_far:
+                        continue
+                    all_channels_added_so_far.append(set(canonical_signatures))
+                    multi_channeling_bases.append(
+                        {
+                            'channel_id' : channel_id,
+                            'cutkosky_cut_id' : channel['cutkosky_cut_id'], 
+                            'defining_propagators' : defining_edges_for_this_channel,
+                            'signatures' : signatures
+                        }
+                    )
+                    channel_id += 1
+
+            if optimize_channels:
+
+                all_cc_cuts_edges = [ set([cut_edge['edge'] for cut_edge in cuts['cuts']]) for cuts in self.cuts ]
+
+                channels_score = []
+                for i_channel, channel in enumerate(multi_channeling_bases):
+                    
+                    pdg_score = 0
+                    for edge in channel['defining_propagators']:
+                        if model is None:
+                            if self.particle_ids[edge] in [21,22]:
+                                pdg_score +=1
+                        else:
+                            particle = model.get_particle(self.particle_ids[edge])
+                            if particle.get('spin') == 3 and particle.get('mass').upper()=='ZERO':
+                                pdg_score += 1
+                    
+                    cc_score = 0
+                    for cut_edges in all_cc_cuts_edges:
+                        cc_score -= len( cut_edges.difference(set(channel['defining_propagators'])) )
+
+                    channels_score.append( (pdg_score, cc_score, i_channel) )
+                    
+                channels_score.sort( key=lambda chan:(chan[0],chan[1]), reverse=True )
+                optimal_channel_ids = [ multi_channeling_bases[channels_score[0][-1]]['channel_id'], ]
+
+                # selected_channel_id = channels_score[0][-1]
+                # multi_channeling_bases[selected_channel_id]['channel_id'] = 0
+                # multi_channeling_bases = [ multi_channeling_bases[selected_channel_id], ]
+
+        else:
+
+            multi_channeling_bases = [
+                { 
+                    'channel_id' : 0, 
+                    'cutkosky_cut_id' : -1, 
+                    'defining_propagators' : out['loop_momentum_basis'],
+                    'signatures' : [ out['edge_signatures'][edge_name] for edge_name in out['loop_momentum_basis'] ] 
+                }
+            ]
+
+        out['multi_channeling_bases'] = multi_channeling_bases
+        out['optimal_channel_ids'] = optimal_channel_ids
+
         try:
             import yaml
-            from yaml import Loader, Dumper
         except ImportError:
             raise BaseException("Install yaml python module in order to import topologies from yaml.")
 
-        open(output_path,'w').write(yaml.dump(out, Dumper=Dumper, default_flow_style=None))
+        class NoAliasDumper(yaml.SafeDumper):
+            def ignore_aliases(self, data):
+                return True
+
+        open(output_path,'w').write(yaml.dump(out, Dumper=NoAliasDumper, default_flow_style=None))
 
 if __name__ == "__main__":
     pdgs = {
