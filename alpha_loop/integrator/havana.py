@@ -1092,6 +1092,8 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
             self.n_jobs_awaiting_completion -= 1
 
+            if self._DEBUG: logger.info("Done processing new results from job %d into havana..."%job_ID)
+
         except KeyboardInterrupt:
             self.exit_now = True
 
@@ -1394,7 +1396,9 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                 t2 = time.time()
                 if self._USE_HAVANA_MOCKUP and self._DEBUG: logger.info("Updating Havana grids for iteration #%d..."%self.current_iteration)
                 self.havana.update_iteration_count(dump_grids=self.dump_havana_grids)
+
                 if not self._USE_HAVANA_MOCKUP:
+                    self.havana.save_state(pjoin(self.run_workspace,'latest_results.yaml'))
                     for i_itg, integrand in enumerate(self.integrands):
                         grid_index = ( i_itg*2 if self.phase=='real' else ( i_itg*2 + 1 ) )
                         avg, err, chi_sq, max_eval_negative, max_eval_positive, n_evals, n_zero_evals = self.havana.havana_grids[grid_index].get_current_estimate()
@@ -1471,6 +1475,9 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
             if self.al_cluster is not None:
                 self.al_cluster.terminate()
+
+            if not self._USE_HAVANA_MOCKUP:
+                self.havana.save_state(pjoin(self.run_workspace,'latest_results.yaml'))
 
             self.tot_func_evals = self.havana.get_n_evals()
             final_res = self.havana.get_current_estimate()

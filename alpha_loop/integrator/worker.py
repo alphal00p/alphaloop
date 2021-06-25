@@ -72,8 +72,34 @@ class Havana(object):
 
         self.reset( clean = self.fresh_integration, flat_record=flat_record )
     
+    def save_state(self, state_dump_name):
+        import yaml
+        class NoAliasDumper(yaml.SafeDumper):
+            def ignore_aliases(self, data):
+                return True
+        base_dump_name = ('.'.join(state_dump_name.split('.')[:-1]) if '.' in state_dump_name else state_dump_name)
+        with open('%s.%s'%(base_dump_name,'yaml'), 'w') as f:
+            constructor_arguments = self.get_constructor_arguments(dump_format='yaml',on_disk=True, file_name='%s_grids.yaml'%base_dump_name)
+            constructor_arguments['integrands_constructor_args'] = [
+                integrand.get_constructor_arguments() for integrand in self.integrands
+            ]
+            f.write(yaml.dump(constructor_arguments, Dumper=NoAliasDumper, default_flow_style=False))
 
-    def get_constructor_arguments(self, dump_format='bin', on_disk=True):
+    @staticmethod
+    def load_from_state(state_dump_name):
+        import yaml
+        import os
+        base_dump_name = ('.'.join(state_dump_name.split('.')[:-1]) if '.' in state_dump_name else state_dump_name)
+        if not os.path.exists('%s.yaml'%base_dump_name):
+            raise HavanaIntegratorError("Could not find state '%s.yaml' to load."%base_dump_name)
+        with open('%s.%s'%(base_dump_name,'yaml'), 'r') as f:
+            construction_args = yaml.load(f, Loader=yaml.Loader)
+            construction_args['integrands'] = [
+                ALStandaloneIntegrand(**integrand_constructor_args) for integrand_constructor_args in construction_args.pop('integrands_constructor_args')
+            ]
+            return Havana(**construction_args)
+
+    def get_constructor_arguments(self, dump_format='bin', on_disk=True, file_name=None):
         """ Is a tmp folder is specified, it will be used to temporary write out grid from rust, 
         but it will be transmitted over network."""
         
@@ -94,7 +120,7 @@ class Havana(object):
             'max_prob_ratio' :self.max_prob_ratio,
             'learning_rate' : self.learning_rate,
             'bin_increase_factor_schedule' : self.bin_increase_factor_schedule,
-            'flat_record' : self.get_flat_record(dump_format=dump_format,on_disk=on_disk)
+            'flat_record' : self.get_flat_record(file_name=file_name, dump_format=dump_format,on_disk=on_disk)
         }
 
 
@@ -284,11 +310,11 @@ class Havana(object):
 
     def get_grid_summary(self, sort_by_variance=True, show_channel_grid=True, 
                             show_all_information_for_all_integrands=False, show_selected_phase_only = False):
-
         if (self.havana_grids is None):
             return ''
 
         from prettytable import PrettyTable
+
         pt = PrettyTable()
         all_results = []
         reference_result_index_here=None

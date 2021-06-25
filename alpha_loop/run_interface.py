@@ -61,7 +61,7 @@ import alpha_loop.integrator.integrators as integrators
 import alpha_loop.integrator.vegas3_integrator as vegas3_integrator
 import alpha_loop.integrator.havana as havana
 import alpha_loop.integrator.pyCubaIntegrator as pyCubaIntegrator
-from alpha_loop.integrator.worker import ALStandaloneIntegrand
+from alpha_loop.integrator.worker import ALStandaloneIntegrand, Havana
 
 Colours = utils.bcolors
 
@@ -3352,13 +3352,73 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if args.write:
             self.hyperparameters.export_to(pjoin(self.dir_path, 'hyperparameters.yaml'))            
 
+    #### SHOW RESULT COMMAND
+    show_results_parser = ArgumentParser(prog='integrate')
+    show_results_parser.add_argument('--run_id', metavar='run_id', type=int, default=None,
+                    help='Specify a run_id to show results for.')
+    show_results_parser.add_argument(
+        '--no_show_channel_grid', action="store_false", dest="show_channel_grid", default=True,
+        help="Disable the monitoring of the discrete grids over integration channel in Havana.")
+    show_results_parser.add_argument(
+        '--show_grids_sorted_by_importance', action="store_false", dest="show_grids_sorted_by_variance", default=True,
+        help="Show havana grids with bins sorted by their variance.")
+    show_results_parser.add_argument(
+        '--show_selected_phase_only', action="store_true", dest="show_selected_phase_only", default=False,
+        help="Only show selected phase in the discrete grid report.")
+    show_results_parser.add_argument(
+        '--show_all_information_for_all_integrands', action="store_true", dest="show_all_information_for_all_integrands", default=False,
+        help="Show detailed information for all integrands in the SG discrete grid report.")
+    def help_show_results(self):
+        self.show_results_parser.print_help()
+        return
+    def do_show_results(self, line):
+        """ Show results from existing runs for this process output."""
+
+        if line=='help':
+            self.show_results_parser.print_help()
+            return 
+
+        args = self.split_arg(line)
+        args = self.show_results_parser.parse_args(args)
+
+        if args.run_id is not None:
+            res_dir = pjoin(self.dir_path, self._run_workspace_folder, 'run_%d'%args.run_id)
+            if not os.path.exists(res_dir):
+                raise alphaLoopInvalidRunCmd("Could not find results directory: %s"%res_dir)
+            elif not os.path.exists(pjoin(res_dir, 'latest_results.yaml')):
+                raise alphaLoopInvalidRunCmd("Could not find results yaml havana grid '%s' in directory: %s"%(havana_grid.yaml,res_dir))
+            run_directories = [res_dir,]
+        else:
+            run_directories = [p for p in glob.glob(pjoin(self.dir_path, self._run_workspace_folder, 'run_*')) if os.path.isdir(p) and os.path.exists(pjoin(p,'latest_results.yaml'))]
+            if len(run_directories)==0:
+                raise alphaLoopInvalidRunCmd("Could not find results yet for runs of this process output.")
+
+        # Warning: we need to do the import here already otherwise crashes for some reason when calling havana_results.get_grid_summary
+        import prettytable
+
+        for run_dir in sorted(run_directories):
+            logger.info('')
+            logger.info("%s>>>%s"%(utils.bcolors.GREEN, utils.bcolors.END))
+            logger.info("%s>>>%s Results for %s:"%(utils.bcolors.GREEN, utils.bcolors.END, os.path.basename(run_dir)))
+            logger.info("%s>>>%s"%(utils.bcolors.GREEN, utils.bcolors.END))
+            havana_results = Havana.load_from_state(pjoin(run_dir, 'latest_results.yaml'))
+            logger.info('\n'+havana_results.get_summary())
+            if args.show_channel_grid:
+                logger.info('\n'+havana_results.get_grid_summary(
+                    sort_by_variance=args.show_grids_sorted_by_variance, 
+                    show_channel_grid=args.show_channel_grid, 
+                    show_all_information_for_all_integrands=args.show_all_information_for_all_integrands, 
+                    show_selected_phase_only = args.show_selected_phase_only
+                ))
+        logger.info('')
+
     #### INTEGRATE COMMAND
     integrate_parser = ArgumentParser(prog='integrate')
     integrate_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='+',
                     help='One (or a list of, for Havana) supergraph name to integrate. Specify value "all" for havana to integrate them all.')
     integrate_parser.add_argument('-s','--sampling', metavar='sampling', type=str, default='xs', 
                     choices=('xs','flat', 'advanced', 'test_h_function'), help='Specify the sampling method (default: %(default)s)')
-    integrate_parser.add_argument('-i','--integrator', metavar='integrator', type=str, default='vegas3', 
+    integrate_parser.add_argument('-i','--integrator', metavar='integrator', type=str, default='havana', 
                     choices=('naive','vegas', 'vegas3', 'havana', 'inspect'), help='Specify the integrator (default: %(default)s)')
     integrate_parser.add_argument('-hf','--h_function', metavar='h_function', type=str, default='left_right_polynomial', 
                     choices=('left_right_polynomial','left_right_exponential', 'flat'), help='Specify the h-function to use in sampling (default: %(default)s)')
@@ -3498,6 +3558,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser.add_argument(
         '--use_redis', action="store_true", dest="use_redis", default=False,
         help="Enable Redis for node communication, and not the filesystem.")
+    integrate_parser.add_argument(
+        '--no_redis', action="store_false", dest="use_redis",
+        help="Disable Redis for node communication, and use the filesystem instead.")
     integrate_parser.add_argument(
         '--external_redis', action="store_true", dest="external_redis", default=False,
         help="Wheter to us an existing redis server instance and not start one.")
