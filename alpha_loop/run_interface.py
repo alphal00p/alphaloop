@@ -3654,7 +3654,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     args.target_result = eval("float(%s)"%args.target_result)
                 except Exception as e:
                     args.target_result = None
-            logger.warning("Could not interpret target result: '%s'"%args.target_result)
+                    logger.warning("Could not interpret target result: '%s'"%args.target_result)
 
         if args.use_optimal_integration_channels is None:
             args.use_optimal_integration_channels = self.hyperparameters['General']['use_optimal_channels']
