@@ -3527,7 +3527,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         help='Number of workers to spawn for parallelisation.')
     integrate_parser.add_argument('--cluster_type', metavar='cluster_type', type=str, default='local', 
         choices=tuple(havana.HavanaIntegrator._SUPPORTED_CLUSTER_ARCHITECTURES), help='Specify the integrator (default: %(default)s)')
-    integrate_parser.add_argument('-tr', '--target_result', metavar='target_result', type=float, default=None,
+    integrate_parser.add_argument('-tr', '--target_result', metavar='target_result', type=str, default=None,
         help='Specify a target result to compare current estimate against (default: %(default)f).')
     integrate_parser.add_argument(
         '--no_mc_over_sg',action="store_false", dest="MC_over_SGs", default=True,
@@ -3682,6 +3682,16 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 raise alphaLoopInvalidRunCmd("Make sure the number of frozen momenta specified in the 'external_data' of the cross_section_set yaml is only the *independent* frozen momenta.")
 
         self.hyperparameters.set_parameter('General.multi_channeling',args.multichanneling)
+        
+        if args.target_result is not None:
+            try:
+                args.target_result = float(args.target_result)
+            except Exception as e:
+                try:
+                    args.target_result = eval("float(%s)"%args.target_result)
+                except Exception as e:
+                    args.target_result = None
+                    logger.warning("Could not interpret target result: '%s'"%args.target_result)
 
         if args.use_optimal_integration_channels is None:
             args.use_optimal_integration_channels = self.hyperparameters['General']['use_optimal_channels']
