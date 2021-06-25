@@ -28,6 +28,7 @@ class Havana(object):
             reference_integrand_index=0, phase='real', grid_file='havana_grid.yaml', 
             optimize_on_variance=True, max_prob_ratio=1000., fresh_integration=False,
             flat_record = None, alpha_loop_path=None, learning_rate=1.5, bin_increase_factor_schedule=None,
+            run_description = None, integrand_descriptions = None,
             **opts
         ):
 
@@ -43,6 +44,8 @@ class Havana(object):
         self.phase = phase
         self.optimize_on_variance = optimize_on_variance
         self.max_prob_ratio = max_prob_ratio
+        self.run_description = run_description
+        self.integrand_descriptions = integrand_descriptions
 
         if self.phase=='real':
             self.reference_result_index = reference_integrand_index*2
@@ -120,6 +123,8 @@ class Havana(object):
             'max_prob_ratio' :self.max_prob_ratio,
             'learning_rate' : self.learning_rate,
             'bin_increase_factor_schedule' : self.bin_increase_factor_schedule,
+            'run_description' : self.run_description,
+            'integrand_descriptions' : self.integrand_descriptions,
             'flat_record' : self.get_flat_record(file_name=file_name, dump_format=dump_format,on_disk=on_disk)
         }
 
@@ -357,7 +362,12 @@ class Havana(object):
 
             if i_havana_grid==self.reference_result_index:
                 reference_result_index_here = len(all_results)
-            all_results.append(('%s[I%d]'%('Re' if i_havana_grid%2==0 else 'Im', i_havana_grid//2),integrand_result) )
+
+            if (self.integrand_descriptions is None) or (len(self.integrand_descriptions)<=(i_havana_grid//2)) or self.integrand_descriptions[i_havana_grid//2]=='none':
+                itg_descr = ''
+            else:
+                itg_descr = '(%s)'%self.integrand_descriptions[i_havana_grid//2]
+            all_results.append(('%s[I%d%s]'%('Re' if i_havana_grid%2==0 else 'Im', i_havana_grid//2, itg_descr),integrand_result) )
 
         # Place the reference result first
         all_results = [all_results[reference_result_index_here],]+[r for i_r, r in enumerate(all_results) if i_r!=reference_result_index_here]
@@ -429,13 +439,16 @@ class Havana(object):
         #print(err,self.n_points)
         max_wgt_infl = 0. if self.n_points==0 else max(abs(max_eval_negative),max_eval_positive)/(err*self.n_points)
 
-        res = ["Result after %.1fM evaluations and %d iterations: %s%.6g +/- %.4g (%.2g%%)%s, chi2=%s%.3g%s, max_wgt_infl=%s%.3g%s, zero_evals=%.3g%%"%(
+        res = []
+        if self.run_description is not None and self.run_description!='none':
+            res = ['%sRun description:%s %s'%(bcolors.GREEN, bcolors.END, self.run_description)]
+        res.append("Result after %.1fM evaluations and %d iterations: %s%.6g +/- %.4g (%.2g%%)%s, chi2=%s%.3g%s, max_wgt_infl=%s%.3g%s, zero_evals=%.3g%%"%(
             self.n_points/1.0e6, self.n_iterations, bcolors.RED if avg==0. or abs(err/avg)>0.01 else bcolors.GREEN, avg, err, 
             0. if avg==0. else (abs(err/avg))*100., bcolors.END,
             bcolors.RED if self.n_iterations==0. or chi_sq/self.n_iterations > 5. else bcolors.GREEN, chi_sq/self.n_iterations if self.n_iterations>0 else 0., bcolors.END, 
             bcolors.RED if max_wgt_infl>5. else bcolors.GREEN, max_wgt_infl, bcolors.END, 
             (n_zero_evals/float(self.n_points))*100. if self.n_points>0 else 0.
-        )]
+        ))
         if self.target_result is not None:
             res.append( ("%-{}s".format(len('Result after %d evaluations and %d iterations'%(self.n_points, self.n_iterations))))%("vs target")+
                 ": %.5g del %.5g (%.2g%%)"%(
@@ -446,10 +459,15 @@ class Havana(object):
         for res_index, havana_grid in enumerate(self.havana_grids):
             avg, err, chi_sq, max_eval_negative, max_eval_positive, n_evals, n_zero_evals = havana_grid.get_current_estimate()
             max_wgt_infl = 0. if self.n_points==0 else max(abs(max_eval_negative),max_eval_positive)/(err*self.n_points)
-            res.append('  %s %s[I%d] = %.5g +/- %.5g (%.2g%%), chi2=%.3g, max_wgt_infl=%.3g, zero_evals=%.3g%%'%(
+            if (self.integrand_descriptions is None) or (len(self.integrand_descriptions)<=(res_index//2)) or self.integrand_descriptions[res_index//2]=='none':
+                itg_descr = ''
+            else:
+                itg_descr = ('(%s%-{}s%s)'.format(max(len(itg_d) for itg_d in self.integrand_descriptions)))%(bcolors.GREEN, self.integrand_descriptions[res_index//2], bcolors.END)
+            res.append('  %s %s[I%d%s] = %.5g +/- %.5g (%.2g%%), chi2=%.3g, max_wgt_infl=%.3g, zero_evals=%.3g%%'%(
                 '  ' if res_index!=self.reference_result_index else '->',
                 'Re' if res_index%2==0 else 'Im',
                 res_index//2,
+                itg_descr,
                 avg, err, 0. if avg==0. else (abs(err/avg))*100.,
                 chi_sq, max_wgt_infl, (n_zero_evals/float(self.n_points))*100. if self.n_points>0 else 0.
             ))

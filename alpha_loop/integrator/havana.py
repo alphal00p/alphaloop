@@ -1182,6 +1182,16 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                 fresh_integration = self.fresh_integration
             )
         else:
+            if os.path.isfile(pjoin(self.run_workspace,'run_description.txt')):
+                with open(pjoin(self.run_workspace,'run_description.txt'), 'r') as f:
+                    run_description = f.read()
+            else:
+                run_description = None
+            if os.path.isfile(pjoin(self.run_workspace,'integrand_descriptions.txt')):
+                with open(pjoin(self.run_workspace,'integrand_descriptions.txt'), 'r') as f:
+                    integrand_descriptions = f.read().split('\n')
+            else:
+                integrand_descriptions = None
             self.havana = Havana(
                 n_dimensions, 
                 self.integrands,
@@ -1200,6 +1210,8 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                 learning_rate = self.havana_learning_rate,
                 bin_increase_factor_schedule = self.havana_bin_increase_factor_schedule,
                 alpha_loop_path = alphaloop_basedir,
+                run_description = run_description,
+                integrand_descriptions = integrand_descriptions
             )
 
         # Now perform the integration
