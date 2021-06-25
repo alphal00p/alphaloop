@@ -41,15 +41,15 @@ CF uvid;
     repeat id g(k1?,k1?)*map(kk3,k1?,n?)*uvid(2,1,n1?,n2?,n3?) = (uvid(2,1,n1,n2,n3-1) + mUV2^2 * uvid(2,1,n1,n2,n3))*map(kk3,k1,n);
 
     repeat id g(k1?,k2?)*map(kk1,k1?,nn1?)*map(kk2,k2?,nn2?)*uvid(2,1,n1?,n2?,n3?) = 1/2*nn1*nn2*map(kk1,k1,nn1)*map(kk2,k2,nn2)*(
-        uvid(2,1,n1,n2,n3-1) - uvid(2,1,n1-1,n2,n3) - uvid(2,1,n1,n2-1,n3) - mUV2^2 * uvid(2,1,n1,n2,n3)
+        uvid(2,1,n1,n2,n3-1) - uvid(2,1,n1-1,n2,n3) - uvid(2,1,n1,n2-1,n3) + mUV2^2 * uvid(2,1,n1,n2,n3)
     );
 
     repeat id g(k1?,k2?)*map(kk1,k1?,nn1?)*map(kk3,k2?,nn2?)*uvid(2,1,n1?,n2?,n3?) = 1/2*nn1*nn2*map(kk1,k1,nn1)*map(kk3,k2,nn2)*(
-        uvid(2,1,n1,n2-1,n3) - uvid(2,1,n1-1,n2,n3) - uvid(2,1,n1,n2,n3-1) - mUV2^2 * uvid(2,1,n1,n2,n3)
+        uvid(2,1,n1,n2-1,n3) - uvid(2,1,n1-1,n2,n3) - uvid(2,1,n1,n2,n3-1) + mUV2^2 * uvid(2,1,n1,n2,n3)
     );
 
     repeat id g(k1?,k2?)*map(kk2,k1?,nn1?)*map(kk3,k2?,nn2?)*uvid(2,1,n1?,n2?,n3?) = 1/2*nn1*nn2*map(kk2,k1,nn1)*map(kk3,k2,nn2)*(
-        uvid(2,1,n1-1,n2,n3) - uvid(2,1,n1,n2-1,n3) - uvid(2,1,n1,n2,n3-1) - mUV2^2 * uvid(2,1,n1,n2,n3)
+        uvid(2,1,n1-1,n2,n3) - uvid(2,1,n1,n2-1,n3) - uvid(2,1,n1,n2,n3-1) + mUV2^2 * uvid(2,1,n1,n2,n3)
     );
 
     id map(?a) = 1;
@@ -142,8 +142,8 @@ CF uvid;
         .sort:reduction-`nloop++';
     #enddo
 * MIs are uvid(2,1,0,2,2) and uvid(2,1,2,2,1)
-    id tp2P011 = uvid(2,1)*rat(1, ep^2)*mUV2^4*rat(4,(4-2*ep)^2 - 4*(4-2*ep) + 4);
-    id tp2P111 = mUV2^4*rat(9, (4-2*ep)^2 - 5*(4-2*ep) + 6)*(uvid(2,2)*rat(1, ep^2) - uvid(2,1)*rat(1, ep^2)*mUV2^-2*rat(-1,3));
+    id tp2P011 = uvid(2,1)*rat(1,ep^2)*mUV2^4*rat(4,(4-2*ep)^2 - 4*(4-2*ep) + 4);
+    id tp2P111 = mUV2^2*rat(9, (4-2*ep)^2 - 5*(4-2*ep) + 6)*(uvid(2,2) - uvid(2,1)*rat(1,ep^2)*rat(-1,3));
 #endprocedure
 
 #procedure IntegrateUV()
@@ -188,21 +188,21 @@ CF uvid;
 
 #procedure Mastermi1L2()
     id uvid(2,1) = rat(ep^2,1) * (
-	 cMi1L2EpsM2logmUV0*logmUV^0*rat(1,ep^2) 
-	 +cMi1L2EpsM1logmUV0*logmUV^0*rat(1,ep^1) 
-	 +cMi1L2EpsM1logmUV1*logmUV^1*rat(1,ep^1) 
-	 +cMi1L2Eps0logmUV0*logmUV^0*rat(ep^0,1) 
-	 +cMi1L2Eps0logmUV1*logmUV^1*rat(ep^0,1) 
-	 +cMi1L2Eps0logmUV2*logmUV^2*rat(ep^0,1) 
-	 +cMi1L2Eps1logmUV0*logmUV^0*rat(ep^1,1) 
-	 +cMi1L2Eps1logmUV1*logmUV^1*rat(ep^1,1) 
-	 +cMi1L2Eps1logmUV2*logmUV^2*rat(ep^1,1) 
-	 +cMi1L2Eps1logmUV3*logmUV^3*rat(ep^1,1) 
-	 +cMi1L2Eps2logmUV0*logmUV^0*rat(ep^2,1) 
-	 +cMi1L2Eps2logmUV1*logmUV^1*rat(ep^2,1) 
-	 +cMi1L2Eps2logmUV2*logmUV^2*rat(ep^2,1) 
-	 +cMi1L2Eps2logmUV3*logmUV^3*rat(ep^2,1) 
-	 +cMi1L2Eps2logmUV4*logmUV^4*rat(ep^2,1) 
+	 cMi1L2EpsM2logmUV0*logmUV^0*rat(1,ep^2)
+	 +cMi1L2EpsM1logmUV0*logmUV^0*rat(1,ep^1)
+	 +cMi1L2EpsM1logmUV1*logmUV^1*rat(1,ep^1)
+	 +cMi1L2Eps0logmUV0*logmUV^0*rat(ep^0,1)
+	 +cMi1L2Eps0logmUV1*logmUV^1*rat(ep^0,1)
+	 +cMi1L2Eps0logmUV2*logmUV^2*rat(ep^0,1)
+	 +cMi1L2Eps1logmUV0*logmUV^0*rat(ep^1,1)
+	 +cMi1L2Eps1logmUV1*logmUV^1*rat(ep^1,1)
+	 +cMi1L2Eps1logmUV2*logmUV^2*rat(ep^1,1)
+	 +cMi1L2Eps1logmUV3*logmUV^3*rat(ep^1,1)
+	 +cMi1L2Eps2logmUV0*logmUV^0*rat(ep^2,1)
+	 +cMi1L2Eps2logmUV1*logmUV^1*rat(ep^2,1)
+	 +cMi1L2Eps2logmUV2*logmUV^2*rat(ep^2,1)
+	 +cMi1L2Eps2logmUV3*logmUV^3*rat(ep^2,1)
+	 +cMi1L2Eps2logmUV4*logmUV^4*rat(ep^2,1)
 	 +alarmMi1L2*rat(ep^3,1)
 	);
 
@@ -215,19 +215,13 @@ CF uvid;
 #endprocedure
 
 #procedure Mastermi2L2()
-    id uvid(2,2) = rat(ep^2,1) * mUV2^-2 * (
-	 cMi2L2Eps0logmUV0*logmUV^0*rat(ep^0,1) 
-	 +cMi2L2Eps0logmUV0*logmUV^0*rat(ep^0,1) 
-	 +cMi2L2Eps1logmUV0*logmUV^0*rat(ep^1,1) 
-	 +cMi2L2Eps1logmUV0*logmUV^0*rat(ep^1,1) 
-	 +cMi2L2Eps1logmUV1*logmUV^1*rat(ep^1,1) 
-	 +cMi2L2Eps1logmUV1*logmUV^1*rat(ep^1,1) 
-	 +cMi2L2Eps2logmUV0*logmUV^0*rat(ep^2,1) 
-	 +cMi2L2Eps2logmUV0*logmUV^0*rat(ep^2,1) 
-	 +cMi2L2Eps2logmUV1*logmUV^1*rat(ep^2,1) 
-	 +cMi2L2Eps2logmUV1*logmUV^1*rat(ep^2,1) 
-	 +cMi2L2Eps2logmUV2*logmUV^2*rat(ep^2,1) 
-	 +cMi2L2Eps2logmUV2*logmUV^2*rat(ep^2,1) 
+    id uvid(2,2) = 2 * (
+	 cMi2L2Eps0logmUV0*logmUV^0*rat(ep^0,1)
+	 +cMi2L2Eps1logmUV0*logmUV^0*rat(ep^1,1)
+	 +cMi2L2Eps1logmUV1*logmUV^1*rat(ep^1,1)
+	 +cMi2L2Eps2logmUV0*logmUV^0*rat(ep^2,1)
+	 +cMi2L2Eps2logmUV1*logmUV^1*rat(ep^2,1)
+	 +cMi2L2Eps2logmUV2*logmUV^2*rat(ep^2,1)
 	 +alarmMi2L2*rat(ep^3,1)
 	);
 
@@ -269,9 +263,6 @@ CF uvid;
     #call Mastermi1L2()
     #call Mastermi2L2()
 
-    .sort
-* at this stage all poles should be substituted
-    argument rat;
-        id ep^{`SELECTEDEPSILONORDER'+1} = 0;
-    endargument;
+    #call TruncateExpansion()
+    .sort:substitution;
 #endprocedure

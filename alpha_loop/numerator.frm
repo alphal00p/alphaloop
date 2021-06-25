@@ -760,7 +760,9 @@ id subgraph(?a,uvconf(?b),?c) = subgraph(?a,uvconf(?b));
 * divide by the normalizing factor of the denominator that is added to the topology
 * this is always 1/(k^2 - m_UV^2)^3 = -i / (4 pi)^2 * 1/2 * 1/mUV^2
 * use mUV2 so that it is ignored in the Taylor expansion
-        Multiply i_ * (4 * pi)^2 * 2 * mUV2^2;
+* TODO: find a better way to know the number of loops
+        if (count(uvprop,1) == 1) Multiply i_ * (4 * pi)^2 * 2 * mUV2^2;
+        if (count(uvprop,1) == 3) Multiply (i_ * (4 * pi)^2 * 2 * mUV2^2)^2;
     endif;
 
     #call IntegrateUV()
