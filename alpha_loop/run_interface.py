@@ -3470,6 +3470,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='Selected random variables to probe with inspect.')
     integrate_parser.add_argument('--run_id', metavar='run_id', type=int, default=None,
                     help='Specify a run id integer to start from if existing or to create if not.')
+    integrate_parser.add_argument('--run_description', metavar='run_description', type=str, default=None,
+                    help='Specify a description for this run.')
+    integrate_parser.add_argument('--integrand_descriptions', metavar='integrand_descriptions', type=str, nargs='+', default=None,
+                    help='Specify a description for each integrand of this run.')
     integrate_parser.add_argument(
         '-mc','--multichanneling',action="store_true", dest="multichanneling", default=False,
         help="Enable multichanneling (default: as per hyperparameters)")
@@ -3735,6 +3739,20 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
             if not os.path.exists(pjoin(run_workspace,'run_%d'%args.run_id)):
                 os.mkdir(pjoin(run_workspace,'run_%d'%args.run_id))
+            with open(pjoin(run_workspace,'run_%d'%args.run_id,'run_description.txt'),'w') as f:
+                if args.run_description is None:
+                    f.write('none')
+                else:
+                    f.write(args.run_description)
+            n_integrands = (1 if args.integrand_hyperparameters is None else len(args.integrand_hyperparameters))
+            with open(pjoin(run_workspace,'run_%d'%args.run_id,'integrand_descriptions.txt'),'w') as f:
+                if args.integrand_descriptions is None:
+                    f.write( '\n'.join('none' for _ in range(n_integrands)) )
+                else:
+                    if len(args.integrand_descriptions) != n_integrands:
+                        raise alphaLoopInvalidRunCmd("The number of integrand descriptions supplied with --integrand_descriptions [...] "+
+                            "should match the number of integrands supplied with --integrands [...] (%d != %d)"%(len(args.integrand_descriptions), n_integrands))
+                    f.write( '\n'.join(args.integrand_descriptions) )
 
             integrator_options = {
                  'cross_section_set'   : self.cross_section_set,
