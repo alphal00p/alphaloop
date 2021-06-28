@@ -620,6 +620,7 @@ impl SquaredTopologySet {
             topology_cache: self.topologies.iter().map(|t| t.create_caches()).collect(),
             deformation_vector_cache: vec![],
             scalar_products: vec![],
+            params: vec![],
             current_supergraph: 0,
             current_deformation_index: 0,
         }
@@ -1182,6 +1183,7 @@ impl SquaredTopologySet {
 pub struct SquaredTopologyCache<T: FloatLike> {
     topology_cache: Vec<Vec<Vec<Vec<LTDCache<T>>>>>,
     scalar_products: Vec<T>,
+    params: Vec<T>,
     deformation_vector_cache: Vec<Vec<FixedDeformationLimit>>,
     current_supergraph: usize,
     current_deformation_index: usize,
@@ -1903,16 +1905,21 @@ impl SquaredTopology {
             *kd = cut_mom.to_complex(true);
         }
 
-        let params = [
-            Into::<T>::into(self.settings.cross_section.m_uv_sq.sqrt()),
-            T::zero(),
-            Into::<T>::into(self.settings.cross_section.mu_r_sq.sqrt()),
-            T::zero(),
-            Into::<T>::into(self.settings.cross_section.gs),
-            T::zero(),
-            Into::<T>::into(self.settings.cross_section.small_mass_sq),
-            T::zero(),
-        ];
+        // initialize the constants
+        if cache.params.len() != 8 {
+            cache.params = vec![
+                Into::<T>::into(self.settings.cross_section.m_uv_sq.sqrt()),
+                T::zero(),
+                Into::<T>::into(self.settings.cross_section.mu_r_sq.sqrt()),
+                T::zero(),
+                Into::<T>::into(self.settings.cross_section.gs),
+                T::zero(),
+                Into::<T>::into(self.settings.cross_section.small_mass_sq),
+                T::zero(),
+            ];
+        }
+
+
 
         // now apply the same procedure for all uv limits
         let mut diag_and_num_contributions = Complex::zero();
@@ -2176,7 +2183,7 @@ impl SquaredTopology {
                         IntegrandType::LTD => T::get_integrand_ltd(
                             call_signature,
                             &cache.scalar_products,
-                            &params,
+                            &cache.params,
                             conf,
                         ),
                         IntegrandType::PF => {
@@ -2187,14 +2194,14 @@ impl SquaredTopology {
                                 T::get_integrand_pf(
                                     call_signature,
                                     &cache.scalar_products,
-                                    &params,
+                                    &cache.params,
                                     conf,
                                 )
                             } else {
                                 T::get_integrand_mpfr(
                                     call_signature,
                                     &cache.scalar_products,
-                                    &params,
+                                    &cache.params,
                                     conf,
                                     call_signature.prec,
                                 )
@@ -2473,6 +2480,7 @@ impl IntegrandImplementation for SquaredTopologySet {
                 topology_cache: self.topologies.iter().map(|t| t.create_caches()).collect(),
                 deformation_vector_cache: vec![],
                 scalar_products: vec![],
+                params: vec![],
                 current_supergraph: 0,
                 current_deformation_index: 0,
             },
@@ -2480,6 +2488,7 @@ impl IntegrandImplementation for SquaredTopologySet {
                 topology_cache: self.topologies.iter().map(|t| t.create_caches()).collect(),
                 deformation_vector_cache: vec![],
                 scalar_products: vec![],
+                params: vec![],
                 current_supergraph: 0,
                 current_deformation_index: 0,
             },
