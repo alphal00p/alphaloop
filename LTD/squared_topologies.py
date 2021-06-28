@@ -68,6 +68,9 @@ class SquaredTopologyGenerator:
         graph_counter = 0
         self.cuts = []
         for cutkosky_cut in cutkosky_cuts:
+            # sort cutkosky cuts such that they align best with the lmb
+            cutkosky_cut = tuple(sorted(cutkosky_cut, key=lambda x: (self.topo.edge_name_map[x[0]] in self.topo.loop_momenta)*-10 + cutkosky_cut.index(x)))
+
             # detect external bubbles
             duplicate_cut_edges_set = set()
             cut_powers = []
@@ -413,10 +416,14 @@ class SquaredTopologyGenerator:
                             loops = [[a for i, a in enumerate(r) if any(b[i] != 0 for b in loops) ] for r in loops]
                             loopsi = Matrix(loops)**-1
                             shifti = loopsi * shift
+                            # we use that UV subgraph defining momenta do not have a shift wrt external momenta
+                            remext  = [x[1] for x in uv_structure['remaining_graph_loop_topo'].loop_momentum_map]
+                            extshift = Matrix([[0]*len(self.topo.ext)]*(len(loops)-len(remext)) + remext)
+                            extshiti = loopsi * extshift
 
-                            uv_structure['forest_to_cb_matrix'] = (loopsi.tolist() , shifti.tolist(), loops, shift.tolist())
+                            uv_structure['forest_to_cb_matrix'] = (loopsi.tolist(), shifti.tolist(), extshiti.tolist(), loops, shift.tolist(), extshift.tolist())
                         else:
-                            uv_structure['forest_to_cb_matrix'] = ([[]], [[]], [[]], [[]])
+                            uv_structure['forest_to_cb_matrix'] = ([[]], [[]], [[]], [[]], [[]], [[]])
             self.cuts.append(cut_info)
 
     def export(self, output_path, model=None, include_integration_channel_info=False, optimize_channels=False):

@@ -75,7 +75,7 @@ FORM_processing_options = {
     'FORM_call_sig_id_offset_for_additional_lmb' : 1000000,
     'generate_arb_prec_output': False,
     'generate_integrated_UV_CTs' : True,
-    'generate_renormalisation_graphs' : True,
+    'generate_renormalisation_graphs' : False,
     'include_integration_channel_info' : True,
     'UV_min_dod_to_subtract' : 0,
     'selected_epsilon_UV_order' : 0,
@@ -1427,7 +1427,7 @@ CTable ltdmap(0:{},0:{});
 
                         # construct the map from the cmb/lmb to the forest basis
                         forest_to_cb = []
-                        for lmb_index, (r, aff, _, _) in enumerate(zip(*uv_structure['forest_to_cb_matrix'])):
+                        for lmb_index, (r, aff, extshift, _, _, _) in enumerate(zip(*uv_structure['forest_to_cb_matrix'])):
                             if all(x == 0 for x in r):
                                 assert(all(x == 0 for x in aff))
                                 continue
@@ -1445,6 +1445,10 @@ CTable ltdmap(0:{},0:{});
                                 else:
                                     shift += '-{}*c{}'.format(a, cmb_index + 1)
 
+                            eshift = self.momenta_decomposition_to_string(([0] * n_loops, extshift), True)
+                            if eshift != '':
+                                shift += '-({})'.format(eshift)
+
                             m = 'c{},{}{}'.format(lmb_index + cmb_offset + 1, mom, shift)
                             forest_to_cb.append(m)
                         if len(forest_to_cb) > 0:
@@ -1452,7 +1456,7 @@ CTable ltdmap(0:{},0:{});
                         
                         # only needed for spatial part
                         cb_to_forest = []
-                        for fmb_index, (_, _, r, aff) in enumerate(zip(*uv_structure['forest_to_cb_matrix'])):
+                        for fmb_index, (_, _, _, r, aff, extshift) in enumerate(zip(*uv_structure['forest_to_cb_matrix'])):
                             if all(x == 0 for x in r):
                                 assert(all(x == 0 for x in aff))
                                 continue
@@ -1469,6 +1473,11 @@ CTable ltdmap(0:{},0:{});
                                     shift += '+{}*(cs{}-({}))'.format(a, cmb_index + 1, d)
                                 else:
                                     shift += '+{}*cs{}'.format(a, cmb_index + 1)
+
+                            eshift = self.momenta_decomposition_to_string(([0] * n_loops, extshift), True)
+                            eshift = eshift.replace('p', 'ps')
+                            if eshift != '':
+                                shift += '+({})'.format(eshift)
 
                             m = 'fmbs{},{}{}'.format(fmb_index + 1, mom, shift)
                             cb_to_forest.append(m)

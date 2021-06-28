@@ -404,7 +404,7 @@ class TopologyGenerator(object):
                             highest_vertex += 1
 
                     uv_subgraph = TopologyGenerator(uv_subgraph_edges, powers=g.powers)
-                    uv_subgraph.inherit_loop_momentum_basis(g)
+                    uv_subgraph.inherit_loop_momentum_basis(self)
                     uv_subgraph.loop_momentum_bases()
 
                     # construct the remaining graph by shrinking the UV subgraph in g
@@ -417,7 +417,7 @@ class TopologyGenerator(object):
 
                     # make sure the remaining diagram has the correct loop momentum basis
                     remaining_graph = TopologyGenerator(remaining_graph_edges, powers=g.powers)
-                    remaining_graph.inherit_loop_momentum_basis(g)
+                    remaining_graph.inherit_loop_momentum_basis(self)
                     
                     subgraph_loop_edges = [m for m in subgraph_momenta if len(uv_subgraph.propagators[uv_subgraph.edge_name_map[m]]) == 1 and 
                         uv_subgraph.propagators[uv_subgraph.edge_name_map[m]][0][0] not in uv_subgraph.ext]
@@ -630,13 +630,16 @@ class TopologyGenerator(object):
             edge_map[edge_name] = signature
         return edge_map
 
-    def inherit_loop_momentum_basis(self, super_graph, sink=None):
+    def inherit_loop_momentum_basis(self, supergraph, sink=None):
         lmbs = self.loop_momentum_bases()
         if self.n_loops > 0:
-            # select a basis with the most loop momenta shared with the supergraph
-            lm_names = [super_graph.edge_map_lin[e][0] for e in  super_graph.loop_momenta]
+            # deterministicly select a basis based on the priority of the edges
+            # this is based on whether they are part of the lmb and their name
+            edge_names_sorted = list(sorted(supergraph.edge_map_lin[e][0] for e in supergraph.loop_momenta)) + \
+                list(sorted(supergraph.edge_map_lin[e][0] for e in range(len(supergraph.edge_map_lin)) if e not in supergraph.loop_momenta))
+
             bases = [tuple(self.edge_map_lin[e][0] for e in b) for b in lmbs]
-            bases = sorted(bases, key=lambda b: len([lm for lm in b if lm in lm_names]), reverse=True)
+            bases = sorted(bases, key=lambda b: sum(2**edge_names_sorted.index(e) for e in b))
             self.generate_momentum_flow(loop_momenta=bases[0], sink=sink) 
         else:
             self.generate_momentum_flow(sink)
