@@ -2649,6 +2649,9 @@ class FORMSuperGraphList(list):
 
                             temp_vars = list(sorted(set(var_pattern.findall(conf_sec))))
 
+                            # write out all integer powers as multiplications to prevent slow pow evaluation with floating exponent
+                            conf_sec = re.sub(r'pow\(([^,]+),(\d+)\)', lambda x: '*'.join([x.group(1)]*int(x.group(2))) , conf_sec)
+
                             if denominator_mode == 'FOREST':
                                 main_code = conf_sec.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(masst*masst)')
                                 main_code_with_diag_call = diag_pattern.sub(r'diag_\1(lm, params, E, invd)', main_code)
