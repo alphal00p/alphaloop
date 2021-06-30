@@ -145,6 +145,7 @@ class RunHyperparameters(HyperParameters):
             'Selectors.jet.min_jpt'                         : 10.0,
             'General.multi_channeling'                      : True,
             'General.use_optimal_channels'                  : True,
+            'General.use_lmb_channels'                      : False,
             'CrossSection.incoming_momenta'                 : [[125.0, 0.0, 0.0 ,0.0],],
             'CrossSection.m_uv_sq'                          : 155.0**2,
             'CrossSection.mu_r_sq'                          : 155.0**2,
@@ -3894,7 +3895,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         
         if args.integrator=='havana':
 
-            self.hyperparameters.set_parameter('General.multi_channeling',True)
+            self.hyperparameters.set_parameter('General.multi_channeling',False)
 
             integrands_hyperparameter_filenames = []
             if args.integrand_hyperparameters is None:

@@ -19,6 +19,7 @@ class SquaredTopologyGenerator:
         cut_filter=set(), FORM_numerator={}, FORM_integrand={},
         vertex_weights={}, edge_weights={}, generation_options={},analytic_result=None,
         default_kinematics=None):
+
         self.name = name
         self.topo = TopologyGenerator(edges, powers)
         self.topo.generate_momentum_flow(loop_momenta_names)
@@ -476,8 +477,23 @@ class SquaredTopologyGenerator:
             ]
         }
 
-        optimal_channel_ids = []
+        multi_channeling_lmb_bases = []
+        channel_id = 0
+        for lmb_channel in self.topo.loop_momentum_bases():
+            defining_edges_for_this_channel = [ self.topo.edge_map_lin[e_id][0] for e_id in lmb_channel ]
+            signatures = [ out['edge_signatures'][edge_name] for edge_name in defining_edges_for_this_channel ]
+            multi_channeling_lmb_bases.append(
+                {
+                    'channel_id' : channel_id,
+                    'cutkosky_cut_id' : -1, 
+                    'defining_propagators' : defining_edges_for_this_channel,
+                    'signatures' : signatures
+                }
+            )
+            channel_id += 1
+        out['multi_channeling_lmb_bases'] = multi_channeling_lmb_bases
 
+        optimal_channel_ids = []
         if include_integration_channel_info:
             
             from alpha_loop.run_interface import SuperGraph

@@ -498,11 +498,17 @@ pub struct StabilityCheckSettings {
     pub minimal_precision_to_skip_further_checks: f64,
 }
 
+fn default_as_false() -> bool {
+    false
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct GeneralSettings {
     pub multi_channeling: bool,
     pub multi_channeling_channel: Option<isize>,
     pub use_optimal_channels: bool,
+    #[serde(default="default_as_false")]
+    pub use_lmb_channels: bool,
     pub res_file_prefix: String,
     pub derive_overlap_structure: bool,
     pub deformation_strategy: DeformationStrategy,

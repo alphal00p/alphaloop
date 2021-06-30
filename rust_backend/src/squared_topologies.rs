@@ -382,6 +382,8 @@ pub struct SquaredTopology {
     #[serde(default)]
     pub multi_channeling_bases: Vec<MultiChannelingBasis>,
     #[serde(default)]
+    pub multi_channeling_lmb_bases: Vec<MultiChannelingBasis>,
+    #[serde(default)]
     pub optimal_channel_ids: Option<Vec<usize>>,
     #[serde(skip_deserializing)]
     pub multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)>,
@@ -1393,7 +1395,13 @@ impl SquaredTopology {
         let mut multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)> =
             vec![];
 
-        for mcb in &mut self.multi_channeling_bases {
+        let multi_channeling_bases_to_consider = if self.settings.general.use_lmb_channels {
+            &mut self.multi_channeling_lmb_bases
+        } else {
+            &mut self.multi_channeling_bases
+        };
+
+        for mcb in multi_channeling_bases_to_consider {
             
             if self.settings.general.use_optimal_channels {
                 if let Some(selected_channel_ids) = &self.optimal_channel_ids {
