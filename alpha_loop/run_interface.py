@@ -551,6 +551,50 @@ class SuperGraph(dict):
                 return True
         return False
 
+        # Alternative construction:
+        # signatures_to_edges = {}
+        # for edge, sig in self['edge_signatures'].items():
+        #     # Only consider loop propagators of the supergraph
+        #     if all(s==0 for s in sig[0]):
+        #         continue
+        #     hashable_signature = (tuple(sig[0]), tuple(sig[1]))
+        #     if hashable_signature in signatures_to_edges:
+        #         signatures_to_edges[hashable_signature].append(edge)
+        #     else:
+        #         signatures_to_edges[hashable_signature] = [edge,]
+        # for edge_sig, edge_names in signatures_to_edges.items():
+        #     if len(edge_names)<=1:
+        #         continue
+        #     if any( any( c['name'] in edge_names for c in cutkosky_cut['cuts'] ) for cutkosky_cut in self['cutkosky_cuts'] ):
+        #         return True
+        # return False
+
+    def contains_internal_selfenergy(self):
+
+        for cutkosky_cut in self['cutkosky_cuts']:
+            for diagram_set in cutkosky_cut['diagram_sets']:
+                for i_diag, diag_info in enumerate(diagram_set['diagram_info']):
+                    # Ignore UV diagram sets
+                    if all(not prop['uv'] for ll in diag_info['graph']['loop_lines'] if len(ll['signature'])>0 and not all(s==0 for s in ll['signature']) for prop in ll['propagators']):
+                        if any(prop['power']>1 for ll in diag_info['graph']['loop_lines'] for prop in ll['propagators']):
+                            return True
+        return False
+
+    def contains_selfenergy(self):
+
+        signatures_to_edges = {}
+        for edge, sig in self['edge_signatures'].items():
+            # Only consider loop propagators of the supergraph
+            if all(s==0 for s in sig[0]):
+                continue
+            hashable_signature = (tuple(sig[0]), tuple(sig[1]))
+            if hashable_signature in signatures_to_edges:
+                signatures_to_edges[hashable_signature].append(edge)
+            else:
+                signatures_to_edges[hashable_signature] = [edge,]
+        
+        return any(len(edges_for_sig)>1 for edges_for_sig in signatures_to_edges.values())
+
     def get_external_edges(self):
         """ Return the name of the external edges (not cutkosky cuts) to the left and the right of a particular supergraph."""
 
@@ -3630,6 +3674,15 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         help='Redis server port (default: %(default)d).')
     integrate_parser.add_argument('--bulk_redis_enqueuing', dest='bulk_redis_enqueuing', type=int, default=0,
         help='How many rq jobs to batch-enqueue at once, zero meaning no batch submission (default: %(default)d).')
+    integrate_parser.add_argument(
+        '-nose','--no_selfenergy', action="store_true", dest="no_selfenergy", default=False,
+        help="Filter all supergraphs from the selection that contain a self-energy contribution (internal or external).")
+    integrate_parser.add_argument(
+        '-nointse','--no_internal_selfenergy', action="store_true", dest="no_internal_selfenergy", default=False,
+        help="Filter all supergraphs from the selection that contain any internal self-energy contribution.")
+    integrate_parser.add_argument(
+        '-noextse','--no_external_selfenergy', action="store_true", dest="no_external_selfenergy", default=False,
+        help="Filter all supergraphs from the selection that contain any external self-energy contribution.")
     def help_integrate(self):
         self.integrate_parser.print_help()
         return
@@ -3668,16 +3721,46 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if len(selected_SGs)>1 and args.integrator!='havana':
             raise alphaLoopInvalidRunCmd("Only the havana integrator supports the joint integration of more than one supergraph.")
 
+        # Special keyword to integrate all supergraphs at once.
         if len(selected_SGs)==1 and selected_SGs[0].upper()=='ALL':
             selected_SGs = None
             if args.integrator!='havana':
                 raise alphaLoopInvalidRunCmd("Only the havana integrator supports the joint integration of all supergraphs.")
 
+        if args.no_selfenergy:
+            current_selection = list(self.all_supergraphs.keys()) if selected_SGs is None else selected_SGs
+            prior_length = len(current_selection)
+            new_selection = [ SG_name for SG_name in current_selection if not self.all_supergraphs[SG_name].contains_selfenergy() ]
+            if len(new_selection)!=prior_length:
+                logger.warning("The option --no_selfenergy disabled %d out of %d supergraphs."%(prior_length-len(new_selection), prior_length))
+                selected_SGs = new_selection
+
+        if args.no_external_selfenergy:
+            current_selection = list(self.all_supergraphs.keys()) if selected_SGs is None else selected_SGs
+            prior_length = len(current_selection)
+            new_selection = [ SG_name for SG_name in current_selection if not self.all_supergraphs[SG_name].contains_external_selfenergy() ]
+            if len(new_selection)!=prior_length:
+                logger.warning("The option --no_external_selfenergy disabled %d out of %d supergraphs."%(prior_length-len(new_selection), prior_length))
+                selected_SGs = new_selection            
+
+        if args.no_internal_selfenergy:
+            current_selection = list(self.all_supergraphs.keys()) if selected_SGs is None else selected_SGs
+            prior_length = len(current_selection)
+            new_selection = [ SG_name for SG_name in current_selection if not self.all_supergraphs[SG_name].contains_internal_selfenergy() ]
+            if len(new_selection)!=prior_length:
+                logger.warning("The option --no_internal_selfenergy disabled %d out of %d supergraphs."%(prior_length-len(new_selection), prior_length))
+                selected_SGs = new_selection
+
+        if selected_SGs is not None and len(selected_SGs)==0:
+            raise alphaLoopInvalidRunCmd("The list of selected supergraphs is empty.")
+
         if selected_SGs is not None and len(selected_SGs)==1:
+            if args.integrator=='havana':
+                logger.warning("When integrating only a single supergaph with Havana (%s in this case), the Monte-Carlo over supergraphs *and integration channel* is automatically disabled."%(selected_SGs[0]))
             args.MC_over_SGs = False
             args.MC_over_channels = False
 
-        if args.MC_over_channels and not args.MC_over_channels:
+        if args.MC_over_channels and not args.MC_over_SGs:
             raise alphaLoopInvalidRunCmd("Havana can only MC over integration channels when also MC-ing over supergraphs.")
 
         args.SG_name = args.SG_name[0]
