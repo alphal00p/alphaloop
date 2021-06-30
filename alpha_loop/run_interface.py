@@ -582,6 +582,14 @@ class SuperGraph(dict):
         
         edges_PDG = { e[0] : e [1] for e in self['edge_PDGs'] }
 
+        signatures_to_edges = {}
+        for edge, sig in self['edge_signatures'].items():
+            hashable_signature = (tuple(sig[0]), tuple(sig[1]))
+            if hashable_signature in signatures_to_edges:
+                signatures_to_edges[hashable_signature].append(edge)
+            else:
+                signatures_to_edges[hashable_signature] = [edge,]
+
         for i_cut, cutkosky_cut in enumerate(self['cutkosky_cuts']):
 
             # Obtain the (non-UV) diagram sets composing the amplitudes to the left and right of this cutkosky cut.
@@ -590,12 +598,19 @@ class SuperGraph(dict):
 
             for diagram_set in cutkosky_cut['diagram_sets']:
                 found_diag_set = False
-                for diag_info in diagram_set['diagram_info']:
+                diags_n_loops = [ diag_info['graph']['n_loops'] for diag_info in diagram_set['diagram_info'] ]
+                for i_diag, diag_info in enumerate(diagram_set['diagram_info']):
                     # Ignore UV diagram sets
                     if all(not prop['uv'] for ll in diag_info['graph']['loop_lines'] for prop in ll['propagators']):
                         found_diag_set = True
                         # Remove tree propagator loop lines
                         filtered_loop_lines = [ll for ll in diag_info['graph']['loop_lines'] if not all(lle==0 for lle in ll['signature']) ]
+                        # Embed their signatures within the embedding space of a global signature involving all graphs on that side of the cut.
+                        # meaning if you have a the following three graphs A,B and C on the right side for instance, with one-, three- and two-loops respectively,
+                        # then a loop line signature of C and of the form [1,0], will be mapped to [0,0,0,0,1,0] 
+                        # and a loop-line signature of [0,1,0] of B will be mapped to [0,0,0,1,0,0,0]
+                        for ll in filtered_loop_lines:
+                            ll['signature'] = [0,]*sum(diags_n_loops[:i_diag])+ll['signature']+[0,]*sum(diags_n_loops[i_diag+1:])
                         if not diag_info['conjugate_deformation']:
                             left_graph_loop_lines.extend( filtered_loop_lines )
                         else:
@@ -620,7 +635,6 @@ class SuperGraph(dict):
                                 # These two groups belong to the same loop that needs to be shrunk at once
                                 groupA[1] = min(groupA[1],groupB[1])
                                 groupB[1] = min(groupA[1],groupB[1])
-                    
                     # Now collect and fuse all identical groups
                     new_all_loop_lines =[]
                     for group_ID in sorted(list(set(group[1] for group in all_loop_lines))):
@@ -632,7 +646,7 @@ class SuperGraph(dict):
                     else:
                         all_loop_lines[:] = new_all_loop_lines                        
 
-            # We know only care about the propagator names that have been grouped together on either side of the cutkosky cut
+            # We now only care about the propagator names that have been grouped together on either side of the cutkosky cut
             # So let's retain this information only
             left_graph_loop_propagators = { i_group : 
                     sum([ [ prop['name'] for prop in loop_line['propagators'] ] for loop_line in loop_lines],[]) 
@@ -646,9 +660,11 @@ class SuperGraph(dict):
             # We can now use these propagators to shrink the corresponding loops in the supergraph
             non_shrunk_edges_for_this_CC_cut = {e[0]:tuple(e[1:]) for e in self['topo_edges']}
             effective_vertices = {}
+
             for i_side, loop_propagators_groups in enumerate([left_graph_loop_propagators, right_graph_loop_propagators]):
                 for group_ID, loop_propagators in loop_propagators_groups.items():
-                    non_shrunk_edges_for_this_CC_cut, subgraph_info = self.shrink_edges(non_shrunk_edges_for_this_CC_cut, loop_propagators)
+                    edges_to_shrink = sum([ signatures_to_edges[(tuple(self['edge_signatures'][edge][0]),tuple(self['edge_signatures'][edge][1]))] for edge in loop_propagators],[])
+                    non_shrunk_edges_for_this_CC_cut, subgraph_info = self.shrink_edges(non_shrunk_edges_for_this_CC_cut, edges_to_shrink)
                     subgraph_info['side_of_cutkosky_cut'] = 'left' if i_side==0 else 'right'
                     effective_vertices[subgraph_info.pop('effective_node')] = subgraph_info
             
