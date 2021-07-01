@@ -262,7 +262,8 @@ CF uvid;
     #call Mastermi1L1()
     #call Mastermi1L2()
     #call Mastermi2L2()
+    .sort:substitution;
 
     #call TruncateExpansion()
-    .sort:substitution;
+    .sort:truncation;
 #endprocedure

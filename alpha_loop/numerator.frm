@@ -443,6 +443,7 @@ id D^n? = rat(D^n, 1);
 * construct gamma string, drop odd-length gamma traces and symmetrize the trace
 repeat id gamma(s1?,?a,s2?)*gamma(s2?,?b,s3?) = gamma(s1,?a,?b,s3);
 id gamma(s1?,?a,s1?) = gammatrace(?a)*delta_(mod_(nargs_(?a), 2));
+id gammatrace = 1;
 
 .sort:gamma-filter;
 
@@ -821,6 +822,8 @@ repeat id subgraph(?a,p?) = subgraph(?a);
     #ifndef `NOMSBARSUBTRACTION'
         argument rat;
             id ep^n? = ep^n*theta_(n);
+* since there are no poles, we can simply drop all epsilon parts
+            if (`SELECTEDEPSILONORDER' == 0) id ep = 0;
         endargument;
     #endif
 
