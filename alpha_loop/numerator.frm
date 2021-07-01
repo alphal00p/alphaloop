@@ -625,12 +625,11 @@ id cbtofmb(?a) = replace_(?a);
 #call ExtractMomenta()
 
 * move the vertices and propagators into a subgraph, starting from the most nested ones first
-id subgraph(?a,uvconf(?b,x?,x1?)) = subgraph(?a,uvconf(?b,x,x1),?b); * prevent pattern matching issues by lowering the ?b by one level
 #do i=1,5
-    repeat id subgraph(n1?,...,n`i'?,uvconf(?a,x1?),?b,fmb1?,?c)*f?{prop,vx}(?d,fmb1?,?e) = subgraph(n1,...,n`i',uvconf(?a,x1*f(?d,fmb1,?e)),?b,fmb1,?c);
+    repeat id subgraph(n1?,...,n`i'?,x1?,fmb1?,?a,fmb2?,?b)*f?{prop,vx}(?c,fmb2?,?d) = subgraph(n1,...,n`i',x1*f(?c,fmb2,?d),fmb1,?a,fmb2,?b);
+    repeat id subgraph(n1?,...,n`i'?,x1?,fmb1?,?a)*f?{prop,vx}(?b,fmb1?,?c) = subgraph(n1,...,n`i',x1*f(?b,fmb1,?c),fmb1,?a);
 #enddo
-id subgraph(?a,uvconf(?b),?c) = subgraph(?a,uvconf(?b));
-
+repeat id subgraph(?a,p?) = subgraph(?a);
 .sort:graphs;
 
 * Create the local UV counterterm
@@ -646,8 +645,6 @@ id subgraph(?a,uvconf(?b),?c) = subgraph(?a,uvconf(?b));
         L uvdiag`ext' = extrasymbol_(`ext');
     #enddo
     .sort:uvdiag-2;
-
-    id uvconf(?a,x2?,x3?) = tmax^x2*x3;
 
 * fill in results from subdiagrams, adding a marker to count the number of subgraphs added
     #do ext={`uvdiagtotalstart'+1},`uvdiagstart'
@@ -674,7 +671,7 @@ id subgraph(?a,uvconf(?b),?c) = subgraph(?a,uvconf(?b));
 
     id uvconf2(p?) = replace_(p, t * p);
 
-    argument uvprop,1,vxs,uvtopo,diag;
+    argument uvprop,1,vxs,uvtopo,diag,onshell;
         id t = 1;
     endargument;
 
@@ -791,6 +788,32 @@ id subgraph(?a,uvconf(?b),?c) = subgraph(?a,uvconf(?b));
         exit "Critical error";
     endif;
 
+* Internal bubble treatment
+    AB+ cmb,diag,fmbtocb;
+    .sort:bubble-treatment-1;
+    Keep brackets;
+
+* set on-shell conditions for the internal bubble external momentum
+* we use that the cmb momenta that make up the bubble external momentum only appear in that combination
+    splitfirstarg onshell;
+    id onshell(p1?,-p?vector_,E?) = onshell(-p1,p,-E);
+    id onshell(-p?vector_,E?) = onshell(p,-E);
+
+    id onshell(p1?,p2?,E?) = onshell(p1+p2,p1,p2,E);
+    id onshell(p1?,E?) = onshell(p1,p1,E);
+    argument onshell,1;
+        Multiply replace_(<p1,ps1>,...,<p20,ps20>,<c1,cs1>,...,<c20,cs20>);
+    endargument;
+
+    id onshell(ks?,k?,p?,E?) = replace_(p, E*energyselector - ks - k);
+    id onshell(ks?,p?,E?) = replace_(p, E*energyselector - ks);
+
+    if (count(onshell, 1));
+        Print "Unsubstituted on-shell condition: %t";
+        exit "Critical error";
+    endif;
+    .sort:bubble-treatment-2;
+
 * Substitute the masters and expand in ep
     #call SubstituteMasters()
 
@@ -809,7 +832,7 @@ id subgraph(?a,uvconf(?b),?c) = subgraph(?a,uvconf(?b));
     if (count(uvconf1, 1)) redefine i "0";
 
 * fill in the unsubstituted subgraph into the supergraph
-    repeat id subgraph(x1?,?a,n?,?b,uvconf(?c,x2?))*uvconf1(n?,x3?) = subgraph(x1,?a,?b,uvconf(?c,x2*uvconf1(x3)));
+    repeat id subgraph(x1?,?a,n?,?b,x2?)*uvconf1(n?,x3?) = subgraph(x1,?a,?b,x2*uvconf1(x3));
     id uvconf1(n?,x?) = uvconf1(x);
     .sort:uv3;
 #enddo
@@ -836,6 +859,7 @@ id gamma(?a) = opengammastring(?a);
 * Simplify all open gamma strings
 #call Gstring(opengammastring,0)
 
+* External bubble treatment
 AB+ cmb,diag,fmbtocb;
 .sort:bubble-treatment;
 Keep brackets;
@@ -848,26 +872,6 @@ if (count(der, 1));
     splitfirstarg der;
     id der(?a,p?) = replace_(p, p + t*energyselector); * note: only one momentum is used
     id t^n? = delta_(n, 1);
-endif;
-
-* set on-shell conditions for the internal bubble external momentum
-* we use that the cmb momenta that make up the bubble external momentum only appear in that combination
-splitfirstarg onshell;
-id onshell(p1?,-p?vector_,E?) = onshell(-p1,p,-E);
-id onshell(-p?vector_,E?) = onshell(p,-E);
-
-id onshell(p1?,p2?,E?) = onshell(p1+p2,p1,p2,E);
-id onshell(p1?,E?) = onshell(p1,p1,E);
-argument onshell,1;
-    Multiply replace_(<p1,ps1>,...,<p20,ps20>,<c1,cs1>,...,<c20,cs20>);
-endargument;
-
-id onshell(ks?,k?,p?,E?) = replace_(p, E*energyselector - ks - k);
-id onshell(ks?,p?,E?) = replace_(p, E*energyselector - ks);
-
-if (count(onshell, 1));
-    Print "Unsubstituted on-shell condition: %t";
-    exit "Critical error";
 endif;
 
 * split off the energy part: energyselector=(1,0,0,0,..), fmbs = spatial part

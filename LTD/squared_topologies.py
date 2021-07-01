@@ -185,13 +185,11 @@ class SquaredTopologyGenerator:
                         for uv_sg in uv_limit['uv_subgraphs']:
                             subgraph_internal_edges = [e[0] for i, e in enumerate(uv_sg['graph'].edge_map_lin) if i not in uv_sg['graph'].ext]
 
-                            # TODO: internal bubble treatment is disabled for now as setting the on-shell conditions does not work yet
-                            uv_sg['internal_bubble'] = None
-                            #if len(uv_sg['graph'].edge_map_lin) - len(subgraph_internal_edges) == 2 and len(uv_limit['spinney']) == 1 and len(uv_sg['graph'].edge_map_lin) < len(diag_info['graph'].edge_map_lin):
-                            #    uv_sg['internal_bubble'] = copy.deepcopy(uv_sg['graph'])
-                            #    internal_bubbles.append((uv_sg['internal_bubble'], subgraph_internal_edges))
-                            #else:
-                            #    uv_sg['internal_bubble'] = None
+                            if len(uv_sg['graph'].edge_map_lin) - len(subgraph_internal_edges) == 2 and len(uv_limit['spinney']) == 1 and len(uv_sg['graph'].edge_map_lin) < len(diag_info['graph'].edge_map_lin):
+                                uv_sg['internal_bubble'] = copy.deepcopy(uv_sg['graph'])
+                                internal_bubbles.append((uv_sg['internal_bubble'], subgraph_internal_edges))
+                            else:
+                                uv_sg['internal_bubble'] = None
 
                     diag_info['internal_bubbles'] = internal_bubbles
             

@@ -1605,29 +1605,28 @@ CTable ltdmap(0:{},0:{});
                             if FORM_processing_options['generate_integrated_UV_CTs']:
                                 uv_diag += '*(1 - {}*diag({},{},{}))'.format('*'.join(vertex_structure), diag_set['id'], uv_subgraph['integrated_ct_id'], uv_diag_moms)
 
-                            uv_conf_diag = 'uvconf({},{},{}*{})'.format(uv_diag_moms,uv_subgraph['taylor_order'],'*'.join(uv_props),uv_diag)
+                            uv_conf_diag = 'tmax^{}*{}*{}'.format(uv_subgraph['taylor_order'],'*'.join(uv_props),uv_diag)
                             if uv_conf_diag not in uv_diagrams:
                                 uv_diagrams.append(uv_conf_diag)
 
                             uv_conf = 'uvdiag({})'.format(uv_diagrams.index(uv_conf_diag))
 
-                            sg_call = 'subgraph({}{},{})'.format(uv_subgraph['graph_index'], 
-                                (',' if len(uv_subgraph['subgraph_indices']) > 0 else '') + ','.join(str(si) for si in uv_subgraph['subgraph_indices']),
-                                uv_conf)
-
                             # subtract the on-shell version for every UV CT that also affects the internal bubble subtraction graph
+                            # FIXME: this is not multi-loop ready yet
                             subtractions = []
                             for bubble_momenta, onshell_condition in bubble_conditions:
                                 subgraph_internal_edges = [e[0] for i, e in enumerate(uv_subgraph['graph'].edge_map_lin) if i not in uv_subgraph['graph'].ext]
                                 if len(set(subgraph_internal_edges) - set(bubble_momenta)) == 0:
                                     subtractions.append('(1-{})'.format(onshell_condition))
 
+                            sg_call = 'subgraph({}{},{}{},{})'.format(uv_subgraph['graph_index'],
+                                (',' if len(uv_subgraph['subgraph_indices']) > 0 else '') + ','.join(str(si) for si in uv_subgraph['subgraph_indices']),
+                                uv_conf, '' if len(subtractions) == 0 else ('*'  + '*'.join(subtractions)), uv_diag_moms)
+
                             if uv_subgraph['internal_bubble'] is not None:
                                 # add the subtraction for the bubble
-                                sg_call = '(-diag({},{},{})*{}+{}*{})'.format(
-                                    diag_set['id'], uv_subgraph['internal_bubble_id'], uv_diag_moms, bubble_treatment, sg_call, '*'.join(subtractions))
-                            elif len(subtractions) > 0:
-                                sg_call = '{}*{}'.format(sg_call, '*'.join(subtractions))
+                                sg_call = '(-subgraph(-1,diag({},{},{})*{},{})+{})'.format(
+                                    diag_set['id'], uv_subgraph['internal_bubble_id'], uv_diag_moms, bubble_treatment, uv_diag_moms, sg_call)
 
                             forest_element.append(sg_call)
 
