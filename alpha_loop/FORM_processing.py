@@ -1006,16 +1006,16 @@ aGraph=%s;
                 sig_map = nmi.dot(l.signature)
                 for (sig_sign, (cut_sign, (lci, pci))) in zip(sig_map, co):
                     if sig_sign != 0:
-                        sig = tuple(list(prop_mom_in_lmb[prop_id[(lci, pci)]][1]) + list(prop_mom_in_lmb[prop_id[(li, pi)]][2]))
-                        minsig = tuple(list(-prop_mom_in_lmb[prop_id[(lci, pci)]][1]) + list(-prop_mom_in_lmb[prop_id[(li, pi)]][2]))
+                        sig = tuple(list(prop_mom_in_lmb[prop_id[(lci, pci)]][1]) + list(prop_mom_in_lmb[prop_id[(lci, pci)]][2]))
+                        minsig = tuple(list(-prop_mom_in_lmb[prop_id[(lci, pci)]][1]) + list(-prop_mom_in_lmb[prop_id[(lci, pci)]][2]))
                         
                         if sig in on_shell_condition:
                             momp = '+{}'.format(on_shell_condition[sig])
                         elif minsig in on_shell_condition:
                             momp = '-{}'.format(on_shell_condition[minsig])
                         else:
-                            momp = self.momenta_decomposition_to_string((prop_mom_in_lmb[prop_id[(li, pi)]][1], prop_mom_in_lmb[prop_id[(li, pi)]][2]), True)
-                            momp = '' if momp == '' else '+energies({})'.format(momp)
+                            momp = self.momenta_decomposition_to_string((prop_mom_in_lmb[prop_id[(lci, pci)]][1], prop_mom_in_lmb[prop_id[(lci, pci)]][2]), True)
+                            momp = '0' if momp == '' else '+energies({})'.format(momp)
 
                         energy.append('{},ltd{},{}{}'.format(int(sig_sign), prop_id[(lci, pci)], '+' if -sig_sign == 1 else '-', momp))
                         # the full energy including the cut sign
@@ -1202,6 +1202,7 @@ aGraph=%s;
 
                     max_diag_set_id = max(max_diag_set_id, diag_set['id'])
                     max_diag_id = max(max_diag_id, graph_id)
+                    global_diag_id = (diag_set['id'], graph_id)
 
                     if integrand_type == "both" or integrand_type == "PF":
                         pf_prefactor = '*'.join(pf_prefactor)
@@ -1219,8 +1220,6 @@ aGraph=%s;
                             res, used_props = pf.to_FORM(energy_index_map=unique_energy, den_library=den_library, on_shell_conditions=on_shell_condition)
                             res = '\n'.join(['\t' + l for l in res.split('\n')])
                             resden = ','.join('invd{},{}'.format(i, d) for i, d in enumerate(den_library) if i in used_props)
-
-                        global_diag_id = (diag_set['id'], graph_id)
 
                         pf_instr = '(2*pi*i_)^{}*constants({})*\nallenergies({})*\nellipsoids({})*(\n{})'.format(g.n_loops, ','.join(constants + [pf_prefactor]),
                             ','.join(energies), resden, res)
