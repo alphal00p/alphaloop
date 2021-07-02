@@ -1604,7 +1604,7 @@ CTable ltdmap(0:{},0:{});
                             if FORM_processing_options['generate_integrated_UV_CTs']:
                                 uv_diag += '*(1 - {}*diag({},{},{}))'.format('*'.join(vertex_structure), diag_set['id'], uv_subgraph['integrated_ct_id'], uv_diag_moms)
 
-                            uv_conf_diag = 'tmax^{}*{}*{}'.format(uv_subgraph['taylor_order'],'*'.join(uv_props),uv_diag)
+                            uv_conf_diag = '-tmax^{}*{}*{}'.format(uv_subgraph['taylor_order'],'*'.join(uv_props),uv_diag)
                             if uv_conf_diag not in uv_diagrams:
                                 uv_diagrams.append(uv_conf_diag)
 
@@ -1624,7 +1624,8 @@ CTable ltdmap(0:{},0:{});
 
                             if uv_subgraph['internal_bubble'] is not None:
                                 # add the subtraction for the bubble
-                                sg_call = '(-subgraph(-1,diag({},{},{})*{},{})+{})'.format(
+                                # FIXME: which bubble_treatment?
+                                sg_call = '(subgraph(-1,-diag({},{},{})*{},{})+{})'.format(
                                     diag_set['id'], uv_subgraph['internal_bubble_id'], uv_diag_moms, bubble_treatment, uv_diag_moms, sg_call)
 
                             forest_element.append(sg_call)

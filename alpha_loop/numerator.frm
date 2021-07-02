@@ -636,8 +636,8 @@ repeat id subgraph(?a,p?) = subgraph(?a);
 * Create the local UV counterterm
 #define uvdiagtotalstart "`extrasymbols_'"
 #do i = 1,1
-* Split off all UV subgraphs without dependencies to a separate expression
-    id subgraph(x1?, x2?) = -uvconf1(x1, x2);
+* Split off all subgraphs without dependencies to a separate expression
+    id subgraph(x1?, x2?) = uvconf1(x1, x2);
     argtoextrasymbol tonumber,uvconf1,2;
     #redefine uvdiagstart "`extrasymbols_'"
     .sort:uvdiag-1;
@@ -676,9 +676,11 @@ repeat id subgraph(?a,p?) = subgraph(?a);
         id t = 1;
     endargument;
 
-* rescale all masses in the numerator coming from the expansion
-    repeat id m?allmasses = tmp(m);
-    id tmp(m?) = t*m;
+* rescale all masses in the numerator coming from the expansion if we are UV expanding
+    if (count(uvprop,1));
+        repeat id m?allmasses = tmp(m);
+        id tmp(m?) = t*m;
+    endif;
 
 * Taylor expand the propagators to the right depth
 * p carries a t dependence that determines the order
@@ -796,6 +798,7 @@ repeat id subgraph(?a,p?) = subgraph(?a);
 
 * set on-shell conditions for the internal bubble external momentum
 * we use that the cmb momenta that make up the bubble external momentum only appear in that combination
+* FIXME: does not work when term is differentiated further, we have to apply substitution after all differentiations
     splitfirstarg onshell;
     id onshell(p1?,-p?vector_,E?) = onshell(-p1,p,-E);
     id onshell(-p?vector_,E?) = onshell(p,-E);
@@ -803,7 +806,7 @@ repeat id subgraph(?a,p?) = subgraph(?a);
     id onshell(p1?,p2?,E?) = onshell(p1+p2,p1,p2,E);
     id onshell(p1?,E?) = onshell(p1,p1,E);
     argument onshell,1;
-        Multiply replace_(<p1,ps1>,...,<p20,ps20>,<c1,cs1>,...,<c20,cs20>);
+        Multiply replace_(<p1,ps1>,...,<p20,ps20>,<c1,cs1>,...,<c20,cs20>,<fmb1,fmbs1>,...,<fmb20,fmbs20>);
     endargument;
 
     id onshell(ks?,k?,p?,E?) = replace_(p, E*energyselector - ks - k);
@@ -822,8 +825,6 @@ repeat id subgraph(?a,p?) = subgraph(?a);
     #ifndef `NOMSBARSUBTRACTION'
         argument rat;
             id ep^n? = ep^n*theta_(n);
-* since there are no poles, we can simply drop all epsilon parts
-            if (`SELECTEDEPSILONORDER' == 0) id ep = 0;
         endargument;
     #endif
 
