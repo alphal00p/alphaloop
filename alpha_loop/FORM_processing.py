@@ -2688,6 +2688,7 @@ class FORMSuperGraphList(list):
                                 main_code_mpfr = main_code.replace('pi', 'mpreal(mpfr::const_pi())').replace('double complex', 'mpcomplex')
                                 main_code_mpfr = re.sub(r'sqrt\(([^)]+)\)', r'sqrt(mpcomplex(\1))', main_code_mpfr)
                                 main_code_mpfr = re.sub(r'pow\(([^,]+)', r'pow(mpcomplex(\1)', main_code_mpfr)
+                                main_code_mpfr = re.sub(r'log\(([^)]+)\)', r'log(mpcomplex(\1))', main_code_mpfr)
                                 main_code_mpfr = float_pattern.sub(r'mpreal("\1")', main_code_mpfr)
                                 integrand_mpfr_main_code += '\n' + '\nstatic mpcomplex diag_{}_mpfr(__complex128 lm[], __complex128 params[], mpcomplex E[], mpcomplex invd[]) {{{}\n{}}}'.format(abs(int(conf[0])),
                                     '\n\tmpcomplex {};'.format(','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_mpfr
@@ -2705,8 +2706,8 @@ class FORMSuperGraphList(list):
                                 max_denom = max((eid + 1 for (cid, eid) in propagators_per_cut if cid == cut_id), default=0)
                                 denoms = ['0' if (cut_id, jj) not in propagators_per_cut else propagators_per_cut[(cut_id, jj)] for jj in range(max_denom)]
 
-                                conf_sec = '\n\tdouble complex E[] = {{{}}};\n'.format(','.join(energies)) + \
-                                           '\tdouble complex invd[] = {{{}}};\n'.format(','.join(denoms)) + \
+                                conf_sec = '\n\tdouble complex E[] = {{{}}};\n'.format('0' if len(energies) == 0 else ','.join(energies)) + \
+                                           '\tdouble complex invd[] = {{{}}};\n'.format('0' if len(denoms) == 0 else ','.join(denoms)) + \
                                            '\tdouble complex {};'.format(','.join(temp_vars)) +\
                                            conf_sec
 
@@ -2724,8 +2725,13 @@ class FORMSuperGraphList(list):
                                 )
 
                                 main_code_mpfr = main_code.replace('pi', 'mpreal(mpfr::const_pi())').replace('double complex', 'mpcomplex')
+
+                                for p in params:
+                                    if p != 'pi':
+                                        main_code_mpfr = main_code_mpfr.replace(p, 'mpcomplex({})'.format(p))
                                 main_code_mpfr = re.sub(r'pow\(([^,]+)', r'pow(mpcomplex(\1)', main_code_mpfr)
                                 main_code_mpfr = re.sub(r'sqrt\(([^)]+)\)', r'sqrt(mpcomplex(\1))', main_code_mpfr)
+                                main_code_mpfr = re.sub(r'log\(([^)]+)\)', r'log(mpcomplex(\1))', main_code_mpfr)
                                 main_code_mpfr = float_pattern.sub(r'mpreal("\1")', main_code_mpfr)
                                 main_code_mpfr = forest_pattern.sub(r'forest_\1_mpfr(lm, params, E, invd)', main_code_mpfr)
                                 main_code_mpfr = re.sub(r'\*out =([^;]*);', r'*out = (__complex128)(\1);', main_code_mpfr)
@@ -2891,7 +2897,7 @@ void %(header)sevaluate_{}_{}_mpfr(__complex128 lm[], __complex128 params[], int
 
         if integrand_type is not None:
             self.generate_integrand_functions(root_output_path, additional_overall_factor='', 
-                            params={}, output_format='c', workspace=None, integrand_type=integrand_type,process_definition=process_definition)
+                            params=params, output_format='c', workspace=None, integrand_type=integrand_type,process_definition=process_definition)
 
         generation_time = time.time() - start_time
         self.code_generation_statistics['generation_time_in_s'] = float('%.1f'%generation_time)

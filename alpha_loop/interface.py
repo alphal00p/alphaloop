@@ -123,6 +123,8 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'FORM_processing_output_format' : None,
             # Select if the FORM integrand is the "PF" expression or "LTD" expression, both, or None
             'FORM_integrand_type' : "both",
+            # Select whether to generate aribtrary precision C code
+            'FORM_generate_arb_prec_output' : False,
             # Select if the sum of diagram sets should be generated with 'nosum', 'onlysum', 'both'
             'FORM_sum_diagram_sets': "nosum",
             'FORM_construct_numerator': False,
@@ -313,6 +315,12 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             if not value in ('PF', 'LTD', 'both', 'None'):
                 raise alphaLoopInvalidCmd("alphaLoop option 'FORM_integrand_type' should be one of 'PF', 'LTD', 'None', not %s"%value)
             self.alphaLoop_options['FORM_integrand_type'] = value if value in ('PF', 'both', 'LTD') else None
+        elif key == 'FORM_generate_arb_prec_output':
+            if value.upper() not in ['TRUE','FALSE']:
+                raise alphaLoopInvalidCmd("alphaLoop option 'FORM_generate_arb_prec_output' should be a bool', not %s"%value)
+            self.FORM_options['generate_arb_prec_output'] = True if value.upper() == 'TRUE' else False
+            if value.upper() == 'TRUE':
+                self.FORM_options['compilation-options'] += ['-e', "ARB_PREC=1"]
         elif key == 'FORM_sum_diagram_sets':
             if not value in ('nosum', 'onlysum', 'both'):
                 raise alphaLoopInvalidCmd("alphaLoop option 'FORM_sum_diagram_sets' should be one of 'nosum', 'onlysum', 'both', not %s"%value)
