@@ -574,7 +574,7 @@ aGraph=%s;
 
             lmb_metric = []
             for (lmb_index, lmb) in enumerate(all_lmbs):
-                lmb_pdgs = [ edge_name_to_pdg[edge_key_to_name[e_key]] for e_key in original_LMB ]
+                lmb_pdgs = [ edge_name_to_pdg[edge_key_to_name[e_key]] for e_key in lmb ]
                 lmb_pdg_score = 1
                 for pdg in lmb_pdgs:
                     if model is None:
