@@ -647,9 +647,9 @@ repeat id subgraph(?a,p?) = subgraph(?a);
     #enddo
     .sort:uvdiag-2;
 
-* fill in results from subdiagrams, adding a marker to count the number of subgraphs added
+* fill in results from subdiagrams
     #do ext={`uvdiagtotalstart'+1},`uvdiagstart'
-        id uvconf1(`ext') = uvdiag`ext'*xsg;
+        id uvconf1(`ext') = uvdiag`ext';
     #enddo
     .sort:uv-subgrap-fillin;
     Hide tensorforest1,...,tensorforest`tensorforestcount';
@@ -717,11 +717,14 @@ repeat id subgraph(?a,p?) = subgraph(?a);
     id uvprop(k?,t1?ts,n?) = uvprop(k, n);
 
 * select what to keep for the local UV vs integrated UV CT
-* only allow integrated CT at the deepest level
     if (count(vxs, 1) == 0);
-        id uvprop(?a) = 1;
+        id xnomsbar = 0;
+        id xlct = 1;
+        id uvprop(?a) = xlct;
     else;
-        id xsg = 0;
+* if a subdiagram of the graph has a local CT, drop it and replace it by its untruncated integrated version
+        id xlct = 0;
+        id xnomsbar = 1;
         id uvtopo(?a) = 1;
     endif;
 
@@ -823,9 +826,14 @@ repeat id subgraph(?a,p?) = subgraph(?a);
 
 * subtract MS-bar contributions (the poles)
     #ifndef `NOMSBARSUBTRACTION'
-        argument rat;
-            id ep^n? = ep^n*theta_(n);
-        endargument;
+* store an unsubtracted version that can be used as the integrated version of the local counterterm
+        if (count(xlct, 1) == 0) Multiply xmsbar - xnomsbar;
+        if (count(xmsbar, 1));
+            argument rat;
+                id ep^n? = ep^n*theta_(n);
+            endargument;
+        endif;
+        id xmsbar = 1;
     #endif
 
     .sort:uv-subgraph-done;
@@ -841,7 +849,8 @@ repeat id subgraph(?a,p?) = subgraph(?a);
     .sort:uv3;
 #enddo
 
-id xsg = 1;
+id xnomsbar = 0;
+id xlct = 1;
 Multiply replace_(mUV2, mUV);
 .sort:local-uv-done;
 Drop uvdiag`uvdiagtotalstart',...,uvdiag`uvdiagend';
