@@ -130,7 +130,8 @@ Auto S lm,ext,E;
 #ifdef `FOURDIM'
     Auto I mu=4,s=4;
 #else
-    Auto I mu=D,s=D;
+* note: a change of spinor dimension here needs to be reflected in Gstring and in the Feynman rules
+    Auto I mu=D,s=4;
 #endif
 Symbol ge, gs, ghhh, type, in, out, virtual;
 Auto S x, idx, t, n;
@@ -443,7 +444,7 @@ id D^n? = rat(D^n, 1);
 * construct gamma string, drop odd-length gamma traces and symmetrize the trace
 repeat id gamma(s1?,?a,s2?)*gamma(s2?,?b,s3?) = gamma(s1,?a,?b,s3);
 id gamma(s1?,?a,s1?) = gammatrace(?a)*delta_(mod_(nargs_(?a), 2));
-id gammatrace = 1;
+id gammatrace = 4;
 
 .sort:gamma-filter;
 
