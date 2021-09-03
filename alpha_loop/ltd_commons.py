@@ -336,8 +336,6 @@ hyperparameters = HyperParameters({
             'normalize_per_source': False,
             # Normalise the deformation of each subspace with the number of sources in that subspace
             'normalisation_of_subspace_components' : True,
-            # Normalise the overall fixed deformation with respect to the number of its building elements (i.e. subspaces)
-            'normalisation_per_number_of_sources' : True,
             # add the normal vector for every ellipsoid which is excluded on all other ellipsoids
             'include_normal_source': False,
             # dampen the fixed sources away from intersections. Use this parameter only when include_normal_source is true

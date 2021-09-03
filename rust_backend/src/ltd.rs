@@ -126,7 +126,11 @@ impl Topology {
     /// If `external_momenta_set` is true, the existence conditions
     /// for ellipsoids and e_cm are determined as well.
     pub fn process(&mut self, external_momenta_set: bool) {
-        assert!(self.n_loops <= MAX_LOOP, "MAX_LOOP is too small: it should be at least {}", self.n_loops);
+        assert!(
+            self.n_loops <= MAX_LOOP,
+            "MAX_LOOP is too small: it should be at least {}",
+            self.n_loops
+        );
 
         // construct the numerator
         self.numerator = if self.numerator_tensor_coefficients.len() == 0
@@ -741,7 +745,7 @@ impl Topology {
                     {
                         let r = self.evaluate_surface_complex(surf, &loop_momenta);
                         if surf.delta_sign > 0 && r.re >= 0. || surf.delta_sign < 0 && r.re <= 0. {
-                            panic!(
+                            println!(
                                 "Deformation source {:?} is not on the inside of surface {}: {}",
                                 d.deformation_sources, surf_index, r.re
                             );
@@ -1982,15 +1986,6 @@ impl Topology {
                         }
                     }
                 }
-                if self.settings.general.debug > 2 {
-                    println!(
-                        "  | k={:e}\n  | dirs={:e}\n  | suppression={:e}\n  | contribution={:e}",
-                        loop_momenta[0].real(),
-                        &d.deformation_sources[0],
-                        s.real(),
-                        &d.deformation_sources[0].cast() * s.real(),
-                    );
-                }
 
                 // normalize the deformation vector per source
                 if self.settings.deformation.fixed.normalize_per_source {
@@ -2014,6 +2009,22 @@ impl Topology {
                             / DualN::from_real(Into::<T>::into(self.e_cm_squared.sqrt()));
                     }
                 }
+
+                if self.settings.general.debug > 2 {
+                    for (ll, l) in loop_momenta.iter().enumerate() {
+                        println!(
+                        "  | k{}={:e}\n  | source={:e}\n  | suppression={:e}\n  | contribution kappa{}={:e}",
+                        ll + 1,
+                        l.real(),
+                        &d.deformation_sources[ll],
+                        s.real(),
+                        ll + 1,
+                        kappa_source[ll].real(),
+                    );
+                    }
+                }
+            }
+
             }
 
             // make sure the lambda growth coming from multiple sources is under control
@@ -2110,19 +2121,18 @@ impl Topology {
             };
 
             for ii in 0..self.n_loops {
-                kappas[ii] += kappa_source[ii] * lambda;
-            }
-        }
+                let a = kappa_source[ii] * lambda;
+                if self.settings.general.debug > 2 {
+                    println!(
+                        "  | lambda{}={}\n  | kappa{} contrib={:e}",
+                        ii + 1,
+                        lambda.real(),
+                        ii + 1,
+                        a.real()
+                    );
+                }
 
-        if self
-            .settings
-            .deformation
-            .fixed
-            .normalisation_per_number_of_sources
-        {
-            for ii in 0..self.n_loops {
-                kappas[ii] *=
-                    DualN::from_real(Into::<T>::into(1. / self.fixed_deformation.len() as f64));
+                kappas[ii] += a;
             }
         }
 
@@ -2327,7 +2337,7 @@ impl Topology {
 
         if self.settings.general.debug > 2 {
             for ii in 0..self.n_loops {
-                println!("kappa{} scaled={:e}", ii + 1, kappas[ii].real());
+                println!("kappa{} scaled (prelambda)={:e}", ii + 1, kappas[ii].real());
             }
         }
 

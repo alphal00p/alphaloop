@@ -381,7 +381,6 @@ pub struct DeformationFixedSettings {
     pub ir_beta_pinch: f64,
     pub normalize_per_source: bool,
     pub normalisation_of_subspace_components: bool,
-    pub normalisation_per_number_of_sources: bool,
     pub include_normal_source: bool,
     pub source_dampening_factor: f64,
     pub maximize_radius: bool,

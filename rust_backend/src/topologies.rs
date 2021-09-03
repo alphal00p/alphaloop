@@ -74,7 +74,8 @@ pub struct ESurface {
 }
 
 impl Topology {
-    pub fn print_surface(&self, s: &Surface) {
+    pub fn print_surface(&self, index: usize, s: &Surface) {
+        print!("Surface {}: ", index);
         for ((ll, pp), e_sign, _) in &s.id {
             print!("{}sqrt((", if *e_sign > 0 { "+" } else { "-" });
             let prop = &self.loop_lines[*ll].propagators[*pp];
@@ -89,7 +90,7 @@ impl Topology {
             print!("+{})", prop.m_squared);
         }
         println!(
-            "{:+} exists={} pinched={:?}",
+            "{:+} exists={} type={:?}",
             s.shift.t.multiply_sign(s.delta_sign),
             s.exists,
             s.surface_type
@@ -872,7 +873,7 @@ impl Topology {
             .enumerate()
             .filter_map(|(i, s)| {
                 if self.settings.general.debug > 1 {
-                    self.print_surface(&s);
+                    self.print_surface(i, &s);
                 }
 
                 if s.exists && s.surface_type == SurfaceType::Ellipsoid && s.group == i {
@@ -971,7 +972,11 @@ impl Topology {
 
                 if foci.len() == 0 {
                     // ellipsoid is just a number!
-                    if energy_shift < 0. {
+                    if energy_shift < 1e-8 * self.e_cm_squared.sqrt() {
+                        if energy_shift > -1e-8 * self.e_cm_squared.sqrt() {
+                            println!("Constant ellipsoid {} lies on focus", i);
+                        }
+
                         // the constraint is on the inside of the ellipsoid, so we consider it existing
                         constant_e_surfaces.push(i);
                     } else {
@@ -1068,13 +1073,12 @@ impl Topology {
 
                 surface_shift.t = energy_shift;
 
-                if surface_shift.square() - mass_sum.powi(2) >= 1e-8 * self.e_cm_squared
-                    && surface_shift.t < 0.
-                {
+                let d = surface_shift.square() - mass_sum.powi(2);
+                if d >= -1e-8 * self.e_cm_squared && surface_shift.t <= 0. {
+                    // consider pinched E-surfaces in the subspace too
                     if self.settings.general.debug > 0 {
-                        let r = surface_shift.square() - mass_sum.powi(2);
-                        if r < 1e-6 * self.e_cm_squared {
-                            println!("Small ellipsoid {} detected: {}", i, r);
+                        if d < 1e-6 * self.e_cm_squared {
+                            println!("Small ellipsoid {} detected: {}", i, d);
                         }
                     }
 
@@ -1673,7 +1677,9 @@ impl Topology {
             lm.t = T::zero();
         }
 
-        debug_assert!(self.evaluate_surface(&ll_on_foci, s) < T::zero());
+        debug_assert!(
+            self.evaluate_surface(&ll_on_foci, s) < Into::<T>::into(1e-8 * self.e_cm_squared)
+        );
         ll_on_foci
     }
 
