@@ -185,11 +185,17 @@ class SquaredTopologyGenerator:
                         for uv_sg in uv_limit['uv_subgraphs']:
                             subgraph_internal_edges = [e[0] for i, e in enumerate(uv_sg['graph'].edge_map_lin) if i not in uv_sg['graph'].ext]
 
-                            if len(uv_sg['graph'].edge_map_lin) - len(subgraph_internal_edges) == 2 and len(uv_limit['spinney']) == 1 and len(uv_sg['graph'].edge_map_lin) < len(diag_info['graph'].edge_map_lin):
-                                uv_sg['internal_bubble'] = copy.deepcopy(uv_sg['graph'])
-                                internal_bubbles.append((uv_sg['internal_bubble'], subgraph_internal_edges))
-                            else:
-                                uv_sg['internal_bubble'] = None
+                            uv_sg['gluon_bubble'] = None
+                            uv_sg['internal_bubble'] = None
+
+                            if len(uv_sg['graph'].edge_map_lin) - len(subgraph_internal_edges) == 2 and len(uv_limit['spinney']) == 1:
+                                if len(uv_sg['graph'].edge_map_lin) < len(diag_info['graph'].edge_map_lin):
+                                    #uv_sg['internal_bubble'] = copy.deepcopy(uv_sg['graph'])
+                                    #internal_bubbles.append((uv_sg['internal_bubble'], subgraph_internal_edges))
+                                    pass
+
+                                if particle_ids[uv_sg['graph'].edge_map_lin[uv_sg['graph'].ext[0]][0]] == 21:
+                                    uv_sg['gluon_bubble'] = True
 
                     diag_info['internal_bubbles'] = internal_bubbles
             
@@ -205,9 +211,14 @@ class SquaredTopologyGenerator:
                                 uv_sg['internal_bubble_id'] = graph_counter
                                 graph_counter += 1
 
-                            for dg in uv_sg['derived_graphs']:
+                            for dgi, dg in enumerate(uv_sg['derived_graphs']):
                                 dg['id'] = graph_counter
                                 graph_counter += 1
+
+                                if uv_sg['gluon_bubble'] is not None and dgi < 2:
+                                    dg['gluon_bubble_id'] = graph_counter
+                                    graph_counter += 1
+
                             uv_sg['integrated_ct_id'] = graph_counter
                             graph_counter += 1
                         uv_limit['remaining_graph_id'] = graph_counter
@@ -353,13 +364,26 @@ class SquaredTopologyGenerator:
                                     uv_loop_lines.append((ll.signature, [(p.name, p.parametric_shift,
                                         1 + len([1 for _,mn in loop_topo.propagator_map.items() if mn == p.name])) for p in ll.propagators], derived_ll_power - orig_ll_power))
                                     prop = ll.propagators[0]
-                                    prop.uv = True
-                                    prop.m_squared = mu_uv**2
+
+                                    if uv_subgraph['gluon_bubble'] and di < 2:
+                                        # for the gluon bubble, we keep the 0th and 1st order of the UV CT as is, so that it substracts the quadratic soft and UV
+                                        # note that the UV expansion does not need to be changed, as mUV contributions only appear at the second order
+                                        # this procedure only works for one-loop gluon bubbles
+                                        pass
+                                    else:
+                                        prop.uv = True
+                                        prop.m_squared = mu_uv**2
                                     prop.power = derived_ll_power
                                     prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
                                     ll.propagators = [prop]
 
                                 loop_topo.uv_loop_lines = (uv_loop_lines, basis_shift_map)
+
+                                if uv_subgraph['gluon_bubble'] and di < 2:
+                                    d['loop_topo_orig_mass'] = copy.deepcopy(loop_topo)
+                                    for ll in loop_topo.loop_lines:
+                                        ll.propagators[0].uv = True
+                                        ll.propagators[0].m_squared = mu_uv**2
 
                                 d['loop_topo'] = loop_topo
 

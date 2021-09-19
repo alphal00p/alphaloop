@@ -146,7 +146,7 @@ Set lorentzdummy: mud1,...,mud40;
 CF gamma, gammatrace(c), GGstring, NN, vector,g(s),delta(s),T, counter,color, prop, replace;
 CF f, vx, vxs(s), uvx, vec, vec1;
 CF subs, configurations, conf, cmb, cbtofmb, fmbtocb, diag, forestid, der, energy, spatial(s), onshell;
-CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, integrateduv;
+CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, irtopo, integrateduv, gluonbubble;
 CT gammatracetensor(c),opengammastring;
 
 S UVRenormFINITE;
@@ -673,34 +673,54 @@ repeat id subgraph(?a,p?) = subgraph(?a);
 
     id uvconf2(p?) = replace_(p, t * p);
 
-    argument uvprop,1,vxs,uvtopo,diag,onshell;
+    argument uvprop,1,vxs,uvtopo,irtopo,diag,onshell;
         id t = 1;
     endargument;
-
-* rescale all masses in the numerator coming from the expansion if we are UV expanding
-    if (count(uvprop,1));
-        repeat id m?allmasses = tmp(m);
-        id tmp(m?) = t*m;
-    endif;
 
 * Taylor expand the propagators to the right depth
 * p carries a t dependence that determines the order
 * t1 determines the powers of the UV propagator
+    if (count(gluonbubble,1));
+* for the gluon self-energy, the 0th and 1st order are only expanded in the external momentum and not the mass
+* and their integrated counterterm is 0. The 2nd order term is patched to cancel contributions between the UV CT of the original graph and the UV CT of the
+* 0th order IR CT. This patching works for one-loop self-energies
+        id uvprop(k?,t1?,0,m?) = uvprop(k,t1,1,m);
+        id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
+        repeat;
+            id once ifnomatch->skiptruncation uvprop(k?,t1?,p?,m?)*t^x1?*tmax^x2? = uvprop(k,t1,1,m) * t^x1*tmax^x2 * theta_(x2-x1) *
+                (1 + (-2*p.k - p.p) * t1 + 4*p.k^2 * t1^2);
+            id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
+            label skiptruncation;
+        endrepeat;
+
+        id t^2*m?allmasses = 0; * drop masses
+        if (count(t,1) < 2) id uvtopo(?a) = irtopo(?a); * select the proper topology without UV rearrangement
+
+* drop the integrated counterterm
+        if ((count(vxs,1)) && (count(t,1) < 2)) Discard;
+        id gluonbubble = 1;
+    else;
+* rescale all masses in the numerator coming from the expansion if we are UV expanding
+        if (count(uvprop,1));
+            repeat id m?allmasses = tmp(m);
+            id tmp(m?) = t*m;
+        endif;
 
 * expand the propagators without loop momentum dependence
-    id uvprop(k?,t1?,0,m?) = uvprop(k,t1,1,m) * (1 - (mUV^2*t^2-m^2*t^2) * t1 + (mUV^2*t^2-m^2*t^2)^2 * t1^2 + ALARM * t^5);
-    id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
-    repeat;
-        id once ifnomatch->skiptruncation uvprop(k?,t1?,p?,m?)*t^x1?*tmax^x2? = uvprop(k,t1,1,m) * t^x1*tmax^x2 * theta_(x2-x1) *
-            (1 +
-                (-2*p.k-(p.p+mUV^2*t^2-m^2*t^2)) * t1 +
-                (+4*p.k^2+4*p.k*(p.p+mUV^2*t^2-m^2*t^2)+(p.p+mUV^2*t^2-m^2*t^2)^2) * t1^2 +
-                (-8*p.k^3-12*p.k^2*(p.p+mUV^2*t^2-m^2*t^2)) * t1^3 +
-                (16*p.k^4) * t1^4 +
-                ALARM * t^5);
+        id uvprop(k?,t1?,0,m?) = uvprop(k,t1,1,m) * (1 - (mUV^2*t^2-m^2*t^2) * t1 + (mUV^2*t^2-m^2*t^2)^2 * t1^2 + ALARM * t^5);
         id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
-        label skiptruncation;
-    endrepeat;
+        repeat;
+            id once ifnomatch->skiptruncation1 uvprop(k?,t1?,p?,m?)*t^x1?*tmax^x2? = uvprop(k,t1,1,m) * t^x1*tmax^x2 * theta_(x2-x1) *
+                (1 +
+                    (-2*p.k-(p.p+mUV^2*t^2-m^2*t^2)) * t1 +
+                    (+4*p.k^2+4*p.k*(p.p+mUV^2*t^2-m^2*t^2)+(p.p+mUV^2*t^2-m^2*t^2)^2) * t1^2 +
+                    (-8*p.k^3-12*p.k^2*(p.p+mUV^2*t^2-m^2*t^2)) * t1^3 +
+                    (16*p.k^4) * t1^4 +
+                    ALARM * t^5);
+            id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
+            label skiptruncation1;
+        endrepeat;
+    endif;
 
     id t = 1;
     id tmax = 1;
@@ -714,7 +734,7 @@ repeat id subgraph(?a,p?) = subgraph(?a);
     id uvprop(?a,m?) = uvprop(?a);
     repeat id t1?ts^n2? = tmp(t1,n2);
     repeat id uvprop(k?,t1?,n1?)*uvprop(k?,t1?,n2?) = uvprop(k,t1,n1+n2); 
-    repeat id uvprop(k?,t1?,n1?)*uvtopo(x?,x1?,?a)*tmp(t1?,n2?) = uvprop(k,n1 + n2)*uvtopo(x,x1*t1^n2,?a);
+    repeat id uvprop(k?,t1?,n1?)*uvtopo?{uvtopo,irtopo}(x?,x1?,?a)*tmp(t1?,n2?) = uvprop(k,n1 + n2)*uvtopo(x,x1*t1^n2,?a);
     id uvprop(k?,t1?ts,n?) = uvprop(k, n);
 
 * select what to keep for the local UV vs integrated UV CT
@@ -727,10 +747,11 @@ repeat id subgraph(?a,p?) = subgraph(?a);
         id xlct = 0;
         id xnomsbar = 1;
         id uvtopo(?a) = 1;
+        id irtopo(?a) = 1;
     endif;
 
     #call uvmap()
-    if (count(uvtopo, 1, tmp, 1));
+    if (count(uvtopo, 1, irtopo, 1, tmp, 1));
         Print "Unsubstituted UV topology: %t";
         exit "Critical error";
     endif;

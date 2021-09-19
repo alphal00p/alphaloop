@@ -1120,6 +1120,8 @@ aGraph=%s;
                                 graphs.append((signature_offset, uv_subgraph['internal_bubble_id'], uv_subgraph['internal_bubble_loop_topo'], internal_bubble_ext_edges))
                             for dg in uv_subgraph['derived_graphs']:
                                 graphs.append((signature_offset, dg['id'], dg['loop_topo'], None))
+                                if 'loop_topo_orig_mass' in dg:
+                                   graphs.append((signature_offset, dg['gluon_bubble_id'], dg['loop_topo_orig_mass'], None))
                             graphs.append((signature_offset, uv_subgraph['integrated_ct_id'], uv_subgraph['integrated_ct_bubble_graph'], None))
                             signature_offset += uv_subgraph['derived_graphs'][0]['loop_topo'].n_loops
                         if len(uv_structure['bubble']) > 0:
@@ -1537,6 +1539,10 @@ CTable ltdmap(0:{},0:{});
                                 topo_map += '\tid uvtopo({},{},k1?,...,k{}?) = diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
                                     '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], dg['id'], dg['graph'].n_loops)
 
+                                if 'gluon_bubble_id' in dg:
+                                    topo_map += '\tid irtopo({},{},k1?,...,k{}?) = diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
+                                        '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], dg['gluon_bubble_id'], dg['graph'].n_loops)
+
                             # construct the vertex structure of the UV subgraph
                             # TODO: are the LTD vertices reliable?
                             uv_loop_graph = uv_subgraph['derived_graphs'][0]['loop_topo'] # all derived graphs have the same topo
@@ -1601,6 +1607,9 @@ CTable ltdmap(0:{},0:{});
                             else:
                                 uv_diag = 'uvtopo({},1,{})'.format(uv_subgraph['id'], uv_diag_moms)
 
+                            if uv_subgraph['gluon_bubble']:
+                                uv_diag += '*gluonbubble'
+
                             if FORM_processing_options['generate_integrated_UV_CTs']:
                                 uv_diag += '*(1 - {}*diag({},{},{}))'.format('*'.join(vertex_structure), diag_set['id'], uv_subgraph['integrated_ct_id'], uv_diag_moms)
 
@@ -1613,20 +1622,20 @@ CTable ltdmap(0:{},0:{});
                             # subtract the on-shell version for every UV CT that also affects the internal bubble subtraction graph
                             # FIXME: this is not multi-loop ready yet
                             subtractions = []
-                            for bubble_momenta, onshell_condition in bubble_conditions:
-                                subgraph_internal_edges = [e[0] for i, e in enumerate(uv_subgraph['graph'].edge_map_lin) if i not in uv_subgraph['graph'].ext]
-                                if len(set(subgraph_internal_edges) - set(bubble_momenta)) == 0:
-                                    subtractions.append('(1-{})'.format(onshell_condition))
+                            #for bubble_momenta, onshell_condition in bubble_conditions:
+                            #    subgraph_internal_edges = [e[0] for i, e in enumerate(uv_subgraph['graph'].edge_map_lin) if i not in uv_subgraph['graph'].ext]
+                            #    if len(set(subgraph_internal_edges) - set(bubble_momenta)) == 0:
+                            #        subtractions.append('(1-{})'.format(onshell_condition))
 
                             sg_call = 'subgraph({}{},{}{},{})'.format(uv_subgraph['graph_index'],
                                 (',' if len(uv_subgraph['subgraph_indices']) > 0 else '') + ','.join(str(si) for si in uv_subgraph['subgraph_indices']),
                                 uv_conf, '' if len(subtractions) == 0 else ('*'  + '*'.join(subtractions)), uv_diag_moms)
 
-                            if uv_subgraph['internal_bubble'] is not None:
-                                # add the subtraction for the bubble
-                                # FIXME: which bubble_treatment?
-                                sg_call = '(subgraph(-1,-diag({},{},{})*{},{})+{})'.format(
-                                    diag_set['id'], uv_subgraph['internal_bubble_id'], uv_diag_moms, bubble_treatment, uv_diag_moms, sg_call)
+                            #if uv_subgraph['internal_bubble'] is not None:
+                            #    # add the subtraction for the bubble
+                            #    # FIXME: which bubble_treatment?
+                            #    sg_call = '(subgraph(-1,-diag({},{},{})*{},{})+{})'.format(
+                            #        diag_set['id'], uv_subgraph['internal_bubble_id'], uv_diag_moms, bubble_treatment, uv_diag_moms, sg_call)
 
                             forest_element.append(sg_call)
 
