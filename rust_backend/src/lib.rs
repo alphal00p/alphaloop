@@ -657,6 +657,7 @@ pub struct CrossSectionSettings {
     pub mu_r_sq: f64,
     pub gs: f64,
     pub small_mass_sq: f64,
+    pub uv_cutoff_scale_sq: f64,
     pub incoming_momenta: Vec<LorentzVector<f64>>,
     pub fixed_cut_momenta: Vec<LorentzVector<f64>>,
     pub sum_diagram_sets: bool,

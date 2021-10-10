@@ -1914,7 +1914,7 @@ impl SquaredTopology {
         }
 
         // initialize the constants
-        if cache.params.len() != 8 {
+        if cache.params.len() != 10 {
             cache.params = vec![
                 Into::<T>::into(self.settings.cross_section.m_uv_sq.sqrt()),
                 T::zero(),
@@ -1924,10 +1924,10 @@ impl SquaredTopology {
                 T::zero(),
                 Into::<T>::into(self.settings.cross_section.small_mass_sq),
                 T::zero(),
+                Into::<T>::into(self.settings.cross_section.uv_cutoff_scale_sq),
+                T::zero(),
             ];
         }
-
-
 
         // now apply the same procedure for all uv limits
         let mut diag_and_num_contributions = Complex::zero();

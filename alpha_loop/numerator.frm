@@ -145,7 +145,7 @@ Set lorentzdummy: mud1,...,mud40;
 
 CF gamma, gammatrace(c), GGstring, NN, vector,g(s),delta(s),T, counter,color, prop, replace;
 CF f, vx, vxs(s), uvx, vec, vec1;
-CF subs, configurations, conf, cmb, cbtofmb, fmbtocb, diag, forestid, der, energy, spatial(s), onshell;
+CF subs, configurations, conf, cmb, cbtofmb, fmbtocb, diag, forestid, der, energy, spatial(s), onshell, uvcutoff;
 CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, irtopo, integrateduv, gluonbubble;
 CT gammatracetensor(c),opengammastring;
 
@@ -816,8 +816,13 @@ repeat id subgraph(?a,p?) = subgraph(?a);
         exit "Critical error";
     endif;
 
+    id onshell(p?,E?) = onshell(p,E)*uvcutoff(p.p);
+    argument uvcutoff;
+        Multiply replace_(<p1,ps1>,...,<p20,ps20>,<c1,cs1>,...,<c20,cs20>,<fmb1,fmbs1>,...,<fmb20,fmbs20>);
+    endargument;
+
 * Internal bubble treatment
-    AB+ cmb,diag,fmbtocb;
+    AB+ cmb,diag,fmbtocb,uvcutoff;
     .sort:bubble-treatment-1;
     Keep brackets;
 
@@ -837,11 +842,14 @@ repeat id subgraph(?a,p?) = subgraph(?a);
     id onshell(ks?,k?,p?,E?) = replace_(p, E*energyselector - ks - k);
     id onshell(ks?,p?,E?) = replace_(p, E*energyselector - ks);
 
+    id energyselector.p?spatialparts = 0;
+
     if (count(onshell, 1));
         Print "Unsubstituted on-shell condition: %t";
         exit "Critical error";
     endif;
-    .sort:bubble-treatment-2;
+    B uvcutoff;
+    .sort:bubble-treatment-3;
 
 * Substitute the masters and expand in ep
     #call SubstituteMasters()
@@ -895,7 +903,7 @@ id gamma(?a) = opengammastring(?a);
 #call Gstring(opengammastring,0)
 
 * External bubble treatment
-AB+ cmb,diag,fmbtocb;
+AB+ cmb,diag,fmbtocb,uvcutoff;
 .sort:bubble-treatment;
 Keep brackets;
 
@@ -911,7 +919,7 @@ endif;
 
 * split off the energy part: energyselector=(1,0,0,0,..), fmbs = spatial part
 * fmbs1.fmbs2 will later get a minus sign to honour the Minkowksi metric
-AB+ cmb,energy,diag,fmbtocb;
+AB+ cmb,energy,diag,fmbtocb,uvcutoff;
 .sort:energy-splitoff-1;
 Keep brackets;
 #do i=1,40
@@ -966,7 +974,7 @@ id energyselector.p?spatialparts = 0;
 id p?.energyselector = penergy(p);
 id p1?spatialparts.p2?spatialparts = -p1.p2; * add a -1 to fix the metric
 id p1?spatialparts.p? = spatial(p1,p);
-argument spatial;
+argument spatial,uvcutoff;
     Multiply replace_(<ps1,p1>,...,<ps40,p40>,<cs1,c1>,...,<cs40,c40>);
 endargument;
 
@@ -1218,7 +1226,7 @@ id replace(?a) = replace_(?a);
 id energy(p?) = penergy(p);
 id energies(p?) = penergy(p);
 
-B+ penergy,spatial,energies,allenergies, ellipsoids, constants;
+B+ penergy,spatial,energies,allenergies,ellipsoids,constants,uvcutoff;
 .sort:func-prep;
 Keep brackets;
 
@@ -1227,7 +1235,7 @@ argument ellipsoids;
 endargument;
 
 repeat id allenergies(x?,p?,m?,?a) = energync(x,p.p+m*m)*allenergies(?a);
-argument energync, 2;
+argument energync, 2, uvcutoff;
     id p1?.p2? = spatial(p1, p2);
 endargument;
 chainin energync;
@@ -1248,17 +1256,17 @@ endargument;
 #$OFFSET = 0;
 #do i=1,`$MAXP'
     id penergy(p`i') = lm`$OFFSET';
-    argument energies, ellipsoids, constants;
+    argument energies, ellipsoids, constants, uvcutoff;
         id penergy(p`i') = lm`$OFFSET';
     endargument;
     #$OFFSET = $OFFSET + 1;
     #do j=`i',`$MAXP'
-        argument energies, ellipsoids, constants;
+        argument energies, ellipsoids, constants, uvcutoff;
             id p`i'.p`j' = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
         id spatial(p`i', p`j') = lm`$OFFSET';
-        argument energies;
+        argument energies, uvcutoff;
             id spatial(p`i', p`j') = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
@@ -1267,29 +1275,29 @@ endargument;
 
 #do i=1,`$MAXK'
     id penergy(c`i') = lm`$OFFSET';
-    argument energies, ellipsoids, constants;
+    argument energies, ellipsoids, constants, uvcutoff;
         id penergy(c`i') = lm`$OFFSET';
     endargument;
     #$OFFSET = $OFFSET + 1;
     #do j=1,`$MAXP'
-        argument energies, ellipsoids, constants;
+        argument energies, ellipsoids, constants, uvcutoff;
             id c`i'.p`j' = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
         id spatial(p`j', c`i') = lm`$OFFSET';
-        argument energies;
+        argument energies, uvcutoff;
             id spatial(p`j', c`i') = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
     #enddo
 
     #do j=`i',`$MAXK'
-        argument energies, ellipsoids, constants;
+        argument energies, ellipsoids, constants, uvcutoff;
             id c`i'.c`j' = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
         id spatial(c`i', c`j') = lm`$OFFSET';
-        argument energies;
+        argument energies, uvcutoff;
             id spatial(c`i', c`j') = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;

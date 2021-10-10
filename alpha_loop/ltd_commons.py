@@ -380,6 +380,7 @@ hyperparameters = HyperParameters({
         'gs'                                    :   1.2177157847767195,
         # give massless propagators a small mass (only for FORM_integrand)
         'small_mass_sq'                         :   0.,
+        'uv_cutoff_scale_sq'                    :   500.*500.,
         'picobarns'                             :   False,
         'inherit_deformation_for_uv_counterterm':   False,
         'do_rescaling'                          :   True,        

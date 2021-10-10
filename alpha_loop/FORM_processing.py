@@ -1418,7 +1418,7 @@ CTable ltdmap(0:{},0:{});
                         totalmom = self.momenta_decomposition_to_string(ext_edge_sig['signature'], False)
                         energy_instr = '{},{}'.format(totalmom, edge_mass)
                         bubble_treatment = 'onshell({},E{})'.format(totalmom, diag_set['energies'][energy_instr])
-                        bubble_conditions.append((bubble_momenta, bubble_treatment))
+                        bubble_conditions.append((bubble_momenta, bubble_treatment, totalmom, ib_edge))
 
                     # write the entire UV structure as a sum
                     conf = []
@@ -1622,20 +1622,25 @@ CTable ltdmap(0:{},0:{});
                             # subtract the on-shell version for every UV CT that also affects the internal bubble subtraction graph
                             # FIXME: this is not multi-loop ready yet
                             subtractions = []
-                            #for bubble_momenta, onshell_condition in bubble_conditions:
-                            #    subgraph_internal_edges = [e[0] for i, e in enumerate(uv_subgraph['graph'].edge_map_lin) if i not in uv_subgraph['graph'].ext]
-                            #    if len(set(subgraph_internal_edges) - set(bubble_momenta)) == 0:
-                            #        subtractions.append('(1-{})'.format(onshell_condition))
+                            for bubble_momenta, onshell_condition, bubble_mom, bubble_ext_mom in bubble_conditions:
+                                # skip adding the on-shell condition if the bubble ext momentum is taken into the UV
+                                if any(any(e[0] == bubble_ext_mom for i, e in enumerate(uvsg['graph'].edge_map_lin) if i not in uvsg['graph'].ext)
+                                        for uvsg in uv_structure['uv_subgraphs']):
+                                    continue
+
+                                subgraph_internal_edges = [e[0] for i, e in enumerate(uv_subgraph['graph'].edge_map_lin) if i not in uv_subgraph['graph'].ext]
+                                if len(set(subgraph_internal_edges) - set(bubble_momenta)) == 0:
+                                    subtractions.append('(1-{})'.format(onshell_condition, bubble_mom))
 
                             sg_call = 'subgraph({}{},{}{},{})'.format(uv_subgraph['graph_index'],
                                 (',' if len(uv_subgraph['subgraph_indices']) > 0 else '') + ','.join(str(si) for si in uv_subgraph['subgraph_indices']),
                                 uv_conf, '' if len(subtractions) == 0 else ('*'  + '*'.join(subtractions)), uv_diag_moms)
 
-                            #if uv_subgraph['internal_bubble'] is not None:
-                            #    # add the subtraction for the bubble
-                            #    # FIXME: which bubble_treatment?
-                            #    sg_call = '(subgraph(-1,-diag({},{},{})*{},{})+{})'.format(
-                            #        diag_set['id'], uv_subgraph['internal_bubble_id'], uv_diag_moms, bubble_treatment, uv_diag_moms, sg_call)
+                            if uv_subgraph['internal_bubble'] is not None:
+                                # TODO: which bubble condition?
+                                # add the subtraction for the OS bubble
+                                sg_call = '(subgraph(-1,-diag({},{},{})*{},{})+{})'.format(
+                                    diag_set['id'], uv_subgraph['internal_bubble_id'], uv_diag_moms, bubble_conditions[-1][1], uv_diag_moms, sg_call)
 
                             forest_element.append(sg_call)
 
@@ -2726,7 +2731,7 @@ class FORMSuperGraphList(list):
                                     main_code_with_forest_call
                                 )
 
-                                main_code_f128 = main_code.replace('pow', 'cpowq').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
+                                main_code_f128 = main_code.replace('pow', 'cpowq').replace('uvcutoff', 'uvcutofff128').replace('sqrt', 'csqrtq').replace('log', 'clogq').replace('pi', 'M_PIq').replace('double complex', '__complex128')
                                 main_code_f128 = float_pattern.sub(r'\1q', main_code_f128)
                                 main_code_f128 = forest_pattern.sub(r'forest_\1_f128(lm, params, E, invd)', main_code_f128)
                                 integrand_f128_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{}_{}_{}_f128(__complex128 lm[], __complex128 params[], __complex128* out) {{{}}}'.format(itype, i, int(conf[0]),
@@ -2886,11 +2891,16 @@ void %(header)sevaluate_{}_{}_mpfr(__complex128 lm[], __complex128 params[], int
         params['mu'] = 'params[1]'
         params['gs'] = 'params[2]'
         params['small_mass_sq'] = 'params[3]'
+        params['uv_cutoff_scale_sq'] = 'params[4]'
+        params['uvcutoff(p)'] = '(creal(p) < creal(uv_cutoff_scale_sq) ? 1.0 : 0.)' # TODO: is creal safe?
+        params['uvcutofff128(p)'] = '(crealq(p) < crealq(uv_cutoff_scale_sq) ? 1.0q : 0.q)'
 
         header_code = \
 """
 #ifndef NUM_H
 #define NUM_H
+
+#include <tgmath.h>
 
 {}
 
