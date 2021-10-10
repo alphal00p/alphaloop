@@ -90,7 +90,8 @@ impl Topology {
             print!("+{})", prop.m_squared);
         }
         println!(
-            "{:+} exists={} type={:?}",
+            "#{}: {:+} exists={} type={:?}",
+            index,
             s.shift.t.multiply_sign(s.delta_sign),
             s.exists,
             s.surface_type

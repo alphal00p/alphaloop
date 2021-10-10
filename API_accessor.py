@@ -81,7 +81,8 @@ if not _CALLED_FROM_MATHEMATICA:
     elif args.mode=='cross_section':
         rust_instance = CrossSection(
             pjoin(root_path,args.name),
-            pjoin(root_path,args.hyperparameter_path)
+            pjoin(root_path,args.hyperparameter_path),
+            cross_section_set=False
         )
     rust_instances.append(rust_instance)        
 
@@ -102,7 +103,6 @@ def API_initialise(
                topologies_path=pjoin('LTD','topologies.yaml'), 
                amplitudes_path=pjoin('LTD','amplitudes.yaml')
               ):
-
     _MODEs.append(mode)
 
     root_path = base_path
@@ -131,7 +131,8 @@ def API_initialise(
         try:
             rust_instance = CrossSection(
                 pjoin(root_path,name),
-                pjoin(root_path,hyperparameter_path)
+                pjoin(root_path,hyperparameter_path),
+                cross_section_set=False
             )
         except Exception as e:
             print("ERROR: could not instantiate a cross-sectin worker: %s"%str(e))

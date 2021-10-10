@@ -2025,8 +2025,6 @@ impl Topology {
                 }
             }
 
-            }
-
             // make sure the lambda growth coming from multiple sources is under control
             if self
                 .settings
