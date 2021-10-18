@@ -462,7 +462,6 @@ id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (
     )
 );
 
-* id D^n? = rat(D^n, 1);
 id D = rat(4-2*ep, 1);
 .sort:feynman-rules-vertices-1;
 
@@ -510,7 +509,7 @@ if (count(vx, 1));
     exit "Critical error";
 endif;
 
-id D^n? = rat(D^n, 1);
+id D = rat(4-2*ep, 1);
 .sort:feynman-rules-vertices-2;
 
 Multiply counter(1);
@@ -545,7 +544,7 @@ Keep brackets;
 * at this stage all indices should be inside the gammatracetensor only
 * FIXME: not the case anymore!
     #call Gstring(gammatracetensor,1)
-    Multiply replace_(D, 4-2*ep);
+    id D = rat(4-2*ep, 1);
 #endif
 
 id pzero = 0; * Substitute the 0-momentum by 0
