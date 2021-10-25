@@ -145,7 +145,7 @@ Set lorentzdummy: mud1,...,mud40;
 
 CF gamma, gammatrace(c), GGstring, NN, vector,g(s),delta(s),T, counter,color, prop, replace;
 CF f, vx, vxs(s), uvx, vec, vec1;
-CF subs, configurations, conf, cmb, cbtofmb, fmbtocb, diag, forestid, der, energy, spatial(s), onshell, uvcutoff;
+CF subs, configurations, conf, tder, cmb, cbtofmb, fmbtocb, diag, forestid, der, energy, spatial(s), onshell, uvcutoff;
 CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, irtopo, integrateduv, gluonbubble;
 CT gammatracetensor(c),opengammastring;
 
@@ -587,6 +587,7 @@ id conf(x?,x1?,cmb(?a),?b) = conf(x,x1,?b)*replace(?a)*cmb(?a);
 #call ExtractMomenta()
 id forestid(?a) = forestid(?a,1);
 repeat id forestid(?a,k1?,?b,x?)*f?{prop,vx}(?c,k1?,?d) = forestid(?a,k1,?b,x*f(?c,k1,?d));
+repeat id cmb(?a)*tder(?c)*forestid(?b,x?) = f(forestid(?b,x*cmb(?a)*tder(?c)))*cmb(?a)*tder(?c);
 repeat id cmb(?a)*forestid(?b,x?) = f(forestid(?b,x*cmb(?a)))*cmb(?a);
 id cmb(?a) = 1;
 id f(?a) = forestid(?a);
@@ -931,7 +932,7 @@ id energyselector.p?spatialparts = 0;
 
 * TODO: study grouping and effects on term size
 Multiply f(1);
-repeat id f(x?)*f1?{cmb,diag,energy}(?a) = f(x*f1(?a));
+repeat id f(x?)*f1?{cmb,diag,energy,tder}(?a) = f(x*f1(?a));
 .sort:tensorforest-0;
 
 argtoextrasymbol tonumber,f,1;
@@ -1056,6 +1057,7 @@ endif;
     id diag(x1?,x2?,?a) = diag(x1,ltdmap(x1,x2),?a);
     id diag(x1?,diag(?a),?b) = diag(x1,?a,?b);
 
+    repeat id cmb(?a)*tder(?c)*diag(?b) = f(diag(?b,cmb(?a)*tder(?c)))*cmb(?a)*tder(?c);
     repeat id cmb(?a)*diag(?b) = f(diag(?b,cmb(?a)))*cmb(?a);
     id f(?a) = diag(?a);
     argtoextrasymbol tonumber,diag,1;
@@ -1157,6 +1159,7 @@ endif;
 
 * TODO: here we create a unique diagram per cut as we include the cmb (and conf) into the key
 * it is possible that diagrams are the same after the cmb is applied, for example for UV topologies
+    repeat id cmb(?a)*tder(?c)*diag(?b) = f(diag(?b,cmb(?a)*tder(?c)))*cmb(?a)*tder(?c);
     repeat id cmb(?a)*diag(?b) = f(diag(?b,cmb(?a)))*cmb(?a);
     id f(?a) = diag(?a);
     argtoextrasymbol tonumber,diag,1;
@@ -1340,11 +1343,12 @@ Keep brackets;
         UNHide FINTEGRAND`INTEGRANDTYPE';
         NHide FINTEGRAND`INTEGRANDTYPE';
 
-        B+ conf;
+        B+ conf,tder;
         .sort:conf-0;
         Keep brackets;
 
         id conf(?a) = conf(conf(?a));
+        id conf(x?)*tder(?a) = conf(x*tder(?a));
         argtoextrasymbol tonumber,conf,1;
         #redefine oldextrasymbols "`extrasymbols_'"
         B+ conf;

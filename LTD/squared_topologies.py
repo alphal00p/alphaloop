@@ -69,19 +69,19 @@ class SquaredTopologyGenerator:
         graph_counter = 0
         self.cuts = []
         for cutkosky_cut in cutkosky_cuts:
-            # sort cutkosky cuts such that they align best with the lmb
-            cutkosky_cut = tuple(sorted(cutkosky_cut, key=lambda x: (self.topo.edge_name_map[x[0]] in self.topo.loop_momenta)*-10 + cutkosky_cut.index(x)))
-
             # detect external bubbles
             duplicate_cut_edges_set = set()
-            cut_powers = []
+            cut_powers = {}
             for c, _ in cutkosky_cut:
                 sig = tuple(self.topo.propagators[self.topo.edge_name_map[c]])
                 inv_sig = tuple([(x[0], not x[1]) for x in sig])
                 bubble_props = [eml[0] for prop, eml in zip(self.topo.propagators, self.topo.edge_map_lin) if eml[0] != c and abs(particle_ids[eml[0]]) ==
                     particle_ids[c] and (tuple(prop) == sig or tuple(prop) == inv_sig)]
-                cut_powers.append(len(bubble_props) + 1)
+                cut_powers[c] = len(bubble_props) + 1
                 duplicate_cut_edges_set |= set(bubble_props)
+
+            # sort cutkosky cuts such that they align best with the lmb and such that cut edge with the highest power is last
+            cutkosky_cut = tuple(sorted(cutkosky_cut, key=lambda x: cut_powers[x[0]] * 1000 + (self.topo.edge_name_map[x[0]] in self.topo.loop_momenta)*-10 + cutkosky_cut.index(x)))
 
             # split the graph along the Cutkosky cut
             graphs = self.topo.split_graph([a[0] for a in cutkosky_cut], incoming_momentum_names)
@@ -110,8 +110,8 @@ class SquaredTopologyGenerator:
                 'cuts': [{
                         'edge': c[0],
                         'sign': c[1],
-                        'power': p }
-                    for c, p in zip(cutkosky_cut, cut_powers)],
+                        'power': cut_powers[c[0]] }
+                    for c in cutkosky_cut],
                 'diagram_sets': [{
                         'diagram_info': [{
                             'graph':  g,
@@ -145,41 +145,8 @@ class SquaredTopologyGenerator:
                     for uv_limit in uv_limits:
                         # generate bubble derivative graphs out of remaining graphs
                         bubble_derivatives = []
-                        if len(uv_limit['remaining_graph'].ext) == 2 and len(uv_limit['remaining_graph'].edge_map_lin) >= 2:
-                            g = uv_limit['remaining_graph']
-                            ext = g.ext[0]
 
-                            bubble_momenta = tuple(sorted(g.edge_map_lin[i][0] for i, e in enumerate(g.propagators) if i not in g.ext))
-                            bubble_ext_momenta = tuple(sorted(g.edge_map_lin[i][0] for i, e in enumerate(g.propagators) if i in g.ext))
-
-                            # take the derivative by raising the propagator of every propagator that has the bubble momentum
-                            dep_momenta = [g.edge_map_lin[i][0] for i, e in enumerate(g.propagators) if i not in g.ext
-                                and ((ext, True) in e or (ext, False) in e)]
-
-                            # find the cut momentum associated with this bubble
-                            sig = tuple(self.topo.propagators[self.topo.edge_name_map[g.edge_map_lin[ext][0]]])
-                            inv_sig = tuple([(x[0], not x[1]) for x in sig])
-                            cut_mom = next(c for c in cut_name if tuple(self.topo.propagators[self.topo.edge_name_map[c]]) == sig or tuple(self.topo.propagators[self.topo.edge_name_map[c]]) == inv_sig)
-
-                            for x in dep_momenta:
-                                g1 = copy.deepcopy(g)
-                                g1.powers[x] += 1
-                                bubble_derivatives.append({
-                                    'graph':  g1,
-                                    'bubble_momenta': (bubble_momenta, bubble_ext_momenta),
-                                    'derivative': (cut_mom, x),
-                                })
-
-                            # the graph itself will have the derivative of the numerator
-                            bubble_derivatives.append({
-                                'graph':  g,
-                                'bubble_momenta': (bubble_momenta, bubble_ext_momenta),
-                                'derivative': (cut_mom, cut_mom),
-                            })
-
-                            uv_limit['bubble'] = bubble_derivatives
-                        else:
-                            uv_limit['bubble'] = []
+                        uv_limit['bubble'] = []
 
                         # find all internal bubble momenta, we use that in gauge theories an internal bubble will be UV divergent
                         for uv_sg in uv_limit['uv_subgraphs']:
@@ -193,8 +160,8 @@ class SquaredTopologyGenerator:
                                     uv_sg['internal_bubble'] = copy.deepcopy(uv_sg['graph'])
                                     internal_bubbles.append((uv_sg['internal_bubble'], subgraph_internal_edges))
 
-                                #if particle_ids[uv_sg['graph'].edge_map_lin[uv_sg['graph'].ext[0]][0]] == 21:
-                                #    uv_sg['gluon_bubble'] = True
+                                if particle_ids[uv_sg['graph'].edge_map_lin[uv_sg['graph'].ext[0]][0]] == 21:
+                                    uv_sg['gluon_bubble'] = True
 
                     diag_info['internal_bubbles'] = internal_bubbles
             

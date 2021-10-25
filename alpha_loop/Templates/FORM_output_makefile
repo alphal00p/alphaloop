@@ -1,7 +1,6 @@
 include ../Source/make_opts
 
 ifeq ($(origin GCC),undefined)
-GCC=gcc
 GPP=g++
 endif
 LIBBPATH=../lib
@@ -20,18 +19,18 @@ else
 endif
 
 
-CFLAGS=-Wconversion -fPIC -O$(OPTIMIZATION_LVL) -fcx-fortran-rules -fcx-limited-range -lm -lquadmath $(EXTRA_ARGS)
+CFLAGS=-Wconversion -fPIC -O$(OPTIMIZATION_LVL) -fcx-fortran-rules -fcx-limited-range -std=c++20 -lquadmath -fext-numeric-literals -lmp++  $(EXTRA_ARGS)
 
 
-CFLAGSf128=-Wconversion -fPIC -O$(OPTIMIZATION_LVL_f128) -fcx-fortran-rules -fcx-limited-range -lm -lquadmath $(EXTRA_ARGS)
+CFLAGSf128=-Wconversion -fPIC -O$(OPTIMIZATION_LVL_f128) -fcx-fortran-rules -fcx-limited-range -std=c++20 -fext-numeric-literals -lquadmath -lmp++ $(EXTRA_ARGS)
 
-CFLAGSFMPR=-Wconversion -fPIC -O$(OPTIMIZATION_LVL_f128) -fcx-fortran-rules -fcx-limited-range -lm -lquadmath $(EXTRA_ARGS)
+CFLAGSFMPR=-Wconversion -fPIC -O$(OPTIMIZATION_LVL_f128) -fcx-fortran-rules -fcx-limited-range -std=c++20 -fext-numeric-literals -lquadmath -lmp++ $(EXTRA_ARGS)
 
 %_f64.o: %_f64.c
-	$(GCC) -c $(CFLAGS) $< -o $@
+	$(GPP) -c $(CFLAGS) $< -o $@
 
 %_f128.o: %_f128.c
-	$(GCC) -c $(CFLAGSf128) $< -o $@
+	$(GPP) -c $(CFLAGSf128) $< -o $@
 
 %_fmpr.o: %_fmpr.cpp
 	$(GPP) -c $(CFLAGSFMPR) $< -o $@

@@ -2013,14 +2013,14 @@ impl Topology {
                 if self.settings.general.debug > 2 {
                     for (ll, l) in loop_momenta.iter().enumerate() {
                         println!(
-                        "  | k{}={:e}\n  | source={:e}\n  | suppression={:e}\n  | contribution kappa{}={:e}",
-                        ll + 1,
-                        l.real(),
-                        &d.deformation_sources[ll],
-                        s.real(),
-                        ll + 1,
-                        kappa_source[ll].real(),
-                    );
+                            "  | k{}={:e}\n  | source={:e}\n  | suppression={:e}\n  | contribution kappa{}={:e}",
+                            ll + 1,
+                            l.real(),
+                            &d.deformation_sources[ll],
+                            s.real(),
+                            ll + 1,
+                            kappa_source[ll].real(),
+                        );
                     }
                 }
             }
