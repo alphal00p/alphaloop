@@ -7,6 +7,8 @@ On nospacesinnumbers;
 #define PSI "1337"
 #define GLU "21"
 #define PHO "22"
+#define PHOPRIME "1022"
+#define SDUMMY "1122"
 #define EP "-11"
 #define EM "11"
 #define H "25"
@@ -219,6 +221,16 @@ id prop(`PSI', virtual, p?, idx1?, idx2?) = -i_;
 id prop(`PSI', in, p?, idx1?) = 1;
 id prop(`PSI', out, p?, idx1?) = 1;
 
+* SE_FF Feynman rules
+repeat id prop(`PHO', in, p?, idx1?)*prop(`PHOPRIME', out, p?, idx2?) = 1;
+id prop(`SDUMMY', virtual, p?, idx1?, idx2?) = 1;
+id prop(`SDUMMY', in, p?, idx1?) = 1;
+id prop(`SDUMMY', out, p?, idx1?) = 1;
+id prop(`PHOPRIME', virtual, p?, idx1?, idx2?) = 1;
+id vx(`PHOPRIME', `PHOPRIME', `SDUMMY', p1?, p2?, p3?, idx1?, idx2?, idx3?) = i_;
+id vx(x1?{`QBAR'}, `PHOPRIME', x2?{`Q'}, `SDUMMY', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = charges(x2) * ge * i_* d_(colF[idx1], colF[idx3]);
+id vx(x1?{`LBAR'}, `PHOPRIME', x2?{`L'}, `SDUMMY', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = charges(x2) * ge * i_;
+
 if (count(prop, 1));
     Print "Unsubstituted propagator: %t";
     exit "Critical error";
@@ -373,6 +385,18 @@ id prop(`PSI', virtual, p?, idx1?, idx2?) = 1;
 id prop(`PSI', in, p?, idx1?) = 1;
 id prop(`PSI', out, p?, idx1?) = 1;
 
+* SE_FF Feynman rules
+id prop(`SDUMMY', virtual, p?, idx1?, idx2?) = 1;
+id prop(`SDUMMY', in, p?, idx1?) = 1;
+id prop(`SDUMMY', out, p?, idx1?) = 1;
+id vx(`PHOPRIME', `PHOPRIME', `SDUMMY', p1?, p2?, p3?, idx1?, idx2?, idx3?) = d_(lorentz[idx1], lorentz[idx2]);
+id vx(x1?{`QBAR'}, `PHOPRIME', x2?{`Q'}, `SDUMMY', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
+id vx(x1?{`LBAR'}, `PHOPRIME', x2?{`L'}, `SDUMMY', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
+* WE will be able to put in the projectors here
+id prop(`PHOPRIME', virtual, p?, idx1?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
+* We could put in here projectors too
+repeat id prop(`PHO', in, p?, idx1?)*prop(`PHOPRIME', out, p?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
+
 if (count(prop, 1));
     Print "Unsubstituted propagator: %t";
     exit "Critical error";
@@ -438,7 +462,8 @@ id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (
     )
 );
 
-id D^n? = rat(D^n, 1);
+* id D^n? = rat(D^n, 1);
+id D = rat(4-2*ep, 1);
 .sort:feynman-rules-vertices-1;
 
 * construct gamma string, drop odd-length gamma traces and symmetrize the trace

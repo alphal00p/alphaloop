@@ -120,7 +120,7 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'qgraf_vetoes': None,
             # Set the output processing format of Rust to `None` if you want to skip it.
             # Otherwise it can take values in ['rust',] for now.
-            'FORM_processing_output_format' : None,
+            'FORM_processing_output_format' : 'c',
             # Select if the FORM integrand is the "PF" expression or "LTD" expression, both, or None
             'FORM_integrand_type' : "both",
             # Select whether to generate aribtrary precision C code
@@ -703,7 +703,7 @@ utils.bcolors.RED,utils.bcolors.ENDC
         model.set('perturbation_couplings', new_perturbation_couplings)
 
 
-        logger.info('Model %s successfully patched so as to accomodate self-energy generations.'%model.get('name'))
+        logger.info('Model %s successfully patched so as to accommodate self-energy generations.'%model.get('name'))
         return
 
     def check_launch(self, args, options):

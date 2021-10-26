@@ -442,6 +442,8 @@ class FORMSuperGraph(object):
                 edge_label_pieces.append(edge_data['name'])
             if self._include_momentum_routing_in_rendering:
                 edge_label_pieces.append(edge_data['momentum'])
+            if is_LMB:
+                edge_label_pieces.append('#%d'%(abs_sig[0].index(1)))
             edge_label = "|".join(edge_label_pieces)
             edge_repl_dict['edge_label'] = edge_label
             all_edge_definitions.append(edge_template%edge_repl_dict)
@@ -594,6 +596,9 @@ aGraph=%s;
                 original_LMB = all_lmbs[(FORM_processing_options['reference_lmb']-1)%len(all_lmbs)]
             else:
                 original_LMB = all_lmbs[forced_LMB_index]
+
+            # Sort the LMB according to PDGs.
+            original_LMB=tuple(sorted(original_LMB,key=lambda e_key: abs(edge_name_to_pdg[edge_key_to_name[e_key]])))
 
             # Regenerate the topology with this new overwritten LMB
             topo_generator, _, _ = self.get_topo_generator(specified_LMB=[ edge_key_to_name[e_key] for e_key in original_LMB ])
@@ -1277,7 +1282,9 @@ CTable ltdmap(0:{},0:{});
         scalings = {1: -1, 2: -1, 3: -1, 4: -1, 5: -1, 6: -1, 11: -1, 12: -1, 13: -1}
         return scalings[abs(pdg)] if abs(pdg) in scalings else -2
 
-    def get_node_scaling(self, pdgs):
+    def get_node_scaling(self, pdgs_input):
+        # Remove dummy particles
+        pdgs = tuple([pdg%1000 for pdg in pdgs_input if pdg not in [1122,]])
         # only the triple gluon vertex and the ghost gluon vertex have a non-zero scaling
         if pdgs == (25, 21, 21):
             return 2
