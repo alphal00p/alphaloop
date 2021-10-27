@@ -506,7 +506,7 @@ pub struct GeneralSettings {
     pub multi_channeling: bool,
     pub multi_channeling_channel: Option<isize>,
     pub use_optimal_channels: bool,
-    #[serde(default="default_as_false")]
+    #[serde(default = "default_as_false")]
     pub use_lmb_channels: bool,
     pub res_file_prefix: String,
     pub derive_overlap_structure: bool,
@@ -801,14 +801,19 @@ impl PythonCrossSection {
         }
     }
 
-    #[args(havana_updater_re = "None", havana_updater_im = "None", train_on_avg="None", real_phase="None")]
+    #[args(
+        havana_updater_re = "None",
+        havana_updater_im = "None",
+        train_on_avg = "None",
+        real_phase = "None"
+    )]
     fn evaluate_integrand_havana(
         &mut self,
         py: Python,
         havana_sampler: &mut havana::bindings::HavanaWrapper,
         mut havana_updater_re: Option<&mut havana::bindings::HavanaWrapper>,
         mut havana_updater_im: Option<&mut havana::bindings::HavanaWrapper>,
-        real_phase: Option<bool>
+        real_phase: Option<bool>,
     ) -> PyResult<()> {
         for (i, s) in havana_sampler.samples.iter().enumerate() {
             let integrand_sample = self.integrand.evaluate(
@@ -832,38 +837,32 @@ impl PythonCrossSection {
 
             match (&mut havana_updater_re, &mut havana_updater_im) {
                 (Some(a_havana_updater_re), Some(a_havana_updater_im)) => {
-                    a_havana_updater_re.grid.add_training_sample(
-                        s,
-                        integrand_sample.re
-                    );
-                    a_havana_updater_im.grid.add_training_sample(
-                        s,
-                        integrand_sample.im
-                    );
+                    a_havana_updater_re
+                        .grid
+                        .add_training_sample(s, integrand_sample.re);
+                    a_havana_updater_im
+                        .grid
+                        .add_training_sample(s, integrand_sample.im);
                 }
                 (Some(a_havana_updater_re), _) => {
-                    a_havana_updater_re.grid.add_training_sample(
-                        s,
-                        integrand_sample.re
-                    );
-                    if phase==IntegratedPhase::Imag {
-                        havana_sampler.grid.add_training_sample(
-                            s,
-                            integrand_sample.im
-                        );
+                    a_havana_updater_re
+                        .grid
+                        .add_training_sample(s, integrand_sample.re);
+                    if phase == IntegratedPhase::Imag {
+                        havana_sampler
+                            .grid
+                            .add_training_sample(s, integrand_sample.im);
                     }
                 }
                 (_, Some(a_havana_updater_im)) => {
-                    if phase==IntegratedPhase::Real {
-                        havana_sampler.grid.add_training_sample(
-                            s,
-                            integrand_sample.re
-                        );
+                    if phase == IntegratedPhase::Real {
+                        havana_sampler
+                            .grid
+                            .add_training_sample(s, integrand_sample.re);
                     }
-                    a_havana_updater_im.grid.add_training_sample(
-                        s,
-                        integrand_sample.im
-                    );
+                    a_havana_updater_im
+                        .grid
+                        .add_training_sample(s, integrand_sample.im);
                 }
                 _ => {
                     let f = match phase {
@@ -871,10 +870,7 @@ impl PythonCrossSection {
                         IntegratedPhase::Imag => integrand_sample.im,
                         IntegratedPhase::Both => unimplemented!(),
                     };
-                    havana_sampler.grid.add_training_sample(
-                        s,
-                        f
-                    );
+                    havana_sampler.grid.add_training_sample(s, f);
                 }
             }
 
@@ -1048,20 +1044,37 @@ impl PythonCrossSection {
         let mut k_def = [LorentzVector::default(); MAX_LOOP + 4];
 
         let n_loops = self.squared_topology.n_loops;
-        let res = self.squared_topology.evaluate_cut(
-            &loop_momenta,
-            &mut cut_momenta,
-            &mut external_momenta,
-            &mut rescaled_loop_momenta,
-            &mut subgraph_loop_momenta,
-            &mut k_def[..n_loops],
-            &mut self.caches,
-            &mut Some(&mut self.integrand.event_manager),
-            cut_index,
-            scaling,
-            scaling_jac,
-            diagram_set,
-        );
+        let has_raised_cc = self.squared_topology.cutkosky_cuts[cut_index]
+            .cuts
+            .iter()
+            .any(|cc| cc.power > 1);
+
+        let res = if has_raised_cc {
+            self.squared_topology.evaluate_cut_derivative(
+                &loop_momenta,
+                &external_momenta,
+                &mut self.caches,
+                &mut Some(&mut self.integrand.event_manager),
+                cut_index,
+                scaling,
+                None,
+            )
+        } else {
+            self.squared_topology.evaluate_cut(
+                &loop_momenta,
+                &mut cut_momenta,
+                &mut external_momenta,
+                &mut rescaled_loop_momenta,
+                &mut subgraph_loop_momenta,
+                &mut k_def[..n_loops],
+                &mut self.caches,
+                &mut Some(&mut self.integrand.event_manager),
+                cut_index,
+                scaling,
+                scaling_jac,
+                diagram_set,
+            )
+        };
 
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
@@ -1093,20 +1106,37 @@ impl PythonCrossSection {
         let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_LOOP];
         let mut k_def = [LorentzVector::default(); MAX_LOOP + 4];
         let n_loops = self.squared_topology.n_loops;
-        let res = self.squared_topology.evaluate_cut(
-            &moms,
-            &mut cut_momenta,
-            &mut external_momenta,
-            &mut rescaled_loop_momenta,
-            &mut subgraph_loop_momenta,
-            &mut k_def[..n_loops],
-            &mut self.caches_f128,
-            &mut Some(&mut self.integrand.event_manager),
-            cut_index,
-            f128::f128::from_f64(scaling).unwrap(),
-            f128::f128::from_f64(scaling_jac).unwrap(),
-            diagram_set,
-        );
+        let has_raised_cc = self.squared_topology.cutkosky_cuts[cut_index]
+            .cuts
+            .iter()
+            .any(|cc| cc.power > 1);
+
+        let res = if has_raised_cc {
+            self.squared_topology.evaluate_cut_derivative::<f128::f128>(
+                &moms,
+                &external_momenta,
+                &mut self.caches_f128,
+                &mut Some(&mut self.integrand.event_manager),
+                cut_index,
+                f128::f128::from_f64(scaling).unwrap(),
+                None,
+            )
+        } else {
+            self.squared_topology.evaluate_cut::<f128::f128>(
+                &moms,
+                &mut cut_momenta,
+                &mut external_momenta,
+                &mut rescaled_loop_momenta,
+                &mut subgraph_loop_momenta,
+                &mut k_def[..n_loops],
+                &mut self.caches_f128,
+                &mut Some(&mut self.integrand.event_manager),
+                cut_index,
+                f128::f128::from_f64(scaling).unwrap(),
+                f128::f128::from_f64(scaling_jac).unwrap(),
+                diagram_set,
+            )
+        };
 
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }

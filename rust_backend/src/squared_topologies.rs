@@ -1892,8 +1892,7 @@ impl SquaredTopology {
                         cache,
                         event_manager,
                         cut_index,
-                        Dual::new(scaling, T::one()),
-                        scaling_jac,
+                        scaling,
                         None,
                     )
                 } else {
@@ -2513,10 +2512,11 @@ impl SquaredTopology {
         cache: &mut SquaredTopologyCache<T>,
         event_manager: &mut Option<&mut EventManager>,
         cut_index: usize,
-        scaling: Dual<T>,
-        scaling_jac: T,
+        scaling: T,
         selected_diagram_set: Option<usize>,
     ) -> Complex<T> {
+        let scaling = Dual::new(scaling, T::one());
+
         let cutkosky_cuts = &mut self.cutkosky_cuts[cut_index];
         debug_assert!(cutkosky_cuts.cuts.iter().any(|cc| cc.power > 1));
 
@@ -2549,14 +2549,16 @@ impl SquaredTopology {
 
             let energy = (cut_mom.spatial_squared() + Into::<T>::into(cut.m_squared)).sqrt();
             cut_mom.t = energy.multiply_sign(cut.sign);
-            
-            // add (-2 pi i)/(2E)^power for every cut
+
+            cut_energies_summed += energy;
+
             if cut_index + 1 == cutkosky_cuts.cuts.len() {
-                // take the derivative of the E-surface
+                let e_surface_der = -cut_energies_summed.dual();
+                let h_surface = -cut_energies_summed
+                    + energy * Into::<T>::into(2.0)
+                    + cut_energies_summed.real();
                 scaling_result *= num::Complex::new(
-                    (energy * Into::<T>::into(2.0) * cut_mom.t.dual())
-                        .powi(cut.power as i32)
-                        .inv(), // TODO: or energy without the sign?
+                    (h_surface * e_surface_der).powi(cut.power as i32).inv(),
                     Dual::zero(),
                 );
             } else {
@@ -2570,18 +2572,12 @@ impl SquaredTopology {
                 Dual::zero(),
                 Dual::from_real(-Into::<T>::into(2.0) * <T as FloatConst>::PI()),
             );
-            cut_energies_summed += energy;
         }
 
-        // compute the Jacobian of the derivative of the t-propagator E-surface
-        let jac_der = cut_momenta.last().unwrap().t.dual();
-
         if self.settings.general.debug >= 1 {
-            println!("  | 1/Es = {}", scaling_result);
-            println!("  | q0 = {}", cut_energies_summed);
-            println!("  | scaling = {}", scaling);
-            println!("  | scaling_jac = {}", scaling_jac);
-            println!("  | jac t der = {}", jac_der);
+            println!("  | 1/Es = {:.16e}", scaling_result);
+            println!("  | q0 = {:.16e}", cut_energies_summed);
+            println!("  | scaling = {:.16e}", scaling);
         }
 
         // h is any function that integrates to 1
@@ -2646,7 +2642,7 @@ impl SquaredTopology {
         };
 
         scaling_result *= Complex::new(
-            Float::powi(scaling, self.n_loops as i32 * 3) * scaling_jac * h / h_norm * jac_der,
+            Float::powi(scaling, self.n_loops as i32 * 3) * h / h_norm,
             Dual::zero(),
         );
 
@@ -2692,8 +2688,8 @@ impl SquaredTopology {
             Complex::new(Dual::from_real(constants.re), Dual::from_real(constants.im));
 
         if self.settings.general.debug >= 2 {
-            println!("  | constants={}", constants);
-            println!("  | scaling part = {}", scaling_result);
+            println!("  | constants={:.16e}", constants);
+            println!("  | scaling part = {:.16e}", scaling_result);
             println!(
                 "  | rescaled loop momenta = {:?}",
                 &rescaled_loop_momenta[..self.n_loops]
@@ -2752,7 +2748,7 @@ impl SquaredTopology {
 
         // now apply the same procedure for all uv limits
         let mut cut_result: Complex<T> = Complex::one();
-        let mut diag_and_num_contributions: Complex<T> = Complex::zero();
+        let mut diag_and_num_contributions: Complex<Dual<T>> = Complex::zero();
         let mut def_jacobian = Complex::one();
 
         // diagrams sets in the same cut can only inherit information if the cmb is the same
@@ -3022,7 +3018,9 @@ impl SquaredTopology {
                 }
             }
 
-            let mut res = if let Some(call_signature) = &self.form_integrand.call_signature {
+            let mut res: Complex<Dual<T>> = if let Some(call_signature) =
+                &self.form_integrand.call_signature
+            {
                 let mut res = Complex::default();
 
                 let (d, c) = (
@@ -3069,14 +3067,10 @@ impl SquaredTopology {
                         }
                     };
 
-                    // multiply it with the prefactor and only keep the dual part
-                    let r = scaling_result
-                        * Complex::new(
-                            Dual::new(res_bare.real.re, res_bare.der.re),
-                            Dual::new(res_bare.real.im, res_bare.der.im),
-                        );
-
-                    res += Complex::new(r.re.dual(), r.im.dual());
+                    res += Complex::new(
+                        Dual::new(res_bare.real.re, res_bare.der.re),
+                        Dual::new(res_bare.real.im, res_bare.der.im),
+                    );
                 }
                 res
             } else {
@@ -3089,16 +3083,24 @@ impl SquaredTopology {
                 }
             }
 
-            res *= def_jacobian;
+            res *= Complex::new(
+                Dual::from_real(def_jacobian.re),
+                Dual::from_real(def_jacobian.im),
+            );
 
             if self.settings.general.debug >= 1 {
-                println!("  | res diagram set {}: = {:e}", diagram_set.id, res);
+                println!("  | res diagram set {} = {:.16e}", diagram_set.id, res);
             }
 
             diag_and_num_contributions += res;
         }
 
-        cut_result *= diag_and_num_contributions;
+        // only keep the dual part
+        diag_and_num_contributions *= scaling_result;
+        cut_result *= Complex::new(
+            diag_and_num_contributions.re.dual(),
+            diag_and_num_contributions.im.dual(),
+        );
 
         if let Some(em) = event_manager {
             // set the event result
