@@ -651,9 +651,9 @@ id cbtofmb(?a) = replace_(?a);
 #call ExtractMomenta()
 
 * move the vertices and propagators into a subgraph, starting from the most nested ones first
-#do i=1,5
-    repeat id subgraph(n1?,...,n`i'?,x1?,fmb1?,?a,fmb2?,?b)*f?{prop,vx}(?c,fmb2?,?d) = subgraph(n1,...,n`i',x1*f(?c,fmb2,?d),fmb1,?a,fmb2,?b);
-    repeat id subgraph(n1?,...,n`i'?,x1?,fmb1?,?a)*f?{prop,vx}(?b,fmb1?,?c) = subgraph(n1,...,n`i',x1*f(?b,fmb1,?c),fmb1,?a);
+#do i=0,5
+    repeat id subgraph(`i',?e,x1?,fmb1?,?a,fmb2?,?b)*f?{prop,vx}(?c,fmb2?,?d) = subgraph(`i',?e,x1*f(?c,fmb2,?d),fmb1,?a,fmb2,?b);
+    repeat id subgraph(`i',?e,x1?,fmb1?,?a)*f?{prop,vx}(?b,fmb1?,?c) = subgraph(`i',?e,x1*f(?b,fmb1,?c),fmb1,?a);
 #enddo
 repeat id subgraph(?a,p?) = subgraph(?a);
 .sort:graphs;
