@@ -1841,6 +1841,7 @@ class FORMSuperGraphIsomorphicList(list):
             selected_workspace = workspace
             FORM_source = pjoin(selected_workspace,'numerator.frm')
 
+        # FIXME HACK TO KEEP INPUT.H
         with open(pjoin(selected_workspace,'input_%d.h'%i_graph), 'w') as f:
             (uv_map, uv_conf, uv_forest, conf) = characteristic_super_graph.configurations
             f.write(uv_map + '\n')

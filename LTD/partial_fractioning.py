@@ -6,15 +6,19 @@ import copy
 import sys
 import progressbar
 from collections import defaultdict
+from fractions import Fraction
 
-
-# For the moment convert coefficients to int
+# Cast float coefficients back to exact fractions
 def cast_int(f):
-    if int(f)-f == 0:
-        return int(f)
+    fraction = Fraction.from_float(f).limit_denominator(int(1.0e16))
+    if fraction.denominator == 1:
+        rat = "{:+d}".format(fraction.numerator)
     else:
-        raise ValueError("Cannont safe cast %f into int." % f)
-
+        rat = "{:+d}/{:d}".format(fraction.numerator,fraction.denominator)
+    if eval(rat) == f:
+        return rat
+    else:
+        raise ValueError("Cannont safe cast %f into small rational [~%s]"%(f,rat))
 
 def timeit(method):
     def timed(*args, **kw):
@@ -300,14 +304,14 @@ class PartialFractioning:
                     den = ""
                     for (j, e) in enumerate(r['energies']):
                         if e != 0:
-                            den += "{:+}*E{}".format(cast_int(e), energy_index_map[j] if energy_index_map is not None else j)
+                            den += "{}*E{}".format(cast_int(e), energy_index_map[j] if energy_index_map is not None else j)
                     shifts = ""
                     for (j, p) in enumerate(r['shifts']):
                         if p != 0:
                             if j < self.n_sg_loops:
-                                shifts += "{:+}*k{}".format(cast_int(p), j+1)
+                                shifts += "{}*k{}".format(cast_int(p), j+1)
                             else:
-                                shifts += "{:+}*p{}".format(cast_int(p),
+                                shifts += "{}*p{}".format(cast_int(p),
                                                             j-self.n_sg_loops+1)
 
                     if tuple(r['shifts']) in on_shell_conditions:
@@ -332,17 +336,17 @@ class PartialFractioning:
                     for j, l in enumerate(num_step['lambdas']):
                         # LTD energy in the cut basis
                         if l != 0:
-                            ss += "{:+}*energy(fmb{})".format(cast_int(l), j + 1 + self.ltd_index)
+                            ss += "{}*energy(fmb{})".format(cast_int(l), j + 1 + self.ltd_index)
                     for (j, e) in enumerate(num_step['energies']):
                         if e != 0:
-                            ss += "{:+}*E{}".format(cast_int(e), energy_index_map[j] if energy_index_map is not None else j)
+                            ss += "{}*E{}".format(cast_int(e), energy_index_map[j] if energy_index_map is not None else j)
                     shifts = ""
                     for (j, p) in enumerate(num_step['shifts']):
                         if p != 0:
                             if j < self.n_sg_loops:
-                                shifts += "{:+}*k{}".format(cast_int(p), j+1)
+                                shifts += "{}*k{}".format(cast_int(p), j+1)
                             else:
-                                shifts += "{:+}*p{}".format(cast_int(p),
+                                shifts += "{}*p{}".format(cast_int(p),
                                                             j-self.n_sg_loops+1)
                     if tuple(num_step['shifts']) in on_shell_conditions:
                         ss += '+' + on_shell_conditions[tuple(num_step['shifts'])]
@@ -357,12 +361,12 @@ class PartialFractioning:
                     else:
                         ss += ", "
 
-            terms[ss] += cast_int(fact)
+            terms[ss] += fact
 
         ss = ""
         terms_sorted = sorted(terms.items(), key=lambda k: k[0])
         for x, c in terms_sorted:
-            ss += '\t{}{}\n'.format("%+d" % cast_int(c), x)
+            ss += '\t{}{}\n'.format("%s" % cast_int(c), x)
 
         return ss, used_denominators
 

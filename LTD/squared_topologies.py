@@ -140,6 +140,9 @@ class SquaredTopologyGenerator:
                     
                     uv_limits = diag_info['graph'].construct_uv_limits(vw, ew, 
                                 UV_min_dod_to_subtract=self.generation_options.get('UV_min_dod_to_subtract',0) )
+                    
+                    # FIXME DISABLE UV
+                    #uv_limits = [uv_limits[0]]
 
                     internal_bubbles = []
                     for uv_limit in uv_limits:
@@ -190,11 +193,13 @@ class SquaredTopologyGenerator:
 
                             if len(uv_sg['graph'].edge_map_lin) - len(subgraph_internal_edges) == 2 and len(uv_limit['spinney']) == 1:
                                 if len(uv_sg['graph'].edge_map_lin) < len(diag_info['graph'].edge_map_lin):
-                                    uv_sg['internal_bubble'] = copy.deepcopy(uv_sg['graph'])
-                                    internal_bubbles.append((uv_sg['internal_bubble'], subgraph_internal_edges))
-
-                                #if particle_ids[uv_sg['graph'].edge_map_lin[uv_sg['graph'].ext[0]][0]] == 21:
-                                #    uv_sg['gluon_bubble'] = True
+                                    # FIXME DISABLE ONSHELL
+                                    #uv_sg['internal_bubble'] = copy.deepcopy(uv_sg['graph'])
+                                    #internal_bubbles.append((uv_sg['internal_bubble'], subgraph_internal_edges))
+                                    pass
+                                # FIXME DISABLE GLUON SOFT CT
+                                if particle_ids[uv_sg['graph'].edge_map_lin[uv_sg['graph'].ext[0]][0]] == 21:
+                                    uv_sg['gluon_bubble'] = True
 
                     diag_info['internal_bubbles'] = internal_bubbles
             
