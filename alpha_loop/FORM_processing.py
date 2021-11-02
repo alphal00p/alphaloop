@@ -2793,7 +2793,7 @@ const complex<double> I{ 0.0, 1.0 };
                         integrand_f128_main_code = numerator_header + integrand_f128_main_code
                         integrand_mpfr_main_code = numerator_header + integrand_mpfr_main_code
 
-                        integrand_f128_main_code = integrand_f128_main_code.replace('const complex<double> I{ 0.0, 1.0 };', 'constexpr complex<double> I{ 0.0, 1.0 };')
+                        integrand_f128_main_code = integrand_f128_main_code.replace('const complex<double> I{ 0.0, 1.0 };', 'constexpr complex128 I{ 0.0, 1.0 };')
 
 
                         conf_no_dual, conf_dual = [x for x in confs if not x[1]], [x for x in confs if x[1]]

@@ -2521,7 +2521,7 @@ impl SquaredTopology {
         debug_assert!(cutkosky_cuts.cuts.iter().any(|cc| cc.power > 1));
 
         let mut cut_energies_summed = Dual::from_real(T::zero());
-        let mut scaling_result: Complex<Dual<T>> = Complex::one();
+        let mut scaling_result: Complex<Dual<T>> = -Complex::one(); // take into account the winding number
 
         let mut cut_momenta: SmallVec<[LorentzVector<Dual<T>>; 5]> = (0..cutkosky_cuts.cuts.len())
             .map(|_| LorentzVector::new())
