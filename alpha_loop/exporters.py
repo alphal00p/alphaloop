@@ -349,7 +349,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                     pjoin(FORM_output_path, 'Makefile'))
 
-            for n in ('mpcomplex.h', 'mpreal.h', 'dual.h'):
+            for n in ('mpcomplex.h', 'mpreal.h', 'dual.h', 'dualkt2.h'):
                 shutil.copy(pjoin(plugin_path, n),
                         pjoin(self.dir_path,'FORM', n))
 
@@ -1349,7 +1349,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             form_processor = FORM_processing.FORMProcessor(super_graph_list, computed_model, self.proc_def)
             shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                     pjoin(self.dir_path,'FORM', 'Makefile'))
-            for n in ('mpcomplex.h', 'mpreal.h', 'dual.h'):
+            for n in ('mpcomplex.h', 'mpreal.h', 'dual.h', 'dualkt2.h'):
                 shutil.copy(pjoin(plugin_path, n),
                         pjoin(self.dir_path,'FORM', n))
 
@@ -1756,7 +1756,7 @@ class LUScalarTopologyExporter(QGRAFExporter):
         # Compile
         shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                     pjoin(FORM_output_path, 'Makefile'))
-        for n in ('mpcomplex.h', 'mpreal.h', 'dual.h'):
+        for n in ('mpcomplex.h', 'mpreal.h', 'dual.h', 'dualkt2.h'):
             shutil.copy(pjoin(plugin_path, n),
                     pjoin(self.dir_path,'FORM', n))
         form_processor.compile(FORM_output_path)

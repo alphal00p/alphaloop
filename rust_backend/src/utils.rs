@@ -1,14 +1,15 @@
+use crate::dualkt2::Dualkt2;
 use crate::{FloatLike, MAX_LOOP};
 use dual_num::DualN;
 use f128::f128;
 use itertools::Itertools;
+use lorentz_vector::RealNumberLike;
+use lorentz_vector::{Field, LorentzVector};
 use num::Complex;
 use num_traits::{Float, Num, NumAssign, NumCast};
 use num_traits::{Inv, One, Zero};
 use std::cmp::{Ord, Ordering};
 use std::ops::Neg;
-use lorentz_vector::RealNumberLike;
-use lorentz_vector::{Field, LorentzVector};
 
 const MAX_DIMENSION: usize = MAX_LOOP * 3;
 
@@ -178,6 +179,18 @@ where
         match sign {
             1 => *self,
             0 => DualN::zero(),
+            -1 => -*self,
+            _ => unreachable!("Sign should be -1,0,1"),
+        }
+    }
+}
+
+impl<T: FloatLike> Signum for Dualkt2<T> {
+    #[inline]
+    fn multiply_sign(&self, sign: i8) -> Dualkt2<T> {
+        match sign {
+            1 => *self,
+            0 => Dualkt2::zero(),
             -1 => -*self,
             _ => unreachable!("Sign should be -1,0,1"),
         }

@@ -2534,12 +2534,14 @@ class FORMSuperGraphList(list):
 #include <signal.h>
 #include "%(header)snumerator.h"
 #include "dual.h"
+#include "dualkt2.h"
 #include <mp++/complex128.hpp>
 
 using namespace std;
 using namespace std::complex_literals;
 using namespace duals;
 using namespace duals::literals;
+using namespace dualskt2;
 using namespace mppp;
 using namespace mppp::literals;
 
@@ -2669,7 +2671,7 @@ const complex<double> I{ 0.0, 1.0 };
                             returnval = re.sub(r'(^|[+\-*=])(\s*\d+)($|[^.\d\w])', r'\1\2.\3', returnval)
 
                             if dual_num_mode and all(x not in returnval for x in ['E', 'lm', 'Z']):
-                                returnval = 'dual({})'.format(returnval)
+                                returnval = 'dualkt2({})'.format(returnval)
 
                             if denominator_mode == 'FOREST':
                                 conf_sec = return_exp.sub('return {};\n'.format(returnval), conf_sec)
@@ -2684,11 +2686,11 @@ const complex<double> I{ 0.0, 1.0 };
                             conf_sec = re.sub(r'pow\(([^,]+),(\d+)\)', lambda x: '*'.join([x.group(1)]*int(x.group(2))) , conf_sec)
 
                             base_type = 'complex<double>'
-                            dual_base_type = 'dual<{}>'.format(base_type) if dual_num_mode else base_type
+                            dual_base_type = 'dualkt2<{}>'.format(base_type) if dual_num_mode else base_type
                             base_type_f128 = 'complex128'
-                            dual_base_type_f128 = 'dual<{}>'.format(base_type_f128) if dual_num_mode else base_type_f128
+                            dual_base_type_f128 = 'dualkt2<{}>'.format(base_type_f128) if dual_num_mode else base_type_f128
                             base_type_mpfr = 'mpcomplex'
-                            dual_base_type_mpfr = 'dual<{}>'.format(base_type_mpfr) if dual_num_mode else base_type_mpfr
+                            dual_base_type_mpfr = 'dualkt2<{}>'.format(base_type_mpfr) if dual_num_mode else base_type_mpfr
                             
 
                             if denominator_mode == 'FOREST':
@@ -2768,7 +2770,7 @@ const complex<double> I{ 0.0, 1.0 };
                                     main_code_f128
                                 )
 
-                                main_code_mpfr = main_code.replace('pi', 'mpreal(mpfr::const_pi())').replace('dual<complex<double>>', 'mpcomplex')
+                                main_code_mpfr = main_code.replace('pi', 'mpreal(mpfr::const_pi())').replace('complex<double>', 'mpcomplex')
 
                                 for p in params:
                                     if p != 'pi':
@@ -2807,7 +2809,7 @@ void %(header)sevaluate_{0}_{1}(complex<double> lm[], complex<double> params[], 
     }}
 }}
 
-void %(header)sevaluate_{0}_{1}_dual(dual<complex<double>> lm[], complex<double> params[], int conf, dual<complex<double>>* out) {{
+void %(header)sevaluate_{0}_{1}_dual(dualkt2<complex<double>> lm[], complex<double> params[], int conf, dualkt2<complex<double>>* out) {{
    switch(conf) {{
 {3}
     }}
@@ -2834,7 +2836,7 @@ void %(header)sevaluate_{0}_{1}_f128(complex128 lm[], complex128 params[], int c
     }}
 }}
 
-void %(header)sevaluate_{0}_{1}_f128_dual(dual<complex128> lm[], complex128 params[], int conf, dual<complex128>* out) {{
+void %(header)sevaluate_{0}_{1}_f128_dual(dualkt2<complex128> lm[], complex128 params[], int conf, dualkt2<complex128>* out) {{
    switch(conf) {{
 {3}
     }}
@@ -2872,7 +2874,7 @@ void %(header)sevaluate_{0}_{1}_mpfr(complex128 lm[], complex128 params[], int c
     }}
 }}
 
-void %(header)sevaluate_{0}_{1}_mpfr_dual(dual<complex128> lm[], complex128 params[], int conf, int prec, dual<complex128>* out) {{
+void %(header)sevaluate_{0}_{1}_mpfr_dual(dualkt2<complex128> lm[], complex128 params[], int conf, int prec, dualkt2<complex128>* out) {{
    mpfr_set_default_prec((mpfr_prec_t)(ceil(prec * 3.3219280948873624)));
    switch(conf) {{
 {3}
@@ -3617,6 +3619,7 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(dual<complex128> lm[], complex128 para
         shutil.copy('mpreal.h', pjoin(TMP_FORM, 'mpreal.h'))
         shutil.copy('mpcomplex.h', pjoin(TMP_FORM, 'mpcomplex.h'))
         shutil.copy('dual.h', pjoin(TMP_FORM, 'dual.h'))
+        shutil.copy('dualkt2.h', pjoin(TMP_FORM, 'dualkt2.h'))
         Path(pjoin(TMP_OUTPUT, 'lib')).mkdir(parents=True, exist_ok=True)
         FORMProcessor.compile(TMP_FORM)
 

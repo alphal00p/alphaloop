@@ -1,4 +1,5 @@
 use crate::dashboard::{StatusUpdate, StatusUpdateSender};
+use crate::dualkt2::Dualkt2;
 use crate::integrand::{IntegrandImplementation, IntegrandSample};
 use crate::observables::EventManager;
 use crate::topologies::{FixedDeformationLimit, LTDCache, LTDNumerator, SOCPProblem, Topology};
@@ -8,7 +9,6 @@ use crate::{float, DeformationStrategy, FloatLike, IntegrandType, NormalisingFun
 use arrayvec::ArrayVec;
 use color_eyre::{Help, Report};
 use dlopen::raw::Library;
-use dual_num::Dual;
 use eyre::WrapErr;
 use f128::f128;
 use havana::{ContinuousGrid, DiscreteGrid, Grid};
@@ -32,7 +32,7 @@ pub const MAX_SG_LOOP: usize = 5;
 pub const MAX_SG_LOOP: usize = 10;
 
 mod form_integrand {
-    use super::{FORMIntegrandCallSignature, SimpleDual};
+    use super::{FORMIntegrandCallSignature, SimpleDualkt2};
     use num::Complex;
 
     pub trait GetIntegrand {
@@ -66,29 +66,29 @@ mod form_integrand {
 
         fn get_integrand_ltd_dual(
             api_container: &FORMIntegrandCallSignature,
-            p: &[SimpleDual<Self>],
+            p: &[SimpleDualkt2<Self>],
             params: &[Self],
             conf: usize,
-        ) -> SimpleDual<Self>
+        ) -> SimpleDualkt2<Self>
         where
             Self: std::marker::Sized;
 
         fn get_integrand_pf_dual(
             api_container: &FORMIntegrandCallSignature,
-            p: &[SimpleDual<Self>],
+            p: &[SimpleDualkt2<Self>],
             params: &[Self],
             conf: usize,
-        ) -> SimpleDual<Self>
+        ) -> SimpleDualkt2<Self>
         where
             Self: std::marker::Sized;
 
         fn get_integrand_mpfr_dual(
             api_container: &FORMIntegrandCallSignature,
-            p: &[SimpleDual<Self>],
+            p: &[SimpleDualkt2<Self>],
             params: &[Self],
             conf: usize,
             prec: usize,
-        ) -> SimpleDual<Self>
+        ) -> SimpleDualkt2<Self>
         where
             Self: std::marker::Sized;
     }
@@ -146,18 +146,18 @@ mod form_integrand {
 
         fn get_integrand_ltd_dual(
             api_container: &FORMIntegrandCallSignature,
-            p: &[SimpleDual<f64>],
+            p: &[SimpleDualkt2<f64>],
             params: &[f64],
             conf: usize,
-        ) -> SimpleDual<f64> {
+        ) -> SimpleDualkt2<f64> {
             unsafe {
-                let mut c = SimpleDual::default();
+                let mut c = SimpleDualkt2::default();
                 if let Some(eval) = api_container.evaluate_ltd_dual {
                     eval(
-                        &p[0] as *const SimpleDual<f64>,
+                        &p[0] as *const SimpleDualkt2<f64>,
                         &params[0] as *const f64,
                         conf as i32,
-                        &mut c as *mut SimpleDual<f64>,
+                        &mut c as *mut SimpleDualkt2<f64>,
                     );
                 }
                 c
@@ -166,18 +166,18 @@ mod form_integrand {
 
         fn get_integrand_pf_dual(
             api_container: &FORMIntegrandCallSignature,
-            p: &[SimpleDual<f64>],
+            p: &[SimpleDualkt2<f64>],
             params: &[f64],
             conf: usize,
-        ) -> SimpleDual<f64> {
+        ) -> SimpleDualkt2<f64> {
             unsafe {
-                let mut c = SimpleDual::default();
+                let mut c = SimpleDualkt2::default();
                 if let Some(eval) = api_container.evaluate_pf_dual {
                     eval(
-                        &p[0] as *const SimpleDual<f64>,
+                        &p[0] as *const SimpleDualkt2<f64>,
                         &params[0] as *const f64,
                         conf as i32,
-                        &mut c as *mut SimpleDual<f64>,
+                        &mut c as *mut SimpleDualkt2<f64>,
                     );
                 }
                 c
@@ -186,11 +186,11 @@ mod form_integrand {
 
         fn get_integrand_mpfr_dual(
             _api_container: &FORMIntegrandCallSignature,
-            _p: &[SimpleDual<f64>],
+            _p: &[SimpleDualkt2<f64>],
             _params: &[f64],
             _conf: usize,
             _prec: usize,
-        ) -> SimpleDual<f64> {
+        ) -> SimpleDualkt2<f64> {
             unimplemented!("MPFR is only supported in f128 mode")
         }
     }
@@ -260,18 +260,18 @@ mod form_integrand {
 
         fn get_integrand_ltd_dual(
             api_container: &FORMIntegrandCallSignature,
-            p: &[SimpleDual<f128::f128>],
+            p: &[SimpleDualkt2<f128::f128>],
             params: &[f128::f128],
             conf: usize,
-        ) -> SimpleDual<f128::f128> {
+        ) -> SimpleDualkt2<f128::f128> {
             unsafe {
-                let mut c = Box::new(SimpleDual::default());
+                let mut c = Box::new(SimpleDualkt2::default());
                 if let Some(eval) = api_container.evaluate_ltd_f128_dual {
                     eval(
-                        &p[0] as *const SimpleDual<f128::f128>,
+                        &p[0] as *const SimpleDualkt2<f128::f128>,
                         &params[0] as *const f128::f128,
                         conf as i32,
-                        c.as_mut() as *mut SimpleDual<f128::f128>,
+                        c.as_mut() as *mut SimpleDualkt2<f128::f128>,
                     );
                 }
                 *c
@@ -280,18 +280,18 @@ mod form_integrand {
 
         fn get_integrand_pf_dual(
             api_container: &FORMIntegrandCallSignature,
-            p: &[SimpleDual<f128::f128>],
+            p: &[SimpleDualkt2<f128::f128>],
             params: &[f128::f128],
             conf: usize,
-        ) -> SimpleDual<f128::f128> {
+        ) -> SimpleDualkt2<f128::f128> {
             unsafe {
-                let mut c = Box::new(SimpleDual::default());
+                let mut c = Box::new(SimpleDualkt2::default());
                 if let Some(eval) = api_container.evaluate_pf_f128_dual {
                     eval(
-                        &p[0] as *const SimpleDual<f128::f128>,
+                        &p[0] as *const SimpleDualkt2<f128::f128>,
                         &params[0] as *const f128::f128,
                         conf as i32,
-                        c.as_mut() as *mut SimpleDual<f128::f128>,
+                        c.as_mut() as *mut SimpleDualkt2<f128::f128>,
                     );
                 }
                 *c
@@ -300,20 +300,20 @@ mod form_integrand {
 
         fn get_integrand_mpfr_dual(
             api_container: &FORMIntegrandCallSignature,
-            p: &[SimpleDual<f128::f128>],
+            p: &[SimpleDualkt2<f128::f128>],
             params: &[f128::f128],
             conf: usize,
             prec: usize,
-        ) -> SimpleDual<f128::f128> {
+        ) -> SimpleDualkt2<f128::f128> {
             unsafe {
-                let mut c = Box::new(SimpleDual::default());
+                let mut c = Box::new(SimpleDualkt2::default());
                 if let Some(eval) = api_container.evaluate_pf_mpfr_dual {
                     eval(
-                        &p[0] as *const SimpleDual<f128::f128>,
+                        &p[0] as *const SimpleDualkt2<f128::f128>,
                         &params[0] as *const f128::f128,
                         conf as i32,
                         prec as i32,
-                        c.as_mut() as *mut SimpleDual<f128::f128>,
+                        c.as_mut() as *mut SimpleDualkt2<f128::f128>,
                     );
                 }
                 *c
@@ -396,37 +396,47 @@ pub struct FORMIntegrandCallSignature {
     #[serde(skip_deserializing)]
     pub evaluate_pf_dual: Option<
         unsafe extern "C" fn(
-            *const SimpleDual<c_double>,
+            *const SimpleDualkt2<c_double>,
             *const c_double,
             c_int,
-            *mut SimpleDual<c_double>,
+            *mut SimpleDualkt2<c_double>,
         ),
     >,
     #[serde(skip_deserializing)]
     pub evaluate_ltd_dual: Option<
         unsafe extern "C" fn(
-            *const SimpleDual<c_double>,
+            *const SimpleDualkt2<c_double>,
             *const c_double,
             c_int,
-            *mut SimpleDual<c_double>,
+            *mut SimpleDualkt2<c_double>,
         ),
     >,
     #[serde(skip_deserializing)]
     pub evaluate_pf_f128_dual: Option<
-        unsafe extern "C" fn(*const SimpleDual<f128>, *const f128, c_int, *mut SimpleDual<f128>),
+        unsafe extern "C" fn(
+            *const SimpleDualkt2<f128>,
+            *const f128,
+            c_int,
+            *mut SimpleDualkt2<f128>,
+        ),
     >,
     #[serde(skip_deserializing)]
     pub evaluate_ltd_f128_dual: Option<
-        unsafe extern "C" fn(*const SimpleDual<f128>, *const f128, c_int, *mut SimpleDual<f128>),
+        unsafe extern "C" fn(
+            *const SimpleDualkt2<f128>,
+            *const f128,
+            c_int,
+            *mut SimpleDualkt2<f128>,
+        ),
     >,
     #[serde(skip_deserializing)]
     pub evaluate_pf_mpfr_dual: Option<
         unsafe extern "C" fn(
-            *const SimpleDual<f128>,
+            *const SimpleDualkt2<f128>,
             *const f128,
             c_int,
             c_int,
-            *mut SimpleDual<f128>,
+            *mut SimpleDualkt2<f128>,
         ),
     >,
     #[serde(default)]
@@ -1406,17 +1416,39 @@ impl SquaredTopologySet {
 }
 
 #[repr(C)]
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct SimpleDual<T> {
     pub real: Complex<T>,
     pub der: Complex<T>,
+}
+
+#[repr(C)]
+#[derive(Default, Debug)]
+pub struct SimpleDualkt2<T> {
+    pub real: Complex<T>,
+    pub ep_k0: Complex<T>,
+    pub ep_t: Complex<T>,
+    pub ep_k0_t: Complex<T>,
+    pub ep_t2: Complex<T>,
+}
+
+impl<T> SimpleDualkt2<T> {
+    pub fn from_complex_dual(d: Complex<Dualkt2<T>>) -> SimpleDualkt2<T> {
+        SimpleDualkt2 {
+            real: Complex::new(d.re.real, d.im.real),
+            ep_k0: Complex::new(d.re.ep_k0, d.im.ep_k0),
+            ep_t: Complex::new(d.re.ep_t, d.im.ep_t),
+            ep_k0_t: Complex::new(d.re.ep_k0_t, d.im.ep_k0_t),
+            ep_t2: Complex::new(d.re.ep_t2, d.im.ep_t2),
+        }
+    }
 }
 
 #[derive(Default)]
 pub struct SquaredTopologyCache<T: FloatLike> {
     topology_cache: Vec<Vec<Vec<Vec<LTDCache<T>>>>>,
     scalar_products: Vec<T>,
-    scalar_products_dual: Vec<SimpleDual<T>>,
+    scalar_products_dual: Vec<SimpleDualkt2<T>>,
     params: Vec<T>,
     deformation_vector_cache: Vec<Vec<FixedDeformationLimit>>,
     current_supergraph: usize,
@@ -2515,23 +2547,30 @@ impl SquaredTopology {
         scaling: T,
         selected_diagram_set: Option<usize>,
     ) -> Complex<T> {
-        let scaling = Dual::new(scaling, T::one());
+        let scaling = Dualkt2::new(scaling, T::zero(), T::one(), T::zero(), T::zero());
 
         let cutkosky_cuts = &mut self.cutkosky_cuts[cut_index];
         debug_assert!(cutkosky_cuts.cuts.iter().any(|cc| cc.power > 1));
 
-        let mut cut_energies_summed = Dual::from_real(T::zero());
-        let mut scaling_result: Complex<Dual<T>> = -Complex::one(); // take into account the winding number
+        let mut cut_energies_summed = Dualkt2::from_real(T::zero());
+        let mut scaling_result: Complex<Dualkt2<T>> = -Complex::one(); // take into account the winding number
 
-        let mut cut_momenta: SmallVec<[LorentzVector<Dual<T>>; 5]> = (0..cutkosky_cuts.cuts.len())
-            .map(|_| LorentzVector::new())
-            .collect();
-        let mut rescaled_loop_momenta: SmallVec<[LorentzVector<Dual<T>>; 5]> =
+        let mut cut_momenta: SmallVec<[LorentzVector<Dualkt2<T>>; 5]> =
+            (0..cutkosky_cuts.cuts.len())
+                .map(|_| LorentzVector::new())
+                .collect();
+        let mut rescaled_loop_momenta: SmallVec<[LorentzVector<Dualkt2<T>>; 5]> =
             (0..self.n_loops).map(|_| LorentzVector::new()).collect();
-        let mut subgraph_loop_momenta: SmallVec<[LorentzVector<Dual<T>>; 5]> =
+        let mut subgraph_loop_momenta: SmallVec<[LorentzVector<Dualkt2<T>>; 5]> =
             (0..self.n_loops).map(|_| LorentzVector::new()).collect();
-        let mut k_def: SmallVec<[LorentzVector<Complex<Dual<T>>>; 5]> =
+        let mut k_def: SmallVec<[LorentzVector<Complex<Dualkt2<T>>>; 5]> =
             (0..self.n_loops).map(|_| LorentzVector::new()).collect();
+
+        let max_extra_t_raisings = cutkosky_cuts.cuts[..cutkosky_cuts.cuts.len() - 1]
+            .iter()
+            .map(|c| c.power - 1)
+            .sum();
+        let mut e_surface_expansion = Dualkt2::zero();
 
         // evaluate the cuts with the proper scaling
         for (cut_index, (cut_mom, cut)) in cut_momenta[..cutkosky_cuts.cuts.len()]
@@ -2545,32 +2584,49 @@ impl SquaredTopology {
                 &external_momenta[..self.external_momenta.len()],
             );
 
-            *cut_mom = k.convert::<Dual<T>>() * scaling + shift.convert::<Dual<T>>();
+            *cut_mom = k.convert::<Dualkt2<T>>() * scaling + shift.convert::<Dualkt2<T>>();
 
             let energy = (cut_mom.spatial_squared() + Into::<T>::into(cut.m_squared)).sqrt();
-            cut_mom.t = energy.multiply_sign(cut.sign);
-
             cut_energies_summed += energy;
 
             if cut_index + 1 == cutkosky_cuts.cuts.len() {
-                let e_surface_der = -cut_energies_summed.dual();
-                let h_surface = -cut_energies_summed
+                cut_mom.t = (-cut_energies_summed + energy + cut_energies_summed.real)
+                    .multiply_sign(cut.sign); // note: unused in practice
+
+                // take the n-th order expansion in t around t* of the E-surface
+                e_surface_expansion = -(Dualkt2::from_real(cut_energies_summed.ep_t)
+                    + (scaling - Dualkt2::from_real(scaling.real)) * cut_energies_summed.ep_t2)
+                    .multiply_sign(cut.sign);
+
+                let h_surface = (-cut_energies_summed
                     + energy * Into::<T>::into(2.0)
-                    + cut_energies_summed.real();
+                    + cut_energies_summed.real)
+                    .multiply_sign(cut.sign);
                 scaling_result *= num::Complex::new(
-                    (h_surface * e_surface_der).powi(cut.power as i32).inv(),
-                    Dual::zero(),
+                    (h_surface * e_surface_expansion)
+                        .powi(cut.power as i32)
+                        .inv(),
+                    Dualkt2::zero(),
                 );
             } else {
-                scaling_result *= num::Complex::new(
-                    (energy * Into::<T>::into(2.0)).powi(cut.power as i32).inv(),
-                    Dual::zero(),
-                );
+                let mut e1 = energy;
+
+                if cut.power > 1 {
+                    // tag the k0 derivative
+                    e1.ep_k0 = T::one();
+                    cut_energies_summed += e1 - energy;
+                }
+
+                cut_mom.t = e1.multiply_sign(cut.sign);
+
+                // Construct the full H-surface, (2|k| + ep_k)^-p
+                scaling_result *=
+                    num::Complex::new((e1 + energy).powi(cut.power as i32).inv(), Dualkt2::zero());
             }
 
             scaling_result *= num::Complex::new(
-                Dual::zero(),
-                Dual::from_real(-Into::<T>::into(2.0) * <T as FloatConst>::PI()),
+                Dualkt2::zero(),
+                Dualkt2::from_real(-Into::<T>::into(2.0) * <T as FloatConst>::PI()),
             );
         }
 
@@ -2609,8 +2665,11 @@ impl SquaredTopology {
                 (
                     e,
                     if self.settings.cross_section.normalising_function.spread == 1. {
+                        // FIXME: this is only 64 bit precise
+                        /*T::from_str_radix("0.27973176363304485456919761407082", 10)
+                        .ok()
+                        .unwrap()*/
                         Into::<T>::into(0.27973176363304485456919761407082)
-                        // Into::<T>::into(3.6462924162048315061277675650969e7)
                     } else {
                         Into::<T>::into(
                             2. * rgsl::bessel::K1(
@@ -2629,8 +2688,8 @@ impl SquaredTopology {
                 let sigma =
                     Into::<T>::into(self.settings.cross_section.normalising_function.spread);
                 (
-                    scaling.powf(Dual::from_real(sigma))
-                        / (scaling.powf(Dual::from_real(Into::<T>::into(2.0) * sigma))
+                    scaling.powf(Dualkt2::from_real(sigma))
+                        / (scaling.powf(Dualkt2::from_real(Into::<T>::into(2.0) * sigma))
                             + Into::<T>::into(1.0)),
                     <T as FloatConst>::PI()
                         / (Into::<T>::into(2.0)
@@ -2642,8 +2701,8 @@ impl SquaredTopology {
         };
 
         scaling_result *= Complex::new(
-            Float::powi(scaling, self.n_loops as i32 * 3) * h / h_norm,
-            Dual::zero(),
+            scaling.powi(self.n_loops as i32 * 3) * h / h_norm,
+            Dualkt2::zero(),
         );
 
         // rescale the loop momenta
@@ -2651,7 +2710,7 @@ impl SquaredTopology {
             .iter_mut()
             .zip_eq(loop_momenta)
         {
-            *rlm = lm.convert::<Dual<T>>() * scaling;
+            *rlm = lm.convert::<Dualkt2<T>>() * scaling;
         }
 
         let mut constants = Complex::one();
@@ -2684,8 +2743,10 @@ impl SquaredTopology {
             constants *= Into::<T>::into(0.389379304e9);
         }
 
-        scaling_result *=
-            Complex::new(Dual::from_real(constants.re), Dual::from_real(constants.im));
+        scaling_result *= Complex::new(
+            Dualkt2::from_real(constants.re),
+            Dualkt2::from_real(constants.im),
+        );
 
         if self.settings.general.debug >= 2 {
             println!("  | constants={:.16e}", constants);
@@ -2707,7 +2768,7 @@ impl SquaredTopology {
             let real_cut_momenta: SmallVec<[LorentzVector<T>; 5]> = cut_momenta
                 [..cutkosky_cuts.cuts.len()]
                 .iter()
-                .map(|c| c.real())
+                .map(|c| c.map(|x| x.real))
                 .collect();
 
             if !em.add_event(
@@ -2733,9 +2794,9 @@ impl SquaredTopology {
         // initialize the constants
         if cache.params.len() != 10 {
             cache.params = vec![
-                Into::<T>::into(self.settings.cross_section.m_uv_sq.sqrt()),
+                Into::<T>::into(self.settings.cross_section.m_uv_sq).sqrt(),
                 T::zero(),
-                Into::<T>::into(self.settings.cross_section.mu_r_sq.sqrt()),
+                Into::<T>::into(self.settings.cross_section.mu_r_sq).sqrt(),
                 T::zero(),
                 Into::<T>::into(self.settings.cross_section.gs),
                 T::zero(),
@@ -2747,8 +2808,7 @@ impl SquaredTopology {
         }
 
         // now apply the same procedure for all uv limits
-        let mut cut_result: Complex<T> = Complex::one();
-        let mut diag_and_num_contributions: Complex<Dual<T>> = Complex::zero();
+        let mut diag_and_num_contributions: Complex<Dualkt2<T>> = Complex::zero();
         let mut def_jacobian = Complex::one();
 
         // diagrams sets in the same cut can only inherit information if the cmb is the same
@@ -2906,7 +2966,7 @@ impl SquaredTopology {
                         let s: SmallVec<[LorentzVector<T>; 5]> = subgraph_loop_momenta
                             [..subgraph.n_loops]
                             .iter()
-                            .map(|c| c.real())
+                            .map(|c| c.map(|x| x.real))
                             .collect();
 
                         subgraph.deform(&s, subgraph_cache)
@@ -2923,11 +2983,11 @@ impl SquaredTopology {
                     {
                         k_def[k_def_index] = if diagram_info.conjugate_deformation {
                             // take the complex conjugate of the deformation
-                            lm.map(|x| Complex::new(x, Dual::zero()))
-                                - kappa.map(|x| Complex::new(Dual::zero(), x.into()))
+                            lm.map(|x| Complex::new(x, Dualkt2::zero()))
+                                - kappa.map(|x| Complex::new(Dualkt2::zero(), x.into()))
                         } else {
-                            lm.map(|x| Complex::new(x, Dual::zero()))
-                                + kappa.map(|x| Complex::new(Dual::zero(), x.into()))
+                            lm.map(|x| Complex::new(x, Dualkt2::zero()))
+                                + kappa.map(|x| Complex::new(Dualkt2::zero(), x.into()))
                         };
                         k_def_index += 1;
                     }
@@ -2958,56 +3018,53 @@ impl SquaredTopology {
                     .iter()
                     .enumerate()
                 {
-                    cache.scalar_products_dual.push(SimpleDual {
-                        real: Complex::new(e1.t, T::zero()),
-                        der: Complex::zero(),
-                    });
+                    cache
+                        .scalar_products_dual
+                        .push(SimpleDualkt2::from_complex_dual(Complex::new(
+                            Dualkt2::from_real(e1.t),
+                            Dualkt2::zero(),
+                        )));
 
                     for e2 in &external_momenta[i1..self.n_incoming_momenta] {
                         let (d, ds) = e1.dot_spatial_dot(e2);
-                        cache.scalar_products_dual.push(SimpleDual {
-                            real: Complex::new(d, T::zero()),
-                            der: Complex::zero(),
-                        });
-                        cache.scalar_products_dual.push(SimpleDual {
-                            real: Complex::new(ds, T::zero()),
-                            der: Complex::zero(),
-                        });
+                        cache
+                            .scalar_products_dual
+                            .push(SimpleDualkt2::from_complex_dual(Complex::new(
+                                Dualkt2::from_real(d),
+                                Dualkt2::zero(),
+                            )));
+                        cache
+                            .scalar_products_dual
+                            .push(SimpleDualkt2::from_complex_dual(Complex::new(
+                                Dualkt2::from_real(ds),
+                                Dualkt2::zero(),
+                            )));
                     }
                 }
 
                 for (i1, m1) in k_def[..self.n_loops].iter().enumerate() {
-                    cache.scalar_products_dual.push(SimpleDual {
-                        real: Complex::new(m1.t.re.real(), m1.t.im.real()),
-                        der: Complex::new(m1.t.re.dual(), m1.t.im.dual()),
-                    });
+                    cache
+                        .scalar_products_dual
+                        .push(SimpleDualkt2::from_complex_dual(m1.t));
 
                     for e1 in &external_momenta[..self.n_incoming_momenta] {
                         let (d, ds) = m1.dot_spatial_dot(&e1.cast());
-
-                        cache.scalar_products_dual.push(SimpleDual {
-                            real: Complex::new(d.re.real(), d.im.real()),
-                            der: Complex::new(d.re.dual(), d.im.dual()),
-                        });
-
-                        cache.scalar_products_dual.push(SimpleDual {
-                            real: Complex::new(ds.re.real(), ds.im.real()),
-                            der: Complex::new(ds.re.dual(), ds.im.dual()),
-                        });
+                        cache
+                            .scalar_products_dual
+                            .push(SimpleDualkt2::from_complex_dual(d));
+                        cache
+                            .scalar_products_dual
+                            .push(SimpleDualkt2::from_complex_dual(ds));
                     }
 
                     for m2 in k_def[i1..self.n_loops].iter() {
                         let (d, ds) = m1.dot_spatial_dot(m2);
-
-                        cache.scalar_products_dual.push(SimpleDual {
-                            real: Complex::new(d.re.real(), d.im.real()),
-                            der: Complex::new(d.re.dual(), d.im.dual()),
-                        });
-
-                        cache.scalar_products_dual.push(SimpleDual {
-                            real: Complex::new(ds.re.real(), ds.im.real()),
-                            der: Complex::new(ds.re.dual(), ds.im.dual()),
-                        });
+                        cache
+                            .scalar_products_dual
+                            .push(SimpleDualkt2::from_complex_dual(d));
+                        cache
+                            .scalar_products_dual
+                            .push(SimpleDualkt2::from_complex_dual(ds));
                     }
                 }
             }
@@ -3018,7 +3075,7 @@ impl SquaredTopology {
                 }
             }
 
-            let mut res: Complex<Dual<T>> = if let Some(call_signature) =
+            let mut res: Complex<Dualkt2<T>> = if let Some(call_signature) =
                 &self.form_integrand.call_signature
             {
                 let mut res = Complex::default();
@@ -3068,8 +3125,20 @@ impl SquaredTopology {
                     };
 
                     res += Complex::new(
-                        Dual::new(res_bare.real.re, res_bare.der.re),
-                        Dual::new(res_bare.real.im, res_bare.der.im),
+                        Dualkt2::new(
+                            res_bare.real.re,
+                            res_bare.ep_k0.re,
+                            res_bare.ep_t.re,
+                            res_bare.ep_k0_t.re,
+                            res_bare.ep_t2.re,
+                        ),
+                        Dualkt2::new(
+                            res_bare.real.im,
+                            res_bare.ep_k0.im,
+                            res_bare.ep_t.im,
+                            res_bare.ep_k0_t.im,
+                            res_bare.ep_t2.im,
+                        ),
                     );
                 }
                 res
@@ -3083,24 +3152,53 @@ impl SquaredTopology {
                 }
             }
 
-            res *= Complex::new(
-                Dual::from_real(def_jacobian.re),
-                Dual::from_real(def_jacobian.im),
-            );
-
             if self.settings.general.debug >= 1 {
                 println!("  | res diagram set {} = {:.16e}", diagram_set.id, res);
             }
 
+            res *= Complex::new(
+                Dualkt2::from_real(def_jacobian.re),
+                Dualkt2::from_real(def_jacobian.im),
+            );
+
             diag_and_num_contributions += res;
         }
 
-        // only keep the dual part
         diag_and_num_contributions *= scaling_result;
-        cut_result *= Complex::new(
-            diag_and_num_contributions.re.dual(),
-            diag_and_num_contributions.im.dual(),
-        );
+
+        let cut_result: Complex<T> = match (
+            cutkosky_cuts.cuts.last().unwrap().power - 1,
+            max_extra_t_raisings,
+        ) {
+            (1, 0) => Complex::new(
+                diag_and_num_contributions.re.ep_t,
+                diag_and_num_contributions.im.ep_t,
+            ),
+            (2, 0) => Complex::new(
+                diag_and_num_contributions.re.ep_t2,
+                diag_and_num_contributions.im.ep_t2,
+            ),
+            (1, 1) => {
+                let r = Complex::new(
+                    diag_and_num_contributions.re.ep_k0_t,
+                    diag_and_num_contributions.im.ep_k0_t,
+                );
+
+                // compute the extra factor of the derivative of the t-propagator E-surface in a loop momentum energy
+                // note that for higher-order derivatives, the expansion depth in the dual number is lower since it doesn't take the
+                // derivative of the E-surface into account. Therefore, a 1/d correction factor may be needed
+                let one_extra_derivative_prefactor =
+                    e_surface_expansion.inv() * -Into::<T>::into(2.);
+
+                // select all dual components of the form
+                // ep_t^(cut_t pow + extra_pow) * sum_x ep_k^(cut_k pow - x1)  * ep_l^(cut l pow - x2) * ... with x = partition of extra_pow
+                let extra_pow_1 = diag_and_num_contributions * one_extra_derivative_prefactor;
+                let sec_contrib = Complex::new(extra_pow_1.re.ep_t2, extra_pow_1.im.ep_t2);
+
+                r + sec_contrib
+            }
+            _ => unreachable!(),
+        };
 
         if let Some(em) = event_manager {
             // set the event result

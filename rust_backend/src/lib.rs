@@ -58,6 +58,7 @@ pub mod partial_fractioning;
 pub mod squared_topologies;
 pub mod topologies;
 pub mod utils;
+pub mod dualkt2;
 
 #[cfg(feature = "python_api")]
 use arrayvec::ArrayVec;
