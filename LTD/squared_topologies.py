@@ -68,6 +68,7 @@ class SquaredTopologyGenerator:
         diagram_set_counter = 0
         graph_counter = 0
         self.cuts = []
+        cut_infos = []
         for cutkosky_cut in cutkosky_cuts:
             # detect external bubbles
             duplicate_cut_edges_set = set()
@@ -121,6 +122,13 @@ class SquaredTopologyGenerator:
                 ]
             }
 
+            cut_infos.append(cut_info)
+
+        has_2l_bubble = any(len(cut_info['diagram_sets'][0]['diagram_info']) > 2 and
+                            any(len(g['graph'].ext) == 2 and len(g['graph'].edge_map_lin) > 4 for g in cut_info['diagram_sets'][0]['diagram_info'])
+                        for cut_info in cut_infos)
+
+        for cutkosky_cut, cut_info in zip(cutkosky_cuts, cut_infos):
             c = cut_info['cuts']
 
             # determine the signature of the cuts
@@ -157,11 +165,16 @@ class SquaredTopologyGenerator:
 
                             if len(uv_sg['graph'].edge_map_lin) - len(subgraph_internal_edges) == 2 and len(uv_limit['spinney']) == 1:
                                 if len(uv_sg['graph'].edge_map_lin) < len(diag_info['graph'].edge_map_lin):
-                                    uv_sg['internal_bubble'] = copy.deepcopy(uv_sg['graph'])
-                                    internal_bubbles.append((uv_sg['internal_bubble'], subgraph_internal_edges))
+                                    #uv_sg['internal_bubble'] = copy.deepcopy(uv_sg['graph'])
+                                    #internal_bubbles.append((uv_sg['internal_bubble'], subgraph_internal_edges))
+                                    pass
 
                                 if particle_ids[uv_sg['graph'].edge_map_lin[uv_sg['graph'].ext[0]][0]] == 21:
-                                    uv_sg['gluon_bubble'] = True
+                                    # check if the gluon self-energy creates a linear or quadratic IR divergence (heuristically)
+                                    if has_2l_bubble:
+                                        uv_sg['gluon_bubble'] = 1
+                                    else:
+                                        uv_sg['gluon_bubble'] = 2
 
                     diag_info['internal_bubbles'] = internal_bubbles
             

@@ -682,24 +682,29 @@ repeat id subgraph(?a,p?) = subgraph(?a);
 * p carries a t dependence that determines the order
 * t1 determines the powers of the UV propagator
     if (count(gluonbubble,1));
-* for the gluon self-energy, the 0th and 1st order are only expanded in the external momentum and not the mass
+* for the gluon self-energy with quadratic IR divergence, the 0th and 1st order are only expanded in the external momentum and not the mass
 * and their integrated counterterm is 0. The 2nd order term is patched to cancel contributions between the UV CT of the original graph and the UV CT of the
 * 0th order IR CT. This patching works for one-loop self-energies
-        id uvprop(k?,t1?,0,m?) = uvprop(k,t1,1,m);
-        id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
-        repeat;
-            id once ifnomatch->skiptruncation uvprop(k?,t1?,p?,m?)*t^x1?*tmax^x2? = uvprop(k,t1,1,m) * t^x1*tmax^x2 * theta_(x2-x1) *
-                (1 + (-2*p.k - p.p) * t1 + 4*p.k^2 * t1^2);
-            id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
-            label skiptruncation;
-        endrepeat;
+        #do gb=2,1,-1
+            id ifnomatch->endgdb`gb' gluonbubble^`gb' = 1;
 
-        id t^2*m?allmasses = 0; * drop masses
-        if (count(t,1) < 2) id uvtopo(?a) = irtopo(?a); * select the proper topology without UV rearrangement
+            id uvprop(k?,t1?,0,m?) = uvprop(k,t1,1,m);
+            id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
+            repeat;
+                id once ifnomatch->skiptruncation`gb' uvprop(k?,t1?,p?,m?)*t^x1?*tmax^x2? = uvprop(k,t1,1,m) * t^x1*tmax^x2 * theta_(x2-x1) *
+                    (1 + (-2*p.k - p.p) * t1 + 4*p.k^2 * t1^2);
+                id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
+                label skiptruncation`gb';
+            endrepeat;
+
+            id t^`gb'*m?allmasses = 0; * drop masses
+            if (count(t,1) < `gb') id uvtopo(?a) = irtopo(?a); * select the proper topology without UV rearrangement
 
 * drop the integrated counterterm
-        if ((count(vxs,1)) && (count(t,1) < 2)) Discard;
-        id gluonbubble = 1;
+            if ((count(vxs,1)) && (count(t,1) < `gb')) Discard;
+
+            label endgdb`gb';
+        #enddo
     else;
 * rescale all masses in the numerator coming from the expansion if we are UV expanding
         if (count(uvprop,1));
@@ -711,7 +716,7 @@ repeat id subgraph(?a,p?) = subgraph(?a);
         id uvprop(k?,t1?,0,m?) = uvprop(k,t1,1,m) * (1 - (mUV^2*t^2-m^2*t^2) * t1 + (mUV^2*t^2-m^2*t^2)^2 * t1^2 + ALARM * t^5);
         id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
         repeat;
-            id once ifnomatch->skiptruncation1 uvprop(k?,t1?,p?,m?)*t^x1?*tmax^x2? = uvprop(k,t1,1,m) * t^x1*tmax^x2 * theta_(x2-x1) *
+            id once ifnomatch->skiptruncation0 uvprop(k?,t1?,p?,m?)*t^x1?*tmax^x2? = uvprop(k,t1,1,m) * t^x1*tmax^x2 * theta_(x2-x1) *
                 (1 +
                     (-2*p.k-(p.p+mUV^2*t^2-m^2*t^2)) * t1 +
                     (+4*p.k^2+4*p.k*(p.p+mUV^2*t^2-m^2*t^2)+(p.p+mUV^2*t^2-m^2*t^2)^2) * t1^2 +
@@ -719,7 +724,7 @@ repeat id subgraph(?a,p?) = subgraph(?a);
                     (16*p.k^4) * t1^4 +
                     ALARM * t^5);
             id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
-            label skiptruncation1;
+            label skiptruncation0;
         endrepeat;
     endif;
 

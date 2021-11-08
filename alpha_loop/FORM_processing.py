@@ -1608,7 +1608,7 @@ CTable ltdmap(0:{},0:{});
                                 uv_diag = 'uvtopo({},1,{})'.format(uv_subgraph['id'], uv_diag_moms)
 
                             if uv_subgraph['gluon_bubble']:
-                                uv_diag += '*gluonbubble'
+                                uv_diag += '*gluonbubble^{}'.format(uv_subgraph['gluon_bubble'])
 
                             if FORM_processing_options['generate_integrated_UV_CTs']:
                                 uv_diag += '*(1 - {}*diag({},{},{}))'.format('*'.join(vertex_structure), diag_set['id'], uv_subgraph['integrated_ct_id'], uv_diag_moms)
@@ -2638,7 +2638,7 @@ const complex<double> I{ 0.0, 1.0 };
                                 assert(len(e) % 2 == 0)
                                 for j in range(0, len(e), 2):
                                     energy_index = int(e[j][1:]) # skip E prefix
-                                    energy_instr = 'sqrt({})'.format(lm_pattern.sub(r'lm[\1]', square_pattern.sub(r'\1*\1', e[j+1]))).replace('2*', '2.*')
+                                    energy_instr = 'sqrt({})'.format(lm_pattern.sub(r'lm[\1]', square_pattern.sub(r'\1*\1', e[j+1]))).replace('2*', '2.*').replace('4*', '4.*').replace('8*', '8.*')
                                     assert((cut_id, energy_index) not in energies_per_cut or energies_per_cut[(cut_id, energy_index)] == energy_instr)
                                     energies_per_cut[(cut_id, energy_index)] = energy_instr
 
