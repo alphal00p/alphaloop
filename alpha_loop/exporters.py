@@ -373,7 +373,8 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                     pjoin(FORM_output_path,'all_MG_supergraphs.py'), 
                 first=None,  merge_isomorphic_graphs=False),
 #                FORM_super_graph_list,
-                computed_model, characteristic_process_definition
+                computed_model, characteristic_process_definition,
+                force_options=FORM_processing.FORM_processing_options
             )
 
             drawings_output_path = pjoin(self.dir_path, 'Drawings')
@@ -1249,6 +1250,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
 
     def output(self, output_path):
+        
         self.dir_path = os.path.abspath(output_path)
         self.qgraf_raw_output = pjoin(self.dir_path,'qgraf','output.py')
         self.qgraf_output = pjoin(self.dir_path,'qgraf','all_QG_supergraphs.py')
@@ -1346,7 +1348,8 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
         if self.alphaLoop_options['checkpoint_lvl'] < 2 or not all(os.path.isfile(cp) for cp in self.checkpoint[1]):
             # Create FORM_processing instance and generate the squared topologies
-            form_processor = FORM_processing.FORMProcessor(super_graph_list, computed_model, self.proc_def)
+            form_processor = FORM_processing.FORMProcessor(super_graph_list, computed_model, self.proc_def, force_options=FORM_processing.FORM_processing_options)
+
             shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                     pjoin(self.dir_path,'FORM', 'Makefile'))
             for n in ('mpcomplex.h', 'mpreal.h', 'dual.h', 'dualkt2.h'):
@@ -1391,7 +1394,6 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             logger.info("\033[1:32mRecovering from second checkpoint!\033[0m")
             super_graph_list = pickle.load(open(self.checkpoint[1][0],'rb'))
             form_processor = pickle.load(open(self.checkpoint[1][1],'rb'))
-
 
         if self.alphaLoop_options['n_rust_inputs_to_generate']<0:
 
@@ -1730,7 +1732,7 @@ class LUScalarTopologyExporter(QGRAFExporter):
 
         form_sg_list = self.get_sg_list(computed_model)
 
-        form_processor = FORM_processing.FORMProcessor(form_sg_list, computed_model, process_definition)
+        form_processor = FORM_processing.FORMProcessor(form_sg_list, computed_model, process_definition, force_options=FORM_processing.FORM_processing_options)
 
         FORM_output_path = pjoin(self.dir_path,'FORM')
         FORM_workspace = pjoin(FORM_output_path,'workspace')

@@ -1793,11 +1793,14 @@ class FORMSuperGraphIsomorphicList(list):
 
         return code_generation_statistics
 
-    def generate_numerator_functions(self, additional_overall_factor='', output_format='c', workspace=None, FORM_vars=None, active_graph=None,process_definition=None):
+    def generate_numerator_functions(self, additional_overall_factor='', output_format='c', workspace=None, FORM_vars=None, active_graph=None,process_definition=None, forced_options=None):
         """ Use form to plugin Feynman Rules and process the numerator algebra so as
         to generate a low-level routine in file_path that encodes the numerator of this supergraph."""
 
         _MANDATORY_FORM_VARIABLES = ['SGID','NINITIALMOMENTA','NFINALMOMENTA','SELECTEDEPSILONORDER','UVRENORMFINITEPOWERTODISCARD','OPTIMISATIONSTRATEGY']
+
+        if forced_options is not None:
+            FORM_processing_options = forced_options
 
         if FORM_vars is None:
             raise FormProcessingError("FORM_vars must be supplied when calling generate_numerator_functions.")
@@ -1819,7 +1822,7 @@ class FORMSuperGraphIsomorphicList(list):
             raise FormProcessingError("The following variables must be supplied to FORM: %s"%str(_MANDATORY_FORM_VARIABLES))
 
         FORM_vars.update(FORM_processing_options['extra-options'])
-
+        
         i_graph = int(FORM_vars['SGID'])
 
         # write the form input to a file
@@ -1961,11 +1964,13 @@ class FORMSuperGraphIsomorphicList(list):
         #print(r)
         return r
 
-    def generate_numerator_file(self, i_graph, root_output_path, additional_overall_factor, workspace, integrand_type,  process_definition, header_map):
+    def generate_numerator_file(self, i_graph, root_output_path, additional_overall_factor, workspace, integrand_type,  process_definition, header_map, forced_options=None):
         timing = time.time()
         self.is_zero = True
 
         # add all numerators in one file and write the headers
+        if forced_options is not None:
+            FORM_processing_options=forced_options
 
         FORM_vars={
             'SELECTEDEPSILONORDER':'%d'%FORM_processing_options['selected_epsilon_UV_order'],
@@ -2005,12 +2010,13 @@ class FORMSuperGraphIsomorphicList(list):
             FORM_vars['SGID']='%d'%i
 
             num = self.generate_numerator_functions(additional_overall_factor,
-                                        workspace=workspace, FORM_vars=FORM_vars, active_graph=active_graph,process_definition=process_definition)
+                workspace=workspace, FORM_vars=FORM_vars, active_graph=active_graph,process_definition=process_definition, forced_options=forced_options)
 
         return (i_graph, all_ids, max_buffer_size, not num, time.time() - timing, self[0].code_generation_statistics)
 
     def generate_numerator_file_helper(args):
-        return args[0].generate_numerator_file(*args[1:])
+
+        return args[0].generate_numerator_file(*args[1:-1],forced_options=args[-1])
 
 class FORMSuperGraphList(list):
     """ Container class for a list of FORMSuperGraphIsomorphicList."""
@@ -2941,12 +2947,12 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(dualkt2<complex128> lm[], complex128 p
 
             if FORM_processing_options["cores"] == 1:
                 graph_it = map(FORMSuperGraphIsomorphicList.generate_numerator_file_helper, 
-                    list((graph, i, root_output_path, additional_overall_factor, workspace, integrand_type, process_definition, header_map)
+                    list((graph, i, root_output_path, additional_overall_factor, workspace, integrand_type, process_definition, header_map, FORM_processing_options)
                     for i, graph in enumerate(self)))
             else:
                 pool = multiprocessing.Pool(processes=FORM_processing_options["cores"])
                 graph_it = pool.imap_unordered(FORMSuperGraphIsomorphicList.generate_numerator_file_helper, 
-                    list((graph, i, root_output_path, additional_overall_factor, workspace, integrand_type, process_definition, header_map)
+                    list((graph, i, root_output_path, additional_overall_factor, workspace, integrand_type, process_definition, header_map, FORM_processing_options)
                     for i, graph in enumerate(self)))
 
             for (graph_index, num_ids, max_buffer_graph, is_zero, timing, code_generation_statistics) in graph_it:
@@ -3635,11 +3641,15 @@ class FORMProcessor(object):
     Useful because many aspects common to all supergraphs and function do not belong to FORMSuperGraphList.
     """
 
-    def __init__(self, super_graphs_list, model, process_definition):
+    forced_options = None
+
+    def __init__(self, super_graphs_list, model, process_definition, force_options=None):
         """ Specify aditional information such as the model that is useful for FORM processing."""
         self.super_graphs_list = super_graphs_list
         self.model = model
         self.process_definition = process_definition
+        self.forced_options = force_options
+
         if isinstance(self.process_definition, base_objects.ProcessDefinition):
             all_processes = list(proc for proc in self.process_definition)
             self.repr_process = all_processes[0]
@@ -3664,6 +3674,8 @@ class FORMProcessor(object):
 
     def draw(self, output_dir):
         """ For now simply one Mathematica script per supergraph."""
+        if self.forced_options:
+            FORM_processing_options=self.forced_options
 
         for i_graph, super_graphs in enumerate(self.super_graphs_list):
             super_graphs[0].draw(self.model, output_dir, FORM_id=i_graph)
@@ -3674,6 +3686,9 @@ class FORMProcessor(object):
 
     def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None, header="", integrand_type=None, force_overall_factor=None):
         assert(header in ['MG', 'QG', ''])
+
+        if self.forced_options:
+            FORM_processing_options=self.forced_options
 
         params = {
             'masst': self.model['parameter_dict'][self.model.get_particle(6).get('mass')].real,
@@ -3729,12 +3744,14 @@ class FORMProcessor(object):
     @classmethod
     def compile(cls, root_output_path, arg=[]):
 
+        compile_options = cls.forced_options if cls.forced_options is not None else FORM_processing_options
+
         if os.path.isfile(pjoin(root_output_path,'Makefile')):
             try:
-                logger.info("Now compiling FORM-generated numerators with options: %s ..."%(' '.join(FORM_processing_options['compilation-options'])))
+                logger.info("Now compiling FORM-generated numerators with options: %s ..."%(' '.join(compile_options['compilation-options'])))
 
                 t = time.time()
-                misc.compile(arg=FORM_processing_options['compilation-options'] ,cwd=root_output_path,mode='cpp', nb_core=FORM_processing_options["cores"])
+                misc.compile(arg=compile_options['compilation-options'] ,cwd=root_output_path,mode='cpp', nb_core=compile_options["cores"])
                 logger.info("Compilation time: {:.2}s".format(time.time() - t))
             except MadGraph5Error as e:
                 logger.info("%sCompilation of FORM-generated numerator failed:\n%s%s"%(
@@ -3745,6 +3762,10 @@ class FORMProcessor(object):
 
     def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None,
         integrand_type=None, include_integration_channel_info=None):
+
+        if self.forced_options:
+            FORM_processing_options=self.forced_options
+
         self.super_graphs_list.generate_squared_topology_files(
             root_output_path, self.model, self.process_definition, n_jets, final_state_particle_ids, jet_ids=jet_ids, filter_non_contributing_graphs=filter_non_contributing_graphs, workspace=workspace,
             integrand_type=integrand_type, include_integration_channel_info=(FORM_processing_options['include_integration_channel_info'] if include_integration_channel_info is None else include_integration_channel_info)

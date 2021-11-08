@@ -140,6 +140,7 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'SG_name_list': [],
         }
         self.FORM_options=FORM_processing.FORM_processing_options
+        
         self.plugin_output_format_selected = None
 
         self.model_backup_copy = None
@@ -800,6 +801,7 @@ utils.bcolors.RED,utils.bcolors.ENDC
         stage for these output formats.
         """
         args = self.split_arg(line)
+
         if len(args)>=1 and args[0]=='alphaLoop':
             self.plugin_output_format_selected = 'alphaLoop'
             self.do_output_alphaLoop(' '.join(args[1:]))    
@@ -815,7 +817,7 @@ utils.bcolors.RED,utils.bcolors.ENDC
     
     def do_output_qgraf(self, line):
         args = self.split_arg(line)
-        print(' '.join(args))
+        #print(' '.join(args))
         self.qgraf_exporter.output(' '.join(args))
 
     def export(self,*args,**opts):
