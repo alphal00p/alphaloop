@@ -3187,8 +3187,10 @@ impl SquaredTopology {
                 // compute the extra factor of the derivative of the t-propagator E-surface in a loop momentum energy
                 // note that for higher-order derivatives, the expansion depth in the dual number is lower since it doesn't take the
                 // derivative of the E-surface into account. Therefore, a 1/d correction factor may be needed
-                let one_extra_derivative_prefactor =
-                    e_surface_expansion.inv() * -Into::<T>::into(2.);
+                let one_extra_derivative_prefactor = e_surface_expansion
+                    .inv()
+                    .multiply_sign(-cutkosky_cuts.cuts.last().unwrap().sign)
+                    * -Into::<T>::into(2.);
 
                 // select all dual components of the form
                 // ep_t^(cut_t pow + extra_pow) * sum_x ep_k^(cut_k pow - x1)  * ep_l^(cut l pow - x2) * ... with x = partition of extra_pow
