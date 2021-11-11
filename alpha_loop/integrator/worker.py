@@ -28,7 +28,7 @@ class Havana(object):
             reference_integrand_index=0, phase='real', grid_file='havana_grid.yaml', 
             optimize_on_variance=True, max_prob_ratio=1000., fresh_integration=False,
             flat_record = None, alpha_loop_path=None, learning_rate=1.5, bin_increase_factor_schedule=None,
-            run_description = None, integrand_descriptions = None,
+            run_description = None, run_id=None, integrand_descriptions = None,
             **opts
         ):
 
@@ -45,6 +45,7 @@ class Havana(object):
         self.optimize_on_variance = optimize_on_variance
         self.max_prob_ratio = max_prob_ratio
         self.run_description = run_description
+        self.run_id = run_id
         self.integrand_descriptions = integrand_descriptions
 
         if self.phase=='real':
@@ -124,6 +125,7 @@ class Havana(object):
             'learning_rate' : self.learning_rate,
             'bin_increase_factor_schedule' : self.bin_increase_factor_schedule,
             'run_description' : self.run_description,
+            'run_id' : self.run_id,
             'integrand_descriptions' : self.integrand_descriptions,
             'flat_record' : self.get_flat_record(file_name=file_name, dump_format=dump_format,on_disk=on_disk)
         }
@@ -360,6 +362,20 @@ class Havana(object):
                 for i_SG, pdf in enumerate(pdfs):
                     integrand_result[i_SG+1]['p'] = pdf
 
+                integrand_result.insert(1,
+                    {
+                        'i_SG'             : -2,
+                        'SG_name'          : 'Sum',
+                        'avg'              : sum(r['avg'] for r in integrand_result[1:]),
+                        'err'              : math.sqrt(sum(r['err']**2 for r in integrand_result[1:])),
+                        'chi_sq_per_dof'   : 0.,
+                        'max_wgt_infl'     : 0.,
+                        'n_evals'          : sum(r['avg'] for r in integrand_result[1:]),
+                        'n_zero_evals'     : sum(r['avg'] for r in integrand_result[1:]),
+                        'p'                : None
+                    }
+                )
+
             if i_havana_grid==self.reference_result_index:
                 reference_result_index_here = len(all_results)
 
@@ -376,29 +392,30 @@ class Havana(object):
         if self.SG_ids is not None:
             sorted_SG_ids = sorted( 
                 [ 
-                    ( (sg['err'] if sort_by_variance else abs(sg['avg'])), sg['i_SG']) for sg in all_results[0][1][1:]
+                    ( (sg['err'] if sort_by_variance else abs(sg['avg'])), sg['i_SG']) for sg in all_results[0][1][2:]
                 ], key=lambda el: el[0], reverse=True 
             )
             sorted_all_results = []
             for integrand_name, integrand_results in all_results:
                 sorted_all_results.append(
                     (integrand_name, 
-                        [integrand_results[0],]+
+                        integrand_results[:2]+
                         [
-                            integrand_results[i_SG+1] for metric, i_SG in sorted_SG_ids
+                            integrand_results[i_SG+2] for metric, i_SG in sorted_SG_ids
                         ]
                     )
                 )
             all_results = sorted_all_results
 
         def format_entry(r, short=False, show_p=False):
-            str_res = '%s%-12.6g +- %-9.3g%-8s%s'%(
+            str_res = '%s%-12s +- %-9.3g%-8s%s'%(
                 bcolors.RED if (r['avg']==0. or abs(r['err']/r['avg'])>0.01) else bcolors.GREEN,
-                r['avg'],r['err'],
+                '%s%.6g'%('+' if r['avg']>=0. else '',r['avg']) 
+                ,r['err'],
                 '(%.2g%%)'%(0. if r['avg']==0. else abs(r['err']/r['avg'])*100.),
                 bcolors.END
             )
-            if short:
+            if short or 'max_wgt_infl' not in r:
                 return str_res
             str_res += ' | chi2=%s%.3g%s'%(
                 bcolors.RED if r['chi_sq_per_dof'] > 5. else bcolors.GREEN,
@@ -422,10 +439,12 @@ class Havana(object):
                 str_res += '|p=%.2g%%'%(r['p']*100.0)
             return str_res
 
+
         pt.add_column("Result",[ entry['SG_name'] for entry in all_results[0][1] ])
+        pt.align["Result"] = 'l'
 
         for i_res, (integrand_name, integrand_results) in enumerate(all_results):
-            pt.add_column(integrand_name, [ format_entry(integrand_result, short=((i_res!=0) and not show_all_information_for_all_integrands), show_p=(i_res==0) ) for integrand_result in integrand_results] )
+            pt.add_column(integrand_name, [ format_entry(integrand_result, short=(all_results[0][1][i_row]['SG_name']=='Sum' or (i_res!=0 and not show_all_information_for_all_integrands)), show_p=(i_res==0) ) for i_row, integrand_result in enumerate(integrand_results)] )
             pt.align[integrand_name] = 'l'
 
         return pt.get_string()
@@ -441,7 +460,8 @@ class Havana(object):
 
         res = []
         if self.run_description is not None and self.run_description!='none':
-            res = ['%sRun description:%s %s'%(bcolors.GREEN, bcolors.END, self.run_description)]
+            res = ['%sRun description:%s %s%s%s (run id: %s%s%s)'%(bcolors.BLUE, bcolors.END, bcolors.GREEN, self.run_description, bcolors.END, 
+            bcolors.GREEN if self.run_id is not None else '', 'N/A' if self.run_id is None else '%s'%self.run_id, bcolors.END if self.run_id is not None else '' )]
         res.append("Result after %.1fM evaluations and %d iterations: %s%.6g +/- %.4g (%.2g%%)%s, chi2=%s%.3g%s, max_wgt_infl=%s%.3g%s, zero_evals=%.3g%%"%(
             self.n_points/1.0e6, self.n_iterations, bcolors.RED if avg==0. or abs(err/avg)>0.01 else bcolors.GREEN, avg, err, 
             0. if avg==0. else (abs(err/avg))*100., bcolors.END,

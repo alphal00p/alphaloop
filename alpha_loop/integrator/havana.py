@@ -1217,8 +1217,16 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                 bin_increase_factor_schedule = self.havana_bin_increase_factor_schedule,
                 alpha_loop_path = alphaloop_basedir,
                 run_description = run_description,
-                integrand_descriptions = integrand_descriptions
+                integrand_descriptions = integrand_descriptions,
+                run_id = self.run_id
             )
+
+        if self.n_max < 0:
+            logger.info("Latest result:\n\n%s\n%s"%(
+                self.havana.get_summary(),
+                self.havana.get_grid_summary()
+            ))
+            return
 
         # Now perform the integration
         

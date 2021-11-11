@@ -3683,6 +3683,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser.add_argument(
         '-noextse','--no_external_selfenergy', action="store_true", dest="no_external_selfenergy", default=False,
         help="Filter all supergraphs from the selection that contain any external self-energy contribution.")
+    integrate_parser.add_argument(
+        '-so','--show_only', action="store_true", dest="show_only", default=False,
+        help="Do not integrate, but only display latest integration result.")
     def help_integrate(self):
         self.integrate_parser.print_help()
         return
@@ -3833,6 +3836,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         if args.seed is not None:
             random.seed(args.seed)
+
+        if args.show_only:
+            if args.integrator != 'havana':
+                raise alphaLoopInvalidRunCmd("Integrator option 'show_only' is only available for the Havana integrator.")
+            args.n_max = -1
 
         if args.integrator == 'naive':
             selected_integrator = integrators.SimpleMonteCarloIntegrator
