@@ -559,6 +559,12 @@ class AL_cluster(object):
 
                 worker_env = os.environ.copy()
                 worker_env['LD_PRELOAD'] = pjoin(alphaloop_basedir,'libraries','scs','out','libscsdir.so')
+                # worker_env['LD_PRELOAD'] = ' '.join([
+                #     pjoin(alphaloop_basedir,'libraries','scs','out','libscsdir.so'),
+                #     '/usr/lib/gcc/x86_64-linux-gnu/9/libstdc++.so',
+                #     '/usr/lib/gcc/x86_64-linux-gnu/9/libquadmath.so',
+                #     '/scratch/hirschva/mp++/mppp-0.26_build/lib/libmp++.so'
+                # ])
                 self.all_worker_hooks.append(subprocess.Popen(
                         cmd,
                         cwd=self.run_workspace,

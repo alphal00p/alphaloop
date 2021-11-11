@@ -72,7 +72,7 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     """ Interface for steering the generation/output of alphaLoop.
     We make it inherit from CmdShell so that launch_ext_prog does not attempt to start in WebMode."""
 
-    _supported_FORM_output_formats = [None, 'c']
+    _supported_FORM_output_formats = [None, 'raw', 'c']
 
     def __init__(self, *args, **opts):
         """ Define attributes of this class."""

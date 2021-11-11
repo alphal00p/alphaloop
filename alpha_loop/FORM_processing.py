@@ -51,6 +51,12 @@ import LTD.partial_fractioning
 
 logger = logging.getLogger('alphaLoop.FORM_processing')
 
+try:
+    import yaml
+    from yaml import Loader, Dumper
+except ImportError:
+    raise BaseException("Install yaml python module in order to import/export topologies from/to yaml.")
+
 if __name__ == "__main__":
     logging.basicConfig()
     logger.setLevel(logging.INFO)
@@ -1797,6 +1803,10 @@ class FORMSuperGraphIsomorphicList(list):
         """ Use form to plugin Feynman Rules and process the numerator algebra so as
         to generate a low-level routine in file_path that encodes the numerator of this supergraph."""
 
+        FORM_source_to_run = 'numerator'
+        if output_format == 'raw':
+            FORM_source_to_run = 'raw_numerator'
+
         _MANDATORY_FORM_VARIABLES = ['SGID','NINITIALMOMENTA','NFINALMOMENTA','SELECTEDEPSILONORDER','UVRENORMFINITEPOWERTODISCARD','OPTIMISATIONSTRATEGY']
 
         if forced_options is not None:
@@ -1833,10 +1843,10 @@ class FORMSuperGraphIsomorphicList(list):
 
         if workspace is None:
             selected_workspace = FORM_workspace
-            FORM_source = pjoin(plugin_path,"numerator.frm")
+            FORM_source = pjoin(plugin_path,"%s.frm"%FORM_source_to_run)
         else:
             selected_workspace = workspace
-            FORM_source = pjoin(selected_workspace,'numerator.frm')
+            FORM_source = pjoin(selected_workspace,'%s.frm'%FORM_source_to_run)
 
         with open(pjoin(selected_workspace,'input_%d.h'%i_graph), 'w') as f:
             (uv_map, uv_conf, uv_forest, conf) = characteristic_super_graph.configurations
@@ -1856,7 +1866,7 @@ class FORMSuperGraphIsomorphicList(list):
                 FORM_processing_options["FORM_path"],
                 ]+
                 [ '-D %s=%s'%(k,v) for k,v in FORM_vars.items() ] +
-                [ '-M', '-l', '-C', 'numerator_%s.log'%i_graph] +
+                [ '-M', '-l', '-C', '%s_%s.log'%(FORM_source_to_run,i_graph)] +
                 [ FORM_source, ]
         )
 
@@ -1927,6 +1937,9 @@ class FORMSuperGraphIsomorphicList(list):
             [ form_source, ]
         )
 
+        with open(pjoin(workspace,'FORM_run_cmd_iso_check_%d.exe'%iso_id), 'w') as f:
+            f.write(cmd)
+
         r = subprocess.run(cmd, shell=True, cwd=workspace, capture_output=True)
         if r.returncode != 0:
             raise FormProcessingError("FORM processing failed with error:\n%s"%(r.stdout.decode('UTF-8')))
@@ -1964,7 +1977,7 @@ class FORMSuperGraphIsomorphicList(list):
         #print(r)
         return r
 
-    def generate_numerator_file(self, i_graph, root_output_path, additional_overall_factor, workspace, integrand_type,  process_definition, header_map, forced_options=None):
+    def generate_numerator_file(self, i_graph, root_output_path, additional_overall_factor, workspace, integrand_type,  process_definition, header_map, output_format, forced_options=None):
         timing = time.time()
         self.is_zero = True
 
@@ -2010,18 +2023,18 @@ class FORMSuperGraphIsomorphicList(list):
             FORM_vars['SGID']='%d'%i
 
             num = self.generate_numerator_functions(additional_overall_factor,
-                workspace=workspace, FORM_vars=FORM_vars, active_graph=active_graph,process_definition=process_definition, forced_options=forced_options)
+                workspace=workspace, FORM_vars=FORM_vars, active_graph=active_graph,
+                process_definition=process_definition, output_format=output_format, forced_options=forced_options)
 
         return (i_graph, all_ids, max_buffer_size, not num, time.time() - timing, self[0].code_generation_statistics)
 
     def generate_numerator_file_helper(args):
-
         return args[0].generate_numerator_file(*args[1:-1],forced_options=args[-1])
 
 class FORMSuperGraphList(list):
     """ Container class for a list of FORMSuperGraphIsomorphicList."""
 
-    extension_names = {'c': 'c'}
+    extension_names = {'c': 'c','raw': 'raw'}
 
     def __init__(self, graph_list, name='SGL'):
         """ Instantiates a list of FORMSuperGraphs from a list of either
@@ -2446,6 +2459,7 @@ class FORMSuperGraphList(list):
             selected_workspace = workspace
             shutil.copy(pjoin(plugin_path,"multiplicity.frm"),pjoin(selected_workspace,'multiplicity.frm'))
             shutil.copy(pjoin(plugin_path,"numerator.frm"),pjoin(selected_workspace,'numerator.frm'))
+            shutil.copy(pjoin(plugin_path,"raw_numerator.frm"),pjoin(selected_workspace,'raw_numerator.frm'))
             shutil.copy(pjoin(plugin_path,"tensorreduce.frm"),pjoin(selected_workspace,'tensorreduce.frm'))
             shutil.copy(pjoin(plugin_path,"Gstring.prc"),pjoin(selected_workspace,'Gstring.prc'))
             shutil.copy(pjoin(plugin_path,"integrateduv.frm"),pjoin(selected_workspace,'integrateduv.frm'))
@@ -2518,6 +2532,24 @@ class FORMSuperGraphList(list):
 
         # TODO: Dump to Python dict
         pass
+    
+    @classmethod
+    def minimal_dict_representation_of_a_topology_generator_graph(cls, topology_generator_graph):
+        
+        g = topology_generator_graph
+        sig_map=g.get_signature_map()
+        #assert(all(all(sm_i==0 for sm_i in sm[1][len(sm[1])//2:]) for sm in sig_map.values()))
+
+        return {
+            'denominators_string' : '' if g.denominators_string is None else g.denominators_string,
+            'loop_momenta' : [g.edge_map_lin[e][0] for e in g.loop_momenta],
+            'edges' : [ sum([
+                list(e),
+                [(g.powers[e[0]] if e[0] in g.powers else 0),],
+                #[[list(sig_map[e[0]][0]),list(sig_map[e[0]][1])[:list(sig_map[e[0]][1])//2]],]
+                [[list(sig_map[e[0]][0]),list(sig_map[e[0]][1])],]
+            ],[]) for e in g.edge_map_lin]
+        }
 
     def generate_integrand_functions(self, root_output_path, additional_overall_factor='',
                                     params={}, output_format='c', workspace=None, header="", integrand_type=None, process_definition=None):
@@ -2573,6 +2605,10 @@ const complex<double> I{ 0.0, 1.0 };
 
         all_numerator_ids = {'PF': [], 'LTD': []}
 
+        if output_format == 'raw':
+            if not os.path.isdir(pjoin(root_output_path, 'raw_SG_expressions')):
+                os.mkdir(pjoin(root_output_path, 'raw_SG_expressions'))
+
         for itype in integrand_type_list:
             with progressbar.ProgressBar(
                 prefix = 'Processing %s integrand (graph #{variables.i_graph}/%d, LMB #{variables.i_lmb}/{variables.max_lmb}) with FORM ({variables.timing} ms / supergraph) : '%(itype, len(self)),
@@ -2598,8 +2634,24 @@ const complex<double> I{ 0.0, 1.0 };
                         all_numerator_ids[itype].append(i)
                         time_before = time.time()
 
+                        if output_format == 'raw':
+                            if active_graph is None:
+                                characteristic_graph = graph[0]
+                            else:
+                                characteristic_graph = active_graph
+                            characteristic_graph_dict = self.minimal_dict_representation_of_a_topology_generator_graph(characteristic_graph.squared_topology.topo)
+                            characteristic_graph_dict['numerator']='numerator_{}.txt'.format(i)
+                            with open(pjoin(root_output_path, 'raw_SG_expressions', '%s.yaml'%characteristic_graph.squared_topology.name), 'w') as f:
+                                f.write(yaml.dump(characteristic_graph_dict, Dumper=Dumper))
+                            shutil.copy(
+                                pjoin(root_output_path, 'workspace', 'out_raw_numerator_{}.txt'.format(i)),
+                                pjoin(root_output_path, 'raw_SG_expressions', 'numerator_{}.txt'.format(i)),
+                            )
+                            continue
+
                         with open(pjoin(root_output_path, 'workspace', 'out_integrand_{}_{}.proto_c'.format(itype, i))) as f:
                             num = f.read()
+                        
 
                         # TODO Remove when FORM will have fixed its C output bug
                         num = temporary_fix_FORM_output(num)
@@ -2925,11 +2977,12 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(dualkt2<complex128> lm[], complex128 p
             raise FormProcessingError("Cannot generat numerators for an empty list of supergraphs.")
 
         if output_format not in self.extension_names:
-            raise FormProcessingError("This FORMSuperGraphList instance requires at least one entry for generating numerators.")
+            raise FormProcessingError("Output format specified not supported. %s not in %s."%(output_format, str(self.extension_names)))
 
         # copy all the source files before processing the numerators
         if workspace is not None:
             shutil.copy(pjoin(plugin_path,"numerator.frm"),pjoin(workspace,'numerator.frm'))
+            shutil.copy(pjoin(plugin_path,"raw_numerator.frm"),pjoin(workspace,'raw_numerator.frm'))
             shutil.copy(pjoin(plugin_path,"tensorreduce.frm"),pjoin(workspace,'tensorreduce.frm'))
             shutil.copy(pjoin(plugin_path,"Gstring.prc"),pjoin(workspace,'Gstring.prc'))
             shutil.copy(pjoin(plugin_path,"integrateduv.frm"),pjoin(workspace,'integrateduv.frm'))
@@ -2947,12 +3000,12 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(dualkt2<complex128> lm[], complex128 p
 
             if FORM_processing_options["cores"] == 1:
                 graph_it = map(FORMSuperGraphIsomorphicList.generate_numerator_file_helper, 
-                    list((graph, i, root_output_path, additional_overall_factor, workspace, integrand_type, process_definition, header_map, FORM_processing_options)
+                    list((graph, i, root_output_path, additional_overall_factor, workspace, integrand_type, process_definition, header_map, output_format, FORM_processing_options)
                     for i, graph in enumerate(self)))
             else:
                 pool = multiprocessing.Pool(processes=FORM_processing_options["cores"])
                 graph_it = pool.imap_unordered(FORMSuperGraphIsomorphicList.generate_numerator_file_helper, 
-                    list((graph, i, root_output_path, additional_overall_factor, workspace, integrand_type, process_definition, header_map, FORM_processing_options)
+                    list((graph, i, root_output_path, additional_overall_factor, workspace, integrand_type, process_definition, header_map, output_format, FORM_processing_options)
                     for i, graph in enumerate(self)))
 
             for (graph_index, num_ids, max_buffer_graph, is_zero, timing, code_generation_statistics) in graph_it:
@@ -3001,7 +3054,7 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(dualkt2<complex128> lm[], complex128 p
 
         if integrand_type is not None:
             self.generate_integrand_functions(root_output_path, additional_overall_factor='', 
-                            params=params, output_format='c', workspace=None, integrand_type=integrand_type,process_definition=process_definition)
+                            params=params, output_format=output_format, workspace=None, integrand_type=integrand_type,process_definition=process_definition)
 
         generation_time = time.time() - start_time
         self.code_generation_statistics['generation_time_in_s'] = float('%.1f'%generation_time)
@@ -3085,12 +3138,6 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(dualkt2<complex128> lm[], complex128 p
                 total_time += time.time()-time_before
                 bar.update(timing='%d'%int((total_time/float(i+1))*1000.0))
                 bar.update(i+1)
-
-        try:
-            import yaml
-            from yaml import Loader, Dumper
-        except ImportError:
-            raise BaseException("Install yaml python module in order to import topologies from yaml.")
 
         open(pjoin(root_output_path, self.name + '.yaml'), 'w').write(yaml.dump(topo_collection, Dumper=Dumper))
 

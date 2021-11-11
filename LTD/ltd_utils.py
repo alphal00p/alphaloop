@@ -136,8 +136,12 @@ class TopologyGenerator(object):
                 else 1 for i, e in enumerate(edge_map_lin) if i not in self.ext}
         self.loop_momenta = None
         self.propagators = None
+
         self.n_loops = None
         self.spanning_trees = None
+
+        # Not crucial, just a string representation of the denominators
+        self.denominators_string = None
 
     def loop_momentum_bases(self):
         trees = []
@@ -742,15 +746,16 @@ class TopologyGenerator(object):
                 continue
             if i in loop_momenta:
                 mom.append(((i, True),))
-                s.append("1/k{}^2".format(i))
+                #s.append("1/k{}^2".format(i))
+                s.append("1/k{}^2".format(loop_momenta.index(i)))
             else:
                 newmom = []
                 s1 = "1/("
                 for j, y in enumerate(flows):
                     for yy in y:
                         if yy[0] == i:
-                            s1 += ("+" if yy[1] else "-") + \
-                                "k{}".format(loop_momenta[j])
+                            #s1 += ("+" if yy[1] else "-") + "k{}".format(loop_momenta[j])
+                            s1 += ("+" if yy[1] else "-") + "k{}".format(j)
                             newmom.append((loop_momenta[j], yy[1]))
                             break
                 for j, y in ext_flows:
@@ -763,9 +768,10 @@ class TopologyGenerator(object):
                             newmom.append((self.ext[j], True if prop_sign * overall_sign == 1 else False))
                             break
                 mom.append(tuple(newmom))
-                s.append(s1 + ")^2")
+                s.append(s1 + ")^%d"%(2*self.powers[self.edge_map_lin[i][0]]))
 
         self.propagators = mom
+        self.denominators_string = '(%s)'%('*'.join(s))
         #print("Constructed topology: {}".format('*'.join(s)))
 
     def evaluate_residues(self, allowed_systems, close_contour):
