@@ -559,12 +559,13 @@ class AL_cluster(object):
 
                 worker_env = os.environ.copy()
                 worker_env['LD_PRELOAD'] = pjoin(alphaloop_basedir,'libraries','scs','out','libscsdir.so')
-                # worker_env['LD_PRELOAD'] = ' '.join([
-                #     pjoin(alphaloop_basedir,'libraries','scs','out','libscsdir.so'),
-                #     '/usr/lib/gcc/x86_64-linux-gnu/9/libstdc++.so',
-                #     '/usr/lib/gcc/x86_64-linux-gnu/9/libquadmath.so',
-                #     '/scratch/hirschva/mp++/mppp-0.26_build/lib/libmp++.so'
-                # ])
+                #worker_env['LD_PRELOAD'] = ' '.join([
+                #    pjoin(alphaloop_basedir,'libraries','scs','out','libscsdir.so'),
+                #    '/usr/lib/gcc/x86_64-linux-gnu/9/libstdc++.so',
+                #    '/usr/lib/gcc/x86_64-linux-gnu/9/libquadmath.so',
+                #    '/scratch/hirschva/mp++/mppp-0.26_build/lib/libmp++.so'
+                #])
+                #print("worker_env=%s"%worker_env)
                 self.all_worker_hooks.append(subprocess.Popen(
                         cmd,
                         cwd=self.run_workspace,
@@ -1224,7 +1225,12 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         if self.n_max < 0:
             logger.info("Latest result:\n\n%s\n%s"%(
                 self.havana.get_summary(),
-                self.havana.get_grid_summary()
+                self.havana.get_grid_summary(
+			sort_by_variance=self.show_grids_sorted_by_variance,
+                	show_channel_grid= (self.MC_over_channels and self.show_channel_grid),
+                	show_selected_phase_only = self.show_selected_phase_only,
+                	show_all_information_for_all_integrands = self.show_all_information_for_all_integrand
+                )
             ))
             return
 
@@ -1488,8 +1494,9 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         """ Return the final integral and error estimates."""
 
         final_res = None
-
-        logger.info("Now deploying the running cluster...")
+        
+        if self.n_max > 0:
+            logger.info("Now deploying the running cluster...")
         
         if self.cluster_type in ['local','condor']:
 
