@@ -1229,7 +1229,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 			sort_by_variance=self.show_grids_sorted_by_variance,
                 	show_channel_grid= (self.MC_over_channels and self.show_channel_grid),
                 	show_selected_phase_only = self.show_selected_phase_only,
-                	show_all_information_for_all_integrands = self.show_all_information_for_all_integrand
+                	show_all_information_for_all_integrands = self.show_all_information_for_all_integrands
                 )
             ))
             return
