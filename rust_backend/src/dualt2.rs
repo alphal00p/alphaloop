@@ -15,127 +15,107 @@ use std::ops::{
 
 #[repr(C)]
 #[derive(Copy, Clone, Hash, Debug, Default)]
-pub struct Dualkt2<T> {
+pub struct Dualt2<T> {
     pub real: T,
-    pub ep_k0: T,
     pub ep_t: T,
-    pub ep_k0_t: T,
     pub ep_t2: T,
 }
 
-impl<T> Dualkt2<T> {
-    pub fn new(real: T, ep_k0: T, ep_t: T, ep_k0_t: T, ep_t2: T) -> Dualkt2<T> {
-        Dualkt2 {
-            real,
-            ep_k0,
-            ep_t,
-            ep_k0_t,
-            ep_t2,
-        }
+impl<T> Dualt2<T> {
+    pub fn new(real: T, ep_t: T, ep_t2: T) -> Dualt2<T> {
+        Dualt2 { real, ep_t, ep_t2 }
     }
 
     #[inline]
-    pub fn from_real(real: T) -> Dualkt2<T>
+    pub fn from_real(real: T) -> Dualt2<T>
     where
         T: Zero,
     {
-        Dualkt2 {
+        Dualt2 {
             real,
-            ep_k0: T::zero(),
             ep_t: T::zero(),
-            ep_k0_t: T::zero(),
             ep_t2: T::zero(),
         }
     }
 
     #[inline]
-    pub fn map<F, U>(&self, f: F) -> Dualkt2<U>
+    pub fn map<F, U>(&self, f: F) -> Dualt2<U>
     where
         F: Fn(&T) -> U,
     {
-        Dualkt2 {
+        Dualt2 {
             real: f(&self.real),
-            ep_k0: f(&self.ep_k0),
             ep_t: f(&self.ep_t),
-            ep_k0_t: f(&self.ep_k0_t),
             ep_t2: f(&self.ep_t2),
         }
     }
 
     #[inline]
-    pub fn zip_map<F, U, K>(&self, rhs: &Dualkt2<U>, f: F) -> Dualkt2<K>
+    pub fn zip_map<F, U, K>(&self, rhs: &Dualt2<U>, f: F) -> Dualt2<K>
     where
         F: Fn(&T, &U) -> K,
     {
-        Dualkt2 {
+        Dualt2 {
             real: f(&self.real, &rhs.real),
-            ep_k0: f(&self.ep_k0, &rhs.ep_k0),
             ep_t: f(&self.ep_t, &rhs.ep_t),
-            ep_k0_t: f(&self.ep_k0_t, &rhs.ep_k0_t),
             ep_t2: f(&self.ep_t2, &rhs.ep_t2),
         }
     }
 }
 
-impl<T: Copy> Dualkt2<T> {
-    fn substitute_real(&self, new_real: T) -> Dualkt2<T> {
-        Dualkt2 {
+impl<T: Copy> Dualt2<T> {
+    fn substitute_real(&self, new_real: T) -> Dualt2<T> {
+        Dualt2 {
             real: new_real,
-            ep_k0: self.ep_k0,
             ep_t: self.ep_t,
-            ep_k0_t: self.ep_k0_t,
             ep_t2: self.ep_t2,
         }
     }
 }
 
-impl<T: Zero> From<T> for Dualkt2<T> {
+impl<T: Zero> From<T> for Dualt2<T> {
     #[inline]
-    fn from(real: T) -> Dualkt2<T> {
-        Dualkt2::from_real(real)
+    fn from(real: T) -> Dualt2<T> {
+        Dualt2::from_real(real)
     }
 }
 
-impl<T: Display> Display for Dualkt2<T> {
+impl<T: Display> Display for Dualt2<T> {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         let precision = f.precision().unwrap_or(4);
         write!(
             f,
-            "({:.p$} + {:.p$}\u{03B5}_k + {:.p$}\u{03B5}_t  + {:.p$}\u{03B5}_k\u{03B5}_t + {:.p$}\u{03B5}_t^2)",
+            "({:.p$} + {:.p$}\u{03B5}_t + {:.p$}\u{03B5}_t^2)",
             self.real,
-            self.ep_k0,
             self.ep_t,
-            self.ep_k0_t,
             self.ep_t2,
             p = precision
         )
     }
 }
 
-impl<T: Display + LowerExp> LowerExp for Dualkt2<T> {
+impl<T: Display + LowerExp> LowerExp for Dualt2<T> {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         let precision = f.precision().unwrap_or(4);
         write!(
             f,
-            "({:.p$e} + {:.p$e}\u{03B5}_k + {:.p$e}\u{03B5}_t + {:.p$e}\u{03B5}_k\u{03B5}_t + {:.p$e}\u{03B5}_t^2)",
+            "({:.p$e} + {:.p$e}\u{03B5}_t + {:.p$e}\u{03B5}_t^2)",
             self.real,
-            self.ep_k0,
             self.ep_t,
-            self.ep_k0_t,
             self.ep_t2,
             p = precision
         )
     }
 }
 
-impl<T: PartialEq> PartialEq<Self> for Dualkt2<T> {
+impl<T: PartialEq> PartialEq<Self> for Dualt2<T> {
     #[inline]
     fn eq(&self, rhs: &Self) -> bool {
         self.real == rhs.real
     }
 }
 
-impl<T: PartialOrd> PartialOrd<Self> for Dualkt2<T> {
+impl<T: PartialOrd> PartialOrd<Self> for Dualt2<T> {
     #[inline]
     fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
         PartialOrd::partial_cmp(&self.real, &rhs.real)
@@ -152,14 +132,14 @@ impl<T: PartialOrd> PartialOrd<Self> for Dualkt2<T> {
     }
 }
 
-impl<T: PartialEq> PartialEq<T> for Dualkt2<T> {
+impl<T: PartialEq> PartialEq<T> for Dualt2<T> {
     #[inline]
     fn eq(&self, rhs: &T) -> bool {
         self.real == *rhs
     }
 }
 
-impl<T: PartialOrd> PartialOrd<T> for Dualkt2<T> {
+impl<T: PartialOrd> PartialOrd<T> for Dualt2<T> {
     #[inline]
     fn partial_cmp(&self, rhs: &T) -> Option<Ordering> {
         PartialOrd::partial_cmp(&self.real, rhs)
@@ -178,7 +158,7 @@ impl<T: PartialOrd> PartialOrd<T> for Dualkt2<T> {
 
 macro_rules! impl_to_primitive {
     ($($name:ident, $ty:ty),*) => {
-        impl<T: ToPrimitive> ToPrimitive for Dualkt2<T>
+        impl<T: ToPrimitive> ToPrimitive for Dualt2<T>
             {
             $(
                 #[inline]
@@ -192,12 +172,12 @@ macro_rules! impl_to_primitive {
 
 macro_rules! impl_from_primitive {
     ($($name:ident, $ty:ty),*) => {
-        impl<T: FromPrimitive + Zero> FromPrimitive for Dualkt2<T>
+        impl<T: FromPrimitive + Zero> FromPrimitive for Dualt2<T>
            {
             $(
                 #[inline]
-                fn $name(n: $ty) -> Option<Dualkt2<T>> {
-                    T::$name(n).map(Dualkt2::from_real)
+                fn $name(n: $ty) -> Option<Dualt2<T>> {
+                    T::$name(n).map(Dualt2::from_real)
                 }
             )*
         }
@@ -226,71 +206,71 @@ impl_primitive_cast! {
     to_f64,     from_f64    - f64
 }
 
-impl<T: Num + Copy> Add<T> for Dualkt2<T> {
-    type Output = Dualkt2<T>;
+impl<T: Num + Copy> Add<T> for Dualt2<T> {
+    type Output = Dualt2<T>;
 
     #[inline]
-    fn add(self, rhs: T) -> Dualkt2<T> {
+    fn add(self, rhs: T) -> Dualt2<T> {
         self.substitute_real(self.real + rhs)
     }
 }
 
-impl<T: Num + Copy> AddAssign<T> for Dualkt2<T> {
+impl<T: Num + Copy> AddAssign<T> for Dualt2<T> {
     #[inline]
     fn add_assign(&mut self, rhs: T) {
-        *self = (*self) + Dualkt2::from_real(rhs)
+        *self = (*self) + Dualt2::from_real(rhs)
     }
 }
 
-impl<T: Num + Copy> Sub<T> for Dualkt2<T> {
-    type Output = Dualkt2<T>;
+impl<T: Num + Copy> Sub<T> for Dualt2<T> {
+    type Output = Dualt2<T>;
 
     #[inline]
-    fn sub(self, rhs: T) -> Dualkt2<T> {
+    fn sub(self, rhs: T) -> Dualt2<T> {
         self.substitute_real(self.real - rhs)
     }
 }
 
-impl<T: Num + Copy> SubAssign<T> for Dualkt2<T> {
+impl<T: Num + Copy> SubAssign<T> for Dualt2<T> {
     #[inline]
     fn sub_assign(&mut self, rhs: T) {
-        *self = (*self) - Dualkt2::from_real(rhs)
+        *self = (*self) - Dualt2::from_real(rhs)
     }
 }
 
-impl<T: Num + Copy> Mul<T> for Dualkt2<T> {
-    type Output = Dualkt2<T>;
+impl<T: Num + Copy> Mul<T> for Dualt2<T> {
+    type Output = Dualt2<T>;
 
     #[inline]
-    fn mul(self, rhs: T) -> Dualkt2<T> {
+    fn mul(self, rhs: T) -> Dualt2<T> {
         self.map(|x| *x * rhs)
     }
 }
 
-impl<T: Num + Copy> MulAssign<T> for Dualkt2<T> {
+impl<T: Num + Copy> MulAssign<T> for Dualt2<T> {
     #[inline]
     fn mul_assign(&mut self, rhs: T) {
-        *self = (*self) * Dualkt2::from_real(rhs)
+        *self = (*self) * Dualt2::from_real(rhs)
     }
 }
 
-impl<T: Num + Copy> Div<T> for Dualkt2<T> {
-    type Output = Dualkt2<T>;
+impl<T: Num + Copy> Div<T> for Dualt2<T> {
+    type Output = Dualt2<T>;
 
     #[inline]
-    fn div(self, rhs: T) -> Dualkt2<T> {
-        self / Dualkt2::from_real(rhs)
+    fn div(self, rhs: T) -> Dualt2<T> {
+        self / Dualt2::from_real(rhs)
     }
 }
 
-impl<T: Num + Copy> DivAssign<T> for Dualkt2<T> {
+impl<T: Num + Copy> DivAssign<T> for Dualt2<T> {
     #[inline]
     fn div_assign(&mut self, rhs: T) {
-        *self = (*self) / Dualkt2::from_real(rhs)
+        *self = (*self) / Dualt2::from_real(rhs)
     }
 }
 
-impl<T: Signed + Copy> Neg for Dualkt2<T> {
+impl<T: Signed + Copy> Neg for Dualt2<T> {
     type Output = Self;
 
     #[inline]
@@ -299,7 +279,7 @@ impl<T: Signed + Copy> Neg for Dualkt2<T> {
     }
 }
 
-impl<T: Num + Copy> Add<Self> for Dualkt2<T> {
+impl<T: Num + Copy> Add<Self> for Dualt2<T> {
     type Output = Self;
 
     #[inline]
@@ -308,7 +288,7 @@ impl<T: Num + Copy> Add<Self> for Dualkt2<T> {
     }
 }
 
-impl<T: Num + Copy> Add<&Self> for Dualkt2<T> {
+impl<T: Num + Copy> Add<&Self> for Dualt2<T> {
     type Output = Self;
 
     #[inline]
@@ -317,14 +297,14 @@ impl<T: Num + Copy> Add<&Self> for Dualkt2<T> {
     }
 }
 
-impl<T: Num + Copy> AddAssign<Self> for Dualkt2<T> {
+impl<T: Num + Copy> AddAssign<Self> for Dualt2<T> {
     #[inline]
     fn add_assign(&mut self, rhs: Self) {
         *self = (*self) + rhs
     }
 }
 
-impl<T: Num + Copy> Sub<Self> for Dualkt2<T> {
+impl<T: Num + Copy> Sub<Self> for Dualt2<T> {
     type Output = Self;
 
     #[inline]
@@ -333,7 +313,7 @@ impl<T: Num + Copy> Sub<Self> for Dualkt2<T> {
     }
 }
 
-impl<T: Num + Copy> Sub<&Self> for Dualkt2<T> {
+impl<T: Num + Copy> Sub<&Self> for Dualt2<T> {
     type Output = Self;
 
     #[inline]
@@ -342,32 +322,27 @@ impl<T: Num + Copy> Sub<&Self> for Dualkt2<T> {
     }
 }
 
-impl<T: Num + Copy> SubAssign<Self> for Dualkt2<T> {
+impl<T: Num + Copy> SubAssign<Self> for Dualt2<T> {
     #[inline]
     fn sub_assign(&mut self, rhs: Self) {
         *self = (*self) - rhs
     }
 }
 
-impl<T: Num + Copy> Mul<&Self> for Dualkt2<T> {
+impl<T: Num + Copy> Mul<&Self> for Dualt2<T> {
     type Output = Self;
 
     #[inline]
     fn mul(self, rhs: &Self) -> Self {
-        Dualkt2 {
+        Dualt2 {
             real: self.real * rhs.real,
-            ep_k0: self.real * rhs.ep_k0 + self.ep_k0 * rhs.real,
             ep_t: self.real * rhs.ep_t + self.ep_t * rhs.real,
-            ep_k0_t: self.real * rhs.ep_k0_t
-                + self.ep_k0_t * rhs.real
-                + self.ep_k0 * rhs.ep_t
-                + self.ep_t * rhs.ep_k0,
             ep_t2: self.ep_t * rhs.ep_t + self.real * rhs.ep_t2 + self.ep_t2 * rhs.real,
         }
     }
 }
 
-impl<T: Num + Copy> Mul<Self> for Dualkt2<T> {
+impl<T: Num + Copy> Mul<Self> for Dualt2<T> {
     type Output = Self;
 
     #[inline]
@@ -376,7 +351,7 @@ impl<T: Num + Copy> Mul<Self> for Dualkt2<T> {
     }
 }
 
-impl<T: Num + Copy> MulAssign<Self> for Dualkt2<T> {
+impl<T: Num + Copy> MulAssign<Self> for Dualt2<T> {
     #[inline]
     fn mul_assign(&mut self, rhs: Self) {
         *self = (*self) * rhs
@@ -386,16 +361,16 @@ impl<T: Num + Copy> MulAssign<Self> for Dualkt2<T> {
 macro_rules! impl_mul_add {
     ($(<$a:ident, $b:ident>),*) => {
         $(
-            impl<T: Num + Copy + Mul + Add> MulAdd<$a, $b> for Dualkt2<T> {
-                type Output = Dualkt2<T>;
+            impl<T: Num + Copy + Mul + Add> MulAdd<$a, $b> for Dualt2<T> {
+                type Output = Dualt2<T>;
 
                 #[inline]
-                fn mul_add(self, a: $a, b: $b) -> Dualkt2<T> {
+                fn mul_add(self, a: $a, b: $b) -> Dualt2<T> {
                     (self * a) + b
                 }
             }
 
-            impl<T: Num + Copy + Mul + Add> MulAddAssign<$a, $b> for Dualkt2<T> {
+            impl<T: Num + Copy + Mul + Add> MulAddAssign<$a, $b> for Dualt2<T> {
                 #[inline]
                 fn mul_add_assign(&mut self, a: $a, b: $b) {
                     *self = (*self * a) + b;
@@ -412,7 +387,7 @@ impl_mul_add! {
     <T, T>
 }
 
-impl<T: Num + Copy> Div<&Self> for Dualkt2<T> {
+impl<T: Num + Copy> Div<&Self> for Dualt2<T> {
     type Output = Self;
 
     #[inline]
@@ -421,22 +396,16 @@ impl<T: Num + Copy> Div<&Self> for Dualkt2<T> {
         let r2 = r1 * r1;
         let r3 = r2 * r1;
 
-        Dualkt2 {
+        Dualt2 {
             real: self.real * r1,
-            ep_k0: self.ep_k0 * r1 - self.real * rhs.ep_k0 * r2,
             ep_t: self.ep_t * r1 - self.real * rhs.ep_t * r2,
-            ep_k0_t: self.ep_k0_t * r1
-                - rhs.ep_k0_t * self.real * r2
-                - self.ep_k0 * rhs.ep_t * r2
-                - self.ep_t * rhs.ep_k0 * r2
-                + (T::one() + T::one()) * self.real * rhs.ep_k0 * rhs.ep_t * r3,
             ep_t2: self.ep_t2 * r1 - self.ep_t * rhs.ep_t * r2 - self.real * rhs.ep_t2 * r2
                 + self.real * rhs.ep_t * rhs.ep_t * r3,
         }
     }
 }
 
-impl<T: Num + Copy> Div<Self> for Dualkt2<T> {
+impl<T: Num + Copy> Div<Self> for Dualt2<T> {
     type Output = Self;
 
     #[inline]
@@ -445,14 +414,14 @@ impl<T: Num + Copy> Div<Self> for Dualkt2<T> {
     }
 }
 
-impl<T: Num + Copy> DivAssign<Self> for Dualkt2<T> {
+impl<T: Num + Copy> DivAssign<Self> for Dualt2<T> {
     #[inline]
     fn div_assign(&mut self, rhs: Self) {
         *self = (*self) / rhs
     }
 }
 
-impl<T: Num + Copy> Rem<Self> for Dualkt2<T> {
+impl<T: Num + Copy> Rem<Self> for Dualt2<T> {
     type Output = Self;
 
     fn rem(self, _: Self) -> Self {
@@ -460,7 +429,7 @@ impl<T: Num + Copy> Rem<Self> for Dualkt2<T> {
     }
 }
 
-impl<T: Num + Copy> Rem<&Self> for Dualkt2<T> {
+impl<T: Num + Copy> Rem<&Self> for Dualt2<T> {
     type Output = Self;
 
     fn rem(self, _: &Self) -> Self {
@@ -468,37 +437,37 @@ impl<T: Num + Copy> Rem<&Self> for Dualkt2<T> {
     }
 }
 
-impl<T: Num + Copy> RemAssign<Self> for Dualkt2<T> {
+impl<T: Num + Copy> RemAssign<Self> for Dualt2<T> {
     fn rem_assign(&mut self, _: Self) {
         unimplemented!()
     }
 }
 
-impl<T, P: Into<Dualkt2<T>>> Pow<P> for Dualkt2<T>
+impl<T, P: Into<Dualt2<T>>> Pow<P> for Dualt2<T>
 where
-    Dualkt2<T>: Float,
+    Dualt2<T>: Float,
 {
-    type Output = Dualkt2<T>;
+    type Output = Dualt2<T>;
 
     #[inline]
-    fn pow(self, rhs: P) -> Dualkt2<T> {
+    fn pow(self, rhs: P) -> Dualt2<T> {
         self.powf(rhs.into())
     }
 }
 
-impl<T> Inv for Dualkt2<T>
+impl<T> Inv for Dualt2<T>
 where
     Self: One + Div<Output = Self>,
 {
-    type Output = Dualkt2<T>;
+    type Output = Dualt2<T>;
 
     #[inline]
-    fn inv(self) -> Dualkt2<T> {
-        Dualkt2::one() / self
+    fn inv(self) -> Dualt2<T> {
+        Dualt2::one() / self
     }
 }
 
-impl<T> Signed for Dualkt2<T>
+impl<T> Signed for Dualt2<T>
 where
     T: Signed + PartialOrd + Copy,
 {
@@ -519,7 +488,7 @@ where
 
     #[inline]
     fn signum(&self) -> Self {
-        Dualkt2::from_real(self.real.signum())
+        Dualt2::from_real(self.real.signum())
     }
 
     #[inline]
@@ -533,12 +502,12 @@ where
     }
 }
 
-impl<T: Unsigned + Copy> Unsigned for Dualkt2<T> {}
+impl<T: Unsigned + Copy> Unsigned for Dualt2<T> {}
 
-impl<T: Num + Zero + Copy> Zero for Dualkt2<T> {
+impl<T: Num + Zero + Copy> Zero for Dualt2<T> {
     #[inline]
-    fn zero() -> Dualkt2<T> {
-        Dualkt2::from_real(T::zero())
+    fn zero() -> Dualt2<T> {
+        Dualt2::from_real(T::zero())
     }
 
     #[inline]
@@ -547,10 +516,10 @@ impl<T: Num + Zero + Copy> Zero for Dualkt2<T> {
     }
 }
 
-impl<T: Num + One + Copy> One for Dualkt2<T> {
+impl<T: Num + One + Copy> One for Dualt2<T> {
     #[inline]
-    fn one() -> Dualkt2<T> {
-        Dualkt2::from_real(T::one())
+    fn one() -> Dualt2<T> {
+        Dualt2::from_real(T::one())
     }
 
     #[inline]
@@ -562,31 +531,31 @@ impl<T: Num + One + Copy> One for Dualkt2<T> {
     }
 }
 
-impl<T: Num + Copy> Num for Dualkt2<T> {
+impl<T: Num + Copy> Num for Dualt2<T> {
     type FromStrRadixErr = <T as Num>::FromStrRadixErr;
 
     #[inline]
-    fn from_str_radix(str: &str, radix: u32) -> Result<Dualkt2<T>, Self::FromStrRadixErr> {
-        <T as Num>::from_str_radix(str, radix).map(Dualkt2::from_real)
+    fn from_str_radix(str: &str, radix: u32) -> Result<Dualt2<T>, Self::FromStrRadixErr> {
+        <T as Num>::from_str_radix(str, radix).map(Dualt2::from_real)
     }
 }
 
-impl<T: Float> NumCast for Dualkt2<T> {
+impl<T: Float> NumCast for Dualt2<T> {
     #[inline]
-    fn from<P: ToPrimitive>(n: P) -> Option<Dualkt2<T>> {
-        <T as NumCast>::from(n).map(Dualkt2::from_real)
+    fn from<P: ToPrimitive>(n: P) -> Option<Dualt2<T>> {
+        <T as NumCast>::from(n).map(Dualt2::from_real)
     }
 }
 
 macro_rules! impl_float_const {
     ($($c:ident),*) => {
         $(
-            fn $c() -> Dualkt2<T> { Dualkt2::from_real(T::$c()) }
+            fn $c() -> Dualt2<T> { Dualt2::from_real(T::$c()) }
         )*
     }
 }
 
-impl<T: FloatConst + Zero> FloatConst for Dualkt2<T> {
+impl<T: FloatConst + Zero> FloatConst for Dualt2<T> {
     impl_float_const!(
         E,
         FRAC_1_PI,
@@ -610,7 +579,7 @@ impl<T: FloatConst + Zero> FloatConst for Dualkt2<T> {
 macro_rules! impl_real_constant {
     ($($prop:ident),*) => {
         $(
-            fn $prop() -> Self { Dualkt2::from_real(<T as Float>::$prop()) }
+            fn $prop() -> Self { Dualt2::from_real(<T as Float>::$prop()) }
         )*
     }
 }
@@ -653,12 +622,12 @@ macro_rules! impl_boolean_op {
 macro_rules! impl_real_op {
     ($($op:ident),*) => {
         $(
-            fn $op(self) -> Self { Dualkt2::from_real(self.real.$op()) }
+            fn $op(self) -> Self { Dualt2::from_real(self.real.$op()) }
         )*
     }
 }
 
-impl<T: Signed + Float + Debug> Float for Dualkt2<T> {
+impl<T: Signed + Float + Debug> Float for Dualt2<T> {
     impl_real_constant!(
         nan,
         infinity,
@@ -693,7 +662,7 @@ impl<T: Signed + Float + Debug> Float for Dualkt2<T> {
 
     #[inline]
     fn signum(self) -> Self {
-        Dualkt2::from_real(self.real.signum())
+        Dualt2::from_real(self.real.signum())
     }
 
     #[inline]
@@ -737,17 +706,12 @@ impl<T: Signed + Float + Debug> Float for Dualkt2<T> {
 
     #[inline]
     fn powi(self, n: i32) -> Self {
-        let rmm = self.real.powi(n - 2);
-        let rm = rmm * self.real;
-        let r = rm * self.real;
-        let dr = <T as NumCast>::from(n).unwrap() * rm;
-        let ddr = <T as NumCast>::from(n).unwrap() * rmm;
-        Dualkt2 {
+        let r = self.real.powi(n);
+        let dr = <T as NumCast>::from(n).unwrap() * r / self.real;
+        let ddr = <T as NumCast>::from(n).unwrap() * r / self.real / self.real;
+        Dualt2 {
             real: r,
-            ep_k0: self.ep_k0 * dr,
             ep_t: self.ep_t * dr,
-            ep_k0_t: self.ep_k0_t * dr
-                + self.ep_k0 * self.ep_t * (<T as NumCast>::from(n).unwrap() * ddr - ddr),
             ep_t2: self.ep_t2 * dr
                 + self.ep_t * self.ep_t / (T::one() + T::one())
                     * (<T as NumCast>::from(n).unwrap() * ddr - ddr),
@@ -762,11 +726,9 @@ impl<T: Signed + Float + Debug> Float for Dualkt2<T> {
     #[inline]
     fn exp(self) -> Self {
         let r = self.real.exp();
-        Dualkt2 {
+        Dualt2 {
             real: r,
-            ep_k0: r * self.ep_k0,
             ep_t: r * self.ep_t,
-            ep_k0_t: r * self.ep_k0_t + r * self.ep_k0 * self.ep_t,
             ep_t2: r * self.ep_t2 + r * self.ep_t * self.ep_t / (T::one() + T::one()),
         }
     }
@@ -802,11 +764,9 @@ impl<T: Signed + Float + Debug> Float for Dualkt2<T> {
         let r = self.real.sqrt();
         let ir = T::one() / r * half;
         let irr = ir / self.real * half;
-        Dualkt2 {
+        Dualt2 {
             real: r,
-            ep_k0: self.ep_k0 * ir,
             ep_t: self.ep_t * ir,
-            ep_k0_t: self.ep_k0_t * ir - self.ep_k0 * self.ep_t * irr,
             ep_t2: self.ep_t2 * ir - self.ep_t * self.ep_t * irr * half,
         }
     }
@@ -826,11 +786,9 @@ impl<T: Signed + Float + Debug> Float for Dualkt2<T> {
     fn sin(self) -> Self {
         let c = self.real.cos();
         let s = self.real.sin();
-        Dualkt2 {
+        Dualt2 {
             real: s,
-            ep_k0: self.ep_k0 * c,
             ep_t: self.ep_t * c,
-            ep_k0_t: self.ep_k0_t * c - self.ep_k0 * self.ep_t * s,
             ep_t2: self.ep_t2 * c - self.ep_t * self.ep_t * s / (T::one() + T::one()),
         }
     }
@@ -839,11 +797,9 @@ impl<T: Signed + Float + Debug> Float for Dualkt2<T> {
     fn cos(self) -> Self {
         let c = self.real.cos();
         let s = self.real.sin();
-        Dualkt2 {
+        Dualt2 {
             real: c,
-            ep_k0: -self.ep_k0 * s,
             ep_t: -self.ep_t * s,
-            ep_k0_t: -self.ep_k0_t * s - self.ep_k0 * self.ep_t * c,
             ep_t2: -self.ep_t2 * s - self.ep_t * self.ep_t * c / (T::one() + T::one()),
         }
     }
@@ -934,12 +890,12 @@ impl<T: Signed + Float + Debug> Float for Dualkt2<T> {
     }
 }
 
-impl<T> Sum for Dualkt2<T> {
+impl<T> Sum for Dualt2<T> {
     fn sum<I: Iterator<Item = Self>>(_iter: I) -> Self {
         todo!()
     }
 }
 
-impl<T: Float + Display + Debug + Default + Signed> Field for Dualkt2<T> {}
+impl<T: Float + Display + Debug + Default + Signed> Field for Dualt2<T> {}
 
-impl<T: Float + Display + Debug + Default + Signed> RealNumberLike for Dualkt2<T> {}
+impl<T: Float + Display + Debug + Default + Signed> RealNumberLike for Dualt2<T> {}

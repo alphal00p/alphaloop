@@ -1677,7 +1677,7 @@ CTable ltdmap(0:{},0:{});
                 if diag_momenta == []:
                     diag_momenta = ['1']
 
-                tder = '*tder({})'.format(max(c['power'] for c in cut['cuts'])) if any(c['power'] > 1 for c in cut['cuts']) else ''
+                tder = '*tder({})'.format(','.join(str(c['power']) for c in cut['cuts'] if c['power'] > 1)) if any(c['power'] > 1 for c in cut['cuts']) else ''
                 conf = 'conf({},{},{},{}){}*{}'.format(diag_set['id'], cut_index, cmb_map, conf, tder, '*'.join(diag_momenta))
                 if diag_set_uv_conf != []:
                     conf += '*{}'.format('*'.join(diag_set_uv_conf))
@@ -2572,6 +2572,7 @@ class FORMSuperGraphList(list):
 #include <signal.h>
 #include "%(header)snumerator.h"
 #include "dual.h"
+#include "dualt2.h"
 #include "dualkt2.h"
 #include <mp++/complex128.hpp>
 
@@ -2579,6 +2580,7 @@ using namespace std;
 using namespace std::complex_literals;
 using namespace duals;
 using namespace duals::literals;
+using namespace dualst2;
 using namespace dualskt2;
 using namespace mppp;
 using namespace mppp::literals;
@@ -2591,7 +2593,7 @@ const complex<double> I{ 0.0, 1.0 };
         lm_pattern = re.compile(r'lm(\d*)')
         energy_pattern = re.compile(r'E(\d+)')
         denom_pattern = re.compile(r'invd(\d+)')
-        conf_exp = re.compile(r'conf\(([^)]*)\)(\*tder\((\d)\))?\n')
+        conf_exp = re.compile(r'conf\(([^)]*)\)(\*tder\([^)]*\))?\n')
         return_exp = re.compile(r'return ([^;]*);\n')
         float_pattern = re.compile(r'((\d+\.\d*)|(\.\d+))')
         diag_pattern = re.compile(r'diag\((\d*)\)')
@@ -2679,6 +2681,17 @@ const complex<double> I{ 0.0, 1.0 };
 
                             denominator_mode = 'NUM' if int(conf[0]) >= 0 else ('FOREST' if len(conf) == 2 else 'DIAG')
                             dual_num_mode = conf_part[1] is not None
+                            if conf_part[1] == "*tder(2)":
+                                dual_num_type = "dual"
+                            elif conf_part[1] == "*tder(3)":
+                                dual_num_type = "dualt2"
+                            elif conf_part[1] == "*tder(2,2)":
+                                dual_num_type = "dualkt2"
+                            elif not dual_num_mode:
+                                dual_num_type = ""
+                                pass
+                            else:
+                                raise AssertionError("Unknown dual configuration: %s" % conf_part[1])
                             
                             if denominator_mode == 'DIAG':
                                 cut_id = int(conf[1])
@@ -2729,7 +2742,7 @@ const complex<double> I{ 0.0, 1.0 };
                             returnval = re.sub(r'(^|[+\-*=])(\s*\d+)($|[^.\d\w])', r'\1\2.\3', returnval)
 
                             if dual_num_mode and all(x not in returnval for x in ['E', 'lm', 'Z']):
-                                returnval = 'dualkt2({})'.format(returnval)
+                                returnval = '{}({})'.format(dual_num_type, returnval)
 
                             if denominator_mode == 'FOREST':
                                 conf_sec = return_exp.sub('return {};\n'.format(returnval), conf_sec)
@@ -2744,11 +2757,11 @@ const complex<double> I{ 0.0, 1.0 };
                             conf_sec = re.sub(r'pow\(([^,]+),(\d+)\)', lambda x: '*'.join([x.group(1)]*int(x.group(2))) , conf_sec)
 
                             base_type = 'complex<double>'
-                            dual_base_type = 'dualkt2<{}>'.format(base_type) if dual_num_mode else base_type
+                            dual_base_type = '{}<{}>'.format(dual_num_type, base_type) if dual_num_mode else base_type
                             base_type_f128 = 'complex128'
-                            dual_base_type_f128 = 'dualkt2<{}>'.format(base_type_f128) if dual_num_mode else base_type_f128
+                            dual_base_type_f128 = '{}<{}>'.format(dual_num_type,base_type_f128) if dual_num_mode else base_type_f128
                             base_type_mpfr = 'mpcomplex'
-                            dual_base_type_mpfr = 'dualkt2<{}>'.format(base_type_mpfr) if dual_num_mode else base_type_mpfr
+                            dual_base_type_mpfr = '{}<{}>'.format(dual_num_type,base_type_mpfr) if dual_num_mode else base_type_mpfr
                             
 
                             if denominator_mode == 'FOREST':
@@ -2799,7 +2812,7 @@ const complex<double> I{ 0.0, 1.0 };
                                 )
                             else:
                                 cut_id = int(conf[0])
-                                confs.append((cut_id, dual_num_mode))
+                                confs.append((cut_id, dual_num_type))
 
                                 if len(temp_vars) > 0:
                                     graph.is_zero = False
@@ -2856,7 +2869,7 @@ const complex<double> I{ 0.0, 1.0 };
                         integrand_f128_main_code = integrand_f128_main_code.replace('const complex<double> I{ 0.0, 1.0 };', 'constexpr complex128 I{ 0.0, 1.0 };')
 
 
-                        conf_no_dual, conf_dual = [x for x in confs if not x[1]], [x for x in confs if x[1]]
+                        conf_no_dual, conf_dual = [x for x in confs if x[1]] != "", [x for x in confs if x[1] == ""]
 
                         integrand_main_code += \
 """
@@ -2867,7 +2880,7 @@ void %(header)sevaluate_{0}_{1}(complex<double> lm[], complex<double> params[], 
     }}
 }}
 
-void %(header)sevaluate_{0}_{1}_dual(dualkt2<complex<double>> lm[], complex<double> params[], int conf, dualkt2<complex<double>>* out) {{
+void %(header)sevaluate_{0}_{1}_dual(double lm[], complex<double> params[], int conf, double* out) {{
    switch(conf) {{
 {3}
     }}
@@ -2879,7 +2892,7 @@ void %(header)sevaluate_{0}_{1}_dual(dualkt2<complex<double>> lm[], complex<doub
             (['\t\tdefault: *out = 0.;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
         ),
         '\n'.join(
-            ['\t\tcase {}: %(header)sevaluate_{}_{}_{}(lm, params, out); return;'.format(conf, itype, i, conf) for conf, is_dual in sorted(x for x in confs if x[1])] +
+            ['\t\tcase {}: %(header)sevaluate_{}_{}_{}(({}<complex<double>>*)lm, params, ({}<complex<double>>*)out); return;'.format(conf, itype, i, conf, is_dual, is_dual) for conf, is_dual in sorted(x for x in confs if x[1])] +
             (['\t\tdefault: *out = 0.;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
         )
         )
@@ -2894,7 +2907,7 @@ void %(header)sevaluate_{0}_{1}_f128(complex128 lm[], complex128 params[], int c
     }}
 }}
 
-void %(header)sevaluate_{0}_{1}_f128_dual(dualkt2<complex128> lm[], complex128 params[], int conf, dualkt2<complex128>* out) {{
+void %(header)sevaluate_{0}_{1}_f128_dual(complex128 lm[], complex128 params[], int conf, complex128* out) {{
    switch(conf) {{
 {3}
     }}
@@ -2906,7 +2919,7 @@ void %(header)sevaluate_{0}_{1}_f128_dual(dualkt2<complex128> lm[], complex128 p
                 (['\t\tdefault: *out = 0.q;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
         ),
         '\n'.join(
-                ['\t\tcase {}: %(header)sevaluate_{}_{}_{}_f128(lm, params, out); return;'.format(conf, itype, i, conf) for conf, is_dual in sorted(x for x in confs if x[1])] +
+                ['\t\tcase {}: %(header)sevaluate_{}_{}_{}_f128(({}<complex128>*)lm, params, ({}<complex128>*)out); return;'.format(conf, itype, i, conf, is_dual, is_dual) for conf, is_dual in sorted(x for x in confs if x[1])] +
                 (['\t\tdefault: *out = real128(0.q);']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
         )
         )
@@ -2932,7 +2945,7 @@ void %(header)sevaluate_{0}_{1}_mpfr(complex128 lm[], complex128 params[], int c
     }}
 }}
 
-void %(header)sevaluate_{0}_{1}_mpfr_dual(dualkt2<complex128> lm[], complex128 params[], int conf, int prec, dualkt2<complex128>* out) {{
+void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], int conf, int prec, complex128* out) {{
    mpfr_set_default_prec((mpfr_prec_t)(ceil(prec * 3.3219280948873624)));
    switch(conf) {{
 {3}
@@ -2945,7 +2958,7 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(dualkt2<complex128> lm[], complex128 p
             (['\t\tdefault: *out = 0.;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else
         ),
         '\n'.join(
-            ['\t\tcase {}: %(header)sevaluate_{}_{}_{}_mpfr(lm, params, out); return;'.format(conf, itype, i, conf) for conf, is_dual in sorted(x for x in confs if x[1])] +
+            ['\t\tcase {}: %(header)sevaluate_{}_{}_{}_mpfr(({}<complex128>*)lm, params, ({}<complex128>*)out); return;'.format(conf, itype, i, conf, is_dual, is_dual) for conf, is_dual in sorted(x for x in confs if x[1])] +
             (['\t\tdefault: *out = real128(0.q);']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
         )
         )
@@ -3672,6 +3685,7 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(dualkt2<complex128> lm[], complex128 p
         shutil.copy('mpreal.h', pjoin(TMP_FORM, 'mpreal.h'))
         shutil.copy('mpcomplex.h', pjoin(TMP_FORM, 'mpcomplex.h'))
         shutil.copy('dual.h', pjoin(TMP_FORM, 'dual.h'))
+        shutil.copy('dualt2.h', pjoin(TMP_FORM, 'dualt2.h'))
         shutil.copy('dualkt2.h', pjoin(TMP_FORM, 'dualkt2.h'))
         Path(pjoin(TMP_OUTPUT, 'lib')).mkdir(parents=True, exist_ok=True)
         FORMProcessor.compile(TMP_FORM)

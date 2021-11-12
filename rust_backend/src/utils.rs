@@ -1,4 +1,5 @@
 use crate::dualkt2::Dualkt2;
+use crate::dualt2::Dualt2;
 use crate::{FloatLike, MAX_LOOP};
 use dual_num::DualN;
 use f128::f128;
@@ -179,6 +180,18 @@ where
         match sign {
             1 => *self,
             0 => DualN::zero(),
+            -1 => -*self,
+            _ => unreachable!("Sign should be -1,0,1"),
+        }
+    }
+}
+
+impl<T: FloatLike> Signum for Dualt2<T> {
+    #[inline]
+    fn multiply_sign(&self, sign: i8) -> Dualt2<T> {
+        match sign {
+            1 => *self,
+            0 => Dualt2::zero(),
             -1 => -*self,
             _ => unreachable!("Sign should be -1,0,1"),
         }
