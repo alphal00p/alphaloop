@@ -1165,16 +1165,13 @@ aGraph=%s;
                             # contruct the momentum in the LMB
                             # it should be the same as self.edge['momentum'] apart from the UV and the sign
                             lmp = np.array([0]*topo.topo.n_loops)
-                            extshift = np.array([0]*len(p.parametric_shift[1]))
                             for s, v in zip(l.signature, g.loop_momentum_map):
                                 lmp += s * np.array(v[0])
-                                extshift += s * np.array(v[1])
 
                             if internal_bubble_ext_edges is None:
-                                extshift += np.array(p.parametric_shift[1])
-
                                 # transport shift to LMB
                                 shift = np.array([0]*topo.topo.n_loops)
+                                extshift = np.array(p.parametric_shift[1])
                                 for s, c in zip(p.parametric_shift[0], cut['cuts']):
                                     shift += s * np.array(c['signature'][0])
                                     extshift += s * np.array(c['signature'][1])
@@ -1182,7 +1179,6 @@ aGraph=%s;
                                     np.array(list(extshift[len(extshift)//2:]) + [0]*(len(extshift)//2))
                             else:
                                 # for on-shell graphs, the shifts are still in the graph basis
-                                # FIXME: deprecated and wrong with the latest lmb shift fix
                                 ext_edge_sigs = [next(ee for ee in self.edges.values() if ee['name'] == e)['signature'] for e in internal_bubble_ext_edges]
                                 shift = np.array([0]*topo.topo.n_loops)
                                 extshift = np.array([0]*len(ext_edge_sigs[0][1]))
@@ -2713,7 +2709,7 @@ const complex<double> I{ 0.0, 1.0 };
                                 assert(len(e) % 2 == 0)
                                 for j in range(0, len(e), 2):
                                     energy_index = int(e[j][1:]) # skip E prefix
-                                    energy_instr = 'sqrt({})'.format(lm_pattern.sub(r'lm[\1]', square_pattern.sub(r'\1*\1', e[j+1]))).replace('2*', '2.*')
+                                    energy_instr = 'sqrt({})'.format(lm_pattern.sub(r'lm[\1]', square_pattern.sub(r'\1*\1', e[j+1]))).replace('2*', '2.*').replace('4*', '4.*').replace('8*', '8.*')
                                     assert((cut_id, energy_index) not in energies_per_cut or energies_per_cut[(cut_id, energy_index)] == energy_instr)
                                     energies_per_cut[(cut_id, energy_index)] = energy_instr
 
