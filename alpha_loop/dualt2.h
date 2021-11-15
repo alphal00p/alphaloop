@@ -255,7 +255,7 @@ public:
 
   /// Construct dualt2 from optional real and dualt2 parts.
   constexpr
-  dualt2(const value_type re = value_type(), const value_type k0 = value_type(), const value_type t = value_type(), const value_type k0_t = value_type(), const value_type t2 = value_type())
+  dualt2(const value_type re = value_type(), const value_type t = value_type(), const value_type t2 = value_type())
     : _real(re), _ep_t(t), _ep_t2(t2) {}
 
   /// Copy construct from a dualt2 of equal depth.
@@ -471,9 +471,11 @@ pow(const dualt2<T> & f, const dualt2<U> & g) {
 
 template<class T> dualt2<T> pow(const dualt2<T> & x, int y) {
   using std::pow;
-  T r = pow(x._real, y);
-  T dr = T(y) * r / x._real;
-  T ddr = T(y) * r / x._real / x._real;
+  T rmm = pow(x._real, y - 2);
+  T rm = rmm * x._real;
+  T r = rm * x._real;
+  T dr = T(y) * rm;
+  T ddr = T(y) * rmm;
   return dualt2<T>(
       r,
       x._ep_t * dr,

@@ -490,9 +490,11 @@ pow(const dualkt2<T> & f, const dualkt2<U> & g) {
 
 template<class T> dualkt2<T> pow(const dualkt2<T> & x, int y) {
   using std::pow;
-  T r = pow(x._real, y);
-  T dr = T(y) * r / x._real;
-  T ddr = T(y) * r / x._real / x._real;
+  T rmm = pow(x._real, y - 2);
+  T rm = rmm * x._real;
+  T r = rm * x._real;
+  T dr = T(y) * rm;
+  T ddr = T(y) * rmm;
   return dualkt2<T>(
       r,
       x._ep_k0 * dr,
