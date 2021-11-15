@@ -41,15 +41,15 @@ CF uvid;
     repeat id g(k1?,k1?)*map(kk3,k1?,n?)*uvid(2,1,n1?,n2?,n3?) = (uvid(2,1,n1,n2,n3-1) + mUV2^2 * uvid(2,1,n1,n2,n3))*map(kk3,k1,n);
 
     repeat id g(k1?,k2?)*map(kk1,k1?,nn1?)*map(kk2,k2?,nn2?)*uvid(2,1,n1?,n2?,n3?) = 1/2*nn1*nn2*map(kk1,k1,nn1)*map(kk2,k2,nn2)*(
-        uvid(2,1,n1,n2,n3-1) - uvid(2,1,n1-1,n2,n3) - uvid(2,1,n1,n2-1,n3) + mUV2^2 * uvid(2,1,n1,n2,n3)
+        uvid(2,1,n1,n2,n3-1) - uvid(2,1,n1-1,n2,n3) - uvid(2,1,n1,n2-1,n3) - mUV2^2 * uvid(2,1,n1,n2,n3)
     );
 
     repeat id g(k1?,k2?)*map(kk1,k1?,nn1?)*map(kk3,k2?,nn2?)*uvid(2,1,n1?,n2?,n3?) = 1/2*nn1*nn2*map(kk1,k1,nn1)*map(kk3,k2,nn2)*(
-        uvid(2,1,n1,n2-1,n3) - uvid(2,1,n1-1,n2,n3) - uvid(2,1,n1,n2,n3-1) + mUV2^2 * uvid(2,1,n1,n2,n3)
+        uvid(2,1,n1,n2-1,n3) - uvid(2,1,n1-1,n2,n3) - uvid(2,1,n1,n2,n3-1) - mUV2^2 * uvid(2,1,n1,n2,n3)
     );
 
     repeat id g(k1?,k2?)*map(kk2,k1?,nn1?)*map(kk3,k2?,nn2?)*uvid(2,1,n1?,n2?,n3?) = 1/2*nn1*nn2*map(kk2,k1,nn1)*map(kk3,k2,nn2)*(
-        uvid(2,1,n1-1,n2,n3) - uvid(2,1,n1,n2-1,n3) - uvid(2,1,n1,n2,n3-1) + mUV2^2 * uvid(2,1,n1,n2,n3)
+        uvid(2,1,n1-1,n2,n3) - uvid(2,1,n1,n2-1,n3) - uvid(2,1,n1,n2,n3-1) - mUV2^2 * uvid(2,1,n1,n2,n3)
     );
 
     id map(?a) = 1;
