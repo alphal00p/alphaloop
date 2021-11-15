@@ -706,9 +706,11 @@ impl<T: Signed + Float + Debug> Float for Dualt2<T> {
 
     #[inline]
     fn powi(self, n: i32) -> Self {
-        let r = self.real.powi(n);
-        let dr = <T as NumCast>::from(n).unwrap() * r / self.real;
-        let ddr = <T as NumCast>::from(n).unwrap() * r / self.real / self.real;
+        let rmm = self.real.powi(n - 2);
+        let rm = rmm * self.real;
+        let r = rm * self.real;
+        let dr = <T as NumCast>::from(n).unwrap() * rm;
+        let ddr = <T as NumCast>::from(n).unwrap() * rmm;
         Dualt2 {
             real: r,
             ep_t: self.ep_t * dr,

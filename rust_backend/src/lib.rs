@@ -1,7 +1,10 @@
 #[macro_use]
 extern crate itertools;
+#[cfg(feature = "python_api")]
 use dual_num::Dual;
+#[cfg(feature = "python_api")]
 use dualkt2::Dualkt2;
+#[cfg(feature = "python_api")]
 use dualt2::Dualt2;
 #[cfg(feature = "python_api")]
 use pyo3::prelude::*;
