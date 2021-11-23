@@ -569,6 +569,10 @@ aGraph=%s;
     
         topo_generator, edge_name_to_key, original_LMB = self.get_topo_generator()
         edge_key_to_name = {v:k for k,v in edge_name_to_key.items()}
+        
+        # Set propagator powers
+        sig_map=topo_generator.get_signature_map()
+        edge_name_to_power = { e_name: list(sig_map.values()).count(sig_map[e_name]) for e_name in edge_name_to_key } 
 
         all_lmbs = topo_generator.loop_momentum_bases()
         all_lmbs= [ tuple([edge_name_to_key[topo_generator.edge_map_lin[e][0]] for e in lmb]) for lmb in all_lmbs]
@@ -590,12 +594,15 @@ aGraph=%s;
                         if pdg in [21,22]:
                             lmb_pdg_score +=1
                             # Add a bonus if the gluon is a raised propagator
-                            if edge_name in topo_generator.powers:
-                                lmb_pdg_score += (topo_generator.powers[edge_name]-1)
+                            if edge_name in edge_name_to_power:
+                                lmb_pdg_score += (edge_name_to_power[edge_name]-1)
                     else:
                         particle = model.get_particle(pdg)
                         if particle.get('spin') == 3 and particle.get('mass').upper()=='ZERO':
                             lmb_pdg_score += 1
+                        # Add a bonus if the gluon is a raised propagator
+                        if edge_name in edge_name_to_power:
+                            lmb_pdg_score += (edge_name_to_power[edge_name]-1)
                 lmb_metric.append((lmb_pdg_score, lmb_index))
             lmb_metric.sort(key=lambda score:score[0], reverse=True)
             forced_LMB_index = lmb_metric[0][1]
