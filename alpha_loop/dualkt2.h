@@ -442,8 +442,10 @@ CPPDUALSKT2_LHS_COMPARISON(!=)
 #endif // PARSED_BY_DOXYGEN
 
 // NOTE: Added by Ben Ruijl
-template<class T> dualkt2<T> operator*(const T & lhs, const dualkt2<T> rhs) { return dualkt2<T>(rhs._real * lhs, rhs._ep_k0 * lhs, rhs._ep_t * lhs, rhs._ep_k0_t * lhs, rhs._ep_t2 * lhs); }
+template<class T> dualkt2<T> operator*(const T & lhs, const dualkt2<T> rhs) { return rhs * lhs; }
 template<class T> dualkt2<T> operator/(const T & lhs, const dualkt2<T> rhs) { return rhs.inv() * lhs; }
+template<class T> dualkt2<T> operator+(const T & lhs, const dualkt2<T> rhs) { return rhs + lhs; }
+template<class T> dualkt2<T> operator-(const T & lhs, const dualkt2<T> rhs) { return -rhs + lhs; }
 
 /// Exponential e^x
 template<class T> dualkt2<T> exp(const dualkt2<T> & x) {

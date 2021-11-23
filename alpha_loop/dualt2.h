@@ -425,8 +425,10 @@ CPPDUALST2_LHS_COMPARISON(!=)
 #endif // PARSED_BY_DOXYGEN
 
 // NOTE: Added by Ben Ruijl
-template<class T> dualt2<T> operator*(const T & lhs, const dualt2<T> rhs) { return dualt2<T>(rhs._real * lhs, rhs._ep_t * lhs, rhs._ep_t2 * lhs); }
+template<class T> dualt2<T> operator*(const T & lhs, const dualt2<T> rhs) { return rhs * lhs; }
 template<class T> dualt2<T> operator/(const T & lhs, const dualt2<T> rhs) { return rhs.inv() * lhs; }
+template<class T> dualt2<T> operator+(const T & lhs, const dualt2<T> rhs) { return rhs + lhs; }
+template<class T> dualt2<T> operator-(const T & lhs, const dualt2<T> rhs) { return -rhs + lhs; }
 
 /// Exponential e^x
 template<class T> dualt2<T> exp(const dualt2<T> & x) {

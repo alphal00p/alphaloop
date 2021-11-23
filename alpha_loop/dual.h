@@ -737,8 +737,10 @@ CPPDUALS_LHS_COMPARISON(!=)
 #endif // PARSED_BY_DOXYGEN
 
 // NOTE: Added by Ben Ruijl
-template<class T> dual<T> operator*(const T & lhs, const dual<T> rhs) { return dual<T>(rhs.rpart() * lhs, rhs.dpart() * lhs); }
+template<class T> dual<T> operator*(const T & lhs, const dual<T> rhs) { return rhs * lhs; }
 template<class T> dual<T> operator/(const T & lhs, const dual<T> rhs) { return rhs.inv() * lhs; }
+template<class T> dual<T> operator+(const T & lhs, const dual<T> rhs) { return rhs + lhs; }
+template<class T> dual<T> operator-(const T & lhs, const dual<T> rhs) { return -rhs + lhs; }
 
 namespace randos {
 
