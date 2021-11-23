@@ -499,6 +499,9 @@ class SquaredTopologyGenerator:
             
             from alpha_loop.run_interface import SuperGraph
             sg = SuperGraph(copy.deepcopy(out))
+
+            sg_edge_powers = { e[0] : e[-1] for e in sg['topo_edges'] }
+
             #print("Now handling SG %s"%sg['name'])
             sg.set_integration_channels()
             multi_channeling_bases = []
@@ -534,7 +537,8 @@ class SquaredTopologyGenerator:
                             'channel_id' : channel_id,
                             'cutkosky_cut_id' : channel['cutkosky_cut_id'], 
                             'defining_propagators' : defining_edges_for_this_channel,
-                            'signatures' : signatures
+                            'signatures' : signatures,
+                            'defining_propagators_powers' : [sg_edge_powers[de_name] for de_name in defining_edges_for_this_channel],
                         }
                     )
                     channel_id += 1
@@ -556,13 +560,17 @@ class SquaredTopologyGenerator:
                             if particle.get('spin') == 3 and particle.get('mass').upper()=='ZERO':
                                 pdg_score += 1
                     
+                    power_score = 0
+                    for edge in channel['defining_propagators']:
+                        power_score += (sg_edge_powers.get(edge,1)-1)
+                    
                     cc_score = 0
                     for cut_edges in all_cc_cuts_edges:
                         cc_score -= len( cut_edges.difference(set(channel['defining_propagators'])) )
 
-                    channels_score.append( (pdg_score, cc_score, i_channel) )
+                    channels_score.append( (pdg_score, power_score, cc_score, i_channel) )
                     
-                channels_score.sort( key=lambda chan:(chan[0],chan[1]), reverse=True )
+                channels_score.sort( key=lambda chan:(chan[0],chan[1],chan[2]), reverse=True )
                 optimal_channel_ids = [ multi_channeling_bases[channels_score[0][-1]]['channel_id'], ]
 
                 # selected_channel_id = channels_score[0][-1]

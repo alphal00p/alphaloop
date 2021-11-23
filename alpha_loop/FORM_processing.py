@@ -593,19 +593,19 @@ aGraph=%s;
                     if model is None:
                         if pdg in [21,22]:
                             lmb_pdg_score +=1
-                            # Add a bonus if the gluon is a raised propagator
-                            if edge_name in edge_name_to_power:
-                                lmb_pdg_score += (edge_name_to_power[edge_name]-1)
                     else:
                         particle = model.get_particle(pdg)
                         if particle.get('spin') == 3 and particle.get('mass').upper()=='ZERO':
                             lmb_pdg_score += 1
-                        # Add a bonus if the gluon is a raised propagator
-                        if edge_name in edge_name_to_power:
-                            lmb_pdg_score += (edge_name_to_power[edge_name]-1)
-                lmb_metric.append((lmb_pdg_score, lmb_index))
-            lmb_metric.sort(key=lambda score:score[0], reverse=True)
-            forced_LMB_index = lmb_metric[0][1]
+
+                lmb_power_score = 0
+                for edge_name in lmb_edge_names:
+                    lmb_power_score += (edge_name_to_power.get(edge_name,1)-1)
+
+                lmb_metric.append((lmb_pdg_score, lmb_power_score, lmb_index))
+
+            lmb_metric.sort(key=lambda score:(score[0],score[1]), reverse=True)
+            forced_LMB_index = lmb_metric[0][-1]
 
         # Then overwrite the reference LMB if the user requested it
         if (FORM_processing_options['reference_lmb'] is not None) or (forced_LMB_index is not None):
