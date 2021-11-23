@@ -448,6 +448,8 @@ class FORMSuperGraph(object):
                 edge_label_pieces.append(edge_data['name'])
             if self._include_momentum_routing_in_rendering:
                 edge_label_pieces.append(edge_data['momentum'])
+            if is_LMB:
+                edge_label_pieces.append('#%d'%(abs_sig[0].index(1)))
             edge_label = "|".join(edge_label_pieces)
             edge_repl_dict['edge_label'] = edge_label
             all_edge_definitions.append(edge_template%edge_repl_dict)
@@ -580,12 +582,16 @@ aGraph=%s;
 
             lmb_metric = []
             for (lmb_index, lmb) in enumerate(all_lmbs):
-                lmb_pdgs = [ edge_name_to_pdg[edge_key_to_name[e_key]] for e_key in lmb ]
+                lmb_edge_names = [ edge_key_to_name[e_key] for e_key in lmb ]
                 lmb_pdg_score = 1
-                for pdg in lmb_pdgs:
+                for edge_name in lmb_edge_names:
+                    pdg = edge_name_to_pdg[edge_name]
                     if model is None:
                         if pdg in [21,22]:
                             lmb_pdg_score +=1
+                            # Add a bonus if the gluon is a raised propagator
+                            if edge_name in topo_generator.powers:
+                                lmb_pdg_score += (topo_generator.powers[edge_name]-1)
                     else:
                         particle = model.get_particle(pdg)
                         if particle.get('spin') == 3 and particle.get('mass').upper()=='ZERO':
@@ -2534,21 +2540,25 @@ class FORMSuperGraphList(list):
         pass
     
     @classmethod
-    def minimal_dict_representation_of_a_topology_generator_graph(cls, topology_generator_graph):
+    def minimal_dict_representation_of_a_topology_generator_graph(cls, topology_generator_graph, particle_PDGs):
         
         g = topology_generator_graph
         sig_map=g.get_signature_map()
         #assert(all(all(sm_i==0 for sm_i in sm[1][len(sm[1])//2:]) for sm in sig_map.values()))
-
+        edges_description = []
+        for e in g.edge_map_lin:
+            edges_description.append({
+                'name' : e[0],
+                'PDG' : particle_PDGs[e[0]],
+                'start_node' : e[1],
+                'end_node' : e[2],
+                'power' : (g.powers[e[0]] if e[0] in g.powers else 0),
+                'loop_momentum_signature' : [list(sig_map[e[0]][0]),list(sig_map[e[0]][1])]
+            })
         return {
-            'denominators_string' : '' if g.denominators_string is None else g.denominators_string,
+            'massless_denominators_string' : '' if g.denominators_string is None else g.denominators_string,
             'loop_momenta' : [g.edge_map_lin[e][0] for e in g.loop_momenta],
-            'edges' : [ sum([
-                list(e),
-                [(g.powers[e[0]] if e[0] in g.powers else 0),],
-                #[[list(sig_map[e[0]][0]),list(sig_map[e[0]][1])[:list(sig_map[e[0]][1])//2]],]
-                [[list(sig_map[e[0]][0]),list(sig_map[e[0]][1])],]
-            ],[]) for e in g.edge_map_lin]
+            'edges' : edges_description
         }
 
     def generate_integrand_functions(self, root_output_path, additional_overall_factor='',
@@ -2641,7 +2651,9 @@ const complex<double> I{ 0.0, 1.0 };
                                 characteristic_graph = graph[0]
                             else:
                                 characteristic_graph = active_graph
-                            characteristic_graph_dict = self.minimal_dict_representation_of_a_topology_generator_graph(characteristic_graph.squared_topology.topo)
+                            
+                            particle_ids = { e['name']: e['PDG'] for e in characteristic_graph.edges.values() }
+                            characteristic_graph_dict = self.minimal_dict_representation_of_a_topology_generator_graph(characteristic_graph.squared_topology.topo,particle_ids)
                             characteristic_graph_dict['numerator']='numerator_{}.txt'.format(i)
                             with open(pjoin(root_output_path, 'raw_SG_expressions', '%s.yaml'%characteristic_graph.squared_topology.name), 'w') as f:
                                 f.write(yaml.dump(characteristic_graph_dict, Dumper=Dumper))
