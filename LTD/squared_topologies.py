@@ -496,11 +496,12 @@ class SquaredTopologyGenerator:
 
         optimal_channel_ids = []
         if include_integration_channel_info:
-            
+
+            sig_map=self.topo.get_signature_map()
+            sg_edge_powers = { e_data[0]: list(sig_map.values()).count(sig_map[e_data[0]]) for e_data in self.topo.edge_map_lin } 
+
             from alpha_loop.run_interface import SuperGraph
             sg = SuperGraph(copy.deepcopy(out))
-
-            sg_edge_powers = { e[0] : e[-1] for e in sg['topo_edges'] }
 
             #print("Now handling SG %s"%sg['name'])
             sg.set_integration_channels()
