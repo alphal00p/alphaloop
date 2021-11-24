@@ -143,7 +143,7 @@ class Havana(object):
             # Import the havana bindings, in the form of the ltd shared object library that contains the following submodule:
             #import ltd.havana as havana
             from ltd.havana import Havana, Sample, GridConstructor, ContinuousGridConstructor, DiscreteGridConstructor
-        except ImportError as e:
+        except Exception as e:
             raise HavanaIntegratorError("Could not import the rust back-end 'ltd' module in '%s'. Compile it first with:\n"%self.alpha_loop_path+
                 " ./make_lib\nfrom within the alphaLoop directory.")
 
@@ -478,7 +478,7 @@ class Havana(object):
                 ))
         for res_index, havana_grid in enumerate(self.havana_grids):
             avg, err, chi_sq, max_eval_negative, max_eval_positive, n_evals, n_zero_evals = havana_grid.get_current_estimate()
-            max_wgt_infl = 0. if self.n_points==0 else max(abs(max_eval_negative),max_eval_positive)/(err*self.n_points)
+            max_wgt_infl = 0. if (self.n_points==0 or err==0.) else max(abs(max_eval_negative),max_eval_positive)/(err*self.n_points)
             if (self.integrand_descriptions is None) or (len(self.integrand_descriptions)<=(res_index//2)) or self.integrand_descriptions[res_index//2]=='none':
                 itg_descr = ''
             else:
