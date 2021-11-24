@@ -10,13 +10,14 @@ use crate::{float, DeformationStrategy, FloatLike, IntegrandType, NormalisingFun
 use arrayvec::ArrayVec;
 use color_eyre::{Help, Report};
 use dlopen::raw::Library;
-use dual_num::{Dual, Scalar};
 use eyre::WrapErr;
 use f128::f128;
 use havana::{ContinuousGrid, DiscreteGrid, Grid};
+use hyperdual::Hyperdual;
 use itertools::Itertools;
 use libc::{c_double, c_int};
 use lorentz_vector::{Field, LorentzVector, RealNumberLike};
+use nalgebra::Scalar;
 use num::Complex;
 use num_traits::{Float, FloatConst, FromPrimitive, Inv, NumCast, One, ToPrimitive, Zero};
 use rand::{thread_rng, Rng};
@@ -1397,10 +1398,10 @@ pub trait DualWrapper<T> {
         Self: Sized;
 }
 
-impl<T: Scalar + Zero + Copy> DualWrapper<T> for Dual<T> {
+impl<T: Scalar + Zero + Copy> DualWrapper<T> for Hyperdual<T, 2> {
     #[inline]
     fn from_real(real: T) -> Self {
-        Dual::from_real(real)
+        Hyperdual::from_real(real)
     }
 
     #[inline]
@@ -1449,7 +1450,7 @@ impl<T: Scalar + Zero + Copy> DualWrapper<T> for Dual<T> {
     }
 
     #[inline]
-    fn zip_flatten(&self, other: &Dual<T>, buffer: &mut Vec<T>) {
+    fn zip_flatten(&self, other: &Hyperdual<T, 2>, buffer: &mut Vec<T>) {
         buffer.push(self[0]);
         buffer.push(other[0]);
         buffer.push(self[1]);
@@ -1460,8 +1461,11 @@ impl<T: Scalar + Zero + Copy> DualWrapper<T> for Dual<T> {
         2
     }
 
-    fn from_zipped_slice(slice: &[T]) -> (Dual<T>, Dual<T>) {
-        (Dual::new(slice[0], slice[2]), Dual::new(slice[1], slice[3]))
+    fn from_zipped_slice(slice: &[T]) -> (Hyperdual<T, 2>, Hyperdual<T, 2>) {
+        (
+            Hyperdual::new(slice[0], slice[2]),
+            Hyperdual::new(slice[1], slice[3]),
+        )
     }
 }
 
@@ -2109,7 +2113,7 @@ impl SquaredTopology {
 
                 result += if has_raised_cc {
                     if raised_cut_count == 1 && last_pow == 2 {
-                        self.evaluate_cut_derivative::<T, Dual<T>>(
+                        self.evaluate_cut_derivative::<T, Hyperdual<T, 2>>(
                             loop_momenta,
                             &external_momenta,
                             cache,
@@ -3328,6 +3332,10 @@ impl SquaredTopology {
                 assert!(call_signature.extra_calls.is_empty());
 
                 for &(_diag, conf) in [(d, c)].iter().chain(&call_signature.extra_calls) {
+                    for r in &mut result_buffer {
+                        *r = T::zero();
+                    }
+
                     match self.settings.cross_section.integrand_type {
                         // TODO: mpfr
                         IntegrandType::LTD => T::get_integrand_ltd_dual(

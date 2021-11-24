@@ -12,7 +12,7 @@ use crate::{
 };
 use arrayvec::ArrayVec;
 use colored::Colorize;
-use dual_num::{DimName, DualN};
+use hyperdual::Hyperdual;
 use itertools::Itertools;
 use lorentz_vector::LorentzVector;
 use num::Complex;
@@ -24,17 +24,6 @@ use rand::{Rng, SeedableRng};
 use std::cmp::Ordering;
 
 use crate::utils;
-
-type Dual4<T> = DualN<T, dual_num::U4>;
-type Dual7<T> = DualN<T, dual_num::U7>;
-#[cfg(feature = "higher_loops")]
-type Dual10<T> = DualN<T, dual_num::U10>;
-#[cfg(feature = "higher_loops")]
-type Dual13<T> = DualN<T, dual_num::U13>;
-#[cfg(feature = "higher_loops")]
-type Dual16<T> = DualN<T, dual_num::U16>;
-#[cfg(feature = "higher_loops")]
-type Dual19<T> = DualN<T, dual_num::U19>;
 
 impl LoopLine {
     /// Return the inverse of the evaluated loop line
@@ -965,14 +954,10 @@ impl Topology {
     }
 
     #[inline]
-    fn compute_lambda_factor<U: DimName, T: FloatLike>(
-        x: DualN<T, U>,
-        y: DualN<T, U>,
-    ) -> DualN<T, U>
-    where
-        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
-        dual_num::Owned<T, U>: Copy,
-    {
+    fn compute_lambda_factor<T: FloatLike, const N: usize>(
+        x: Hyperdual<T, N>,
+        y: Hyperdual<T, N>,
+    ) -> Hyperdual<T, N> {
         // FIXME: not smooth
         if x * Into::<T>::into(2.) < y {
             y * Into::<T>::into(0.25)
@@ -987,20 +972,19 @@ impl Topology {
     /// for each cut and taking the minimum of their respective lambdas
     /// Additionally, check for the expansion condition and make sure that
     /// the real part of the cut propagator is positive
-    fn determine_lambda<U: DimName, T: FloatLike>(
+    fn determine_lambda<T: FloatLike, const N: usize>(
         &self,
-        kappas: &[LorentzVector<DualN<T, U>>],
+        kappas: &[LorentzVector<Hyperdual<T, N>>],
         lambda_max: f64,
         cache: &mut LTDCache<T>,
-    ) -> DualN<T, U>
+    ) -> Hyperdual<T, N>
     where
-        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
-        dual_num::Owned<T, U>: Copy,
-        LTDCache<T>: CacheSelector<T, U>,
+        LTDCache<T>: CacheSelector<T, N>,
     {
-        let mut lambda_sq = DualN::from_real(<T as Float>::powi(Into::<T>::into(lambda_max), 2));
+        let mut lambda_sq =
+            Hyperdual::<T, N>::from_real(<T as Float>::powi(Into::<T>::into(lambda_max), 2));
 
-        let sigma = DualN::from_real(Into::<T>::into(
+        let sigma = Hyperdual::<T, N>::from_real(Into::<T>::into(
             self.settings.deformation.scaling.softmin_sigma,
         ));
         let mut smooth_min_num = lambda_sq * (-lambda_sq / sigma).exp();
@@ -1049,7 +1033,9 @@ impl Topology {
                 if self.settings.deformation.scaling.expansion_check_strategy
                     != ExpansionCheckStrategy::None
                 {
-                    let c = DualN::from_real(Into::<T>::into(self.get_expansion_threshold()));
+                    let c = Hyperdual::<T, N>::from_real(Into::<T>::into(
+                        self.get_expansion_threshold(),
+                    ));
 
                     let lambda_exp_sq =
                         match self.settings.deformation.scaling.expansion_check_strategy {
@@ -1111,13 +1097,13 @@ impl Topology {
                     // use min(mass, UV mass) instead of the actual propagator mass,
                     // such that UV propagators are also protected from crossing the branch cut
                     let mut lambda_disc_sq = info.spatial_and_uv_mass_sq / info.kappa_sq
-                        * DualN::from_real(Into::<T>::into(0.95));
+                        * Hyperdual::<T, N>::from_real(Into::<T>::into(0.95));
 
                     if self.settings.deformation.scaling.branch_cut_m > 0. {
-                        let branch_cut_check_m = DualN::from_real(Into::<T>::into(
+                        let branch_cut_check_m = Hyperdual::<T, N>::from_real(Into::<T>::into(
                             self.settings.deformation.scaling.branch_cut_m,
                         ));
-                        lambda_disc_sq *= DualN::one()
+                        lambda_disc_sq *= Hyperdual::<T, N>::one()
                             + (info.kappa_dot_mom * info.kappa_dot_mom)
                                 / (branch_cut_check_m
                                     * Into::<T>::into(self.e_cm_squared)
@@ -1146,9 +1132,9 @@ impl Topology {
             // process all existing and non-existing ellipsoids and pinches
             for (surf_index, s) in self.surfaces.iter().enumerate() {
                 if surf_index == s.group && s.surface_type != SurfaceType::Hyperboloid {
-                    let mut a = DualN::from_real(T::zero());
-                    let mut b = DualN::from_real(T::zero());
-                    let mut c = DualN::from_real(T::zero());
+                    let mut a = Hyperdual::<T, N>::from_real(T::zero());
+                    let mut b = Hyperdual::<T, N>::from_real(T::zero());
+                    let mut c = Hyperdual::<T, N>::from_real(T::zero());
                     for ((ll_index, prop_index), delta_sign, os_sign) in &s.id {
                         let info =
                             &cache.cut_info[self.loop_lines[*ll_index].propagators[*prop_index].id];
@@ -1189,24 +1175,24 @@ impl Topology {
                                     * p0.powi(2)
                                     * Into::<T>::into(4.);
 
-                            let mut lambda_plus = (-Complex::new(DualN::zero(), bb)
+                            let mut lambda_plus = (-Complex::new(Hyperdual::<T, N>::zero(), bb)
                                 + (Complex::new(
                                     -bb * bb - aa * cc * Into::<T>::into(4.),
-                                    DualN::zero(),
+                                    Hyperdual::<T, N>::zero(),
                                 ))
                                 .sqrt())
                                 / (aa * Into::<T>::into(2.));
-                            let mut lambda_min = (-Complex::new(DualN::zero(), bb)
+                            let mut lambda_min = (-Complex::new(Hyperdual::<T, N>::zero(), bb)
                                 - (Complex::new(
                                     -bb * bb - aa * cc * Into::<T>::into(4.),
-                                    DualN::zero(),
+                                    Hyperdual::<T, N>::zero(),
                                 ))
                                 .sqrt())
                                 / (aa * Into::<T>::into(2.));
 
                             if aa.real().is_zero() {
-                                lambda_plus = Complex::new(DualN::zero(), cc / bb);
-                                lambda_min = Complex::new(DualN::zero(), cc / bb);
+                                lambda_plus = Complex::new(Hyperdual::<T, N>::zero(), cc / bb);
+                                lambda_min = Complex::new(Hyperdual::<T, N>::zero(), cc / bb);
                             }
 
                             // evaluate the surface with lambda
@@ -1311,8 +1297,8 @@ impl Topology {
 
         // Setup a veto region at the intersection of pinched and non-pinched E-surfaces.
         if self.settings.deformation.fixed.ir_handling_strategy != IRHandling::None {
-            let mut min_ellipse = DualN::from_real(Into::<T>::into(1e99));
-            let mut min_pinch = DualN::from_real(Into::<T>::into(1e99));
+            let mut min_ellipse = Hyperdual::<T, N>::from_real(Into::<T>::into(1e99));
+            let mut min_pinch = Hyperdual::<T, N>::from_real(Into::<T>::into(1e99));
             for (surf_index, s) in self.surfaces.iter().enumerate() {
                 if s.surface_type == SurfaceType::Hyperboloid || !s.exists || surf_index != s.group
                 {
@@ -1332,7 +1318,7 @@ impl Topology {
                 // TODO: the unwrap_or below is necessary for when a deformation is active but
                 // exactly zero because no E-surfaces exist! This case must be better handled!
                 let e = cache.ellipsoid_eval[surf_index]
-                    .unwrap_or(DualN::from_real(Into::<T>::into(1e99)))
+                    .unwrap_or(Hyperdual::<T, N>::from_real(Into::<T>::into(1e99)))
                     .powi(2);
                 let n = Into::<T>::into(self.surfaces[surf_index].shift.t.powi(2));
 
@@ -1351,7 +1337,7 @@ impl Topology {
                 }
             }
 
-            let mut min_e = DualN::from_real(Into::<T>::into(1e99));
+            let mut min_e = Hyperdual::<T, N>::from_real(Into::<T>::into(1e99));
             if self.settings.deformation.fixed.ir_beta_energy >= 0. {
                 for ll in self.loop_lines.iter() {
                     if ll.signature.iter().all(|&x| x == 0) {
@@ -1389,8 +1375,8 @@ impl Topology {
                     / Into::<T>::into(self.settings.deformation.fixed.ir_threshold.powi(2)))
                     - Into::<T>::into(1.0))
                     / Into::<T>::into(self.settings.deformation.fixed.ir_interpolation_length))
-                .min(DualN::from_real(Into::<T>::into(0.0)))
-                .max(DualN::from_real(Into::<T>::into(1.0)));
+                .min(Hyperdual::<T, N>::from_real(Into::<T>::into(0.0)))
+                .max(Hyperdual::<T, N>::from_real(Into::<T>::into(1.0)));
                 if sup * sup < lambda_sq {
                     lambda_sq = sup * sup;
                 }
@@ -1400,10 +1386,10 @@ impl Topology {
                 {
                     match self.settings.deformation.fixed.ir_handling_strategy {
                         IRHandling::DismissPoint => {
-                            return DualN::from_real(T::nan()); // TODO: improve into a proper escalation
+                            return Hyperdual::<T, N>::from_real(T::nan()); // TODO: improve into a proper escalation
                         }
                         IRHandling::DismissDeformation => {
-                            return DualN::from_real(Into::<T>::into(0.));
+                            return Hyperdual::<T, N>::from_real(Into::<T>::into(0.));
                         }
                         IRHandling::None => {
                             unreachable!();
@@ -1421,14 +1407,12 @@ impl Topology {
     }
 
     /// Compute the normal vector for each ellipsoid and evaluate each ellipsoid.
-    fn compute_ellipsoid_deformation_vector<U: DimName, T: FloatLike>(
+    fn compute_ellipsoid_deformation_vector<T: FloatLike, const N: usize>(
         &self,
         normalize: bool,
         cache: &mut LTDCache<T>,
     ) where
-        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
-        dual_num::Owned<T, U>: Copy,
-        LTDCache<T>: CacheSelector<T, U>,
+        LTDCache<T>: CacheSelector<T, N>,
     {
         let mut cut_dirs = [LorentzVector::default(); MAX_LOOP];
         let mut deform_dirs = [LorentzVector::default(); MAX_LOOP];
@@ -1453,7 +1437,7 @@ impl Topology {
             // construct the normalized 3-momenta that flow through the cut propagators
             // the 0th component is to be ignored
             let mut cut_counter = 0;
-            let mut cut_energy = DualN::default();
+            let mut cut_energy = Hyperdual::<T, N>::default();
             for (c, ll) in surf.cut.iter().zip_eq(self.loop_lines.iter()) {
                 if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = c {
                     cut_dirs[cut_counter] = cache.cut_info[ll.propagators[*i].id].momentum
@@ -1514,7 +1498,7 @@ impl Topology {
             );
 
             let inv_normalization = if normalize {
-                let mut normalization = DualN::zero();
+                let mut normalization = Hyperdual::<T, N>::zero();
 
                 for d in deform_dirs[..self.n_loops].iter() {
                     normalization += d.spatial_squared_impr();
@@ -1522,7 +1506,7 @@ impl Topology {
 
                 normalization.sqrt().inv()
             } else {
-                DualN::one()
+                Hyperdual::<T, N>::one()
             };
 
             for (loop_index, dir) in deform_dirs[..self.n_loops].iter().enumerate() {
@@ -1533,14 +1517,12 @@ impl Topology {
     }
 
     /// Construct a deformation vector by going through all the ellipsoids
-    fn deform_ellipsoids<U: DimName, T: FloatLike>(
+    fn deform_ellipsoids<T: FloatLike, const N: usize>(
         &self,
         cache: &mut LTDCache<T>,
-    ) -> [LorentzVector<DualN<T, U>>; MAX_LOOP]
+    ) -> [LorentzVector<Hyperdual<T, N>>; MAX_LOOP]
     where
-        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
-        dual_num::Owned<T, U>: Copy,
-        LTDCache<T>: CacheSelector<T, U>,
+        LTDCache<T>: CacheSelector<T, N>,
     {
         self.compute_ellipsoid_deformation_vector(true, cache);
 
@@ -1550,8 +1532,9 @@ impl Topology {
         let inv_surf_prop = &mut cache.ellipsoid_eval;
 
         // now combine the kappas from the surface using the chosen strategy
-        let mut aij: DualN<T, U> = NumCast::from(self.settings.deformation.additive.a_ij).unwrap();
-        let mut lambda: DualN<T, U> = DualN::one();
+        let mut aij: Hyperdual<T, N> =
+            NumCast::from(self.settings.deformation.additive.a_ij).unwrap();
+        let mut lambda: Hyperdual<T, N> = Hyperdual::<T, N>::one();
 
         for (i, &inv) in inv_surf_prop.iter().enumerate() {
             // not a unique ellipsoid
@@ -1576,7 +1559,7 @@ impl Topology {
                     let t = inv * inv / Into::<T>::into(self.e_cm_squared);
                     t / (t + aij)
                 }
-                AdditiveMode::Unity => DualN::one(),
+                AdditiveMode::Unity => Hyperdual::<T, N>::one(),
                 AdditiveMode::SoftMin => unimplemented!(),
             };
 
@@ -1651,14 +1634,12 @@ impl Topology {
     }
 
     /// Construct a constant deformation vector.
-    fn deform_constant<U: DimName, T: FloatLike>(
+    fn deform_constant<T: FloatLike, const N: usize>(
         &self,
-        loop_momenta: &[LorentzVector<DualN<T, U>>],
-    ) -> [LorentzVector<DualN<T, U>>; MAX_LOOP]
+        loop_momenta: &[LorentzVector<Hyperdual<T, N>>],
+    ) -> [LorentzVector<Hyperdual<T, N>>; MAX_LOOP]
     where
-        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
-        dual_num::Owned<T, U>: Copy,
-        LTDCache<T>: CacheSelector<T, U>,
+        LTDCache<T>: CacheSelector<T, N>,
     {
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
         let cd = self.constant_deformation.as_ref().unwrap();
@@ -1699,7 +1680,7 @@ impl Topology {
                 + old_z * Into::<T>::into(rot_matrix[2][2]);
         }
 
-        let mut normalization = DualN::zero();
+        let mut normalization = Hyperdual::<T, N>::zero();
         for i in 0..self.n_loops {
             normalization += kappas[i].spatial_squared_impr();
         }
@@ -1712,15 +1693,13 @@ impl Topology {
         kappas
     }
 
-    fn deform_fixed<U: DimName, T: FloatLike>(
+    fn deform_fixed<T: FloatLike, const N: usize>(
         &self,
-        loop_momenta: &[LorentzVector<DualN<T, U>>],
+        loop_momenta: &[LorentzVector<Hyperdual<T, N>>],
         cache: &mut LTDCache<T>,
-    ) -> [LorentzVector<DualN<T, U>>; MAX_LOOP]
+    ) -> [LorentzVector<Hyperdual<T, N>>; MAX_LOOP]
     where
-        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
-        dual_num::Owned<T, U>: Copy,
-        LTDCache<T>: CacheSelector<T, U>,
+        LTDCache<T>: CacheSelector<T, N>,
     {
         let mut kappas = [LorentzVector::default(); MAX_LOOP];
         let mut kappa_source = [LorentzVector::default(); MAX_LOOP];
@@ -1759,7 +1738,7 @@ impl Topology {
             }
 
             let mut cut_counter = 0;
-            let mut cut_energy = DualN::default();
+            let mut cut_energy = Hyperdual::<T, N>::default();
             for (c, ll) in surf.cut.iter().zip_eq(self.loop_lines.iter()) {
                 if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = c {
                     if let Cut::PositiveCut(i) = c {
@@ -1789,9 +1768,9 @@ impl Topology {
             cache.ellipsoid_eval[i] = eval;
         }
 
-        let mut source_scaling = DualN::zero();
+        let mut source_scaling = Hyperdual::<T, N>::zero();
         if self.settings.deformation.fixed.source_dampening_factor > 0. {
-            let aij: DualN<T, U> =
+            let aij: Hyperdual<T, N> =
                 NumCast::from(self.settings.deformation.fixed.source_dampening_factor).unwrap();
 
             for (surf1_index, surf1) in self.surfaces.iter().enumerate() {
@@ -1812,7 +1791,7 @@ impl Topology {
                 }
             }
         } else {
-            source_scaling = DualN::one();
+            source_scaling = Hyperdual::<T, N>::one();
         }
 
         for (source_index, d_lim) in self.fixed_deformation.iter().enumerate() {
@@ -1829,9 +1808,9 @@ impl Topology {
                 let inv_surf_prop = &mut cache.ellipsoid_eval;
 
                 // now combine the kappas from the surface using the chosen strategy
-                let mut aij: DualN<T, U> =
+                let mut aij: Hyperdual<T, N> =
                     NumCast::from(self.settings.deformation.additive.a_ij).unwrap();
-                let mut lambda: DualN<T, U> = DualN::one();
+                let mut lambda: Hyperdual<T, N> = Hyperdual::<T, N>::one();
 
                 for (i, &inv) in inv_surf_prop.iter().enumerate() {
                     if inv.is_none() {
@@ -1862,7 +1841,7 @@ impl Topology {
                             let t = inv * inv / Into::<T>::into(self.e_cm_squared);
                             t / (t + aij)
                         }
-                        AdditiveMode::Unity => DualN::one(),
+                        AdditiveMode::Unity => Hyperdual::<T, N>::one(),
                         AdditiveMode::SoftMin => unimplemented!(),
                     };
 
@@ -1903,7 +1882,7 @@ impl Topology {
             }
 
             for (overlap_index, d) in d_lim.deformation_per_overlap.iter().enumerate() {
-                let lambda = DualN::one();
+                let lambda = Hyperdual::<T, N>::one();
                 // TODO: index
                 /*if i < self.settings.deformation.lambdas.len() {
                     lambda = NumCast::from(self.settings.deformation.lambdas[i]).unwrap();
@@ -1916,9 +1895,9 @@ impl Topology {
                     );
                 }
 
-                let mut s = DualN::one();
-                let mut softmin_num = DualN::zero();
-                let mut softmin_den = DualN::zero();
+                let mut s = Hyperdual::<T, N>::one();
+                let mut softmin_num = Hyperdual::<T, N>::zero();
+                let mut softmin_den = Hyperdual::<T, N>::zero();
 
                 // dampen every excluded surface and pinch
                 for surf_index in d.excluded_surface_indices.iter().cloned().chain(
@@ -1989,7 +1968,7 @@ impl Topology {
 
                 // normalize the deformation vector per source
                 if self.settings.deformation.fixed.normalize_per_source {
-                    let mut normalization = DualN::zero();
+                    let mut normalization = Hyperdual::<T, N>::zero();
                     for ii in 0..self.n_loops {
                         let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
                         normalization += dir.spatial_squared_impr();
@@ -2006,7 +1985,9 @@ impl Topology {
                         let dir = loop_momenta[ii] - d.deformation_sources[ii].cast();
                         // the kappa returned by this function is expected to be dimensionless
                         kappa_source[ii] += -dir * s * lambda * source_scaling
-                            / DualN::from_real(Into::<T>::into(self.e_cm_squared.sqrt()));
+                            / Hyperdual::<T, N>::from_real(Into::<T>::into(
+                                self.e_cm_squared.sqrt(),
+                            ));
                     }
                 }
 
@@ -2033,7 +2014,7 @@ impl Topology {
                 .normalisation_of_subspace_components
             {
                 for ii in 0..self.n_loops {
-                    kappa_source[ii] *= DualN::from_real(Into::<T>::into(
+                    kappa_source[ii] *= Hyperdual::<T, N>::from_real(Into::<T>::into(
                         1. / d_lim.deformation_per_overlap.len() as f64,
                     ));
                 }
@@ -2041,7 +2022,7 @@ impl Topology {
 
             // now do the branch cut check per non-excluded loop line
             // this allows us to have a final non-zero kappa in l-space if we are on the focus in k-space
-            let mut lambda_sq = DualN::from_real(Into::<T>::into(
+            let mut lambda_sq = Hyperdual::<T, N>::from_real(Into::<T>::into(
                 self.settings
                     .deformation
                     .scaling
@@ -2063,12 +2044,12 @@ impl Topology {
                     }
                     let mut lambda_disc_sq = cache.cut_info[p.id].spatial_and_uv_mass_sq
                         / kappa_cut.spatial_squared_impr()
-                        * DualN::from_real(Into::<T>::into(0.95));
+                        * Hyperdual::<T, N>::from_real(Into::<T>::into(0.95));
                     if self.settings.deformation.scaling.source_branch_cut_m > 0. {
-                        let branch_cut_check_m = DualN::from_real(Into::<T>::into(
+                        let branch_cut_check_m = Hyperdual::<T, N>::from_real(Into::<T>::into(
                             self.settings.deformation.scaling.source_branch_cut_m,
                         ));
-                        lambda_disc_sq *= DualN::one()
+                        lambda_disc_sq *= Hyperdual::<T, N>::one()
                             + (cache.cut_info[p.id].kappa_dot_mom
                                 * cache.cut_info[p.id].kappa_dot_mom)
                                 / (branch_cut_check_m
@@ -2078,7 +2059,7 @@ impl Topology {
 
                     lambda_disc_sq = lambda_disc_sq.pow(Into::<T>::into(
                         self.settings.deformation.scaling.branch_cut_alpha,
-                    )) * DualN::from_real(Into::<T>::into(
+                    )) * Hyperdual::<T, N>::from_real(Into::<T>::into(
                         self.settings
                             .deformation
                             .scaling
@@ -2093,7 +2074,7 @@ impl Topology {
             let lambda = if self.settings.deformation.fixed.local {
                 //make the deformation localised around the surfaces
                 //Set threshold for lambda
-                let mut lambda0: DualN<T, U> = DualN::zero();
+                let mut lambda0: Hyperdual<T, N> = Hyperdual::<T, N>::zero();
                 let a = Into::<T>::into(self.settings.deformation.fixed.a_ijs[0]);
                 let eij = &mut cache.ellipsoid_eval;
                 for (surf_index, surf) in self.surfaces.iter().enumerate() {
@@ -2111,7 +2092,7 @@ impl Topology {
                     }
                 }
                 if Into::<T>::into(1.0) < lambda0.real() {
-                    lambda0 = DualN::one();
+                    lambda0 = Hyperdual::<T, N>::one();
                 }
                 lambda_sq.sqrt() * lambda0
             } else {
@@ -2143,20 +2124,18 @@ impl Topology {
         kappas
     }
 
-    fn normalize_on_e_surfaces<U: DimName, T: FloatLike>(
+    fn normalize_on_e_surfaces<T: FloatLike, const N: usize>(
         &self,
-        kappas: &mut [LorentzVector<DualN<T, U>>],
+        kappas: &mut [LorentzVector<Hyperdual<T, N>>],
         selector_m: f64,
         cache: &mut LTDCache<T>,
     ) where
-        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
-        dual_num::Owned<T, U>: Copy,
-        LTDCache<T>: CacheSelector<T, U>,
+        LTDCache<T>: CacheSelector<T, N>,
     {
         // Start cache
         let cache = cache.get_cache_mut();
 
-        let mut e_surfaces_selection = DualN::one();
+        let mut e_surfaces_selection = Hyperdual::<T, N>::one();
 
         let mij_min = Into::<T>::into(self.compute_min_mij());
 
@@ -2168,7 +2147,7 @@ impl Topology {
 
             if cache.ellipsoid_eval[i].is_none() {
                 let mut cut_counter = 0;
-                let mut cut_energy = DualN::default();
+                let mut cut_energy = Hyperdual::<T, N>::default();
                 for (c, ll) in surf.cut.iter().zip_eq(self.loop_lines.iter()) {
                     if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = c {
                         if let Cut::PositiveCut(i) = c {
@@ -2208,15 +2187,16 @@ impl Topology {
         }
 
         // Sum of \vec{kappa}^2 for the kappa of each loop
-        let mut current_norm = DualN::zero();
+        let mut current_norm = Hyperdual::<T, N>::zero();
         for ii in 0..self.n_loops {
             current_norm += kappas[ii].spatial_squared_impr();
         }
-        current_norm =
-            (current_norm / DualN::from_real(Into::<T>::into(self.n_loops as f64))).sqrt();
+        current_norm = (current_norm
+            / Hyperdual::<T, N>::from_real(Into::<T>::into(self.n_loops as f64)))
+        .sqrt();
 
-        let normalisation =
-            DualN::one() / (e_surfaces_selection * (DualN::one() - current_norm) + current_norm);
+        let normalisation = Hyperdual::<T, N>::one()
+            / (e_surfaces_selection * (Hyperdual::<T, N>::one() - current_norm) + current_norm);
         //println!("normalisation_on_E_surfaces={:e}\n", normalisation.real());
 
         for k in kappas[..self.n_loops].iter_mut() {
@@ -2224,15 +2204,13 @@ impl Topology {
         }
     }
 
-    fn deform_generic<U: DimName, T: FloatLike>(
+    fn deform_generic<T: FloatLike, const N: usize>(
         &self,
-        loop_momenta: &[LorentzVector<DualN<T, U>>],
+        loop_momenta: &[LorentzVector<Hyperdual<T, N>>],
         cache: &mut LTDCache<T>,
     ) -> ([LorentzVector<T>; MAX_LOOP], Complex<T>)
     where
-        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
-        dual_num::Owned<T, U>: Copy,
-        LTDCache<T>: CacheSelector<T, U>,
+        LTDCache<T>: CacheSelector<T, N>,
     {
         // compute all cut energies
         if self.settings.general.deformation_strategy != DeformationStrategy::Constant
@@ -2253,8 +2231,8 @@ impl Topology {
 
                 // update the cut info
                 for p in &ll.propagators {
-                    let q: LorentzVector<DualN<T, U>> = p.q.cast();
-                    let mass = DualN::from_real(Into::<T>::into(p.m_squared));
+                    let q: LorentzVector<Hyperdual<T, N>> = p.q.cast();
+                    let mass = Hyperdual::<T, N>::from_real(Into::<T>::into(p.m_squared));
 
                     let mom_sq = (mom + q).spatial_squared_impr();
                     let cm = mom_sq + mass;
@@ -2267,7 +2245,7 @@ impl Topology {
                     info.real_energy = energy;
                     info.spatial_and_mass_sq = cm;
                     info.spatial_and_uv_mass_sq = mom_sq
-                        + mass.min(DualN::from_real(Into::<T>::into(
+                        + mass.min(Hyperdual::<T, N>::from_real(Into::<T>::into(
                             self.settings.cross_section.m_uv_sq,
                         )));
                     // TODO: these two never change and can be set at the start!
@@ -2306,7 +2284,7 @@ impl Topology {
         }
 
         // make sure the kappa has the right dimension by multiplying in the scale
-        let scale = DualN::from_real(
+        let scale = Hyperdual::<T, N>::from_real(
             T::from_f64(
                 self.e_cm_squared.sqrt() * self.settings.deformation.overall_scaling_constant,
             )
@@ -2324,8 +2302,8 @@ impl Topology {
                 }
                 OverallDeformationScaling::Sigmoid => {
                     let k_scale = k.spatial_squared_impr().sqrt();
-                    *kappa *=
-                        k_scale * Into::<T>::into(2.) / (DualN::one() + (k_scale / scale).exp());
+                    *kappa *= k_scale * Into::<T>::into(2.)
+                        / (Hyperdual::<T, N>::one() + (k_scale / scale).exp());
                 }
                 OverallDeformationScaling::ExpDampening => {
                     *kappa *= (-k.spatial_squared_impr() / (scale * scale)).exp();
@@ -2357,7 +2335,7 @@ impl Topology {
 
         for k in kappas[..self.n_loops].iter_mut() {
             *k *= lambda;
-            k.t = DualN::zero(); // make sure we do not have a left-over deformation
+            k.t = Hyperdual::<T, N>::zero(); // make sure we do not have a left-over deformation
         }
 
         let jac_mat = &mut cache.get_cache_mut().deformation_jacobian;
@@ -2395,7 +2373,7 @@ impl Topology {
             1 => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
 
-                r[0] = loop_momenta[0].map(|x| Dual4::from_real(x));
+                r[0] = loop_momenta[0].map(|x| Hyperdual::<T, 4>::from_real(x));
                 for i in 0..3 {
                     r[0][i + 1][i + 1] = T::one();
                 }
@@ -2404,8 +2382,8 @@ impl Topology {
             }
             2 => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
-                r[0] = loop_momenta[0].map(|x| Dual7::from_real(x));
-                r[1] = loop_momenta[1].map(|x| Dual7::from_real(x));
+                r[0] = loop_momenta[0].map(|x| Hyperdual::<T, 7>::from_real(x));
+                r[1] = loop_momenta[1].map(|x| Hyperdual::<T, 7>::from_real(x));
 
                 for i in 0..3 {
                     r[0][i + 1][i + 1] = T::one();
@@ -2420,9 +2398,9 @@ impl Topology {
         match self.n_loops {
             3 => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
-                r[0] = loop_momenta[0].map(|x| Dual10::from_real(x));
-                r[1] = loop_momenta[1].map(|x| Dual10::from_real(x));
-                r[2] = loop_momenta[2].map(|x| Dual10::from_real(x));
+                r[0] = loop_momenta[0].map(|x| Hyperdual::<T, 10>::from_real(x));
+                r[1] = loop_momenta[1].map(|x| Hyperdual::<T, 10>::from_real(x));
+                r[2] = loop_momenta[2].map(|x| Hyperdual::<T, 10>::from_real(x));
 
                 for i in 0..3 {
                     r[0][i + 1][i + 1] = T::one();
@@ -2434,7 +2412,7 @@ impl Topology {
             4 => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
                 for j in 0..self.n_loops {
-                    r[j] = loop_momenta[j].map(|x| Dual13::from_real(x));
+                    r[j] = loop_momenta[j].map(|x| Hyperdual::<T, 13>::from_real(x));
 
                     for i in 0..3 {
                         r[j][i + 1][i + 1 + j * 3] = T::one();
@@ -2445,7 +2423,7 @@ impl Topology {
             5 => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
                 for j in 0..self.n_loops {
-                    r[j] = loop_momenta[j].map(|x| Dual16::from_real(x));
+                    r[j] = loop_momenta[j].map(|x| Hyperdual::<T, 16>::from_real(x));
 
                     for i in 0..3 {
                         r[j][i + 1][i + 1 + j * 3] = T::one();
@@ -2456,7 +2434,7 @@ impl Topology {
             6 => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
                 for j in 0..self.n_loops {
-                    r[j] = loop_momenta[j].map(|x| Dual19::from_real(x));
+                    r[j] = loop_momenta[j].map(|x| Hyperdual::<T, 19>::from_real(x));
 
                     for i in 0..3 {
                         r[j][i + 1][i + 1 + j * 3] = T::one();

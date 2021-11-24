@@ -8,10 +8,10 @@ use crate::partial_fractioning::{PartialFractioning, PartialFractioningMultiLoop
 use crate::utils;
 use crate::{float, FloatLike, Settings, MAX_LOOP};
 use color_eyre::{Help, Report};
-use dual_num::{DualN, U10, U13, U16, U19, U4, U7};
 use eyre::WrapErr;
 use fnv::FnvHashMap;
 use havana::{ContinuousGrid, Grid};
+use hyperdual::Hyperdual;
 use itertools::Itertools;
 use lorentz_vector::LorentzVector;
 use mpolynomial::MPolynomial;
@@ -159,72 +159,56 @@ impl fmt::Display for Cut {
 
 #[derive(Debug, Clone)]
 /// A cache for objects needed during LTD computation
-pub struct CutInfo<T: FloatLike, U: dual_num::Dim + dual_num::DimName>
-where
-    dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
-    dual_num::Owned<T, U>: Copy,
-{
+pub struct CutInfo<T: FloatLike, const N: usize> {
     pub id: usize,
-    pub momentum: LorentzVector<DualN<T, U>>,
-    pub real_energy: DualN<T, U>,
-    pub spatial_and_mass_sq: DualN<T, U>,
-    pub spatial_and_uv_mass_sq: DualN<T, U>,
-    pub shift: LorentzVector<DualN<T, U>>,
-    pub kappa: LorentzVector<DualN<T, U>>,
-    pub kappa_sq: DualN<T, U>,
-    pub kappa_dot_mom: DualN<T, U>,
-    pub mass: DualN<T, U>,
-    pub a: DualN<T, U>,
-    pub b: DualN<T, U>,
-    pub c: DualN<T, U>,
+    pub momentum: LorentzVector<Hyperdual<T, N>>,
+    pub real_energy: Hyperdual<T, N>,
+    pub spatial_and_mass_sq: Hyperdual<T, N>,
+    pub spatial_and_uv_mass_sq: Hyperdual<T, N>,
+    pub shift: LorentzVector<Hyperdual<T, N>>,
+    pub kappa: LorentzVector<Hyperdual<T, N>>,
+    pub kappa_sq: Hyperdual<T, N>,
+    pub kappa_dot_mom: Hyperdual<T, N>,
+    pub mass: Hyperdual<T, N>,
+    pub a: Hyperdual<T, N>,
+    pub b: Hyperdual<T, N>,
+    pub c: Hyperdual<T, N>,
 }
 
-impl<T: FloatLike, U: dual_num::Dim + dual_num::DimName> Default for CutInfo<T, U>
-where
-    dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
-    dual_num::Owned<T, U>: Copy,
-{
-    fn default() -> CutInfo<T, U> {
+impl<T: FloatLike, const N: usize> Default for CutInfo<T, N> {
+    fn default() -> CutInfo<T, N> {
         CutInfo {
             id: 0,
             momentum: LorentzVector::default(),
-            real_energy: DualN::default(),
-            spatial_and_mass_sq: DualN::default(),
-            spatial_and_uv_mass_sq: DualN::default(),
+            real_energy: Hyperdual::default(),
+            spatial_and_mass_sq: Hyperdual::default(),
+            spatial_and_uv_mass_sq: Hyperdual::default(),
             shift: LorentzVector::default(),
             kappa: LorentzVector::default(),
-            kappa_sq: DualN::default(),
-            kappa_dot_mom: DualN::default(),
-            mass: DualN::default(),
-            a: DualN::default(),
-            b: DualN::default(),
-            c: DualN::default(),
+            kappa_sq: Hyperdual::default(),
+            kappa_dot_mom: Hyperdual::default(),
+            mass: Hyperdual::default(),
+            a: Hyperdual::default(),
+            b: Hyperdual::default(),
+            c: Hyperdual::default(),
         }
     }
 }
 
 #[derive(Debug, Clone)]
 /// A cache for objects needed during LTD computation
-pub struct LTDCacheI<T: FloatLike, U: dual_num::Dim + dual_num::DimName>
-where
-    dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
-    dual_num::Owned<T, U>: Copy,
-{
-    pub ellipsoid_eval: Vec<Option<DualN<T, U>>>,
-    pub deform_dirs: Vec<LorentzVector<DualN<T, U>>>,
+pub struct LTDCacheI<T: FloatLike, const N: usize> {
+    pub ellipsoid_eval: Vec<Option<Hyperdual<T, N>>>,
+    pub deform_dirs: Vec<LorentzVector<Hyperdual<T, N>>>,
     pub non_empty_cuts: Vec<(usize, usize)>,
     pub deformation_jacobian: Vec<Complex<T>>,
-    pub cut_energies: Vec<DualN<T, U>>,
-    pub cut_info: Vec<CutInfo<T, U>>,
+    pub cut_energies: Vec<Hyperdual<T, N>>,
+    pub cut_info: Vec<CutInfo<T, N>>,
     pub computed_cut_ll: Vec<usize>,
 }
 
-impl<T: FloatLike, U: dual_num::Dim + dual_num::DimName> Default for LTDCacheI<T, U>
-where
-    dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
-    dual_num::Owned<T, U>: Copy,
-{
-    fn default() -> LTDCacheI<T, U> {
+impl<T: FloatLike, const N: usize> Default for LTDCacheI<T, N> {
+    fn default() -> LTDCacheI<T, N> {
         LTDCacheI {
             ellipsoid_eval: vec![],
             deform_dirs: vec![],
@@ -237,18 +221,14 @@ where
     }
 }
 
-impl<T: FloatLike, U: dual_num::Dim + dual_num::DimName> LTDCacheI<T, U>
-where
-    dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
-    dual_num::Owned<T, U>: Copy,
-{
-    fn new(num_loops: usize, num_surfaces: usize, num_propagators: usize) -> LTDCacheI<T, U> {
+impl<T: FloatLike, const N: usize> LTDCacheI<T, N> {
+    fn new(num_loops: usize, num_surfaces: usize, num_propagators: usize) -> LTDCacheI<T, N> {
         LTDCacheI {
             ellipsoid_eval: vec![None; num_surfaces],
             deform_dirs: vec![LorentzVector::default(); num_surfaces * num_loops],
             non_empty_cuts: vec![(0, 0); num_surfaces],
             deformation_jacobian: vec![Complex::default(); 9 * num_loops * num_loops],
-            cut_energies: vec![DualN::default(); num_propagators],
+            cut_energies: vec![Hyperdual::default(); num_propagators],
             cut_info: vec![CutInfo::default(); num_propagators],
             computed_cut_ll: vec![0; num_propagators],
         }
@@ -257,12 +237,16 @@ where
 
 #[derive(Debug, Clone, Default)]
 pub struct LTDCache<T: FloatLike> {
-    one_loop: LTDCacheI<T, U4>,
-    two_loop: LTDCacheI<T, U7>,
-    three_loop: LTDCacheI<T, U10>,
-    four_loop: LTDCacheI<T, U13>,
-    five_loop: LTDCacheI<T, U16>,
-    six_loop: LTDCacheI<T, U19>,
+    one_loop: LTDCacheI<T, 4>,
+    two_loop: LTDCacheI<T, 7>,
+    #[cfg(feature = "higher_loops")]
+    three_loop: LTDCacheI<T, 10>,
+    #[cfg(feature = "higher_loops")]
+    four_loop: LTDCacheI<T, 13>,
+    #[cfg(feature = "higher_loops")]
+    five_loop: LTDCacheI<T, 16>,
+    #[cfg(feature = "higher_loops")]
+    six_loop: LTDCacheI<T, 19>,
     pub complex_cut_energies: Vec<Complex<T>>,
     pub complex_prop_spatial: Vec<Complex<T>>,
     pub complex_loop_line_eval: Vec<Vec<[Complex<T>; 2]>>,
@@ -291,16 +275,16 @@ impl<T: FloatLike> LTDCache<T> {
             .map(|x| x.propagators.iter().map(|p| p.power).sum::<usize>())
             .sum();
         LTDCache {
-            one_loop: LTDCacheI::<T, U4>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
-            two_loop: LTDCacheI::<T, U7>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
-            three_loop: LTDCacheI::<T, U10>::new(
-                topo.n_loops,
-                topo.surfaces.len(),
-                num_propagators,
-            ),
-            four_loop: LTDCacheI::<T, U13>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
-            five_loop: LTDCacheI::<T, U16>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
-            six_loop: LTDCacheI::<T, U19>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
+            one_loop: LTDCacheI::<T, 4>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
+            two_loop: LTDCacheI::<T, 7>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
+            #[cfg(feature = "higher_loops")]
+            three_loop: LTDCacheI::<T, 10>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
+            #[cfg(feature = "higher_loops")]
+            four_loop: LTDCacheI::<T, 13>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
+            #[cfg(feature = "higher_loops")]
+            five_loop: LTDCacheI::<T, 16>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
+            #[cfg(feature = "higher_loops")]
+            six_loop: LTDCacheI::<T, 19>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
             complex_cut_energies: vec![Complex::default(); num_propagators],
             complex_prop_spatial: vec![Complex::default(); num_propagators],
             complex_loop_line_eval: topo
@@ -332,90 +316,83 @@ impl<T: FloatLike> LTDCache<T> {
     }
 }
 
-pub trait CacheSelector<T: FloatLike, U: dual_num::Dim + dual_num::DimName>
-where
-    dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
-    dual_num::Owned<T, U>: Copy,
-{
-    fn get_cache(&self) -> &LTDCacheI<T, U>
-    where
-        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
-        dual_num::Owned<T, U>: Copy;
-
-    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, U>
-    where
-        dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
-        dual_num::Owned<T, U>: Copy;
+pub trait CacheSelector<T: FloatLike, const N: usize> {
+    fn get_cache(&self) -> &LTDCacheI<T, N>;
+    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, N>;
 }
 
-impl<T: FloatLike> CacheSelector<T, U4> for LTDCache<T> {
+impl<T: FloatLike> CacheSelector<T, 4> for LTDCache<T> {
     #[inline]
-    fn get_cache(&self) -> &LTDCacheI<T, U4> {
+    fn get_cache(&self) -> &LTDCacheI<T, 4> {
         &self.one_loop
     }
 
     #[inline]
-    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, U4> {
+    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, 4> {
         &mut self.one_loop
     }
 }
 
-impl<T: FloatLike> CacheSelector<T, U7> for LTDCache<T> {
+impl<T: FloatLike> CacheSelector<T, 7> for LTDCache<T> {
     #[inline]
-    fn get_cache(&self) -> &LTDCacheI<T, U7> {
+    fn get_cache(&self) -> &LTDCacheI<T, 7> {
         &self.two_loop
     }
 
     #[inline]
-    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, U7> {
+    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, 7> {
         &mut self.two_loop
     }
 }
 
-impl<T: FloatLike> CacheSelector<T, U10> for LTDCache<T> {
+#[cfg(feature = "higher_loops")]
+impl<T: FloatLike> CacheSelector<T, 10> for LTDCache<T> {
     #[inline]
-    fn get_cache(&self) -> &LTDCacheI<T, U10> {
+    fn get_cache(&self) -> &LTDCacheI<T, 10> {
         &self.three_loop
     }
 
     #[inline]
-    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, U10> {
+    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, 10> {
         &mut self.three_loop
     }
 }
 
-impl<T: FloatLike> CacheSelector<T, U13> for LTDCache<T> {
+#[cfg(feature = "higher_loops")]
+impl<T: FloatLike> CacheSelector<T, 13> for LTDCache<T> {
     #[inline]
-    fn get_cache(&self) -> &LTDCacheI<T, U13> {
+    fn get_cache(&self) -> &LTDCacheI<T, 13> {
         &self.four_loop
     }
 
     #[inline]
-    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, U13> {
+    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, 13> {
         &mut self.four_loop
     }
 }
 
-impl<T: FloatLike> CacheSelector<T, U16> for LTDCache<T> {
+#[cfg(feature = "higher_loops")]
+impl<T: FloatLike> CacheSelector<T, 16> for LTDCache<T> {
     #[inline]
-    fn get_cache(&self) -> &LTDCacheI<T, U16> {
+    fn get_cache(&self) -> &LTDCacheI<T, 16> {
         &self.five_loop
     }
 
     #[inline]
-    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, U16> {
+    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, 16> {
         &mut self.five_loop
     }
 }
 
-impl<T: FloatLike> CacheSelector<T, U19> for LTDCache<T> {
+#[cfg(feature = "higher_loops")]
+impl<T: FloatLike> CacheSelector<T, 19> for LTDCache<T> {
     #[inline]
-    fn get_cache(&self) -> &LTDCacheI<T, U19> {
+    fn get_cache(&self) -> &LTDCacheI<T, 19> {
         &self.six_loop
     }
 
     #[inline]
-    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, U19> {
+    fn get_cache_mut(&mut self) -> &mut LTDCacheI<T, 19> {
         &mut self.six_loop
     }
 }

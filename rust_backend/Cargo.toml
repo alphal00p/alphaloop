@@ -34,7 +34,7 @@ color-eyre = {version = "^0.3", default-features = false}
 colored = "1.8"
 cuba = "^0.2.3"
 dlopen = "*"
-dual_num = {git = "https://github.com/benruijl/dual_num", branch = "dualn"}
+hyperdual = {git = "https://gitlab.com/benruijl/hyperdual"}
 ecos-rs = "*"
 eyre = "^0.4"
 f128 = {git = "https://github.com/benruijl/f128"}
@@ -42,12 +42,12 @@ fnv = "1.0.6"
 havana = {git = "https://github.com/benruijl/havana", features = ["gridplotting", "use_serde"]}
 itertools = "0.8"
 libc = "*"
-lorentz_vector = {git = "https://github.com/benruijl/lorentz_vector", features = ["serde_support", "dual_num_support", "f128_support", "pyo3_support"]}
+lorentz_vector = {git = "https://github.com/benruijl/lorentz_vector", branch="hyperdual", features = ["serde_support", "hyperdual_support", "f128_support", "pyo3_support"]}
 mpi = {git = "https://github.com/rsmpi/rsmpi", optional = true}
 mpolynomial = {git = "https://github.com/apelloni/mpolynomial", branch = "master"}
-nalgebra = "0.18"
+nalgebra = "0.29"
 num = "0.3"
-num-traits = "0.2.12"
+num-traits = "0.2"
 rand = "0.8"
 rayon = "*"
 scs-rs = "*"

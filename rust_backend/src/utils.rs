@@ -1,7 +1,7 @@
 use crate::dualkt2::Dualkt2;
 use crate::dualt2::Dualt2;
 use crate::{FloatLike, MAX_LOOP};
-use dual_num::DualN;
+use hyperdual::Hyperdual;
 use f128::f128;
 use itertools::Itertools;
 use lorentz_vector::RealNumberLike;
@@ -170,16 +170,13 @@ impl<T: Num + Neg<Output = T> + Copy> Signum for Complex<T> {
     }
 }
 
-impl<U: dual_num::Dim + dual_num::DimName, T: FloatLike> Signum for DualN<T, U>
-where
-    dual_num::DefaultAllocator: dual_num::Allocator<T, U>,
-    dual_num::Owned<T, U>: Copy,
+impl<T: FloatLike, const U: usize> Signum for Hyperdual<T, U>
 {
     #[inline]
-    fn multiply_sign(&self, sign: i8) -> DualN<T, U> {
+    fn multiply_sign(&self, sign: i8) -> Hyperdual<T, U> {
         match sign {
             1 => *self,
-            0 => DualN::zero(),
+            0 => Hyperdual::zero(),
             -1 => -*self,
             _ => unreachable!("Sign should be -1,0,1"),
         }
