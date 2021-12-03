@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate itertools;
 #[cfg(feature = "python_api")]
-use dual_num::Dual;
+use hyperdual::Hyperdual;
 #[cfg(feature = "python_api")]
 use dualkt2::Dualkt2;
 #[cfg(feature = "python_api")]
@@ -1070,7 +1070,7 @@ impl PythonCrossSection {
         let res = if has_raised_cc {
             if raised_cut_count == 1 && last_pow == 2 {
                 self.squared_topology
-                    .evaluate_cut_derivative::<f64, Dual<f64>>(
+                    .evaluate_cut_derivative::<f64, Hyperdual<f64, 2>>(
                         &loop_momenta,
                         &external_momenta,
                         &mut self.caches,
@@ -1169,7 +1169,7 @@ impl PythonCrossSection {
         let res = if has_raised_cc {
             if raised_cut_count == 1 && last_pow == 2 {
                 self.squared_topology
-                    .evaluate_cut_derivative::<f128::f128, Dual<f128::f128>>(
+                    .evaluate_cut_derivative::<f128::f128, Hyperdual<f128::f128, 2>>(
                         &moms,
                         &external_momenta,
                         &mut self.caches_f128,
