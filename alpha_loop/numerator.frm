@@ -494,7 +494,7 @@ id counter(n?) = 1;
 
 id gammatrace(?a) = gammatracetensor(?a);
 id vec(p?,mu?) = p(mu);
-Multiply replace_(D, 4-2*ep);
+id D = rat(4-2*ep, 1);
 
 #ifdef `FOURDIM'
     .sort:fourdim-poly;
@@ -798,9 +798,8 @@ repeat id subgraph(?a,p?) = subgraph(?a);
 
     #call IntegrateUV()
 
-    Multiply replace_(D, 4 - 2 * ep);
+    id D = rat(4-2*ep,1);
     id ep^n1? = rat(ep^n1,1);
-
     .sort:ibp-reduction;
 
     id g(k1?,k2?) = k1.k2; * k1,k2 should be external only
@@ -987,7 +986,7 @@ endargument;
 .sort:feynman-complete-graph;
 
 * Expand
-Multiply replace_(D, 4 - 2 * ep);
+id D = rat(4-2*ep,1);
 id ep^n1? = rat(ep^n1,1);
 .sort:rat-expand;
 PolyRatFun rat(expand,ep,{`MAXPOLE'+`SELECTEDEPSILONORDER'});

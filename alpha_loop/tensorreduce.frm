@@ -217,9 +217,11 @@ CF g1;
 
     repeat id g(n1?,n2?)*g(n2?,n3?) = g(n1,n3);
 
+*   Contract dot products internal to the subgraph
+    id vec(p1?,n?)*vec(p2?,n?) = p1.p2;
+
 * note that the following operation is not safe, since we always consider the metric to be on the outside
 *    repeat id vec(p1?,n?)*g(n?,n1?) = vec(p1,n1);
-
 
     id vec(p?,n?) = vec(p,n)*tt(vec(p,n));
     chainin tt;
