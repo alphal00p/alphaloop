@@ -81,6 +81,7 @@ FORM_processing_options = {
     'FORM_call_sig_id_offset_for_additional_lmb' : 1000000,
     'generate_arb_prec_output': False,
     'generate_integrated_UV_CTs' : True,
+    'on_shell_renormalisation' : False,
     'generate_renormalisation_graphs' : False,
     'include_integration_channel_info' : True,
     'UV_min_dod_to_subtract' : 0,
@@ -1630,7 +1631,10 @@ CTable ltdmap(0:{},0:{});
                                 uv_diag += '*gluonbubble^{}'.format(uv_subgraph['gluon_bubble'])
 
                             if FORM_processing_options['generate_integrated_UV_CTs']:
-                                uv_diag += '*intuv(1 - {}*diag({},{},{}))'.format('*'.join(vertex_structure), diag_set['id'], uv_subgraph['integrated_ct_id'], uv_diag_moms)
+                                if uv_subgraph['mass_ct'] and FORM_processing_options['on_shell_renormalisation']:
+                                    uv_diag += '*(1 - {}*(1+massct)*diag({},{},{}))'.format('*'.join(vertex_structure), diag_set['id'], uv_subgraph['integrated_ct_id'], uv_diag_moms)
+                                else:
+                                    uv_diag += '*intuv(1 - {}*diag({},{},{}))'.format('*'.join(vertex_structure), diag_set['id'], uv_subgraph['integrated_ct_id'], uv_diag_moms)
 
                             uv_conf_diag = '-tmax^{}*{}*{}'.format(uv_subgraph['taylor_order'],'*'.join(uv_props),uv_diag)
                             if uv_conf_diag not in uv_diagrams:

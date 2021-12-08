@@ -149,8 +149,7 @@ CF subs, configurations, conf, tder, cmb, cbtofmb, fmbtocb, diag, forestid, der,
 CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, irtopo, intuv, integrateduv, gluonbubble;
 CT gammatracetensor(c),opengammastring;
 
-S UVRenormFINITE;
-S ICT, mUV, logmu, logmUV, logmt, mi1L1, alarmMi1L1;
+S UVRenormFINITE, massct, ICT, mUV, logmu, logmUV, logmt, mi1L1, alarmMi1L1;
 Fill logmasses(6) = logmt;
 Fill logmasses(-6) = logmt;
 
@@ -357,6 +356,27 @@ repeat id prop(x?{`Q'}, in, p?, idx1?)*prop(x?{`Q'}, out, p?, idx2?) = gamma(dir
 repeat id prop(x?{`Q'}, in, p?, idx1?)*prop(x?{`Q'}, out, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x)*gamma(dirac[idx1], dirac[idx2]);
 repeat id prop(x?{`LBAR'}, out, p?, idx1?)*prop(x?{`LBAR'}, in, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) - masses(x)*gamma(dirac[idx1], dirac[idx2]);
 repeat id prop(x?{`QBAR'}, out, p?, idx1?)*prop(x?{`QBAR'}, in, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) - masses(x)*gamma(dirac[idx1], dirac[idx2]);
+
+if (count(massct, 1));
+* workaround matching bug https://github.com/vermaseren/form/issues/386
+id vx(?a,x1?,p1?,p2?,p3?,x2?,?b) = vx(?a,x1,p1,p2,p3,x2,?b)*g(p1,-p1)*g(p2,-p2)*g(p3,-p3);
+id vx(?a,x1?,p1?,p2?,p3,p4?,x2?,?b) = vx(?a,x1,p1,p2,p3,p4,x2,?b)*g(p1,-p1)*g(p2,-p2)*g(p3,-p3)*g(p4,-p4);
+
+* TODO: for 2-loop delta_m, multiply the result by massct so that the power of massct reflects the number of loops
+
+* TODO: understand fudge factor 4/3
+id ifmatch->massctdone prop(x2?{`Q'},virtual,p7?,idx4?,idx3?)*
+    prop(`GLU',virtual,p8?,idx2?,idx5?)*
+    vx(x1?{`QBAR'},`GLU',x2?{`Q'},p1?,p2?,p3?,idx1?,idx2?,idx3?)*
+    vx(x1?{`QBAR'},`GLU',x2?{`Q'},p4?,p5?,p6?,idx4?,idx5?,idx6?)*
+    g(p1?,p6?)*g(p2?,p8?)*g(p3?,p4?)*g(p4?,p7?)*g(p5?,p2?)*g(p6?,p1?) =
+        + i_ * ((4/3)/16/pi^2) * (rat(-3,ep) + (-4 - 3*(logmu - logmasses(x1)))) * masses(x1) * gamma(dirac[idx1], dirac[idx6]);
+
+    Print "Unsubstituted massct: %t";
+    exit "Critical error";
+
+    label massctdone;
+endif;
 
 * virtual edges
 id prop(`GLU', virtual, p?, idx1?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
@@ -659,6 +679,16 @@ repeat id subgraph(?a,p?) = subgraph(?a);
 * Apply Feynman rules to the UV subgraph
     id opengammastring(?a) = gamma(?a);
     #call FeynmanRulesMomentum()
+
+    if (count(massct, 1));
+* divide by the normalizing factor of the denominator that is added to the topology
+        if (count(massct,1) == 1) Multiply i_ * (4 * pi)^2 * 2 * mUV2^2;
+        if (count(massct,1) == 2) Multiply (i_ * (4 * pi)^2 * 2 * mUV2^2)^2;
+        id uvprop(?a) = 1;
+        id uvtopo(?a) = 1;
+        id massct = 1;
+        id tmax = 1;
+    endif;
 
 * linearize the gamma matrices and convert them to tensors
 * this makes them suitable for differentiation

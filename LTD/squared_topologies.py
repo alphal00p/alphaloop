@@ -162,19 +162,24 @@ class SquaredTopologyGenerator:
 
                             uv_sg['gluon_bubble'] = None
                             uv_sg['internal_bubble'] = None
+                            uv_sg['mass_ct'] = None
 
-                            if len(uv_sg['graph'].edge_map_lin) - len(subgraph_internal_edges) == 2 and len(uv_limit['spinney']) == 1:
-                                if len(uv_sg['graph'].edge_map_lin) < len(diag_info['graph'].edge_map_lin):
-                                    #uv_sg['internal_bubble'] = copy.deepcopy(uv_sg['graph'])
-                                    #internal_bubbles.append((uv_sg['internal_bubble'], subgraph_internal_edges))
-                                    pass
+                            if len(uv_sg['graph'].edge_map_lin) - len(subgraph_internal_edges) == 2:
+                                if len(uv_limit['spinney']) == 1:
+                                    if len(uv_sg['graph'].edge_map_lin) < len(diag_info['graph'].edge_map_lin):
+                                        #uv_sg['internal_bubble'] = copy.deepcopy(uv_sg['graph'])
+                                        #internal_bubbles.append((uv_sg['internal_bubble'], subgraph_internal_edges))
+                                        pass
 
-                                if particle_ids[uv_sg['graph'].edge_map_lin[uv_sg['graph'].ext[0]][0]] == 21:
-                                    # check if the gluon self-energy creates a linear or quadratic IR divergence (heuristically)
-                                    if has_2l_bubble:
-                                        uv_sg['gluon_bubble'] = 1
-                                    else:
-                                        uv_sg['gluon_bubble'] = 2
+                                    if particle_ids[uv_sg['graph'].edge_map_lin[uv_sg['graph'].ext[0]][0]] == 21:
+                                        # check if the gluon self-energy creates a linear or quadratic IR divergence (heuristically)
+                                        if has_2l_bubble:
+                                            uv_sg['gluon_bubble'] = 1
+                                        else:
+                                            uv_sg['gluon_bubble'] = 2
+
+                                if particle_ids[uv_sg['graph'].edge_map_lin[uv_sg['graph'].ext[0]][0]] == 6:
+                                    uv_sg['mass_ct'] = True
 
                     diag_info['internal_bubbles'] = internal_bubbles
             
