@@ -123,7 +123,7 @@ Fill charges(-5) = 1/3; * b
 Fill charges(-6) = -2/3; * t
 Fill charges(-11) = 1; * e
 
-S D, ep(:3);
+S D, ep(:{`MAXPOLE'+`SELECTEDEPSILONORDER'});
 V energyselector,p1,...,p40,ps1,...,ps40,k1,...,k40,c1,...,c40,cs1,...,cs40,fmb1,...,fmb40,fmbs1,...,fmbs40; * force this internal ordering in FORM
 Auto V p,k,c;
 Auto S lm,ext,E;
@@ -146,7 +146,7 @@ Set lorentzdummy: mud1,...,mud40;
 CF gamma, gammatrace(c), GGstring, NN, vector,g(s),delta(s),T, counter,color, prop, replace;
 CF f, vx, vxs(s), uvx, vec, vec1;
 CF subs, configurations, conf, tder, cmb, cbtofmb, fmbtocb, diag, forestid, der, energy, spatial(s), onshell, uvcutoff;
-CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, irtopo, integrateduv, gluonbubble;
+CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, irtopo, intuv, integrateduv, gluonbubble;
 CT gammatracetensor(c),opengammastring;
 
 S UVRenormFINITE;
@@ -674,8 +674,8 @@ repeat id subgraph(?a,p?) = subgraph(?a);
 
     id uvconf2(p?) = replace_(p, t * p);
 
-    argument uvprop,1,vxs,uvtopo,irtopo,diag,onshell;
-        id t = 1;
+    argument uvprop,1,vxs,uvtopo,irtopo,diag,onshell,intuv;
+        Multiply replace_(t, 1);
     endargument;
 
 * Taylor expand the propagators to the right depth
@@ -701,6 +701,7 @@ repeat id subgraph(?a,p?) = subgraph(?a);
             if (count(t,1) < `gb') id uvtopo(?a) = irtopo(?a); * select the proper topology without UV rearrangement
 
 * drop the integrated counterterm
+            id intuv(x?) = x;
             if ((count(vxs,1)) && (count(t,1) < `gb')) Discard;
 
             label endgdb`gb';
@@ -742,6 +743,9 @@ repeat id subgraph(?a,p?) = subgraph(?a);
     repeat id uvprop(k?,t1?,n1?)*uvprop(k?,t1?,n2?) = uvprop(k,t1,n1+n2); 
     repeat id uvprop(k?,t1?,n1?)*uvtopo?{uvtopo,irtopo}(x?,x1?,?a)*tmp(t1?,n2?) = uvprop(k,n1 + n2)*uvtopo(x,x1*t1^n2,?a);
     id uvprop(k?,t1?ts,n?) = uvprop(k, n);
+
+*   Unwrap the integrated UV expression
+    id intuv(x?) = x;
 
 * select what to keep for the local UV vs integrated UV CT
     if (count(vxs, 1) == 0);
@@ -927,7 +931,7 @@ endif;
 AB+ cmb,energy,diag,fmbtocb,uvcutoff;
 .sort:energy-splitoff-1;
 Keep brackets;
-#do i=1,40
+#do i=1,`NFINALMOMENTA'
     Multiply replace_(fmb`i', energy(fmb`i')*energyselector - fmbs`i');
 #enddo
 id energyselector.energyselector = 1;
@@ -953,16 +957,25 @@ argtoextrasymbol tonumber,f,1;
 id fmbtocb(?a) = replace_(?a);
 
 .sort:tensorforest-2;
-Drop tensorforest1,...,tensorforest`tensorforestcount';
 Hide forest1,...,forest`forestcount';
 UnHide F;
+
+B+ forestid;
+.sort:tensorforest-3;
+Drop tensorforest1,...,tensorforest`tensorforestcount';
+Keep brackets;
 
 * fill in the tensor forest into F and fill in the Feynman rules
 #do i=1,`forestcount'
     id forestid(`i') = tensorforest`i';
 #enddo
 id f(x?) = forestid(x-`foreststart');
-.sort:tensorforest-3;
+
+* here we can already truncate, as there are no more poles
+argument rat;
+    id ep^{`SELECTEDEPSILONORDER' + 1} = 0;
+endargument;
+.sort:tensorforest-4;
 
 id opengammastring(?a) = gamma(?a);
 
@@ -984,18 +997,12 @@ argument spatial,uvcutoff;
 endargument;
 
 .sort:feynman-complete-graph;
-
-* Expand
-id D = rat(4-2*ep,1);
-id ep^n1? = rat(ep^n1,1);
-.sort:rat-expand;
-PolyRatFun rat(expand,ep,{`MAXPOLE'+`SELECTEDEPSILONORDER'});
-Keep brackets;
-.sort:integrated-ct-1;
-
 PolyRatFun;
+
+argument rat;
+    if (count(ep, 1) != `SELECTEDEPSILONORDER') Discard;
+endargument;
 id rat(x1?) = x1;
-if (count(ep, 1) != `SELECTEDEPSILONORDER') Discard; * keep only the ep^0 piece
 id ep^n? = 1;
 #if `UVRENORMFINITEPOWERTODISCARD' > 0
     if (count(UVRenormFINITE, 1) >= `UVRENORMFINITEPOWERTODISCARD') Discard; * Discard UVRenormFinite pieces up to some order
@@ -1003,7 +1010,22 @@ id ep^n? = 1;
     if (count(UVRenormFINITE, 1) < -`UVRENORMFINITEPOWERTODISCARD') Discard; * Keep UVRenormFinitiePieces up to some order
 #endif
 id UVRenormFINITE^n? = 1;
+
+B+ forestid;
 .sort:rat-truncate;
+Keep brackets;
+
+* Drop unused forests
+#do i=1,`forestcount'
+    #define HASFOREST`i' "0"
+    if (match(forestid(`i'))) redefine HASFOREST`i' "1";
+#enddo
+.sort:filter-unused-forests;
+#do i=1,`forestcount'
+    #if `HASFOREST`i'' == 0
+        L forest`i' = 0;
+    #endif
+#enddo
 
 * If the expression is empty (due to epsilon pole selection), we still write a file
 #if ( termsin(F) == 0 )

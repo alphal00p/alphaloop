@@ -2,9 +2,6 @@ Auto S cMi1L1, cmi1L2, cmi2L2, alarm;
 S eulergamma, log4pi, pi;
 CF uvid;
 
-* TODO: set the expansion depth to n+selected, where n is the power of the deepest pole of the entire diagram
-#define MAXPOLE "3"
-
 #procedure TruncateExpansion()
     argument rat;
         id ep^{`MAXPOLE'+`SELECTEDEPSILONORDER'+1} = 0;

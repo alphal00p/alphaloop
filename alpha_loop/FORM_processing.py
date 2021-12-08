@@ -1630,7 +1630,7 @@ CTable ltdmap(0:{},0:{});
                                 uv_diag += '*gluonbubble^{}'.format(uv_subgraph['gluon_bubble'])
 
                             if FORM_processing_options['generate_integrated_UV_CTs']:
-                                uv_diag += '*(1 - {}*diag({},{},{}))'.format('*'.join(vertex_structure), diag_set['id'], uv_subgraph['integrated_ct_id'], uv_diag_moms)
+                                uv_diag += '*intuv(1 - {}*diag({},{},{}))'.format('*'.join(vertex_structure), diag_set['id'], uv_subgraph['integrated_ct_id'], uv_diag_moms)
 
                             uv_conf_diag = '-tmax^{}*{}*{}'.format(uv_subgraph['taylor_order'],'*'.join(uv_props),uv_diag)
                             if uv_conf_diag not in uv_diagrams:
@@ -1841,6 +1841,12 @@ class FORMSuperGraphIsomorphicList(list):
             n_loops = len(characteristic_super_graph.edges) - len(characteristic_super_graph.nodes) + 1
             FORM_vars['NFINALMOMENTA'] = n_loops
 
+        # set the order
+        if FORM_processing_options['generate_integrated_UV_CTs']:
+            FORM_vars['MAXPOLE'] = len(characteristic_super_graph.edges) - len(characteristic_super_graph.nodes) + 1 - min(len(c['cuts']) - 1 for c in characteristic_super_graph.squared_topology.cuts)
+        else:
+            FORM_vars['MAXPOLE'] = 0
+
         if FORM_vars is None or not all(opt in FORM_vars for opt in _MANDATORY_FORM_VARIABLES):
             raise FormProcessingError("The following variables must be supplied to FORM: %s"%str(_MANDATORY_FORM_VARIABLES))
 
@@ -1934,7 +1940,9 @@ class FORMSuperGraphIsomorphicList(list):
         FORM_vars = {}
         FORM_vars['SGID'] = iso_id
         FORM_vars['NUMD'] = len(self)
-        FORM_vars['FOURDIM'] = 1 
+        FORM_vars['FOURDIM'] = 1
+        FORM_vars['MAXPOLE'] = 0 # no poles will be generated
+        FORM_vars['SELECTEDEPSILONORDER'] = 0
 
         with open(pjoin(workspace,'iso_check_{}.frm'.format(iso_id)), 'w') as f:
             for i_graph, g in enumerate(self):
@@ -2000,7 +2008,7 @@ class FORMSuperGraphIsomorphicList(list):
 
         FORM_vars={
             'SELECTEDEPSILONORDER':'%d'%FORM_processing_options['selected_epsilon_UV_order'],
-            'OPTIMISATIONSTRATEGY':FORM_processing_options['optimisation_strategy']
+            'OPTIMISATIONSTRATEGY':FORM_processing_options['optimisation_strategy'],
         }
 
         if FORM_processing_options['renormalisation_finite_terms']=='together':
