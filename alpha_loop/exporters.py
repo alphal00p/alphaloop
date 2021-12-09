@@ -1145,10 +1145,12 @@ class QGRAFExporter(object):
     qgraf_root_path = pjoin(plugin_src_path,'Templates','qgraf')
     qgraf_template_epem = pjoin(plugin_src_path,'Templates','qgraf','qgraf_epem.dat')
     qgraf_template_no_s = pjoin(plugin_src_path,'Templates','qgraf','qgraf_no_s.dat')
+    qgraf_template_SE = pjoin(plugin_src_path,'Templates','qgraf','qgraf_SE.dat')
 
     qgraf_templates = {
         'epem':{'path': qgraf_template_epem, 'example': 'e+ e- > a > ...'},
-        'no_s':{'paht': qgraf_template_no_s, 'example': 'a a > h'}
+        'no_s':{'paht': qgraf_template_no_s, 'example': 'a a > h'},
+        'SE':{'path': qgraf_template_SE, 'example': 'a > aprime sdummy'}
     }
     
     qgraf_field_replace = {}
@@ -1163,6 +1165,12 @@ class QGRAFExporter(object):
     qgraf_field_replace['a'] = 'photon'
     qgraf_field_replace['g'] = 'gluon'
  
+    qgraf_field_replace['sdummy'] = 'sdummy'    
+    for k, v in list(qgraf_field_replace.items()):
+        if k.endswith('~'):
+            qgraf_field_replace['%sprime~'%k[:-1]]='%sprimebar'%v[:-3]
+        else:
+            qgraf_field_replace['%sprime'%k]='%sprime'%v
 
     default_opt = {'vetos': []}
 
@@ -1478,7 +1486,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 raise print("QGRAF generation failed with error:\n%s" %
                             (r.stdout.decode('UTF-8')))
 
-    def build_qgraf_no_s(self, representative_process, vetos=None):
+    def build_qgraf_no_s(self, representative_process, vetos=None, outgoing_state_suffix=''):
         # Check if a1 a2 a3 ... > a4 a5 ...
         check_s_channel = representative_process.get('required_s_channels') == []
         if not check_s_channel:
@@ -1569,7 +1577,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 incoming_fields += [(self.qgraf_field_replace[self.model.get_particle(abs(field))['antiname']],'p%d'%pn)]
             pn += 1
         dict_replace['incoming_states'] += ", ".join(["{}[{}]".format(*field) for field in incoming_fields])+";"
-        dict_replace['outgoing_states'] += ", ".join(["{}[{}]".format(*field) for field in incoming_fields])+";"
+        dict_replace['outgoing_states'] += ", ".join([("{}%s[{}]"%outgoing_state_suffix).format(*field) for field in incoming_fields])+";"
 
         dict_replace['final_states'] = ''
         required_final_states = [fields[0] for fields in self.final_states if len(fields) == 1]
@@ -1597,6 +1605,9 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             if r.returncode != 0 or not os.path.exists(pjoin(qgraf_folder, 'output.py')):
                 raise print("QGRAF generation failed with error:\n%s" %
                             (r.stdout.decode('UTF-8')))
+
+    def build_qgraf_SE(self, representative_process, vetos=None, **opts):
+        return self.build_qgraf_no_s(representative_process, vetos=vetos, outgoing_state_suffix='prime',**opts)
 
     def build_output_directory(self):
 

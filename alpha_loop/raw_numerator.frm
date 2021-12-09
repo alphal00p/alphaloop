@@ -12,11 +12,25 @@ CF dotp, myv;
 * Do algebra
 #include numerator.frm # feynman-rules
 
-#call FeynmanRules()
+L F1 = F;
+.sort
+Hide F1;
+#call FeynmanRulesGlobal()
+id vx(?a) = 1;
+id prop(?a) = 1;
+* Print +S F;
+.sort
+#write<out_raw_prefactor_`SGID'.txt> "%E" F
+Drop F;
 
-B+ x;
+Unhide F1;
+#call FeynmanRulesMomentum()
+.sort
+PolyRatFun rat(expand,ep,50);
+id rat(x1?,x2?) = x1 / x2;
+
+* Print +S F1;
+#write<out_raw_numerator_`SGID'.txt> "%E" F1
 .sort
 
-#write<out_raw_numerator_`SGID'.txt> "%E" F
-.sort
 .end;

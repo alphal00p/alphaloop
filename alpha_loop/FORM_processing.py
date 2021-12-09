@@ -21,6 +21,8 @@ import argparse
 import shutil
 import py_compile
 from warnings import catch_warnings
+import os
+import stat
 
 pjoin = os.path.join
 
@@ -1816,12 +1818,12 @@ class FORMSuperGraphIsomorphicList(list):
 
         return code_generation_statistics
 
-    def generate_numerator_functions(self, additional_overall_factor='', output_format='c', workspace=None, FORM_vars=None, active_graph=None,process_definition=None, forced_options=None):
+    def generate_numerator_functions(self, model, additional_overall_factor='', output_format='c', workspace=None, FORM_vars=None, active_graph=None,process_definition=None, forced_options=None):
         """ Use form to plugin Feynman Rules and process the numerator algebra so as
         to generate a low-level routine in file_path that encodes the numerator of this supergraph."""
 
         FORM_source_to_run = 'numerator'
-        if output_format == 'raw':
+        if output_format in ['raw','pySecDec']:
             FORM_source_to_run = 'raw_numerator'
 
         _MANDATORY_FORM_VARIABLES = ['SGID','NINITIALMOMENTA','NFINALMOMENTA','SELECTEDEPSILONORDER','UVRENORMFINITEPOWERTODISCARD','OPTIMISATIONSTRATEGY']
@@ -1943,7 +1945,7 @@ class FORMSuperGraphIsomorphicList(list):
         reference = self[0].generate_numerator_form_input('', only_algebra=True)
         FORM_vars = {}
         FORM_vars['SGID'] = iso_id
-        FORM_vars['NUMD'] = len(self)
+        FORM_vars['NUMD'] = (len(self) if len(self)!=1 else 2)
         FORM_vars['FOURDIM'] = 1
         FORM_vars['MAXPOLE'] = 0 # no poles will be generated
         FORM_vars['SELECTEDEPSILONORDER'] = 0
@@ -2002,7 +2004,7 @@ class FORMSuperGraphIsomorphicList(list):
         #print(r)
         return r
 
-    def generate_numerator_file(self, i_graph, root_output_path, additional_overall_factor, workspace, integrand_type,  process_definition, header_map, output_format, forced_options=None):
+    def generate_numerator_file(self, i_graph, model, root_output_path, additional_overall_factor, workspace, integrand_type,  process_definition, header_map, output_format, forced_options=None):
         timing = time.time()
         self.is_zero = True
 
@@ -2047,7 +2049,7 @@ class FORMSuperGraphIsomorphicList(list):
             all_ids.append(i)
             FORM_vars['SGID']='%d'%i
 
-            num = self.generate_numerator_functions(additional_overall_factor,
+            num = self.generate_numerator_functions(model, additional_overall_factor,
                 workspace=workspace, FORM_vars=FORM_vars, active_graph=active_graph,
                 process_definition=process_definition, output_format=output_format, forced_options=forced_options)
 
@@ -2059,7 +2061,7 @@ class FORMSuperGraphIsomorphicList(list):
 class FORMSuperGraphList(list):
     """ Container class for a list of FORMSuperGraphIsomorphicList."""
 
-    extension_names = {'c': 'c','raw': 'raw'}
+    extension_names = {'c': 'c','raw': 'raw', 'pySecDec' : 'pySecDec'}
 
     def __init__(self, graph_list, name='SGL'):
         """ Instantiates a list of FORMSuperGraphs from a list of either
@@ -2580,7 +2582,174 @@ class FORMSuperGraphList(list):
             'edges' : edges_description
         }
 
-    def generate_integrand_functions(self, root_output_path, additional_overall_factor='',
+    @classmethod
+    def process_raw_numerator(cls,input_numerator_path):
+        with open(input_numerator_path,'r') as f:
+            return f.read().replace('rat','')
+
+    def write_pySecDec_run(self, output_dir, numerator_input_path, topology_generator_graph, graph_name, graph_id, couplings_prefactor_str, additional_overall_factor, params, model, particle_PDGs):
+        """ Writes out a standalone script that can run this supergraph in pySecDec."""
+
+        g = topology_generator_graph
+
+        couplings_prefactor_str = re.sub(r'rat\((\s*-?\s*\d+),(\s*-?\s*\d+)\)',r'(\1/float(\2))',couplings_prefactor_str)
+        couplings_prefactor_str = couplings_prefactor_str.replace('^','**').replace('i_','(1j)')
+
+        processed_params = {}
+        for p, v in params.items():
+            if isinstance(v, float): 
+                processed_params[p] = v
+            elif p=='pi':
+                processed_params[p] = float(math.pi)
+
+        # Add gs which is typically not present as it is meant to be a dynamical parameter
+        processed_params['gs'] = math.sqrt(model['parameter_dict']['aS'].real*(4.*math.pi))
+
+        output_path = pjoin(output_dir,'run_graph_{}.py'.format(graph_id))
+        output_numerator_path = pjoin(output_dir,'numerator_{}.txt'.format(graph_id))
+
+        template_run = None
+        with open(pjoin(plugin_path,'Templates','run_pySecDec_template.py'),'r') as f:
+            template_run = f.read()
+
+        lorentx_indices_count = {'count': 0}
+        regexp_lorentz = re.compile(r'([p|k]\d+\.[p|k]\d+)')
+        def repl_lorentz(matchobj):
+            lorentx_indices_count['count'] += 1
+            dot_args = matchobj.group(0).split('.')
+            return '(%s(mu%d)*%s(mu%d))'%(dot_args[0],lorentx_indices_count['count'],dot_args[1],lorentx_indices_count['count'])
+        regexp_rat = re.compile(r'rat\(([-|+|\s|\d|\w|\*]+),([-|+|\s|\d|\w|\*]+)\)')
+        def repl_rat(mach_obj):
+            if mach_obj.group(2)!='1':
+                raise FormProcessingError("The numerator to feed pySecDec with has a rational coefficient whose denominator is not 1.")
+            return '(%s)'%(mach_obj.group(1).replace(' ',''))
+        regexp_power = re.compile(r'([\w|\d]+)\.([\w|\d]+)\^([\d]+)')
+        def repl_power(mach_obj):
+            return '*'.join(['(%s.%s)'%(mach_obj.group(1),mach_obj.group(2)),]*int(mach_obj.group(3)))
+        with open(output_numerator_path,'w') as num_out:
+            numerator = []
+            numerator_lines = []
+            with open(numerator_input_path,'r') as num_in:
+                for line in num_in.readlines():
+                    numerator_lines.append(line.strip())
+            # Sadly FORM breaks down line across rat parenthesis, so we are forced to process the whole numerator string at once.
+            for line in [''.join(numerator_lines),]:#num_in.readlines():
+                orig_line = line
+                line = line.strip().replace('ep','eps').replace(' ','')
+                line = re.sub(regexp_power,repl_power,line)
+                line = line.replace('^','**')
+                line = re.sub(regexp_lorentz,repl_lorentz,line)
+                line = re.sub(regexp_rat,repl_rat,line)
+                if 'rat' in line:
+                    raise FormProcessingError("Bug when doing rat substitution in the following FORM expression: Original line:\n%s\nProcessed line:\n%s"%(orig_line,line))
+                numerator.append(line)
+            num_out.write('\n'.join(numerator))
+        lorentz_indices = ['mu%d'%(i+1) for i in range(lorentx_indices_count['count'])]
+
+        internal_edges = []
+        external_edges = []
+        power_list = []
+        propagators = []
+        real_parameters = []
+        real_parameters_input = []
+        default_externals = []
+        sig_map=g.get_signature_map()
+        all_internal_nodes = set(sum([[e[1],e[2]] for i_e, e in enumerate(g.edge_map_lin) if i_e not in g.ext],[]))
+        for i_e, e in enumerate(g.edge_map_lin):
+            if i_e in g.ext:
+                external_edges.append([e[0],(e[1] if e[1] in all_internal_nodes else e[2])])
+                if not all(s==0 for s in list(sig_map[e[0]][1])[:len(sig_map[e[0]][1])//2]):
+                    mass_param = model.get_particle(particle_PDGs[e[0]]).get('mass')
+                    if mass_param.upper()!='ZERO':
+                        default_externals.append( (model['parameter_dict'][mass_param].real, 0., 0., 0.) )
+                    else:
+                        # If there is a single incoming, do not put it onshell
+                        if len(g.ext)==2:
+                            default_externals.append( (1., 0., 0., 0.) )
+                        else:
+                            default_externals.append( (1., 0., 0., ((-1)**len(default_externals))*1.) )
+            else:
+                internal_edges.append([e[0],[e[1],e[2]]])
+                power_list.append(g.powers[e[0]])
+                loop_momentum = None
+                for i_l, lsig in enumerate(list(sig_map[e[0]][0])):
+                    if lsig == 0:
+                        continue
+                    if loop_momentum is None:
+                        loop_momentum = 'k%d'%(i_l+1) if lsig > 0 else '-k%d'%(i_l+1)
+                    else:
+                        loop_momentum += '+k%d'%(i_l+1) if lsig > 0 else '-k%d'%(i_l+1)
+    
+                for externals_list in [
+                    list(sig_map[e[0]][1])[:len(sig_map[e[0]][1])//2],
+                    list(sig_map[e[0]][1])[len(sig_map[e[0]][1])//2:]
+                ]:
+                    for i_p, psig in enumerate(externals_list):
+                        if psig == 0:
+                            continue
+                        # Propagator from a purely external tree
+                        if loop_momentum is None:
+                            loop_momentum = 'p%d'%(i_p+1) if psig > 0 else '-p%d'%(i_p+1)
+                        else:
+                            loop_momentum += '+p%d'%(i_p+1) if psig > 0 else '-p%d'%(i_p+1)
+                
+                mass_str = ''
+                mass_param = model.get_particle(particle_PDGs[e[0]]).get('mass')
+                if mass_param.upper()=='ZERO':
+                    mass_str = ''
+                else:
+                    real_parameters.append(mass_param)
+                    real_parameters_input.append(model['parameter_dict'][mass_param].real)
+                    mass_str = '-%s**2'%mass_param
+
+                propagators.append('(%s)**2%s'%(loop_momentum, mass_str))
+    
+        loop_momenta_str = None
+        external_momenta_str = None
+        replacement_rules = []
+        if loop_momenta_str is None:
+            n_loop_momenta = g.n_loops
+            n_externals = len(g.ext)//2
+            loop_momenta_str = ['k%d'%(i_l+1) for i_l in range(n_loop_momenta)]
+            external_momenta_str = ['p%d'%(i_l+1) for i_l in range(n_externals)]
+            for i in range(n_externals):
+                for j in range(i, n_externals):
+                    replacement_rules.append(('p%d*p%d'%(i+1,j+1),'p%d%d'%(i+1,j+1)))
+                    real_parameters.append('p%d%d'%(i+1,j+1))
+
+        repl_dict = {}
+        repl_dict['graph_name'] = str(graph_name)
+        repl_dict['default_externals'] = str(default_externals)
+
+        # Drawing replacement
+        repl_dict['drawing_input_internal_lines'] = str(internal_edges)
+        repl_dict['drawing_input_power_list'] = str(power_list)
+        repl_dict['drawing_input_external_lines'] = str(external_edges)
+
+        # Loop package replacement
+        repl_dict['propagators'] = str(propagators)
+        repl_dict['loop_momenta'] = str(loop_momenta_str)
+        repl_dict['external_momenta'] = str(external_momenta_str)
+        repl_dict['lorentz_indices'] = str(lorentz_indices)
+        repl_dict['power_list'] = str(power_list)
+        repl_dict['numerator_path'] = './%s'%(os.path.basename(output_numerator_path))
+        repl_dict['replacement_rules'] = str(replacement_rules)
+        repl_dict['real_parameters'] = str(real_parameters)
+
+        # pySecDec integration replacement
+        repl_dict['n_loops'] = str(g.n_loops)
+        repl_dict['additional_overall_factor'] = '1.'+str(additional_overall_factor)
+        repl_dict['real_parameters_input'] = str(real_parameters_input)
+        repl_dict['complex_parameters_input'] = str([])
+        repl_dict['couplings_prefactor'] = str(couplings_prefactor_str)
+        repl_dict['couplings_values'] = str(processed_params)
+        with open(output_path,'w') as f:
+            f.write(template_run.format(**repl_dict))
+
+        # Make the file executable
+        os.chmod(output_path, os.stat(output_path).st_mode | stat.S_IEXEC)
+
+    def generate_integrand_functions(self, root_output_path, model, additional_overall_factor='',
                                     params={}, output_format='c', workspace=None, header="", integrand_type=None, process_definition=None):
         header_map = {'header': header}
         """ Generates optimised source code for the graph numerator in several
@@ -2636,9 +2805,13 @@ const complex<double> I{ 0.0, 1.0 };
 
         all_numerator_ids = {'PF': [], 'LTD': []}
 
-        if output_format == 'raw':
+        if output_format in ['pySecDec','raw']:
             if not os.path.isdir(pjoin(root_output_path, 'raw_SG_expressions')):
                 os.mkdir(pjoin(root_output_path, 'raw_SG_expressions'))
+
+        if output_format == 'pySecDec':
+            if not os.path.isdir(pjoin(root_output_path, 'pySecDec_runs')):
+                os.mkdir(pjoin(root_output_path, 'pySecDec_runs'))
 
         for itype in integrand_type_list:
             with progressbar.ProgressBar(
@@ -2665,21 +2838,44 @@ const complex<double> I{ 0.0, 1.0 };
                         all_numerator_ids[itype].append(i)
                         time_before = time.time()
 
-                        if output_format == 'raw':
+                        if output_format in ['raw','pySecDec']:
+
                             if active_graph is None:
                                 characteristic_graph = graph[0]
                             else:
                                 characteristic_graph = active_graph
                             
                             particle_ids = { e['name']: e['PDG'] for e in characteristic_graph.edges.values() }
+                            with open(pjoin(root_output_path, 'raw_SG_expressions', 'numerator_{}.txt'.format(i)), 'w') as f:
+                                f.write(self.process_raw_numerator(pjoin(root_output_path, 'workspace', 'out_raw_numerator_{}.txt'.format(i))))
+
+                            couplings_prefactor = '1'
+                            with open(pjoin(root_output_path, 'workspace', 'out_raw_prefactor_{}.txt'.format(i)),'r') as f:
+                                couplings_prefactor = f.read().strip()
+
+
                             characteristic_graph_dict = self.minimal_dict_representation_of_a_topology_generator_graph(characteristic_graph.squared_topology.topo,particle_ids)
                             characteristic_graph_dict['numerator']='numerator_{}.txt'.format(i)
-                            with open(pjoin(root_output_path, 'raw_SG_expressions', '%s.yaml'%characteristic_graph.squared_topology.name), 'w') as f:
+                            characteristic_graph_dict['name']=characteristic_graph.squared_topology.name
+                            characteristic_graph_dict['couplings_prefactor']=couplings_prefactor
+                            with open(pjoin(root_output_path, 'raw_SG_expressions', 'graph_{}.yaml'.format(i)), 'w') as f:
                                 f.write(yaml.dump(characteristic_graph_dict, Dumper=Dumper))
-                            shutil.copy(
-                                pjoin(root_output_path, 'workspace', 'out_raw_numerator_{}.txt'.format(i)),
-                                pjoin(root_output_path, 'raw_SG_expressions', 'numerator_{}.txt'.format(i)),
-                            )
+
+                            if output_format == 'pySecDec':
+                                
+                                self.write_pySecDec_run(
+                                    pjoin(root_output_path, 'pySecDec_runs'),
+                                    pjoin(root_output_path, 'workspace', 'out_raw_numerator_{}.txt'.format(i)),
+                                    characteristic_graph.squared_topology.topo,
+                                    characteristic_graph.squared_topology.name,
+                                    i,
+                                    couplings_prefactor,
+                                    additional_overall_factor,
+                                    params,
+                                    model,
+                                    particle_ids
+                                )
+
                             continue
 
                         with open(pjoin(root_output_path, 'workspace', 'out_integrand_{}_{}.proto_c'.format(itype, i))) as f:
@@ -3009,7 +3205,7 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
 
         self.code_generation_statistics['integrand_C_source_size_in_kB'] = int(integrand_C_source_size/1000.0)
 
-    def generate_numerator_functions(self, root_output_path, additional_overall_factor='', params={}, 
+    def generate_numerator_functions(self, root_output_path, model=None, additional_overall_factor='', params={}, 
                                     output_format='c', workspace=None, header="", integrand_type=None, process_definition=None):
 
         start_time = time.time()
@@ -3044,12 +3240,12 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
 
             if FORM_processing_options["cores"] == 1:
                 graph_it = map(FORMSuperGraphIsomorphicList.generate_numerator_file_helper, 
-                    list((graph, i, root_output_path, additional_overall_factor, workspace, integrand_type, process_definition, header_map, output_format, FORM_processing_options)
+                    list((graph, i, model, root_output_path, additional_overall_factor, workspace, integrand_type, process_definition, header_map, output_format, FORM_processing_options)
                     for i, graph in enumerate(self)))
             else:
                 pool = multiprocessing.Pool(processes=FORM_processing_options["cores"])
                 graph_it = pool.imap_unordered(FORMSuperGraphIsomorphicList.generate_numerator_file_helper, 
-                    list((graph, i, root_output_path, additional_overall_factor, workspace, integrand_type, process_definition, header_map, output_format, FORM_processing_options)
+                    list((graph, i, model, root_output_path, additional_overall_factor, workspace, integrand_type, process_definition, header_map, output_format, FORM_processing_options)
                     for i, graph in enumerate(self)))
 
             for (graph_index, num_ids, max_buffer_graph, is_zero, timing, code_generation_statistics) in graph_it:
@@ -3097,7 +3293,7 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
         self.code_generation_statistics['numerator_C_source_size_in_kB'] = int(numerator_C_source_size/1000.0)
 
         if integrand_type is not None:
-            self.generate_integrand_functions(root_output_path, additional_overall_factor='', 
+            self.generate_integrand_functions(root_output_path, model, additional_overall_factor=additional_overall_factor, 
                             params=params, output_format=output_format, workspace=None, integrand_type=integrand_type,process_definition=process_definition)
 
         generation_time = time.time() - start_time
@@ -3809,6 +4005,7 @@ class FORMProcessor(object):
 
         res = self.super_graphs_list.generate_numerator_functions(
             root_output_path,
+            model=self.model,
             output_format=output_format,
             additional_overall_factor=additional_overall_factor,
             params=params,workspace=workspace, header=header,

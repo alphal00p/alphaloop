@@ -404,7 +404,7 @@ class SuperGraph(dict):
                 res_str.append('%s%s%s'%(Colours.BLUE,k,Colours.END))
         return '\n'.join(res_str)
 
-    def show_IR_statistics(self, show_momenta=True, external_momenta=None, show_fail_only=False):
+    def show_deformation_statistics(self, show_momenta=True, external_momenta=None, show_fail_only=False):
 
         res_str = []
         fail_res_str = []
@@ -441,7 +441,7 @@ class SuperGraph(dict):
                     approach_direction = [ Vector(v) for v in results['approach_direction'] ]
 
                     intersection_point_for_options = [ intersection_point[i] for i in range(0, len(approach_direction)) ]
-                    res_str.append('This can be rerun with the command: ir_profile %s -e_surfaces %s -intersections %s -intersection_point %s -approach_direction %s'%(
+                    res_str.append('This can be rerun with the command: deformation_profile %s -e_surfaces %s -intersections %s -intersection_point %s -approach_direction %s'%(
                         self['name'],
                         ' '.join('(%s)'%(','.join(
                             '"%s"'%os['name'] for os in E_surface_ID_to_E_surface[E_surf_id]['onshell_propagators']
@@ -1181,7 +1181,7 @@ class SuperGraphCollection(dict):
 
         return '\n'.join(res_str)
 
-    def show_IR_statistics(self, show_momenta=True, external_momenta=None):
+    def show_deformation_statistics(self, show_momenta=True, external_momenta=None):
 
         # TODO improve rendering
         res_str = []
@@ -1191,7 +1191,7 @@ class SuperGraphCollection(dict):
         for SG_name in sorted(list(self.keys())):
             if 'E_surfaces_analysis' not in self[SG_name]:
                 continue
-            res_str.append("\nIR profile of %s%s%s:\n%s"%(Colours.GREEN,SG_name,Colours.END, self[SG_name].show_IR_statistics(
+            res_str.append("\nIR profile of %s%s%s:\n%s"%(Colours.GREEN,SG_name,Colours.END, self[SG_name].show_deformation_statistics(
                 show_momenta=show_momenta, external_momenta=external_momenta)))
 
         fail_res_str = []
@@ -1202,7 +1202,7 @@ class SuperGraphCollection(dict):
         for SG_name in sorted(list(self.keys())):
             if 'E_surfaces_analysis' not in self[SG_name]:
                 continue
-            failed_str = self[SG_name].show_IR_statistics(show_momenta=show_momenta, external_momenta=external_momenta, show_fail_only=True)
+            failed_str = self[SG_name].show_deformation_statistics(show_momenta=show_momenta, external_momenta=external_momenta, show_fail_only=True)
             if failed_str is not None:
                 SGs_fail.append(SG_name)
                 fail_res_str.append(failed_str)
@@ -1712,86 +1712,86 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         return new_E_surfaces
 
-    #### IR PROFILE COMMAND
-    ir_profile_parser = ArgumentParser(prog='ir_profile')
-    ir_profile_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
-                    help='the name of a supergraph to display')
-    ir_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=20,
-                    help='force a certain number of points to be considered for the ir profile')
-    ir_profile_parser.add_argument("-sdt","--small_deformation_threshold", dest='small_deformation_threshold', type=float, default=1.0e-08,
+    #### DEFORMATION PROFILE COMMAND
+    deformation_profile_parser = ArgumentParser(prog='deformation_profile')
+    deformation_profile_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='+',
+                    help='the name(s) of a supergraph to run the deformation profile for')
+    deformation_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=20,
+                    help='force a certain number of points to be considered for the deformation profile')
+    deformation_profile_parser.add_argument("-sdt","--small_deformation_threshold", dest='small_deformation_threshold', type=float, default=1.0e-08,
                     help='Set the threshold on the normalised deformation norm for considering the deformation small (default: %(default)s)')
-    ir_profile_parser.add_argument("-spt","--small_projection_threshold", dest='small_projection_threshold', type=float, default=1.0e-10,
+    deformation_profile_parser.add_argument("-spt","--small_projection_threshold", dest='small_projection_threshold', type=float, default=1.0e-10,
                     help='Set the threshold on the angle of the projection of the deformation on the E-sueface norm to be considered valid (default: %(default)s)')
-    ir_profile_parser.add_argument("-max","--max_scaling", dest='max_scaling', type=float, default=1.0e-05,
-                    help='maximum IR scaling to consider')
-    ir_profile_parser.add_argument("-min","--min_scaling", dest='min_scaling', type=float, default=1.0e0,
-                    help='minimum IR scaling to consider')
-    ir_profile_parser.add_argument("-s","--seed", dest='seed', type=int, default=0,
+    deformation_profile_parser.add_argument("-max","--max_scaling", dest='max_scaling', type=float, default=1.0e-05,
+                    help='maximum deformation scaling to consider')
+    deformation_profile_parser.add_argument("-min","--min_scaling", dest='min_scaling', type=float, default=1.0e0,
+                    help='minimum deformation scaling to consider')
+    deformation_profile_parser.add_argument("-s","--seed", dest='seed', type=int, default=0,
                     help='specify random seed')
-    ir_profile_parser.add_argument("-rp","--required_precision", dest='required_precision', type=float, default=None,
+    deformation_profile_parser.add_argument("-rp","--required_precision", dest='required_precision', type=float, default=None,
                     help='minimum required relative precision for returning a result.')
-    ir_profile_parser.add_argument("-t","--target_scaling", dest='target_scaling', type=int, default=1,
-                    help='set target IR scaling (default=0)')
-    ir_profile_parser.add_argument(
+    deformation_profile_parser.add_argument("-t","--target_scaling", dest='target_scaling', type=int, default=1,
+                    help='set target deformation scaling (default=0)')
+    deformation_profile_parser.add_argument(
         "-mm", "--use_mathematica", action="store_true", dest="mathematica", default=False,
         help="Use a mathematica analysis of the E-surfaces.")
-    ir_profile_parser.add_argument(
+    deformation_profile_parser.add_argument(
         "-f", "--f128", action="store_true", dest="f128", default=False,
-        help="Perfom the UV profile using f128 arithmetics.")
-    ir_profile_parser.add_argument(
+        help="Perfom the deformation profile using f128 arithmetics.")
+    deformation_profile_parser.add_argument(
         "-nf", "--no_f128", action="store_true", dest="no_f128", default=False,
         help="Forbid automatic promotion to f128.")
-    ir_profile_parser.add_argument(
+    deformation_profile_parser.add_argument(
         "-nw", "--no_warnings", action="store_false", dest="show_warnings", default=True,
         help="Do not show warnings about this profiling run.")
-    ir_profile_parser.add_argument(
+    deformation_profile_parser.add_argument(
         "-srw", "--show_rust_warnings", action="store_true", dest="show_rust_warnings", default=False,
         help="Show rust warnings.")
-    ir_profile_parser.add_argument(
+    deformation_profile_parser.add_argument(
         "-sof", "--skip_once_failed", action="store_true", dest="skip_once_failed", default=False,
         help="Skip the probing of a supergraph once it failed.")
-    ir_profile_parser.add_argument(
+    deformation_profile_parser.add_argument(
         "-nsof", "--no_skip_once_failed", action="store_false", dest="skip_once_failed", default=False,
         help="Do not skip the probing of a supergraph once it failed.")
-    ir_profile_parser.add_argument(
+    deformation_profile_parser.add_argument(
         "-nsf", "--no_show_fails", action="store_false", dest="show_fails", default=True,
         help="Show exhaustive information for each fail.")
-    ir_profile_parser.add_argument(
+    deformation_profile_parser.add_argument(
         "-relevant_cuts", "--only_relevant_cuts", action="store_true", dest="only_relevant_cuts", default=False,
         help="Only explore the scaling of cuts relevant for a particular E-surface intersection configuration.")
-    ir_profile_parser.add_argument("-n_max","--n_max", dest='n_max', type=int, default=-1,
-                    help='Set the maximum number of IR tests to perform per SG (default: all)')
-    ir_profile_parser.add_argument("-maxnE","--max_E_surfaces_in_intersections", dest='max_E_surfaces_in_intersections', type=int, default=3,
+    deformation_profile_parser.add_argument("-n_max","--n_max", dest='n_max', type=int, default=-1,
+                    help='Set the maximum number of deformation tests to perform per SG (default: all)')
+    deformation_profile_parser.add_argument("-maxnE","--max_E_surfaces_in_intersections", dest='max_E_surfaces_in_intersections', type=int, default=3,
                     help='Set the maximum number of E-surfaces in an intersection (default: 3)')
-    ir_profile_parser.add_argument("-minnE","--min_E_surfaces_in_intersections", dest='min_E_surfaces_in_intersections', type=int, default=1,
+    deformation_profile_parser.add_argument("-minnE","--min_E_surfaces_in_intersections", dest='min_E_surfaces_in_intersections', type=int, default=1,
                     help='Set the minimum number of E-surfaces in an intersection (default: 1)')
-    ir_profile_parser.add_argument("-nshifts","--n_shifts_to_test_for_finding_intersection", dest='n_shifts_to_test_for_finding_intersection', type=int, default=10,
+    deformation_profile_parser.add_argument("-nshifts","--n_shifts_to_test_for_finding_intersection", dest='n_shifts_to_test_for_finding_intersection', type=int, default=10,
                     help='Set the maximum number of shifts to test for finding an intersection (default: %(default)s)')
-    ir_profile_parser.add_argument("-e_surfaces","--e_surfaces", dest='selected_e_surfaces', type=str, nargs='*', default=None,
+    deformation_profile_parser.add_argument("-e_surfaces","--e_surfaces", dest='selected_e_surfaces', type=str, nargs='*', default=None,
                     help='Set the particular E-surfaces to study by specifying their edge names. Example --e_surfaces ("pq1","pq3") ("pq3","pq5","pq8") (default: All)')
-    ir_profile_parser.add_argument("-intersections","--intersections", dest='intersections', type=str, nargs='*', default=None,
+    deformation_profile_parser.add_argument("-intersections","--intersections", dest='intersections', type=str, nargs='*', default=None,
                     help='Only when specifying E-surfaces, then this options allows to specify the intersection of interest. Example --intersections (0,1) (1,2) (default: All)')
-    ir_profile_parser.add_argument("-intersection_point","--intersection_point", dest='intersection_point', type=str, default=None,
+    deformation_profile_parser.add_argument("-intersection_point","--intersection_point", dest='intersection_point', type=str, default=None,
                     help='Specify the intersection point in the LMB (excluding frozen momenta). Example --intersection_point (0.1244323,2.432e+02,...") (default: Automatic)')
-    ir_profile_parser.add_argument("-approach_direction","--approach_direction", dest='approach_direction', type=str, default=None,
+    deformation_profile_parser.add_argument("-approach_direction","--approach_direction", dest='approach_direction', type=str, default=None,
                     help='Particular direction in LMB used for approaching the intersection point. Example --approach_direction "(0.1244323,2.432e+02,1.03,...") (default: random)')
-    ir_profile_parser.add_argument("-reanalyze","--reanalyze_E_surfaces", action="store_true", dest="reanalyze_E_surfaces", default=False,
+    deformation_profile_parser.add_argument("-reanalyze","--reanalyze_E_surfaces", action="store_true", dest="reanalyze_E_surfaces", default=False,
                     help='Force the re-analysis of E-surfaces even if result already found in cache (default: %(default)s)')
-    ir_profile_parser.add_argument("-mc","--multi_channeling", action="store_true", dest="multi_channeling", default=False,
+    deformation_profile_parser.add_argument("-mc","--multi_channeling", action="store_true", dest="multi_channeling", default=False,
                     help='Enable multi_channeling in the evaluation (default: %(default)s)')
-    ir_profile_parser.add_argument("-nose","--no_selfenergy", action="store_false", dest="include_external_selfenergy_SGs", default=True,
+    deformation_profile_parser.add_argument("-nose","--no_selfenergy", action="store_false", dest="include_external_selfenergy_SGs", default=True,
                     help='Discard the analysis for all SGs feature cuts containing external self-energy corrections.')
-    ir_profile_parser.add_argument(
+    deformation_profile_parser.add_argument(
         "-ncl", "--no_check_lib", action="store_false", dest="check_if_lib_file_exists", default=True,
         help="Disable the check that the corresponding library file for this supergraph exists.")
-    ir_profile_parser.add_argument(
+    deformation_profile_parser.add_argument(
         "-sm","--show_momenta", action="store_true", dest="show_momenta", default=False,
-        help="Show the momenta of the edges in the E-surfaces for the intersection point approached in the IR.")
-    ir_profile_parser.add_argument(
+        help="Show the momenta of the edges in the E-surfaces for the intersection deformation approach.")
+    deformation_profile_parser.add_argument(
         "-v", "--verbose", action="store_true", dest="verbose", default=False,
         help="Enable verbose output.")
-    def help_ir_profile(self):
-        self.ir_profile_parser.print_help()
+    def help_deformation_profile(self):
+        self.deformation_profile_parser.print_help()
         return
     # We must wrap this function in a process because of the border effects of the pyO3 rust Python bindings
     @wrap_in_process()
@@ -1803,34 +1803,34 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         'CrossSection.NormalisingFunction.spread'       : 1.0,
         'General.multi_channeling'                      : False
     })
-    def do_ir_profile(self, line):
-        """ Automatically probe all UV limits of a process output."""
+    def do_deformation_profile(self, line):
+        """ Automatically probe all contour deformation E-surface projection limits of a process output."""
 
         from alpha_loop.E_surface_intersection_finder import EsurfaceIntersectionFinder
         import cvxpy
 
         if line=='help':
-            self.ir_profile_parser.print_help()
+            self.deformation_profile_parser.print_help()
             return 
 
         args = self.split_arg(line)
-        args = self.ir_profile_parser.parse_args(args)
+        args = self.deformation_profile_parser.parse_args(args)
 
         if args.multi_channeling:
             self.hyperparameters.set_parameter('General.multi_channeling',True)
-            self.hyperparameters.set_parameter('General.use_optimal_channels',True)
+            self.hyperparameters.set_parameter('General.use_optimal_channels',False)
 
         if args.SG_name is None:
             selected_SGs = list(self.all_supergraphs.keys())
         else:
-            selected_SGs = [args.SG_name,]
+            selected_SGs = args.SG_name
 
         if not args.include_external_selfenergy_SGs:
             prior_length = len(selected_SGs)
             selected_SGs = [ SG_name for SG_name in selected_SGs if not self.all_supergraphs[SG_name].contains_external_selfenergy() ]
             n_discared_SGs = prior_length-len(selected_SGs)
             if n_discared_SGs > 0:
-                logger.warning("The ir_profile command discarded %d supergraphs because they contained cuts with external self-energy corrections and the user specified the option '--no_selfenergy'."%n_discared_SGs)
+                logger.warning("The deformation_profile command discarded %d supergraphs because they contained cuts with external self-energy corrections and the user specified the option '--no_selfenergy'."%n_discared_SGs)
 
         if args.check_if_lib_file_exists:
             skipped_because_of_no_lib_file = []
@@ -1843,7 +1843,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     del selected_SGs[selected_SGs.index(SG_name)]
                     skipped_because_of_no_lib_file.append(SG_name)
             if len(skipped_because_of_no_lib_file)>0:
-                logger.warning("The ir_profile command will ignore the following %d supergraphs since their dynamic library was not found to be compiled yet. Run with '--no_check_lib' to bypass this check.\n%s"%(
+                logger.warning("The deformation_profile command will ignore the following %d supergraphs since their dynamic library was not found to be compiled yet. Run with '--no_check_lib' to bypass this check.\n%s"%(
                     len(skipped_because_of_no_lib_file), ', '.join(skipped_because_of_no_lib_file)
                 ))
 
@@ -1851,7 +1851,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             logger.info("The list of selected supergraph to run the profiling on is empty. Finishing now then.")
             return
         else:
-            logger.info("Now performing a IR profile analysis on %d supergraphs."%len(selected_SGs))
+            logger.info("Now performing a deformation profile analysis on %d supergraphs."%len(selected_SGs))
 
         # We need to detect here if we are in the amplitude-mock-up situation with frozen external momenta.
         frozen_momenta = None
@@ -1883,7 +1883,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             args.intersections = [eval(inter) for inter in args.intersections]
 
         if frozen_momenta and len(selected_SGs)>1:
-            raise alphaLoopInvalidRunCmd("For amplitude LU mockups, the IR profile should be run for a single SG at a time.")
+            raise alphaLoopInvalidRunCmd("For amplitude LU mockups, the deformation profile should be run for a single SG at a time.")
 
         if args.intersection_point is not None:
             args.intersection_point = eval(args.intersection_point)
@@ -1903,7 +1903,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             for entry in self.hyperparameters['General']['stability_checks']:
                 entry['relative_precision'] = args.required_precision
 
-        logger.info("Starting IR profile...")
+        logger.info("Starting deformation profile...")
 
         # Prepare the run
         IR_info_per_SG_and_E_surfaces_set = {}
@@ -1912,7 +1912,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         n_intersections_rejected = 0
 
         with progressbar.ProgressBar(
-                prefix=("IR preparation. E-surface intersections: {variables.intersection} {variables.i_comb}/{variables.n_comb} {variables.inter_found}\u2713, {variables.inter_failed}\u2717, SG: {variables.SG_name} "), 
+                prefix=("Deformation profile preparation. E-surface intersections: {variables.intersection} {variables.i_comb}/{variables.n_comb} {variables.inter_found}\u2713, {variables.inter_failed}\u2717, SG: {variables.SG_name} "), 
                 max_value=len(selected_SGs),variables={
                     'intersection': 'N/A', 'inter_found': 0, 'inter_failed': 0, 'SG_name': 'N/A', 'i_comb': 0, 'n_comb': 0
                 }
@@ -2275,7 +2275,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                             n_intersections_rejected += 1
                             bar.update(inter_failed=n_intersections_rejected)
 
-                logger.info("The IR profiler found a total %d(=%s) intersections for SG %s to inspect."%(
+                logger.info("The deformation profiler found a total %d(=%s) intersections for SG %s to inspect."%(
                     sum(len(v) for v in IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection'].values()),
                     '+'.join(
                         '%d'%len(IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection'][len_comb]) 
@@ -2516,13 +2516,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                         LU_scaling_solutions = rust_worker.get_scaling(rescaled_momenta,cut_ID)
                                         if LU_scaling_solutions is None or len(LU_scaling_solutions)==0 or all(LU_scaling[0]<0. for LU_scaling in LU_scaling_solutions):
                                             if args.show_warnings:
-                                                logger.warning("Could not find rescaling for IR profiling of SG '%s' and cut #%d for the E_surface intersection %s : %s\nInput LMB momenta: %s"%(
+                                                logger.warning("Could not find rescaling for deformation profiling of SG '%s' and cut #%d for the E_surface intersection %s : %s\nInput LMB momenta: %s"%(
                                                     SG_name, cut_ID, str(E_surface_combination), str(LU_scaling_solutions), str(rescaled_momenta) ))
                                             continue
                                         LU_scaling_solutions = list(LU_scaling_solutions)
                                         LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
                                         if LU_scaling>0.0 and args.show_warnings:
-                                            logger.warning("Found unexpected rescaling solutions for IR profiling of SG '%s' and cut #%d for the E_surface intersection %s : %s\nInput LMB momenta: %s"%(
+                                            logger.warning("Found unexpected rescaling solutions for deformation profiling of SG '%s' and cut #%d for the E_surface intersection %s : %s\nInput LMB momenta: %s"%(
                                                     SG_name, cut_ID, str(E_surface_combination), str(LU_scaling_solutions), str(rescaled_momenta) ))
 
                                         while LU_scaling < 0.0:
@@ -2599,7 +2599,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                             if cut_ID is not None:
                                 if args.verbose:
-                                    logger.info("IR scaling detected for cut #%d: %.3f +/- %.4f over %d points (max: %s)."%(
+                                    logger.info("Deformation scaling detected for cut #%d: %.3f +/- %.4f over %d points (max: %s)."%(
                                         cut_ID, dod, standard_error, number_of_points_considered, str(max_result)
                                     ))
                                 if 'cut_results' not in SG['E_surfaces_intersection_analysis'][len(E_surface_combination)][tuple(E_surface_combination)]:
@@ -2626,7 +2626,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                             for E_surf_id, projections in deformation_projection_results.items() )
 
                                 if args.verbose or (not test_passed_per_cut[cut_ID] and args.show_fails):
-                                    logger.info('%s : IR profile of %s and cut_ID #%d with intersection %s. Intersection point:\n%s\nand momenta:\n%s\n%s'%(
+                                    logger.info('%s : Deformation profile of %s and cut_ID #%d with intersection %s. Intersection point:\n%s\nand momenta:\n%s\n%s'%(
                                         '%sPASS%s'%(Colours.GREEN, Colours.END) if test_passed_per_cut[cut_ID] else '%sFAIL%s'%(Colours.RED, Colours.END), SG_name, cut_ID,
                                         str(E_surface_combination), str(intersection_point),momenta_str, rerun_str
                                     ))
@@ -2681,7 +2681,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         do_debug = False
                         if not successful_fit and dod > float(args.target_scaling)-1.:
                             if args.show_warnings:
-                                logger.critical("The fit for the IR scaling of SG '%s' for the E_surface intersection %s is unsuccessful (unstable). Found: %.3f +/- %.4f over %d points."%(
+                                logger.critical("The fit for the Deformation scaling of SG '%s' for the E_surface intersection %s is unsuccessful (unstable). Found: %.3f +/- %.4f over %d points."%(
                                     SG_name, str(E_surface_combination), dod, standard_error, number_of_points_considered
                                 ))
                                 do_debug = True
@@ -2692,7 +2692,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         #    SG_name, UV_edges_str, fixed_edges_str, dod, standard_error, number_of_points_considered
                         #))
                         if (args.verbose or do_debug) or (not test_passed and args.show_fails):
-                            logger.info('%s : IR profile of SG %s with intersection %s. Intersection point:\n%s\nand momenta:\n%s\n%s'%(
+                            logger.info('%s : Deformation profile of SG %s with intersection %s. Intersection point:\n%s\nand momenta:\n%s\n%s'%(
                                 '%sPASS%s'%(Colours.GREEN, Colours.END) if test_passed else '%sFAIL%s'%(Colours.RED, Colours.END), SG_name, 
                                 str(E_surface_combination), str(intersection_point),momenta_str, rerun_str
                             ))
@@ -2726,7 +2726,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     bar.update(SG_passed=SG_passed)
 
         delta_t = time.time()-t_start_profile
-        logger.info("IR profile completed in %d [s]: %s%d%s tests passed and %s failed (and %s fit failed)."%(
+        logger.info("Deformation profile completed in %d [s]: %s%d%s tests passed and %s failed (and %s fit failed)."%(
             int(delta_t),
             Colours.GREEN,
             n_passed,
@@ -2739,14 +2739,262 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         # Write out the results into processed topologies
         self.all_supergraphs.export(pjoin(self.dir_path, self._rust_inputs_folder))
         if len(selected_SGs)==1:
-            self.do_display('%s --ir%s'%(selected_SGs[0],' --show_momenta' if args.show_momenta else ''))
+            self.do_display('%s --deformation%s'%(selected_SGs[0],' --show_momenta' if args.show_momenta else ''))
         else:
-            self.do_display('--ir%s'%(' --show_momenta' if args.show_momenta else ''))
+            self.do_display('--deformation%s'%(' --show_momenta' if args.show_momenta else ''))
+
+
+
+    #### IR PROFILE COMMAND
+    ir_profile_parser = ArgumentParser(prog='deformation_profile')
+    ir_profile_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='+',
+                    help='the name(s) of a supergraph to run the IR profile for')
+    ir_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=20,
+                    help='force a certain number of points to be considered for the ir profile')
+    ir_profile_parser.add_argument("-max","--max_scaling", dest='max_scaling', type=float, default=1.0e-05,
+                    help='maximum IR scaling to consider')
+    ir_profile_parser.add_argument("-min","--min_scaling", dest='min_scaling', type=float, default=1.0e0,
+                    help='minimum IR scaling to consider')
+    ir_profile_parser.add_argument("-s","--seed", dest='seed', type=int, default=0,
+                    help='specify random seed')
+    ir_profile_parser.add_argument("-rp","--required_precision", dest='required_precision', type=float, default=None,
+                    help='minimum required relative precision for returning a result.')
+    ir_profile_parser.add_argument("-t","--target_scaling", dest='target_scaling', type=int, default=1,
+                    help='set target IR scaling (default=-1)')
+    ir_profile_parser.add_argument(
+        "-f", "--f128", action="store_true", dest="f128", default=False,
+        help="Perfom the IR profile using f128 arithmetics.")
+    ir_profile_parser.add_argument(
+        "-nf", "--no_f128", action="store_true", dest="no_f128", default=False,
+        help="Forbid automatic promotion to f128.")
+    ir_profile_parser.add_argument(
+        "-nw", "--no_warnings", action="store_false", dest="show_warnings", default=True,
+        help="Do not show warnings about this IR profiling run.")
+    ir_profile_parser.add_argument(
+        "-srw", "--show_rust_warnings", action="store_true", dest="show_rust_warnings", default=False,
+        help="Show rust warnings.")
+    ir_profile_parser.add_argument(
+        "-sof", "--skip_once_failed", action="store_true", dest="skip_once_failed", default=False,
+        help="Skip the probing of a supergraph once it a test failed.")
+    ir_profile_parser.add_argument(
+        "-nsof", "--no_skip_once_failed", action="store_false", dest="skip_once_failed", default=False,
+        help="Do not skip the probing of a supergraph once it a test failed.")
+    ir_profile_parser.add_argument(
+        "-nsf", "--no_show_fails", action="store_false", dest="show_fails", default=True,
+        help="Show exhaustive information for each fail.")
+    ir_profile_parser.add_argument("-n_max","--n_max", dest='n_max', type=int, default=-1,
+                    help='Set the maximum number of IR tests to perform per SG (default: all)')
+    ir_profile_parser.add_argument("-irl","--ir_limits", dest='ir_limits', type=str, nargs='*', default=None,
+                    help='Specify the particular IR limits for this ir profile. Example --ir_limits [ "C(pq1,-pq3,d1) C(-pq3,pq5,-pq8,d2) S(pq7,pq8)", "S(pq3)" ] (default: All)')
+    ir_profile_parser.add_argument("-cd","--collinear_directions", dest='collinear_directions', type=str, default=None,
+                    help='Specify the collinear dictions to con consider for the approach (excluding frozen momenta). Example --collinear_directions "[(0.1244323,2.432e+02,...),(0.23,...)]" (default: Automatic)')
+    ir_profile_parser.add_argument("-approach_direction","--approach_direction", dest='approach_direction', type=str, default=None,
+                    help='Particular direction in LMB used for approaching the IR configuration. Example --approach_direction "(0.1244323,2.432e+02,1.03,...)" (default: random)')
+    ir_profile_parser.add_argument("-mc","--multi_channeling", action="store_true", dest="multi_channeling", default=False,
+                    help='Enable multi_channeling in the evaluation (default: %(default)s)')
+    ir_profile_parser.add_argument("-nose","--no_selfenergy", action="store_false", dest="include_external_selfenergy_SGs", default=True,
+                    help='Discard the analysis for all SGs feature cuts containing external self-energy corrections.')
+    ir_profile_parser.add_argument(
+        "-ncl", "--no_check_lib", action="store_false", dest="check_if_lib_file_exists", default=True,
+        help="Disable the check that the corresponding library file for this supergraph exists.")
+    ir_profile_parser.add_argument(
+        "-sm","--show_momenta", action="store_true", dest="show_momenta", default=False,
+        help="Show the terminal kinematic configuration approached for this IR limit.")
+    ir_profile_parser.add_argument(
+        "-v", "--verbose", action="store_true", dest="verbose", default=False,
+        help="Enable verbose output.")
+    def help_ir_profile(self):
+        self.ir_profile_parser.print_help()
+        return
+    # We must wrap this function in a process because of the border effects of the pyO3 rust Python bindings
+    @wrap_in_process()
+    @with_tmp_hyperparameters({
+        'Integrator.dashboard'                          : False,
+        'General.minimal_precision_for_returning_result': 1.0,
+        'CrossSection.NormalisingFunction.name'         : 'left_right_exponential',
+        'CrossSection.NormalisingFunction.center'       : 1.0,
+        'CrossSection.NormalisingFunction.spread'       : 1.0,
+        'General.multi_channeling'                      : False
+    })
+    def do_ir_profile(self, line):
+        """ Automatically probe all IR limits of a process output."""
+
+        if line=='help':
+            self.ir_profile_parser.print_help()
+            return 
+
+        args = self.split_arg(line)
+        args = self.ir_profile_parser.parse_args(args)
+
+        if args.multi_channeling:
+            self.hyperparameters.set_parameter('General.multi_channeling',True)
+            self.hyperparameters.set_parameter('General.use_optimal_channels',False)
+
+        if args.SG_name is None:
+            selected_SGs = list(self.all_supergraphs.keys())
+        else:
+            selected_SGs = args.SG_name
+
+        if not args.include_external_selfenergy_SGs:
+            prior_length = len(selected_SGs)
+            selected_SGs = [ SG_name for SG_name in selected_SGs if not self.all_supergraphs[SG_name].contains_external_selfenergy() ]
+            n_discared_SGs = prior_length-len(selected_SGs)
+            if n_discared_SGs > 0:
+                logger.warning("The ir_profile command discarded %d supergraphs because they contained cuts with external self-energy corrections and the user specified the option '--no_selfenergy'."%n_discared_SGs)
+
+        if args.check_if_lib_file_exists:
+            skipped_because_of_no_lib_file = []
+            for SG_name in list(selected_SGs):
+                if SG_name in self.all_supergraphs and 'FORM_integrand' in self.all_supergraphs[SG_name]:
+                    lib_file_name = pjoin(self.dir_path, self._lib_folder, 'libFORM_sg_%d.so'%(self.all_supergraphs[SG_name]['FORM_integrand']['call_signature']['id']))
+                else:
+                    lib_file_name = None
+                if lib_file_name is None or not os.path.isfile(lib_file_name):
+                    del selected_SGs[selected_SGs.index(SG_name)]
+                    skipped_because_of_no_lib_file.append(SG_name)
+            if len(skipped_because_of_no_lib_file)>0:
+                logger.warning("The ir_profile command will ignore the following %d supergraphs since their dynamic library was not found to be compiled yet. Run with '--no_check_lib' to bypass this check.\n%s"%(
+                    len(skipped_because_of_no_lib_file), ', '.join(skipped_because_of_no_lib_file)
+                ))
+
+        if len(selected_SGs)==0:
+            logger.info("The list of selected supergraph to run the profiling on is empty. Finishing now then.")
+            return
+        else:
+            logger.info("Now performing an IR profile analysis on %d supergraphs."%len(selected_SGs))
+
+        # We need to detect here if we are in the amplitude-mock-up situation with frozen external momenta.
+        frozen_momenta = None
+        if 'external_data' in self.cross_section_set:
+            frozen_momenta = {
+                'in' : self.cross_section_set['external_data']['in_momenta'],
+                'out' : self.cross_section_set['external_data']['out_momenta'],
+            }
+            # Also force the specified incoming momenta specified in the hyperparameters to match the frozen specified ones.
+            self.hyperparameters.set_parameter('CrossSection.incoming_momenta',frozen_momenta['in'])
+            self.hyperparameters.set_parameter('CrossSection.do_rescaling',False)
+            self.hyperparameters.set_parameter('CrossSection.fixed_cut_momenta',frozen_momenta['out'])
+
+            # Sanity check that the user only supplied the *independent* frozen momenta of the LMB
+            if len(frozen_momenta['out'])-len(self.all_supergraphs[selected_SGs[0]]['cutkosky_cuts'][0]['cuts'])!=-1:
+                raise alphaLoopInvalidRunCmd("Make sure the number of frozen momenta specified in the 'external_data' of the cross_section_set yaml is only the *independent* frozen momenta.")
+
+        if args.required_precision is None:
+            self.hyperparameters['General']['stability_checks'][-1]['relative_precision']=1.0e-99
+        else:
+            for entry in self.hyperparameters['General']['stability_checks']:
+                entry['relative_precision'] = args.required_precision
+
+        if frozen_momenta and len(selected_SGs)>1:
+            raise alphaLoopInvalidRunCmd("For amplitude LU mockups, the ir profile should be run for a single SG at a time.")
+
+        if args.collinear_directions is not None:
+            args.approach_direction = eval(args.approach_direction)
+
+        if args.approach_direction is not None:
+            args.approach_direction = eval(args.approach_direction)
+            if len(args.approach_direction) != (self.all_supergraphs[selected_SGs[0]]['topo']['n_loops'] - (0 if frozen_momenta is None else len(frozen_momenta['out'])))*3:
+                raise alphaLoopInvalidRunCmd("Expected %d components for the approach direction, but only %d were specified."%(
+                    (self.all_supergraphs[selected_SGs[0]]['topo']['n_loops'] - (0 if frozen_momenta is None else len(frozen_momenta['out'])))*3 ,len(args.approach_direction))) 
+
+        if args.ir_limits is not None:
+            #TODO parse IR limits
+            pass
+
+        logger.info("Starting IR profile...")
+
+        # TODO ACTUALLY PREPARE IR PROFILE
+
+        # Prepare the run
+        IR_limits_per_SG_and_cut = {}
+
+        for i_SG, SG_name in enumerate(selected_SGs):
+
+            SG = self.all_supergraphs[SG_name]
+            pass
+
+        # TODO ACTUALLY RUN IR PROFILE ADJUST TEMPLATE BELOW
+
+
+
+
+        # Compute the log-spaced sequence of rescaling
+        scalings = [ 10.**((math.log10(args.min_scaling)+i*((math.log10(args.max_scaling)-math.log10(args.min_scaling))/(args.n_points-1))))
+                        for i in range(args.n_points) ]
+
+        # WARNING it is important that the rust workers instantiated only go out of scope when this function terminates
+        rust_workers = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+        if args.f128 or not args.no_f128:
+            hyperparameters_backup=copy.deepcopy(self.hyperparameters)
+            for entry in self.hyperparameters['General']['stability_checks']:
+                entry['prec'] = 32
+            rust_workers_f128 = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+            self.hyperparameters = hyperparameters_backup
+        t_start_profile = time.time()
+        n_passed = 0
+        n_failed = 0
+        n_fit_failed = 0
+        SG_passed = 0
+        SG_failed = 0
+
+        with progressbar.ProgressBar(
+                prefix=("IR profiling. E-surface intersection: {variables.intersection} {variables.i_comb}/{variables.n_comb} {variables.passed}\u2713, {variables.failed}\u2717, SGs: {variables.SG_passed}\u2713, {variables.SG_failed}\u2717, SG: {variables.SG_name} "), 
+                max_value=len(selected_SGs),variables={
+                    'intersection': 'N/A', 'passed': 0, 'failed': 0, 'SG_name': 'N/A', 'i_comb': 0, 'n_comb': 0, 'SG_passed': 0, 'SG_failed': 0
+                }
+            ) as bar:
+
+            for i_SG, SG_name in enumerate(selected_SGs):
+                
+                SG = self.all_supergraphs[SG_name]
+
+                E_surfaces = IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces']
+                SG['E_surfaces_analysis'] = E_surfaces
+                SG['E_surfaces_intersection_analysis'] = {}
+
+                E_surfaces_intersection_analysis = IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection']
+                E_surf_connectivity_matrix = IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_connectivity']
+            
+                if args.seed != 0:
+                    random.seed(args.seed)
+
+                skip_furhter_tests_in_this_SG = False
+                this_SG_failed = False
+
+                E_cm = SG.get_E_cm(self.hyperparameters)
+
+                if args.approach_direction is None:
+                    approach_direction = [ Vector([random.random()*E_cm for i_comp in range(0,3)]) for i_vec in range(0, SG['n_loops']-(len(frozen_momenta['out']) if frozen_momenta is not None else 0) ) ]
+                else:                    
+                    approach_direction = [ Vector(list(args.approach_direction[i:i+3])) for i in range(0,len(args.approach_direction),3) ]
+                    if len(approach_direction)!=( SG['n_loops']-(len(frozen_momenta['out']) if frozen_momenta is not None else 0) ):
+                        raise alphaLoopInvalidRunCmd("The specified approach direction does not specify %d*3 components."%SG['n_loops'])
+
+                if frozen_momenta is not None:
+                    # Never leave off the frozen momenta
+                    approach_direction += [ Vector([0.,0.,0.]), ]*len(frozen_momenta['out'])             
+
+                bar.update(SG_name=SG_name)
+                bar.update(i_SG)
+                bar.update(n_comb=sum(len(E_surfaces_intersection_analysis[len_comb]) for len_comb in E_surfaces_intersection_analysis))
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     #### UV PROFILE COMMAND
     uv_profile_parser = ArgumentParser(prog='uv_profile')
-    uv_profile_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='?',
-                    help='the name of a supergraph to display')
+    uv_profile_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='+',
+                    help='the name(s) of a supergraph to display')
     uv_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=20,
                     help='force a certain number of points to be considered for the uv profile')
     uv_profile_parser.add_argument("-max","--max_scaling", dest='max_scaling', type=float, default=1.0e5,
@@ -2758,7 +3006,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     uv_profile_parser.add_argument("-s","--seed", dest='seed', type=int, default=0,
                     help='specify random seed')
     uv_profile_parser.add_argument("-t","--target_scaling", dest='target_scaling', type=int, default=-1,
-                    help='set target UV scaling (default=0)')
+                    help='set target UV scaling (default=-1)')
     uv_profile_parser.add_argument("-hp","--h_power", dest='h_power', type=int, default=7,
                     help='h function dampening power')
     uv_profile_parser.add_argument("--LMB", dest='LMB', type=str, nargs='*', default=None,
@@ -2822,7 +3070,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if args.SG_name is None:
             selected_SGs = list(self.all_supergraphs.keys())
         else:
-            selected_SGs = [args.SG_name,]
+            selected_SGs = args.SG_name
 
         if not args.include_external_selfenergy_SGs:
             prior_length = len(selected_SGs)
@@ -3328,14 +3576,14 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         '--uv',action="store_true", dest="uv", default=False,
         help="Show UV profile information")
     display_parser.add_argument(
-        '--ir',action="store_true", dest="ir", default=False,
-        help="Show IR profile information")
+        '--deformation',action="store_true", dest="deformation", default=False,
+        help="Show deformation profile information")
     display_parser.add_argument(
         "-f","--full", action="store_true", dest="full", default=False,
         help="exhaustively show information")
     display_parser.add_argument(
         "-sm","--show_momenta", action="store_true", dest="show_momenta", default=False,
-        help="Show the momenta of the edges in the E-surfaces for the intersection point approached in the IR.")
+        help="Show the momenta of the edges in the E-surfaces for the intersection point approached in the deformation profile.")
     def help_display(self):
         self.display_parser.print_help()
         return
@@ -3384,16 +3632,16 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     self.all_supergraphs.show_UV_statistics()
                 ))
 
-        if args.ir:
+        if args.deformation:
             if args.SG_name:
                 sg_collection = SuperGraphCollection()
                 sg_collection[args.SG_name] = self.all_supergraphs[args.SG_name]
-                logger.info("UV profile for supergraph '%s':\n%s"%(
-                    args.SG_name, sg_collection.show_IR_statistics(show_momenta=args.show_momenta, external_momenta=external_momenta)
+                logger.info("Deformation profile for supergraph '%s':\n%s"%(
+                    args.SG_name, sg_collection.show_deformation_statistics(show_momenta=args.show_momenta, external_momenta=external_momenta)
                 ))
             else:
-                logger.info("Overall UV profile for all supergraphs:\n%s"%(
-                    self.all_supergraphs.show_IR_statistics(show_momenta=args.show_momenta, external_momenta=external_momenta)
+                logger.info("Overall deformation profile for all supergraphs:\n%s"%(
+                    self.all_supergraphs.show_deformation_statistics(show_momenta=args.show_momenta, external_momenta=external_momenta)
                 ))
 
         # Only show general statistics when not showing anything else
