@@ -432,18 +432,21 @@ id vx(?a,x1?,p1?,p2?,p3,p4?,x2?,?b) = vx(?a,x1,p1,p2,p3,p4,x2,?b)*g(p1,-p1)*g(p2
 
 * TODO: for 2-loop delta_m, multiply the result by massct so that the power of massct reflects the number of loops
 
+id prop(`GLU',virtual,p1?,idx1?,idx2?) = prop(`GLU',virtual,p1,idx1,idx2)*g(idx1,idx2); * gluon momentum and index can appear in any order
+
 * TODO: understand fudge factor 4/3
 id ifmatch->massctdone prop(x2?{`Q'},virtual,p7?,idx4?,idx3?)*
-    prop(`GLU',virtual,p8?,idx2?,idx5?)*
+    prop(`GLU',virtual,p8?,idx7?,idx8?)*
     vx(x1?{`QBAR'},`GLU',x2?{`Q'},p1?,p2?,p3?,idx1?,idx2?,idx3?)*
     vx(x1?{`QBAR'},`GLU',x2?{`Q'},p4?,p5?,p6?,idx4?,idx5?,idx6?)*
-    g(p1?,p6?)*g(p2?,p8?)*g(p3?,p4?)*g(p4?,p7?)*g(p5?,p2?)*g(p6?,p1?) =
+    g(p1?,p6?)*g(p3?,p4?)*g(p4?,p7?)*g(p5?,p2?)*g(p6?,p1?)*g(idx2?,idx5?) =
         + i_ * ((4/3)/16/pi^2) * (rat(-3,ep) + (-4 - 3*(logmu - logmasses(x1)))) * masses(x1) * gamma(dirac[idx1], dirac[idx6]);
 
     Print "Unsubstituted massct: %t";
     exit "Critical error";
 
     label massctdone;
+    id g(p1?,p2?) = 1;
 endif;
 
 * virtual edges
