@@ -415,8 +415,16 @@ hyperparameters = HyperParameters({
     },
 
     'Selectors'   :   {
-        # options: jet
+        # options: jet, ranged
         'active_selectors'          :   [],
+        'ranged' : [
+            { 'pdgs'                :   [-6,6,25],
+              # options: E, CosThetaP, pT
+              'filter'              :   'E',
+              'min_value'           :   0.,
+              'max_value'           :   1000.,
+            }
+        ],
         'jet': {
             'min_jets'              :   2,
             'max_jets'              :   100,

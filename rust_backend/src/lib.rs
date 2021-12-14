@@ -475,16 +475,38 @@ pub struct Jet1PTSettings {
     pub use_fastjet: bool,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[allow(non_snake_case)]
+pub struct RangedSelectorSettings {
+    pub pdgs: Vec<isize>,
+    pub filter: FilterQuantity,
+    pub min_value: f64,
+    pub max_value: f64,
+}
+
+#[derive(Debug, Copy, Clone, Deserialize, PartialEq)]
+pub enum FilterQuantity {
+    #[serde(rename = "E")]
+    Energy,
+    #[serde(rename = "CosThetaP")]
+    CosThetaP,
+    #[serde(rename = "pT")]
+    PT
+}
+
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 pub enum SelectorMode {
     #[serde(rename = "jet")]
     Jet,
+    #[serde(rename = "ranged")]
+    Ranged,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[allow(non_snake_case)]
 pub struct PhaseSpaceSelectorSettings {
     pub active_selectors: Vec<SelectorMode>,
+    pub ranged: Vec<RangedSelectorSettings>,
     pub jet: JetSliceSettings,
 }
 

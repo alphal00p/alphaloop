@@ -1,6 +1,9 @@
 use crate::dashboard::{StatusUpdate, StatusUpdateSender};
 use crate::squared_topologies::CutkoskyCut;
-use crate::{FloatLike, JetSliceSettings, ObservableMode, SelectorMode, Settings};
+use crate::{
+    FilterQuantity, FloatLike, JetSliceSettings, ObservableMode, RangedSelectorSettings,
+    SelectorMode, Settings,
+};
 use itertools::Itertools;
 use libc::{c_double, c_int, c_void};
 use lorentz_vector::LorentzVector;
@@ -35,7 +38,7 @@ pub struct EventInfo {
     pub accepted_event_counter: usize,
     pub rejected_event_counter: usize,
     pub no_phase_space_counter: usize,
-    pub zero_eval_counter: usize
+    pub zero_eval_counter: usize,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -162,6 +165,16 @@ impl EventManager {
         let mut selectors = vec![];
         for s in &settings.selectors.active_selectors {
             match s {
+                &SelectorMode::Ranged => {
+                    selectors.push(Selectors::Ranged(
+                        settings
+                            .selectors
+                            .ranged
+                            .iter()
+                            .map(|r| RangedSelector::new(r))
+                            .collect(),
+                    ));
+                }
                 SelectorMode::Jet => {
                     selectors.push(Selectors::Jet(JetSelector::new(&settings.selectors.jet)));
                 }
@@ -176,7 +189,7 @@ impl EventManager {
             accepted_event_counter: 0,
             rejected_event_counter: 0,
             no_phase_space_counter: 0,
-            zero_eval_counter : 0,
+            zero_eval_counter: 0,
             time_integrand_evaluation: false,
             integrand_evaluation_timing: 0,
             integrand_evaluation_timing_start: None,
@@ -282,7 +295,7 @@ impl EventManager {
                 accepted_event_counter: self.accepted_event_counter,
                 rejected_event_counter: self.rejected_event_counter,
                 no_phase_space_counter: self.no_phase_space_counter,
-                zero_eval_counter: self.zero_eval_counter
+                zero_eval_counter: self.zero_eval_counter,
             }))
             .unwrap();
     }
@@ -303,7 +316,7 @@ impl EventManager {
                 accepted_event_counter: self.accepted_event_counter,
                 rejected_event_counter: self.rejected_event_counter,
                 no_phase_space_counter: self.no_phase_space_counter,
-                zero_eval_counter : self.zero_eval_counter
+                zero_eval_counter: self.zero_eval_counter,
             }))
             .unwrap();
     }
@@ -350,6 +363,7 @@ pub struct Event {
 pub enum Selectors {
     All(NoEventSelector),
     Jet(JetSelector),
+    Ranged(Vec<RangedSelector>),
 }
 
 impl Selectors {
@@ -358,6 +372,14 @@ impl Selectors {
         match self {
             Selectors::All(f) => f.process_event(event),
             Selectors::Jet(f) => f.process_event(event),
+            Selectors::Ranged(f) => {
+                for range in f {
+                    if !range.process_event(event) {
+                        return false;
+                    }
+                }
+                true
+            }
         }
     }
 }
@@ -374,6 +396,49 @@ impl EventSelector for NoEventSelector {
     #[inline]
     fn process_event(&mut self, _event: &mut Event) -> bool {
         true
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RangedSelector {
+    pdgs: Vec<isize>,
+    filter: FilterQuantity,
+    min_value: f64,
+    max_value: f64,
+}
+
+impl EventSelector for RangedSelector {
+    #[inline]
+    fn process_event(&mut self, event: &mut Event) -> bool {
+        for (pdg, mom) in event
+            .final_state_particle_ids
+            .iter()
+            .zip(&event.kinematic_configuration.1)
+        {
+            if self.pdgs.contains(pdg) {
+                let value = match self.filter {
+                    FilterQuantity::Energy => mom.t,
+                    FilterQuantity::CosThetaP => mom.z / mom.spatial_distance(),
+                    FilterQuantity::PT => mom.pt(),
+                };
+
+                if value < self.min_value || value > self.max_value {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+}
+
+impl RangedSelector {
+    pub fn new(s: &RangedSelectorSettings) -> RangedSelector {
+        RangedSelector {
+            pdgs: s.pdgs.clone(),
+            filter: s.filter,
+            min_value: s.min_value,
+            max_value: s.max_value,
+        }
     }
 }
 
