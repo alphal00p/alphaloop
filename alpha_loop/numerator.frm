@@ -173,7 +173,8 @@ CF subs, configurations, conf, tder, cmb, cbtofmb, fmbtocb, diag, forestid, der,
 CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, irtopo, intuv, integrateduv, gluonbubble;
 CT gammatracetensor(c),opengammastring;
 
-S UVRenormFINITE, massct, ICT, mUV, logmu, logmUV, logmt, mi1L1, alarmMi1L1;
+CF logmUVmu; * make it a function so that the optimizer makes sure it is only computed once
+S UVRenormFINITE, massct, ICT, mUV, logmu, logmUV, logmt, z3, mi1L1, alarmMi1L1;
 Fill logmasses(6) = logmt;
 Fill logmasses(-6) = logmt;
 

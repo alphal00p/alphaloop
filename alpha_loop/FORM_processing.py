@@ -2888,6 +2888,7 @@ const complex<double> I{ 0.0, 1.0 };
                         total_time += time.time()-time_before
                         num = num.replace('i_', 'I')
                         num = num.replace('\nZ', '\n\tZ') # nicer indentation
+                        num = num.replace('\\\n', '') # remove breaks in long numbers
 
                         energies_per_cut = {}
                         propagators_per_cut = {}
@@ -2992,7 +2993,7 @@ const complex<double> I{ 0.0, 1.0 };
                             
 
                             if denominator_mode == 'FOREST':
-                                main_code = conf_sec.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(masst*masst)')
+                                main_code = conf_sec.replace('logmUVmu', 'log(mUV*mUV/(mu*mu))').replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(masst*masst)')
                                 main_code_with_diag_call = diag_pattern.sub(r'diag_\1(lm, params, E, invd)', main_code)
                                 integrand_main_code += '\nstatic {0} forest_{2}({0} lm[], {1} params[], {0} E[], {0} invd[]) {{{3}\n{4}}}'.format(
                                     dual_base_type, base_type, abs(int(conf[0])),
@@ -3018,7 +3019,7 @@ const complex<double> I{ 0.0, 1.0 };
                                 )
                             elif denominator_mode == 'DIAG':
                                 main_code = conf_sec
-                                main_code = main_code.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(masst*masst)')
+                                main_code = main_code.replace('logmUVmu', 'log(mUV*mUV/(mu*mu))').replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(masst*masst)')
                                 integrand_main_code += '\nstatic {0} diag_{2}({0} lm[], {1} params[], {0} E[], {0} invd[]) {{{3}\n{4}}}'.format(dual_base_type, base_type, abs(int(conf[0])),
                                     '\n\t{} {};'.format(dual_base_type, ','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code
                                 )
@@ -3055,7 +3056,7 @@ const complex<double> I{ 0.0, 1.0 };
                                            '\t{} {};'.format(dual_base_type, ','.join(temp_vars)) +\
                                            conf_sec
 
-                                main_code = conf_sec.replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(masst*masst)')
+                                main_code = conf_sec.replace('logmUVmu', 'log(mUV*mUV/(mu*mu))').replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(masst*masst)')
                                 main_code_with_forest_call = forest_pattern.sub(r'forest_\1(lm, params, E, invd)', main_code)
                                 integrand_main_code += '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}({0} lm[], {1} params[], {0}* out) {{{5}}}'.format(dual_base_type, base_type, itype, i, int(conf[0]),
                                     main_code_with_forest_call
