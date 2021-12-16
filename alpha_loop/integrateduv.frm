@@ -367,12 +367,14 @@ CF uvid;
     #enddo
     .sort:reduction-3l-end;
 
-    argument rat;
-        if (count(ep,1) == -2);
-            Print "Deep spurious pole detected";
-            exit "Critical error";
-        endif;
-    endargument;
+    if (match(uvid(3,?a)));
+        argument rat;
+            if (count(ep,1) == -2);
+                Print "Deep spurious pole detected";
+                exit "Critical error";
+            endif;
+        endargument;
+    endif;
     
 #endprocedure
 
