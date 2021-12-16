@@ -167,7 +167,7 @@ Set dirac: s1,...,s40;
 Set lorentz: mu1,...,mu40;
 Set lorentzdummy: mud1,...,mud40;
 
-CF gamma, gammatrace(c), GGstring, NN, vector,g(s),delta(s),T, counter,color, prop, replace;
+CF gamma, gammatrace(c), GGstring, NN, vector,g(s),delta(s),tmps(s),T, counter,color, prop, replace;
 CF f, vx, vxs(s), uvx, vec, vec1;
 CF subs, configurations, conf, tder, cmb, cbtofmb, fmbtocb, diag, forestid, der, energy, spatial(s), onshell, uvcutoff;
 CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, irtopo, intuv, integrateduv, gluonbubble;
