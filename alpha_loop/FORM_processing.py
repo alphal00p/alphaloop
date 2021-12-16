@@ -3047,9 +3047,9 @@ const complex<double> I{ 0.0, 1.0 };
 
                                 # generate the code for the energies and invds
                                 max_energy = max((eid + 1 for (cid, eid) in energies_per_cut if cid == cut_id), default=0)
-                                energies = ['0' if (cut_id, jj) not in energies_per_cut else energies_per_cut[(cut_id, jj)] for jj in range(max_energy)]
+                                energies = [('0' if not dual_num_mode else '{}()'.format(dual_base_type)) if (cut_id, jj) not in energies_per_cut else energies_per_cut[(cut_id, jj)] for jj in range(max_energy)]
                                 max_denom = max((eid + 1 for (cid, eid) in propagators_per_cut if cid == cut_id), default=0)
-                                denoms = ['0' if (cut_id, jj) not in propagators_per_cut else propagators_per_cut[(cut_id, jj)] for jj in range(max_denom)]
+                                denoms = [('0' if not dual_num_mode else '{}()'.format(dual_base_type)) if (cut_id, jj) not in propagators_per_cut else propagators_per_cut[(cut_id, jj)] for jj in range(max_denom)]
 
                                 conf_sec = '\n\t{} E[] = {{{}}};\n'.format(dual_base_type, ('0' if not dual_num_mode else '{}()'.format(dual_base_type)) if len(energies) == 0 else ','.join(energies)) + \
                                            '\t{} invd[] = {{{}}};\n'.format(dual_base_type, ('0' if not dual_num_mode else '{}()'.format(dual_base_type)) if len(denoms) == 0 else ','.join(denoms)) + \
