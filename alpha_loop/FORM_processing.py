@@ -81,9 +81,10 @@ FORM_processing_options = {
     # If positive and equal to N, the Nth LMB will be used for the reference implementation of the supergraph.
     'reference_lmb' : None,
     'FORM_call_sig_id_offset_for_additional_lmb' : 1000000,
-    'generate_arb_prec_output': False,
+    'generate_arb_prec_output' : False,
     'generate_integrated_UV_CTs' : True,
     'on_shell_renormalisation' : False,
+    'perform_msbar_subtraction' : True,
     'generate_renormalisation_graphs' : False,
     'include_integration_channel_info' : True,
     'UV_min_dod_to_subtract' : 0,
@@ -616,6 +617,9 @@ aGraph=%s;
                 original_LMB = all_lmbs[(FORM_processing_options['reference_lmb']-1)%len(all_lmbs)]
             else:
                 original_LMB = all_lmbs[forced_LMB_index]
+
+            # Sort the LMB according to PDGs.
+            original_LMB=tuple(sorted(original_LMB,key=lambda e_key: abs(edge_name_to_pdg[edge_key_to_name[e_key]])))
 
             # Regenerate the topology with this new overwritten LMB
             topo_generator, _, _ = self.get_topo_generator(specified_LMB=[ edge_key_to_name[e_key] for e_key in original_LMB ])
@@ -2016,6 +2020,8 @@ class FORMSuperGraphIsomorphicList(list):
             'SELECTEDEPSILONORDER':'%d'%FORM_processing_options['selected_epsilon_UV_order'],
             'OPTIMISATIONSTRATEGY':FORM_processing_options['optimisation_strategy'],
         }
+        if not FORM_processing_options['perform_msbar_subtraction']:
+            FORM_vars['NOMSBARSUBTRACTION'] = 1 
 
         if FORM_processing_options['renormalisation_finite_terms']=='together':
             # Keep all terms, so set the discared power to 0
