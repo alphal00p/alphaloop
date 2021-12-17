@@ -793,11 +793,9 @@ repeat id subgraph(?a,p?) = subgraph(?a);
 
     if (count(massct, 1));
 * divide by the normalizing factor of the denominator that is added to the topology
-        if (count(massct,1) == 1) Multiply i_ * (4 * pi)^2 * 2 * mUV2^2;
-        if (count(massct,1) == 2) Multiply (i_ * (4 * pi)^2 * 2 * mUV2^2)^2;
+        id massct^n? = (i_ * (4 * pi)^2 * 2 * mUV2^2)^n;
         id uvprop(?a) = 1;
         id uvtopo(?a) = 1;
-        id massct = 1;
         id tmax = 1;
     endif;
 
@@ -936,9 +934,10 @@ repeat id subgraph(?a,p?) = subgraph(?a);
 * divide by the normalizing factor of the denominator that is added to the topology
 * this is always 1/(k^2 - m_UV^2)^3 = -i / (4 pi)^2 * 1/2 * 1/mUV^2
 * use mUV2 so that it is ignored in the Taylor expansion
-* TODO: find a better way to know the number of loops
-        if (count(uvprop,1) == 1) Multiply i_ * (4 * pi)^2 * 2 * mUV2^2;
-        if (count(uvprop,1) == 3) Multiply (i_ * (4 * pi)^2 * 2 * mUV2^2)^2;
+* determine the number of loops with E - V + 1
+        Multiply replace_(vxs,vx);
+        id vx(?a) = x1*x2^nargs_(?a)*vxs(?a);
+        id x1^n1?*x2^n2? = (i_ * (4 * pi)^2 * 2 * mUV2^2)^(n2/2 - n1 + 1);
     endif;
 
     #call IntegrateUV()
