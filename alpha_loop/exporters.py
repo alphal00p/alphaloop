@@ -350,9 +350,12 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
                     pjoin(FORM_output_path, 'Makefile'))
 
             for n in ('mpcomplex.h', 'mpreal.h', 'dual.h', 'dualt2.h', 'dualkt2.h'):
-                shutil.copy(pjoin(plugin_path, n),
-                        pjoin(self.dir_path,'FORM', n))
-
+                shutil.copy(pjoin(plugin_path, n), pjoin(self.dir_path,'FORM', n))
+            if os.path.isfile(pjoin(plugin_path,'Templates','makefile_user_opts.inc')):
+                shutil.copy(pjoin(plugin_path,'Templates','makefile_user_opts.inc'), pjoin(self.dir_path,'FORM', 'makefile_user_opts.inc'))
+            else:
+                shutil.copy(pjoin(plugin_path,'Templates','makefile_user_opts_default.inc'), pjoin(self.dir_path,'FORM', 'makefile_user_opts.inc'))
+                
             # Also output a copy of the input super-graph sent to the FORM processor.
             graph_dumps = []
             graph_dumps.append("graphs=[]")
@@ -1361,8 +1364,11 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                     pjoin(self.dir_path,'FORM', 'Makefile'))
             for n in ('mpcomplex.h', 'mpreal.h', 'dual.h', 'dualt2.h', 'dualkt2.h'):
-                shutil.copy(pjoin(plugin_path, n),
-                        pjoin(self.dir_path,'FORM', n))
+                shutil.copy(pjoin(plugin_path, n), pjoin(self.dir_path,'FORM', n))
+            if os.path.isfile(pjoin(plugin_path,'Templates','makefile_user_opts.inc')):
+                shutil.copy(pjoin(plugin_path,'Templates','makefile_user_opts.inc'), pjoin(self.dir_path,'FORM', 'makefile_user_opts.inc'))
+            else:
+                shutil.copy(pjoin(plugin_path,'Templates','makefile_user_opts_default.inc'), pjoin(self.dir_path,'FORM', 'makefile_user_opts.inc'))
 
             if self.alphaLoop_options['n_rust_inputs_to_generate']<0:
                 if self.alphaLoop_options['n_jets'] is None:
@@ -1770,8 +1776,11 @@ class LUScalarTopologyExporter(QGRAFExporter):
         shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                     pjoin(FORM_output_path, 'Makefile'))
         for n in ('mpcomplex.h', 'mpreal.h', 'dual.h', 'dualt2.h', 'dualkt2.h'):
-            shutil.copy(pjoin(plugin_path, n),
-                    pjoin(self.dir_path,'FORM', n))
+            shutil.copy(pjoin(plugin_path, n), pjoin(self.dir_path,'FORM', n))
+        if os.path.isfile(pjoin(plugin_path,'Templates','makefile_user_opts.inc')):
+            shutil.copy(pjoin(plugin_path,'Templates','makefile_user_opts.inc'), pjoin(self.dir_path,'FORM', 'makefile_user_opts.inc'))
+        else:
+            shutil.copy(pjoin(plugin_path,'Templates','makefile_user_opts_default.inc'), pjoin(self.dir_path,'FORM', 'makefile_user_opts.inc'))
         form_processor.compile(FORM_output_path)
 
 class ScalarIntegralTopologyExporter(LUScalarTopologyExporter):

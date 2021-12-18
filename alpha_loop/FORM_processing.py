@@ -86,6 +86,9 @@ FORM_processing_options = {
     'on_shell_renormalisation' : False,
     'perform_msbar_subtraction' : True,
     'generate_renormalisation_graphs' : False,
+    # Set the option below to a positive integer so as to enable the splitting of large source files into many
+    # with at most around the number of lines specified here. Note that this disables static and inline optimisations!
+    'max_n_lines_in_C_source' : 10000, 
     'include_integration_channel_info' : True,
     'UV_min_dod_to_subtract' : 0,
     'selected_epsilon_UV_order' : 0,
@@ -3306,8 +3309,136 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
             self.generate_integrand_functions(root_output_path, model, additional_overall_factor=additional_overall_factor, 
                             params=params, output_format=output_format, workspace=None, integrand_type=integrand_type,process_definition=process_definition)
 
+        self.post_process_source_code(root_output_path)
+        
         generation_time = time.time() - start_time
         self.code_generation_statistics['generation_time_in_s'] = float('%.1f'%generation_time)
+
+    def post_process_source_code(self, root_output_path):
+        """ Possibly split source files if necessary and generates makefile targets."""
+
+        # Deduce the SG ids from the files "integrand_PF_" or "integrand_LTD_"
+        SG_ids = set([])
+        for fpath in glob_module.glob(pjoin(root_output_path,'integrand_PF_*_f64.c')):
+            SG_ids.add(int(re.match(r"integrand_PF_(?P<SGID>\d+)_f64.c",os.path.basename(fpath)).group('SGID')))
+        for fpath in glob_module.glob(pjoin(root_output_path,'integrand_LTD_*_f64.c')):
+            SG_ids.add(int(re.match(r"integrand_LTD_(?P<SGID>\d+)_f64.c",os.path.basename(fpath)).group('SGID')))
+
+        # Now for each SG ID process files and build a target
+        repl_dict = {
+            'all_sg_file_names' : [],
+            'all_sg_targets' : []
+        }
+        for SG_id in sorted(SG_ids):
+            repl_dict['all_sg_file_names'].append('$(LIBBPATH)/libFORM_sg_%d.so'%SG_id)
+            dependencies = []
+            for code_type in ['PF','LTD',]:
+                all_matches = list(glob_module.glob(pjoin(root_output_path,'integrand_%s_%d_*.c'%(code_type,SG_id))))+list(glob_module.glob(pjoin(root_output_path,'integrand_%s_%d_*.cpp'%(code_type,SG_id))))
+                for fpath in all_matches:
+                    dependencies.extend(self.split_source_file(root_output_path,os.path.basename(fpath),FORM_processing_options['max_n_lines_in_C_source']))
+            repl_dict['all_sg_targets'].append(
+"""$(LIBBPATH)/libFORM_sg_%(SGID)d.so: %(dependencies)s
+\t$(GPP) --shared -fPIC $(CFLAGS) -o $@ $^"""%{'SGID' : SG_id, 'dependencies' : ' '.join(dependencies) })
+
+        repl_dict['all_sg_file_names'] = ' '.join(repl_dict['all_sg_file_names'])
+        repl_dict['all_sg_targets'] = '\n'.join(repl_dict['all_sg_targets'])
+
+        makefile_targets_template = open(pjoin(plugin_path,'Templates','FORM_output_makefile_targets.inc'),'r').read()
+        with open(pjoin(root_output_path,'makefile_targets.inc'),'w') as out:
+            out.write(makefile_targets_template.format(**repl_dict))
+
+    def split_source_file(self, root_output_path, source_code_name, max_n_lines):
+
+        # First make sure that any splitting is necessary in the first place.
+        if max_n_lines is None:
+            return [source_code_name,]
+        
+        num_lines = sum(1 for line in open(pjoin(root_output_path, source_code_name),'r'))
+        if num_lines <= max_n_lines:
+            return [source_code_name,]
+
+
+        extern_c_re = re.compile(r'^extern \"C\" {$')
+        start_func_re = re.compile(r"^(static|void).*{$")
+        end_func_re = re.compile(r"}\s*$")
+        header = []
+        functions = []
+        forward_declarations = []
+        in_function = False
+        in_extern_C = False
+        extern_C_code = []
+        was_las_match_a_closing_bracket = False
+        for line in open(pjoin(root_output_path, source_code_name),'r').readlines():
+            if end_func_re.match(line):
+                if was_las_match_a_closing_bracket:
+                    # This denotes the end of an extern C
+                    extern_C_code.append(line)
+                    in_extern_C = False
+                    was_las_match_a_closing_bracket=False
+                else:
+                    was_las_match_a_closing_bracket = True
+                    if in_extern_C:
+                        extern_C_code.append(line)
+                    else:
+                        if not in_function or len(functions)==0:
+                            raise FormProcessingError("Found function end before start in %s: %s"%(pjoin(root_output_path, source_code_name),line))
+                        else:
+                            in_function = False
+                        functions[-1].append(line)
+                continue
+
+            was_las_match_a_closing_bracket=False
+            if extern_c_re.match(line):
+                if in_function:
+                    raise FormProcessingError("Extern C function found while in the body of a function %s: %s"%(pjoin(root_output_path, source_code_name),line))
+                if len(extern_C_code) > 0:
+                    raise FormProcessingError("Multiple extern C blocks in %s not supported in code splitter."%pjoin(root_output_path, source_code_name))
+                extern_C_code.append(line,)
+                in_extern_C = True
+            elif in_extern_C:
+                extern_C_code.append(line)
+            elif start_func_re.match(line):
+                in_function = True
+                forward_declarations.append(line.replace('static','').replace('inline','').replace(' {',';').strip()+'\n')
+                functions.append([line.replace('static','').replace('inline','').strip()+'\n',])
+            else:
+                if not in_function:
+                    if len(functions)==0:
+                        header.append(line)
+                    else:
+                        if line.strip()=='':
+                            functions[-1].append(line)
+                        else:
+                            raise FormProcessingError("Error: found out-of-function code that is not a header in %s: '%s'"%(pjoin(root_output_path, source_code_name),line))
+                else:
+                    functions[-1].append(line)
+
+        #print("In source code %s, found %d header lines and %d functions totalling %d lines."%(pjoin(root_output_path, source_code_name),len(header),len(functions), sum(len(f) for f in functions)))
+        i_file = 0
+        i_func = 0
+        files_written = []
+        while True:
+            source_code_name_split = source_code_name.split('_')
+            split_file_name = '%s%s%s'%('_'.join(source_code_name_split[:-1]), ('_s%d_'%i_file if i_file>0 else '_'), source_code_name_split[-1])
+            files_written.append(split_file_name)
+            with open(pjoin(root_output_path,split_file_name),'w') as out:
+                out.write(''.join(header))
+                if i_func>0:
+                    out.write(''.join(forward_declarations[:i_func])+'\n')
+                n_function_lines_accumulated = 0
+                while n_function_lines_accumulated<max_n_lines and len(functions)>0:
+                    i_func += 1
+                    n_function_lines_accumulated += len(functions[0])
+                    out.write(''.join(functions.pop(0)))
+                if len(functions) == 0:
+                    # Now write the extern_c code at the end
+                    if len(extern_C_code)>0:
+                        out.write(''.join(extern_C_code))
+                    break
+                else:
+                    i_file += 1
+
+        return files_written
 
     def generate_squared_topology_files(self, root_output_path, model, process_definition, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None,
         integrand_type=None, include_integration_channel_info=True):
@@ -3919,6 +4050,10 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
         source_file.readline()
         with open(pjoin(TMP_FORM, 'Makefile'), 'w') as target_file:
             shutil.copyfileobj(source_file, target_file)
+        if os.path.isfile(pjoin('Templates','makefile_user_opts.inc')):
+            shutil.copy(pjoin('Templates','makefile_user_opts.inc'), pjoin(TMP_FORM, 'makefile_user_opts.inc'))
+        else:
+            shutil.copy(pjoin('Templates','makefile_user_opts_default.inc'), pjoin(TMP_FORM, 'makefile_user_opts.inc'))
         shutil.copy('mpreal.h', pjoin(TMP_FORM, 'mpreal.h'))
         shutil.copy('mpcomplex.h', pjoin(TMP_FORM, 'mpcomplex.h'))
         shutil.copy('dual.h', pjoin(TMP_FORM, 'dual.h'))
