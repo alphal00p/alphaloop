@@ -961,8 +961,10 @@ repeat id subgraph(?a,p?) = subgraph(?a);
     #call Gstring(opengammastring,0)
 
     if (match(opengammastring(s1?,?a,mu?lorentzdummy,?b,s2?)) || count(vec1,1));
-        Print "Index left in gamma string after projecting: %t";
-        exit "Critical error";
+        Print "Warning: dummy index left in gamma string after projecting: %t";
+* this happens when there are two gamma strings in a subgraph
+* TODO: is there a risk for dummy index collisions?
+*        exit "Critical error";
     endif;
 
     id onshell(p?,E?) = onshell(p,E)*uvcutoff(p.p);

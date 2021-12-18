@@ -171,6 +171,8 @@ class SquaredTopologyGenerator:
                                         #internal_bubbles.append((uv_sg['internal_bubble'], subgraph_internal_edges))
                                         pass
 
+                                # apply the gluon self-energy treatment to all non-nested graphs
+                                if all(uv_sg['graph_index'] not in vv['subgraph_indices'] for vv in uv_limit['uv_subgraphs']):
                                     if particle_ids[uv_sg['graph'].edge_map_lin[uv_sg['graph'].ext[0]][0]] == 21:
                                         # check if the gluon self-energy creates a linear or quadratic IR divergence (heuristically)
                                         if has_2l_bubble:
