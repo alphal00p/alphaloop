@@ -562,6 +562,11 @@ class SuperGraph(dict):
         #         signatures_to_edges[hashable_signature].append(edge)
         #     else:
         #         signatures_to_edges[hashable_signature] = [edge,]
+        #    hashable_opposite_signature = (tuple([-s for s in sig[0]]), tuple([-s for s in sig[1]]))
+        #    if hashable_opposite_signature in signatures_to_edges:
+        #        signatures_to_edges[hashable_opposite_signature].append(edge)
+        #    else:
+        #        signatures_to_edges[hashable_opposite_signature] = [edge,]
         # for edge_sig, edge_names in signatures_to_edges.items():
         #     if len(edge_names)<=1:
         #         continue
@@ -592,6 +597,11 @@ class SuperGraph(dict):
                 signatures_to_edges[hashable_signature].append(edge)
             else:
                 signatures_to_edges[hashable_signature] = [edge,]
+            hashable_opposite_signature = (tuple([-s for s in sig[0]]), tuple([-s for s in sig[1]]))
+            if hashable_opposite_signature in signatures_to_edges:
+                signatures_to_edges[hashable_opposite_signature].append(edge)
+            else:
+                signatures_to_edges[hashable_opposite_signature] = [edge,]
         
         return any(len(edges_for_sig)>1 for edges_for_sig in signatures_to_edges.values())
 
@@ -633,6 +643,11 @@ class SuperGraph(dict):
                 signatures_to_edges[hashable_signature].append(edge)
             else:
                 signatures_to_edges[hashable_signature] = [edge,]
+            hashable_opposite_signature = (tuple([-s for s in sig[0]]), tuple([-s for s in sig[1]]))
+            if hashable_opposite_signature in signatures_to_edges:
+                signatures_to_edges[hashable_opposite_signature].append(edge)
+            else:
+                signatures_to_edges[hashable_opposite_signature] = [edge,]
 
         for i_cut, cutkosky_cut in enumerate(self['cutkosky_cuts']):
 
@@ -708,6 +723,9 @@ class SuperGraph(dict):
             for i_side, loop_propagators_groups in enumerate([left_graph_loop_propagators, right_graph_loop_propagators]):
                 for group_ID, loop_propagators in loop_propagators_groups.items():
                     edges_to_shrink = sum([ signatures_to_edges[(tuple(self['edge_signatures'][edge][0]),tuple(self['edge_signatures'][edge][1]))] for edge in loop_propagators],[])
+                    if len(set(edges_to_shrink))!=len(edges_to_shrink):
+                        raise alphaLoopRunInterfaceError("This is not necessarily wrong but the fact that this assert crashed (for %s)"%self['name']+
+                            " indicates that there may be a problem that not all repeated propagators were merged into a single propagator with higher power in the yaml output.")
                     non_shrunk_edges_for_this_CC_cut, subgraph_info = self.shrink_edges(non_shrunk_edges_for_this_CC_cut, edges_to_shrink)
                     subgraph_info['side_of_cutkosky_cut'] = 'left' if i_side==0 else 'right'
                     effective_vertices[subgraph_info.pop('effective_node')] = subgraph_info

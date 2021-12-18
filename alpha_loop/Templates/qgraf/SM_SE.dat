@@ -78,7 +78,7 @@
 
 * gluons
 [gluon,gluon,gluon; QCD_QED='100']
-[gluon,gluon,gluon,gluon; QCD_QED='100']
+[gluon,gluon,gluon,gluon; QCD_QED='200']
 
 * higgs
 [tbar,higgs,t; QCD_QED='1']
