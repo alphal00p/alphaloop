@@ -29,13 +29,17 @@ CF uvid;
 #endprocedure
 
 #procedure IntegrateUV2L()
-    
-* two vxs -> 2 loops
-    if (count(vxs,1) != 2) goto end;
-    id vxs(k1?,k2?,k3?)*vxs(k4?,k5?,k6?) = map(kk1,k1,1)*map(kk2,k2,1)*map(kk3,k3,1)*map(kk1,-k1,-1)*map(kk2,-k2,-1)*map(kk3,-k3,-1);
+    id uvprop(k1?,n1?) = uvprop(k1,n1)*tmps(k1,-k1);
 
-    id map(kk1,k1?,nn1?)*map(kk2,k2?,nn2?)*map(kk3,k3?,nn3?)*uvprop(k1?,n1?)*uvprop(k2?,n2?)*uvprop(k3?,n3?) = 
-        uvid(2, 1, n1, n2, n3)*map(kk1,k1,nn1)*map(kk2,k2,nn2)*map(kk3,k3,nn3);
+    id vxs(k1?,kn1?,k2?,kn2?)*tmps(k1?,kn1?)*tmps(k2?,kn2?) = uvid(2,1,0,0,0)*map(kk1,k1,1)*map(kk1,kn1,-1)*map(kk2,k2,1)*map(kk2,kn2,-1);
+    id vxs(k1?,k2?,k3?)*vxs(kn1?,kn2?,kn3?)*tmps(k1?,kn1?)*tmps(k2?,kn2?)*tmps(k3?,kn3?) =
+        uvid(2,1,0,0,0)*map(kk1,k1,1)*map(kk1,kn1,-1)*map(kk2,k2,1)*map(kk2,kn2,-1)*map(kk3,k3,1)*map(kk3,kn3,-1);
+
+    id tmps(k1?,k2?) = 1;
+
+    id map(kk1,k?,nn?)*uvprop(k?,n?)*uvid(2,1,n1?,n2?,n3?) = map(kk1,k,nn)*uvid(2,1,n1+n,n2,n3);
+    id map(kk2,k?,nn?)*uvprop(k?,n?)*uvid(2,1,n1?,n2?,n3?) = map(kk2,k,nn)*uvid(2,1,n1,n2+n,n3);
+    id map(kk3,k?,nn?)*uvprop(k?,n?)*uvid(2,1,n1?,n2?,n3?) = map(kk3,k,nn)*uvid(2,1,n1,n2,n3+n);
 
 * reduce the numerator
     repeat id g(k1?,k1?)*map(kk1,k1?,n?)*uvid(2,1,n1?,n2?,n3?) = (uvid(2,1,n1-1,n2,n3) + mUV2^2 * uvid(2,1,n1,n2,n3))*map(kk1,k1,n);
