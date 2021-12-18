@@ -2897,6 +2897,7 @@ const complex<double> I{ 0.0, 1.0 };
                         num = num.replace('i_', 'I')
                         num = num.replace('\nZ', '\n\tZ') # nicer indentation
                         num = num.replace('\\\n', '') # remove breaks in long numbers
+                        num = re.sub(r'(\d)\n *\.', r'\1.', num) # work around form output bug where the . is disconnected from the floating number
 
                         energies_per_cut = {}
                         propagators_per_cut = {}
