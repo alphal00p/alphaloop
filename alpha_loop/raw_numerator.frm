@@ -12,6 +12,9 @@ CF dotp, myv;
 * Do algebra
 #include numerator.frm # feynman-rules
 
+* WARNING THE FEYNMAN RULES NEED TO BE REVAMPED SO AS TO SPLIT IT INTO: Couplings, Colour and Lorentz
+* THis is necessary in order to support four-gluon vertices since in that case only couplings factorize completely.
+
 L F1 = F;
 .sort
 Hide F1;

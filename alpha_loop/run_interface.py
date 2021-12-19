@@ -715,20 +715,25 @@ class SuperGraph(dict):
                     sum([ [ prop['name'] for prop in loop_line['propagators'] ] for loop_line in loop_lines],[]) 
                 for loop_lines, i_group in right_graph_loop_lines
             }
-
             # We can now use these propagators to shrink the corresponding loops in the supergraph
             non_shrunk_edges_for_this_CC_cut = {e[0]:tuple(e[1:]) for e in self['topo_edges']}
             effective_vertices = {}
 
+            tree_topologies = { 'left':{'effective_vertices_contained':[]}, 'right':{'effective_vertices_contained':[]} }
+
+            effective_node_id_offset = 0
             for i_side, loop_propagators_groups in enumerate([left_graph_loop_propagators, right_graph_loop_propagators]):
                 for group_ID, loop_propagators in loop_propagators_groups.items():
                     edges_to_shrink = sum([ signatures_to_edges[(tuple(self['edge_signatures'][edge][0]),tuple(self['edge_signatures'][edge][1]))] for edge in loop_propagators],[])
                     if len(set(edges_to_shrink))!=len(edges_to_shrink):
                         raise alphaLoopRunInterfaceError("This is not necessarily wrong but the fact that this assert crashed (for %s)"%self['name']+
                             " indicates that there may be a problem that not all repeated propagators were merged into a single propagator with higher power in the yaml output.")
-                    non_shrunk_edges_for_this_CC_cut, subgraph_info = self.shrink_edges(non_shrunk_edges_for_this_CC_cut, edges_to_shrink)
+                    effective_node_id_offset += 100
+                    non_shrunk_edges_for_this_CC_cut, subgraph_info = self.shrink_edges(non_shrunk_edges_for_this_CC_cut, edges_to_shrink, effective_node_id_offset)
                     subgraph_info['side_of_cutkosky_cut'] = 'left' if i_side==0 else 'right'
-                    effective_vertices[subgraph_info.pop('effective_node')] = subgraph_info
+                    effective_node_id = subgraph_info.pop('effective_node')
+                    effective_vertices[effective_node_id] = subgraph_info
+                    tree_topologies[subgraph_info['side_of_cutkosky_cut']]['effective_vertices_contained'].append(effective_node_id)
             
             # We must now list all LMBs for the shrunk effective nodes since we will use this information to multichannel over them
             for effective_node, effective_vertex_info in effective_vertices.items():
@@ -750,7 +755,8 @@ class SuperGraph(dict):
                 [ (e_name, edge[0],edge[1]) for e_name, edge in non_shrunk_edges_for_this_CC_cut.items() if e_name not in cut_edge_names],
                 powers = { e_name: edge_powers[e_name] for e_name in non_shrunk_edges_for_this_CC_cut if e_name not in cut_edge_names }
             )
-            tree_topologies = { 'left':{}, 'right':{} }
+
+#            tree_topologies = { 'left':{}, 'right':{} }
             for side in ['left', 'right']:
                 sub_tree_indices = []
                 cut_tree.generate_spanning_trees(sub_tree_indices, tree={non_shrunk_edges_for_this_CC_cut[external_edges[side][0]][0]})
@@ -777,7 +783,7 @@ class SuperGraph(dict):
                 # Make each node occurrence unique
                 internal_edge_nodes = list(set(internal_edge_nodes))
 
-                tree_topologies[side]['effective_vertices_contained'] = [node for node in internal_edge_nodes if node in effective_vertices]
+#                tree_topologies[side]['effective_vertices_contained'] = [node for node in internal_edge_nodes if node in effective_vertices]
                 tree_topologies[side]['incoming_edges'] = [
                     (e_name, 1 if non_shrunk_edges_for_this_CC_cut[e_name][1] in internal_edge_nodes else -1) for e_name in external_edges[side]
                 ]
@@ -1084,7 +1090,7 @@ class SuperGraph(dict):
 
     # Make a copy here of the version of this function used for renormalisation as we may want to save/organised different data for it.
     @classmethod
-    def shrink_edges(cls, edges, edges_to_shrink):
+    def shrink_edges(cls, edges, edges_to_shrink, effective_node_id_offset):
         subgraph_info = {
             'internal_edges' : {},
             'internal_nodes' : [],
@@ -1095,7 +1101,7 @@ class SuperGraph(dict):
         # First collect all the subgraph nodes
         subgraph_info['internal_nodes'] = sorted(list(set(sum([list(edges[edge][:2]) for edge in edges_to_shrink],[]))))
         # Elect the effective node
-        subgraph_info['effective_node'] = subgraph_info['internal_nodes'][0]
+        subgraph_info['effective_node'] = effective_node_id_offset + subgraph_info['internal_nodes'][0]
         subgraph_info['internal_edges'] = { edge_name: edges[edge_name] for edge_name in edges_to_shrink }
         new_graph_edges = {}
         for ek, ee in edges.items():
