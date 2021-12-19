@@ -2854,6 +2854,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             self.hyperparameters.set_parameter('General.multi_channeling',True)
             self.hyperparameters.set_parameter('General.use_optimal_channels',False)
 
+        if args.SG_name in [ ['ALL',],['all',]]:
+            args.SG_name = list(self.all_supergraphs.keys())
+
         if args.SG_name is None:
             selected_SGs = list(self.all_supergraphs.keys())
         else:
@@ -3091,6 +3094,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         args = self.split_arg(line)
         args = self.uv_profile_parser.parse_args(args)
         
+        if args.SG_name in [ ['ALL',],['all',]]:
+            args.SG_name = list(self.all_supergraphs.keys())
+
         if args.SG_name is None:
             selected_SGs = list(self.all_supergraphs.keys())
         else:

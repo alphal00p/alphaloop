@@ -1308,7 +1308,7 @@ CTable ltdmap(0:{},0:{});
 
     def get_node_scaling(self, pdgs_input):
         # Remove dummy particles
-        pdgs = tuple([pdg%1000 for pdg in pdgs_input if pdg not in [1122,]])
+        pdgs = tuple([ (-(abs(pdg)%1000) if pdg<0 else pdg%1000) for pdg in pdgs_input if pdg not in [1122,]])
         # only the triple gluon vertex and the ghost gluon vertex have a non-zero scaling
         if pdgs == (25, 21, 21):
             return 2
