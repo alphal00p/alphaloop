@@ -153,11 +153,14 @@ CF uvid;
 #endprocedure
 
 #procedure IntegrateUV3L()
+    Print +s;
+    .sort:aaa;
+
     id uvprop(k1?,n1?) = uvprop(k1,n1)*tmps(k1,-k1);
 
 * mercedes
     id ifmatch->matchend3l vxs(kn1?,k2?,k4?)*vxs(kn2?,k3?,k5?)*vxs(kn4?,kn5?,k6?)*vxs(k1?,kn3?,kn6?)*tmps(k1?,kn1?)*tmps(k2?,kn2?)*tmps(k3?,kn3?)*tmps(k4?,kn4?)*tmps(k5?,kn5?)*tmps(k6?,kn6?) =
-        uvid(3,1,0,0,0,0,0,0)*map(kk1,k1,1)*map(kk1,kn1,-1)*map(kk2,k2,1)*map(kk2,kn2,-1)*map(kk3,k3,1)*map(kk3,kn3,-1)*map(kk4,k4,1)*map(kk4,kn4,-1)*map(kk5,k5,1)*map(kk5,kn5,-1)*map(kk6,k6,1)*map(kk5,kn6,-1);
+        uvid(3,1,0,0,0,0,0,0)*map(kk1,k1,1)*map(kk1,kn1,-1)*map(kk2,k2,1)*map(kk2,kn2,-1)*map(kk3,k3,1)*map(kk3,kn3,-1)*map(kk4,k4,1)*map(kk4,kn4,-1)*map(kk5,k5,1)*map(kk5,kn5,-1)*map(kk6,k6,1)*map(kk6,kn6,-1);
 
 * 5-edge
     id ifmatch->matchend3l vxs(kn1?,k2?,k4?)*vxs(kn2?,k3?,k5?)*vxs(k1?,kn3?,kn4?,kn5?)*tmps(k1?,kn1?)*tmps(k2?,kn2?)*tmps(k3?,kn3?)*tmps(k4?,kn4?)*tmps(k5?,kn5?) =
