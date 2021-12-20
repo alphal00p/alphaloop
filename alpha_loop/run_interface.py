@@ -498,7 +498,8 @@ class SuperGraph(dict):
 
                 for lead, middle, info, tail in res_list:
                     res_str.append('   %-35s: %-15s %-100s %s'%(
-                        lead, middle, '%-7.4f +/- %-7.4f (max for lambda = %.2e: %s)'%(info['dod_computed'][0],info['dod_computed'][1],info['max_result'][0],str(complex(*info['max_result'][1])) ), tail 
+                        lead, middle, '%s (max for lambda = %.2e: %s)'%( '%-7.4f +/- %-7.4f'%(info['dod_computed'][0],info['dod_computed'][1]) if 
+                            (info['dod_computed'] is not None and not any(d is None for d in info['dod_computed'][:2])) else '%-19s'%'CutAway',info['max_result'][0],str(complex(*info['max_result'][1])) ), tail 
                     ))
                     if not info['dod_computed'][-1]:
                         fail_res_str.append(res_str[-1])
@@ -1211,16 +1212,16 @@ class SuperGraphCollection(dict):
         res_str = []
 
         res_str.append('')
-        res_str.append('%s%s%s'%(Colours.BLUE,'IR statistics for individual supergraphs',Colours.END))
+        res_str.append('%s%s%s'%(Colours.BLUE,'Deformation statistics for individual supergraphs',Colours.END))
         for SG_name in sorted(list(self.keys())):
             if 'E_surfaces_analysis' not in self[SG_name]:
                 continue
-            res_str.append("\nIR profile of %s%s%s:\n%s"%(Colours.GREEN,SG_name,Colours.END, self[SG_name].show_deformation_statistics(
+            res_str.append("\nDeformation profile of %s%s%s:\n%s"%(Colours.GREEN,SG_name,Colours.END, self[SG_name].show_deformation_statistics(
                 show_momenta=show_momenta, external_momenta=external_momenta)))
 
         fail_res_str = []
         fail_res_str.append('')
-        fail_res_str.append('>> Listing of only the SGs failing IR profile:')
+        fail_res_str.append('>> Listing of only the SGs failing Deformation profile:')
         fail_res_str.append('')
         SGs_fail = []
         for SG_name in sorted(list(self.keys())):
@@ -1233,14 +1234,14 @@ class SuperGraphCollection(dict):
 
         if len(SGs_fail)>0:
             fail_res_str.append('')
-            fail_res_str.append('List of all %d SGs failing the IR profile: %s'%(
+            fail_res_str.append('List of all %d SGs failing the Deformation profile: %s'%(
                 len(SGs_fail), ', '.join(['%s%s%s'%(Colours.RED, name, Colours.END) for name in SGs_fail])
             ))
             fail_res_str.append('')
             res_str += fail_res_str
         else:
             res_str.append('')
-            res_str.append('All SGs passed the IR profile!')
+            res_str.append('All SGs passed the Deformation profile!')
             res_str.append('')
 
         return '\n'.join(res_str)
@@ -1607,7 +1608,6 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     t_start = time.time()
                     for _ in range(n_points):
                         _res = rust_function(SG.get_random_x_input())
-                        #misc.sprint('A', _res)
                     delta_t = time.time()-t_start
 
                     SG['DERIVED_timing_profile_%s'%precision] = (delta_t/float(n_points))*1000.0
@@ -1643,7 +1643,6 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                     break
                                 scaling, scaling_jacobian = scaling_solutions.pop(0)
                             _res = cut_evaluate_function(random_momenta,cut_ID,scaling,scaling_jacobian)
-                            #misc.sprint('B', _res)
                         delta_t = time.time()-t_start
                         t_cut = (delta_t/float(n_points))*1000.0
                         running_avg_time_per_cut += t_cut
@@ -1756,6 +1755,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='minimum required relative precision for returning a result.')
     deformation_profile_parser.add_argument("-t","--target_scaling", dest='target_scaling', type=int, default=1,
                     help='set target deformation scaling (default=0)')
+    deformation_profile_parser.add_argument("-ic","--ignore_cut_configs", dest='ignore_cut_configs', type=int, default=3,
+                    help='Ignore a test if the last "ic" evaluations were zero as this implies that the configuration was likely cut away by the observable. Set negative to disable. (default: %(default)s)')
     deformation_profile_parser.add_argument(
         "-mm", "--use_mathematica", action="store_true", dest="mathematica", default=False,
         help="Use a mathematica analysis of the E-surfaces.")
@@ -1844,6 +1845,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             self.hyperparameters.set_parameter('General.multi_channeling',True)
             self.hyperparameters.set_parameter('General.use_optimal_channels',False)
 
+        if args.SG_name in [ ['ALL',],['all',]]:
+            args.SG_name = list(self.all_supergraphs.keys())
+
         if args.SG_name is None:
             selected_SGs = list(self.all_supergraphs.keys())
         else:
@@ -1876,6 +1880,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             return
         else:
             logger.info("Now performing a deformation profile analysis on %d supergraphs."%len(selected_SGs))
+
+        if self.hyperparameters['General']['deformation_strategy'] in ['none',]:
+            logger.critical("%sWARNING: The deformation specified is '%s' which typically does not make sense for this test.%s"%(Colours.RED,self.hyperparameters['General']['deformation_strategy'],Colours.END))
+            time.sleep(5.0)
 
         # We need to detect here if we are in the amplitude-mock-up situation with frozen external momenta.
         frozen_momenta = None
@@ -2133,14 +2141,6 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     # assert(all(list(osp['v_shift'])==[0.,0.,0.] for osp in E_surf['onshell_propagators']))
 
                 IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces']=E_surfaces
-                if args.verbose or True:
-                    logger.info("All %d existing E-surfaces from supergraph %s:"%(len(E_surfaces),SG_name))
-                    for i_surf, E_surface in enumerate(E_surfaces):
-                        logger.info("#%-3d: %s%d%s-loop E-surface %s : %s"%(E_surface['id'], Colours.GREEN,E_surface['n_loops'],Colours.END, '(pinched)' if  E_surface['pinched'] else ' '*9,
-                            ', '.join('%-21s'%('%s%s%-4s%s'%('%s%s%s'%(Colours.GREEN,'+',Colours.END) if term['energy_shift_sign']> 0 else '%s%s%s'%(Colours.RED,'-',Colours.END),  
-                                Colours.BLUE, term['name'], Colours.END) ) 
-                            for term in  E_surface['onshell_propagators'])))
-
                 
                 external_edges = SG.get_external_edges()
 
@@ -2208,27 +2208,6 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                             'disconnected_enclosure'   : disconnected_enclosure,
                             'qualifies_for_deformation_check' : qualifies_for_deformation_check
                         }
-
-                if args.verbose or True:
-                    logger.info("Connectivity matrix for all %dx%d existing E-surfaces ordered pairs from supergraph %s:"%(len(E_surfaces),len(E_surfaces),SG_name))
-                    conn_matrix_str = '  /  '+''.join(('%s{:^5d}%s'%(Colours.BLUE, Colours.END)).format(E_surface['id']) for E_surface in E_surfaces)+'\n'
-                    for E_surf_A in E_surfaces:
-                        conn_matrix_str += ('%s{:^5d}%s'%(Colours.BLUE, Colours.END)).format(E_surf_A['id'])
-                        for E_surf_B in E_surfaces:
-                            if E_surf_A['id']==E_surf_B['id']:
-                                conn_matrix_str += 'N/A  '
-                                continue
-                            conn = connectivity[(E_surf_B['id'],E_surf_A['id'])]
-                            conn_matrix_str += '%s%s%s'%(
-                                Colours.GREEN if conn['qualifies_for_deformation_check'] else Colours.RED,
-                                'v' if conn['qualifies_for_deformation_check'] else 'x',
-                                Colours.END
-                            )
-                            conn_matrix_str += '>' if conn['E_surface_A_relationship']=='encapsulating' else ('<' if conn['E_surface_A_relationship']=='nested' else 'x')
-                            conn_matrix_str += 'd' if conn['disconnected_enclosure'] else 'c'
-                            conn_matrix_str += '  '
-                        conn_matrix_str += '\n'
-                    logger.info('\n%s'%conn_matrix_str)
 
                 # Write all E-surface specifications to a mathematica output
                 if args.mathematica:
@@ -2363,7 +2342,43 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                 E_surfaces_intersection_analysis = IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_intersection']
                 E_surf_connectivity_matrix = IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces_connectivity']
-            
+
+                if args.verbose or True:
+                    logger.info("All %d existing E-surfaces from supergraph %s:"%(len(E_surfaces),SG_name))
+                    for i_surf, E_surface in enumerate(E_surfaces):
+                        logger.info("#%-3d: %s%d%s-loop E-surface %s : %s"%(E_surface['id'], Colours.GREEN,E_surface['n_loops'],Colours.END, '(pinched)' if  E_surface['pinched'] else ' '*9,
+                            ', '.join('%-21s'%('%s%s%-4s%s'%('%s%s%s'%(Colours.GREEN,'+',Colours.END) if term['energy_shift_sign']> 0 else '%s%s%s'%(Colours.RED,'-',Colours.END),  
+                                Colours.BLUE, term['name'], Colours.END) ) 
+                            for term in  E_surface['onshell_propagators'])))
+
+                if args.verbose or True:
+                    logger.info("Connectivity matrix for all %dx%d existing E-surfaces ordered pairs from supergraph %s:"%(len(E_surfaces),len(E_surfaces),SG_name))
+                    logger.info('For two SG E-surfaces to define an amplitude E-surface requiring a deformation, we need the subgraph defined by the nodes "in-between" the two thresholds to be *connected*.')
+                    logger.info('Each entry ( A / B ) of the matrix has three characters ijk. Their meaning is as follows:')
+                    logger.info("> 'i' can be either '%sv%s' or '%sx%s' if the deformation check does (respectively does not) apply for this pair of E-surfaces."%(Colours.GREEN,Colours.END,Colours.RED,Colours.END))
+                    logger.info("> 'j' can be '%s<%s' if E-surface A, defined as the list of the nodes on the left of its cut, is *contained* within E-surface B, and '%s>%s' if it contains it. This character is '%sx%s' if the two E-surfaces cross."%(
+                      Colours.BLUE,Colours.END,Colours.BLUE,Colours.END,Colours.BLUE,Colours.END  
+                    ))
+                    logger.info("> 'k' can either be '%sd%s' if all nodes in-between E-surfaces A and B are disconnected and '%sc%s' if they are connected."%(Colours.BLUE,Colours.END,Colours.BLUE,Colours.END))
+                    conn_matrix_str = '  /  '+''.join(('%s{:^5d}%s'%(Colours.BLUE, Colours.END)).format(E_surface['id']) for E_surface in E_surfaces)+'\n'
+                    for E_surf_A in E_surfaces:
+                        conn_matrix_str += ('%s{:^5d}%s'%(Colours.BLUE, Colours.END)).format(E_surf_A['id'])
+                        for E_surf_B in E_surfaces:
+                            if E_surf_A['id']==E_surf_B['id']:
+                                conn_matrix_str += 'N/A  '
+                                continue
+                            conn = E_surf_connectivity_matrix[(E_surf_B['id'],E_surf_A['id'])]
+                            conn_matrix_str += '%s%s%s'%(
+                                Colours.GREEN if conn['qualifies_for_deformation_check'] else Colours.RED,
+                                'v' if conn['qualifies_for_deformation_check'] else 'x',
+                                Colours.END
+                            )
+                            conn_matrix_str += '>' if conn['E_surface_A_relationship']=='encapsulating' else ('<' if conn['E_surface_A_relationship']=='nested' else 'x')
+                            conn_matrix_str += 'd' if conn['disconnected_enclosure'] else 'c'
+                            conn_matrix_str += '  '
+                        conn_matrix_str += '\n'
+                    logger.info('\n%s'%conn_matrix_str)
+
                 if args.seed != 0:
                     random.seed(args.seed)
 
@@ -2450,6 +2465,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     runs_to_consider = [(None, None)]
                     if frozen_momenta is None or self.hyperparameters['General']['deformation_strategy']!='none':
                         runs_to_consider += list(enumerate(SG['cutkosky_cuts']))
+
                     for cut_ID, cuts_info in runs_to_consider:
                         
                         if cut_ID is not None:
@@ -2614,9 +2630,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                             # And also account for the complex conjugation sign
                                             deformation_projection_results[E_surf_id].append( (scaling, complex_conjugation_sign*deformation_projection) )
     
-    #                        misc.sprint(results)
                             # Here we are in x-space, so the dod read is already the one we want.
                             dod, standard_error, number_of_points_considered, successful_fit = utils.compute_dod(results, threshold=0.2)
+
                             # Flip sign since we approach the singularity with a decreasing scaling
                             dod *= -1.
                             max_result = max( (r for r in results) , key=lambda el: abs(el[1]) )
@@ -2631,14 +2647,17 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 if cut_ID not in SG['E_surfaces_intersection_analysis'][len(E_surface_combination)][tuple(E_surface_combination)]['cut_results']:
                                     SG['E_surfaces_intersection_analysis'][len(E_surface_combination)][tuple(E_surface_combination)]['cut_results'][cut_ID] = {}
                                 container = SG['E_surfaces_intersection_analysis'][len(E_surface_combination)][tuple(E_surface_combination)]['cut_results'][cut_ID]
+
                                 # Do not assign test passed based on dod which can of course change but instead based off the computed t-scaling and deformation checks.
                                 #test_passed_per_cut[cut_ID] = (dod < float(args.target_scaling)+min(max(10.0*abs(standard_error),0.005),0.2) )
                                 test_passed_per_cut[cut_ID] = True
                                 if len(t_scaling_results)>0:
-                                    test_passed_per_cut[cut_ID] = test_passed_per_cut[cut_ID] and (abs(t_scaling_results[-1][1]-1.) < 1.0e-5)
+                                    test_passed_per_cut[cut_ID] = test_passed_per_cut[cut_ID] and (abs(t_scaling_results[-1][1]-1.) < 1.0e-3)
+
                                 if len(deformation_norm_results)>0:
                                     if any(E_surface_ID_to_E_surface[E_surf_id]['pinched'] for E_surf_id in E_surface_combination if E_surf_id!=CC_E_surf_id):
                                         test_passed_per_cut[cut_ID] = test_passed_per_cut[cut_ID] and (abs(deformation_norm_results[-1][1]) < args.small_deformation_threshold)
+
                                 if len(deformation_projection_results)>0:
                                     # Only enable the check if the deformation is enabled and if the deformation is large enough, because if it is small it may be that we are on pinched solution of the 
                                     # intersection which however is not *necessarily* pinched so that the E-surface equations are not set to "pinched".
@@ -2648,6 +2667,19 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                         test_passed_per_cut[cut_ID] = test_passed_per_cut[cut_ID] and all( 
                                                 (projections[-1][1] < args.small_projection_threshold or (CC_E_surf_id is not None and (not E_surf_connectivity_matrix[(CC_E_surf_id,E_surf_id)]['qualifies_for_deformation_check']) ) )
                                             for E_surf_id, projections in deformation_projection_results.items() )
+
+                                container['dod_computed'] = (dod, standard_error, test_passed_per_cut[cut_ID])
+
+                                # Support for IR-safety isolation cuts:
+                                if args.ignore_cut_configs > 0:
+                                    if all(r[1]==complex(0.,0.) for r in results[-args.ignore_cut_configs:]):
+                                        if args.verbose:
+                                            logger.info("Test for %s%s%s is set to pass because it is apparently %scut away by selection cuts%s. Progression of results:"%(Colours.BLUE,
+                                                'complete integrand' if cut_ID is None else 'cut %d (%s)'%(cut_ID,str([cut['name'] for cut in cuts_info['cuts']])),Colours.END,Colours.RED,Colours.END))
+                                            logger.info('\n'+'\n'.join('%-13.5e -> %s%-13.5e %s %-14s'%(
+                                                r[0], '+' if r[1].real>=0. else '-', abs(r[1].real),'+' if r[1].imag>=0. else '-', '%.5ej'%abs(r[1].imag) ) for i_r, r in enumerate(results)))
+                                        test_passed_per_cut[cut_ID] = True
+                                        container['dod_computed'] = (None, None, test_passed_per_cut[cut_ID])
 
                                 if args.verbose or (not test_passed_per_cut[cut_ID] and args.show_fails):
                                     logger.info('%s : Deformation profile of %s and cut_ID #%d with intersection %s. Intersection point:\n%s\nand momenta:\n%s\n%s'%(
@@ -2664,7 +2696,6 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                             projections for E_surf_id, projections in deformation_projection_results.items()
                                         }))
 
-                                container['dod_computed'] = (dod, standard_error, test_passed_per_cut[cut_ID])
                                 container['max_result'] = (max_result[0], (max_result[1].real, max_result[1].imag))
                                 if len(t_scaling_results)>0:
                                     container['t_scaling'] = t_scaling_results[-1][1]
@@ -2682,12 +2713,18 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 break
 
                             # Support for IR-safety isolation cuts:
-                            if all(r==complex(0.,0.) for r in results[-3:]):
-                                # Flag this divergence as being cutaway with dod=None and set the test as passed:
-                                dod = None
-                                test_passed = True
-                                do_debug = False
-                                break
+                            if args.ignore_cut_configs > 0:
+                                if all(r[1]==complex(0.,0.) for r in results[-args.ignore_cut_configs:]):
+                                    if args.verbose:
+                                        logger.info("Test for %s%s%s is set to pass because it is apparently %scut away by selection cuts%s. Progression of results:"%(Colours.BLUE,
+                                            'complete integrand' if cut_ID is None else 'cut %d (%s)'%(cut_ID,str([cut['name'] for cut in cuts_info['cuts']])),Colours.END,Colours.RED,Colours.END))
+                                        logger.info('\n'+'\n'.join('%-13.5e -> %s%-13.5e %s %-14s'%(
+                                            r[0], '+' if r[1].real>=0. else '-', abs(r[1].real),'+' if r[1].imag>=0. else '-', '%.5ej'%abs(r[1].imag) ) for i_r, r in enumerate(results)))
+                                    # Flag this divergence as being cutaway with dod=None and set the test as passed:
+                                    dod = None
+                                    test_passed = True
+                                    do_debug = False
+                                    break
 
                             # We expect dod of at most five sigma above 0.0 for the integral to be convergent.
                             test_passed = (dod < float(args.target_scaling)+min(max(10.0*abs(standard_error),0.005),0.2) )
@@ -2703,7 +2740,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                             continue
 
                         do_debug = False
-                        if not successful_fit and dod > float(args.target_scaling)-1.:
+                        if not successful_fit and dod is not None and dod > float(args.target_scaling)-1.:
                             if args.show_warnings:
                                 logger.critical("The fit for the Deformation scaling of SG '%s' for the E_surface intersection %s is unsuccessful (unstable). Found: %.3f +/- %.4f over %d points."%(
                                     SG_name, str(E_surface_combination), dod, standard_error, number_of_points_considered
@@ -2721,9 +2758,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 str(E_surface_combination), str(intersection_point),momenta_str, rerun_str
                             ))
                             if args.verbose or do_debug:
-                                logger.info('\n'+'\n'.join('%-13.5e -> %-13.5e'%(
-                                    r[0], abs(r[1])) for i_r, r in enumerate(results)))
-                            logger.info('%sdod= %.3f +/- %.3f%s (max: %s)'%(Colours.GREEN if test_passed else Colours.RED, dod, standard_error, Colours.END, str(max_result)))
+                                logger.info('\n'+'\n'.join('%-13.5e -> %s%-13.5e %s %-14s'%(
+                                    r[0], '+' if r[1].real>=0. else '-', abs(r[1].real),'+' if r[1].imag>=0. else '-', '%.5ej'%abs(r[1].imag) ) for i_r, r in enumerate(results)))
+                            logger.info('%sdod= %s%s (max: %s)'%(Colours.GREEN if test_passed else Colours.RED, 
+                                    '%.3f +/- %.3f'%(dod, standard_error) if dod is not None else 'CutAway', Colours.END, str(max_result)))
                         
                         all_tests_passed = test_passed and all(test_passed_per_cut.values())
                         if all_tests_passed:
@@ -2770,7 +2808,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
 
     #### IR PROFILE COMMAND
-    ir_profile_parser = ArgumentParser(prog='deformation_profile')
+    ir_profile_parser = ArgumentParser(prog='ir_profile')
     ir_profile_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='+',
                     help='the name(s) of a supergraph to run the IR profile for')
     ir_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=20,
@@ -3394,7 +3432,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                             break
 
                     do_debug = False
-                    if not successful_fit and dod > float(args.target_scaling)-1.:
+                    if not successful_fit and dod is not None and dod > float(args.target_scaling)-1.:
                         if args.show_warnings:
                             logger.critical("The fit for the UV scaling of SG '%s' with UV edges %s and fixed edges %s is unsuccessful (unstable). Found: %.3f +/- %.4f over %d points."%(
                                 SG_name, UV_edges_str, fixed_edges_str, dod, standard_error, number_of_points_considered
