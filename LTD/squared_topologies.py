@@ -190,8 +190,6 @@ class SquaredTopologyGenerator:
                         for uv_sg in uv_limit['uv_subgraphs']:
                             uv_sg['id'] = graph_counter
                             graph_counter += 1
-                            uv_sg['graph_index'] += i * 100
-                            uv_sg['subgraph_indices'] = [j + i * 100 for j in uv_sg['subgraph_indices']]
 
                             if uv_sg['internal_bubble'] is not None:
                                 uv_sg['internal_bubble_id'] = graph_counter
