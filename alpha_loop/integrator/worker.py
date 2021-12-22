@@ -83,7 +83,7 @@ class Havana(object):
                 return True
         base_dump_name = ('.'.join(state_dump_name.split('.')[:-1]) if '.' in state_dump_name else state_dump_name)
         with open('%s.%s'%(base_dump_name,'yaml'), 'w') as f:
-            constructor_arguments = self.get_constructor_arguments(dump_format='yaml',on_disk=True, file_name='%s_grids.yaml'%base_dump_name)
+            constructor_arguments = self.get_constructor_arguments(dump_format='bin',on_disk=True, file_name='%s_grids.yaml'%base_dump_name)
             constructor_arguments['integrands_constructor_args'] = [
                 integrand.get_constructor_arguments() for integrand in self.integrands
             ]
@@ -242,8 +242,8 @@ class Havana(object):
             'n_iterations' :self.n_iterations
         }
 
-    def dump_grid(self, file_name=None, dump_format='yaml'):
-
+    def dump_grid(self, file_name=None, dump_format='bin'):
+        
         flat_record = self.get_flat_record(file_name=file_name, dump_format=dump_format)
 
         with open(self.grid_file if file_name is None else file_name,'w') as f:
@@ -340,7 +340,7 @@ class Havana(object):
                         'n_evals'          : n_evals,
                         'n_zero_evals'     : n_zero_evals,
                         'p'                : None
-                    }                
+                    }
             ]
             if self.SG_ids is not None:
                 integrand_result.extend([ 
@@ -354,7 +354,7 @@ class Havana(object):
                             'n_evals'          : n_evals,
                             'n_zero_evals'     : n_zero_evals
                         }
-                        for i_SG, (avg, err, chi_sq, max_eval_negative, max_eval_positive, n_evals, n_zero_evals) in enumerate(havana_grid.get_top_level_accumulators()) 
+                        for i_SG, (avg, err, chi_sq, max_eval_negative, max_eval_positive, n_evals, n_zero_evals) in enumerate(havana_grid.get_top_level_accumulators(live=True)) 
                     ]
                 )
                 cdfs = havana_grid.get_top_level_cdfs()
@@ -462,7 +462,7 @@ class Havana(object):
         if self.run_description is not None and self.run_description!='none':
             res = ['%sRun description:%s %s%s%s (run id: %s%s%s)'%(bcolors.BLUE, bcolors.END, bcolors.GREEN, self.run_description, bcolors.END, 
             bcolors.GREEN if self.run_id is not None else '', 'N/A' if self.run_id is None else '%s'%self.run_id, bcolors.END if self.run_id is not None else '' )]
-        res.append("Result after %.1fM evaluations and %d iterations: %s%.6g +/- %.4g (%.2g%%)%s, chi2=%s%.3g%s, max_wgt_infl=%s%.3g%s, zero_evals=%.3g%%"%(
+        res.append("Result after %.1fM evaluations and %d iterations: %s%.6g +/- %.4g   (%.2g%%)%s, chi2=%s%.3g%s, max_wgt_infl=%s%.3g%s, zero_evals=%.3g%%"%(
             self.n_points/1.0e6, self.n_iterations, bcolors.RED if avg==0. or abs(err/avg)>0.01 else bcolors.GREEN, avg, err, 
             0. if avg==0. else (abs(err/avg))*100., bcolors.END,
             bcolors.RED if self.n_iterations==0. or chi_sq/self.n_iterations > 5. else bcolors.GREEN, chi_sq/self.n_iterations if self.n_iterations>0 else 0., bcolors.END, 
@@ -470,11 +470,20 @@ class Havana(object):
             (n_zero_evals/float(self.n_points))*100. if self.n_points>0 else 0.
         ))
         if self.target_result is not None:
-            res.append( ("%-{}s".format(len('Result after %d evaluations and %d iterations'%(self.n_points, self.n_iterations))))%("vs target")+
-                ": %.5g del %.5g (%.2g%%)"%(
+            target_perc_diff = 0. if self.target_result==0. else ((avg-self.target_result)/self.target_result)*100.0
+            res.append( ("%+{}s".format(len('Result after %.1fM evaluations and %d iterations'%(self.n_points/1.0e6, self.n_iterations))))%("vs target")+
+                (": %s%-{}.5g del %-{}.4g%s %s(%-{}.2g%%)%s".format(
+                    len('%.6g'%(avg)),
+                    len('%.4g  '%(err)),
+                    len('%.2g'%(0. if avg==0. else (abs(err/avg))*100.))
+                ))%(
+                    bcolors.BLUE,
                     self.target_result, 
                     avg-self.target_result, 
-                    0. if self.target_result==0. else ((avg-self.target_result)/self.target_result)*100.0
+                    bcolors.END,
+                    bcolors.GREEN if abs(target_perc_diff)<=1.0 else bcolors.RED,
+                    target_perc_diff,
+                    bcolors.END
                 ))
         for res_index, havana_grid in enumerate(self.havana_grids):
             avg, err, chi_sq, max_eval_negative, max_eval_positive, n_evals, n_zero_evals = havana_grid.get_current_estimate()
@@ -821,17 +830,29 @@ class HavanaMockUp(object):
 
     def get_summary(self):
 
-        res = ["Result after %.1fM evaluations and %d iterations: %.5g +/- %.5g (%.2g%%)"%(
+        res = ["Result after %.1fM evaluations and %d iterations: %.5g +/- %.5g   (%.2g%%)"%(
             self.n_points/1.0e6, self.n_iterations, self.current_integral_estimate[self.reference_result_index], self.current_error_estimate[self.reference_result_index], 
             0. if self.current_integral_estimate[self.reference_result_index]==0. else 
             (abs(self.current_error_estimate[self.reference_result_index]/self.current_integral_estimate[self.reference_result_index]))*100.
         )]
         if self.target_result is not None:
-            res.append( ("%-{}s".format(len('Result after %d evaluations and %d iterations'%(self.n_points, self.n_iterations))))%("vs target")+
-                ": %.5g del %.5g (%.2g%%)"%(
+            target_perc_diff = 0. if self.target_result==0. else ((self.current_integral_estimate[self.reference_result_index]-self.target_result)/self.target_result)*100.0
+            res.append( ("%+{}s".format(len('Result after %.1fM evaluations and %d iterations'%(self.n_points/1.0e6, self.n_iterations))))%("vs target")+
+                (": %s%-{}.5g del %-{}.5g%s %s(%-{}.2g%%)%s".format(
+                    len('%.5g'%self.current_integral_estimate[self.reference_result_index]),
+                    len('%.5g  '%self.current_error_estimate[self.reference_result_index]),
+                    len('%.2g'%(
+                        0. if self.current_integral_estimate[self.reference_result_index]==0. else 
+                        (abs(self.current_error_estimate[self.reference_result_index]/self.current_integral_estimate[self.reference_result_index]))*100.         
+                    ))
+                ))%(
+                    bcolors.BLUE,
                     self.target_result, 
                     self.current_integral_estimate[self.reference_result_index]-self.target_result, 
-                    0. if self.target_result==0. else ((self.current_integral_estimate[self.reference_result_index]-self.target_result)/self.target_result)*100.0
+                    bcolors.END,
+                    bcolors.GREEN if abs(target_perc_diff)<=1.0 else bcolors.RED,
+                    target_perc_diff,
+                    bcolors.END
                 ))
         for res_index in range(self.n_integrands*2):
             res.append('  %s %s[I%d] = %.5g +/- %.5g (%.2g%%)'%(

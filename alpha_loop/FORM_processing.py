@@ -2074,7 +2074,7 @@ class FORMSuperGraphList(list):
 
     extension_names = {'c': 'c','raw': 'raw', 'pySecDec' : 'pySecDec'}
 
-    def __init__(self, graph_list, name='SGL'):
+    def __init__(self, graph_list, name='all_QG_supergraphs'):
         """ Instantiates a list of FORMSuperGraphs from a list of either
         FORMSuperGraphIsomorphicList instances, FORMSuperGraph, or LTD2SuperGraph instances."""
 
