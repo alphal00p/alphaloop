@@ -4430,8 +4430,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             return
         
         if args.integrator=='havana':
-
-            self.hyperparameters.set_parameter('General.multi_channeling',False)
+            
+            # Always enable multichanneling when using havana since we control the sampling channels with havana directly.
+            self.hyperparameters.set_parameter('General.multi_channeling',True)
 
             integrands_hyperparameter_filenames = []
             if args.integrand_hyperparameters is None:
@@ -4445,7 +4446,6 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         for param_set in run_hyperparameters_path.split('|'):
                             try:
                                 param, value = param_set.split('=')
-                                print(param,eval(value))
                                 hyperparameters_for_this_run.set_parameter(param,eval(value))
                             except Exception as e:
                                 raise alphaLoopInvalidRunCmd("Cannot interpret the particular hyperparameter confirguration for itegrand #%d. Error: %s"%(i_itg, str(e)))
