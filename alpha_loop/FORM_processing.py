@@ -72,7 +72,7 @@ FORM_processing_options = {
     # Define the extra aguments for the compilation
     'compilation-options': [],
     'cores': 2, #multiprocessing.cpu_count(),
-    'extra-options': {'OPTIMITERATIONS': 1000, 'NUMERATOR': 0, 'SUMDIAGRAMSETS': 'nosum'},
+    'extra-options': {'OPTIMITERATIONS': 1000, 'NUMERATOR': 0, 'SUMDIAGRAMSETS': 'nosum', 'MAXVARSFOROPTIM': 1500},
     # If None, only consider the LMB originally chosen.
     # If positive and equal to N, consider the first N LMB from the list of LMB automatically generated
     # If negative consider all possible LMBs.
@@ -2901,6 +2901,7 @@ const complex<double> I{ 0.0, 1.0 };
                         num = num.replace('\nZ', '\n\tZ') # nicer indentation
                         num = num.replace('\\\n', '') # remove breaks in long numbers
                         num = re.sub(r'(\d)\n *\.', r'\1.', num) # work around form output bug where the . is disconnected from the floating number
+                        num = re.sub(r'\(([^)]*)\n *', r'(\1', num) # connect functions over a newline
 
                         energies_per_cut = {}
                         propagators_per_cut = {}
@@ -2976,10 +2977,9 @@ const complex<double> I{ 0.0, 1.0 };
 
                             const_code = denom_pattern.sub(r'invd[\1]', energy_pattern.sub(r'E[\1]', lm_pattern.sub(r'lm[\1]', const_code)))
                             conf_sec = denom_pattern.sub(r'invd[\1]', energy_pattern.sub(r'E[\1]', lm_pattern.sub(r'lm[\1]', conf_sec)))
-
                             conf_sec = re.sub(r'(^|[+\-*=])(\s*\d+)($|[^.\d\w])', r'\1\2.\3', conf_sec)
                             returnval = list(return_exp.finditer(conf_sec))[0].groups()[0]
-                            returnval = re.sub(r'(^|[+\-*=])(\s*\d+)($|[^.\d\w])', r'\1\2.\3', returnval)
+                            returnval = re.sub(r'(^|[+\-*=]|\*\()(\s*\d+)($|[^.\d\w])', r'\1\2.\3', returnval)
 
                             if dual_num_mode and all(x not in returnval for x in ['E', 'lm', 'Z']):
                                 returnval = '{}({})'.format(dual_num_type, returnval)
@@ -3054,8 +3054,13 @@ const complex<double> I{ 0.0, 1.0 };
                                 cut_id = int(conf[0])
                                 confs.append((cut_id, dual_num_type))
 
-                                if len(temp_vars) > 0:
+                                forests = []
+                                if len(conf_sec) > 0:
                                     graph.is_zero = False
+
+                                if len(temp_vars) == 0:
+                                    # if generating in format C mode, construct the forests only once
+                                    forests = list(sorted(set(forest_pattern.findall(conf_sec))))
 
                                 # generate the code for the energies and invds
                                 max_energy = max((eid + 1 for (cid, eid) in energies_per_cut if cid == cut_id), default=0)
@@ -3065,18 +3070,22 @@ const complex<double> I{ 0.0, 1.0 };
 
                                 conf_sec = '\n\t{} E[] = {{{}}};\n'.format(dual_base_type, ('0' if not dual_num_mode else '{}()'.format(dual_base_type)) if len(energies) == 0 else ','.join(energies)) + \
                                            '\t{} invd[] = {{{}}};\n'.format(dual_base_type, ('0' if not dual_num_mode else '{}()'.format(dual_base_type)) if len(denoms) == 0 else ','.join(denoms)) + \
-                                           '\t{} {};'.format(dual_base_type, ','.join(temp_vars)) +\
-                                           conf_sec
+                                           ('\t{} {};'.format(dual_base_type, ','.join(temp_vars)) if len(temp_vars) > 0 else '') + \
+                                           ('\n' + '\n'.join('\t{0} forest{1}=forest_{1}(lm, params, E, invd);'.format(dual_base_type, f) for f in forests) if len(forests) > 0 else '') + conf_sec
 
                                 main_code = conf_sec.replace('logmUVmu', 'log(mUV*mUV/(mu*mu))').replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(masst*masst)')
-                                main_code_with_forest_call = forest_pattern.sub(r'forest_\1(lm, params, E, invd)', main_code)
+                                if len(temp_vars) == 0:
+                                    main_code = forest_pattern.sub(r'forest\1', main_code)
+                                else:
+                                    main_code = forest_pattern.sub(r'forest_\1(lm, params, E, invd)', main_code)
+
                                 integrand_main_code += '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}({0} lm[], {1} params[], {0}* out) {{{5}}}'.format(dual_base_type, base_type, itype, i, int(conf[0]),
-                                    main_code_with_forest_call
+                                    main_code
                                 )
 
                                 main_code_f128 = main_code.replace('pi', 'mppp::real128_pi()').replace('uvcutoff', 'uvcutofff128').replace('complex<double>', 'complex128')
                                 main_code_f128 = float_pattern.sub(r'real128(\1q)', main_code_f128)
-                                main_code_f128 = forest_pattern.sub(r'forest_\1_f128(lm, params, E, invd)', main_code_f128)
+                                main_code_f128 = main_code_f128.replace('(lm,', '_f128(lm,')
                                 integrand_f128_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}_f128({0} lm[], {1} params[], {0}* out) {{{5}}}'.format(dual_base_type_f128, base_type_f128, itype, i, int(conf[0]),
                                     main_code_f128
                                 )

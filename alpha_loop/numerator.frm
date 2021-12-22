@@ -1,4 +1,5 @@
 #-
+#:ContinuationLines 0
 On statistics;
 On nospacesinnumbers;
 
@@ -1558,19 +1559,34 @@ Keep brackets;
                 #else
                     Format O1,stats=on;
                 #endif
+
+                #Optimize FF`ext'
+                #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "%O"
+                #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "\n\treturn %E;",FF`ext'
             #else
                 Format C;
-                #if `OPTIMLVL' > 1
-                    Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
+                #if `forestcount' < `MAXVARSFOROPTIM'
+                    #if `OPTIMLVL' > 1
+                        Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
+                    #else
+                        Format O1,stats=on;
+                    #endif
+
+                    #Optimize FF`ext'
+                    #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "%O"
+                    #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "\n\treturn %E;",FF`ext'
                 #else
-                    Format O1,stats=on;
+                    .sort:strip-content-0;
+                    L content = content_(FF`ext');
+                    ToPolynomial;
+                    .sort:strip-content-1;
+                    L FF`ext' = FF`ext' / content;
+                    FromPolynomial;
+                    .sort:strip-content-2;
+                    #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "\n\treturn %E*(%+E);",content,FF`ext'
+                    Drop content;
                 #endif
             #endif 
-
-* Optimize the output
-            #Optimize FF`ext'
-            #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "%O"
-            #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "\n\treturn %E;",FF`ext'
             .sort:optim-`ext'-1;
 
             #clearoptimize;
