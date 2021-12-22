@@ -2806,17 +2806,26 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             self.do_display('--deformation%s'%(' --show_momenta' if args.show_momenta else ''))
 
     @classmethod
-    def format_ir_limit_str(cls, collinear_sets, soft_set):
+    def format_ir_limit_str(cls, ir_limit, colored_output=True):
+        collinear_sets, soft_set = ir_limit
         # turn the collinear_sets in the canonical form if not already in it
         collinear_sets = [[cc if isinstance(cc, tuple) else (1,cc) for cc in collinear_set] for collinear_set in collinear_sets]
 
-        collinear_bit = ''.join('C(%s)'%(','.join(
-            ('S(%s)' if cc[1] in soft_set else '%s')%(
+        if colored_output:
+            GREEN = Colours.GREEN
+            BLUE = Colours.BLUE
+            END = Colours.END
+        else:
+            GREEN = ''
+            BLUE = ''
+            END = ''
+        collinear_bit = ''.join('%sC[%s%s%s]%s'%(BLUE,END,('%s,%s'%(BLUE,END)).join(
+            (('%sS({})%s'%(GREEN,END)).format('%s') if cc[1] in soft_set else '%s')%(
                 '%s%s'%( ('' if cc[0]>0 else '-'), cc[1] )  )    
-            for cc in collinear_set)) for collinear_set in collinear_sets)
+            for cc in collinear_set),BLUE,END) for collinear_set in collinear_sets)
         
         all_collinear_edges = set(sum([[cc[1] for cc in collinear_set] for collinear_set in collinear_sets],[]) if len(collinear_sets)>0 else [])
-        soft_bit = ''.join('S(%s)'%s for s in soft_set if s not in all_collinear_edges)
+        soft_bit = ''.join('%sS(%s)%s'%(GREEN,s,END) for s in soft_set if s not in all_collinear_edges)
         return collinear_bit+soft_bit
 
     #### IR PROFILE COMMAND
@@ -2861,7 +2870,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     ir_profile_parser.add_argument("-po","--perturbative_order", dest='perturbative_order', type=int, default=3,
                     help='Set the deepest perturbative order to consider in the IR limits (default:  %(default)s)')
     ir_profile_parser.add_argument("-irl","--ir_limits", dest='ir_limits', type=str, nargs='*', default=None,
-                    help='Specify the particular IR limits for this ir profile Keywords allowed: "all", "cutkosky" . Example --ir_limits "C(pq1,-pq3,d1) C(-pq3,pq5,-pq8,d2) S(pq7,pq8)" "S(pq3)" (default: All)')
+                    help='Specify the particular IR limits for this ir profile Keywords allowed: "all", "cutkosky" . Example --ir_limits "C(pq1,-pq3,d1) C(-pq3,pq5,-pq8,d2) S(pq7,pq8)" "S(pq3)" (default: cutkosky)')
     ir_profile_parser.add_argument("-cd","--collinear_directions", dest='collinear_directions', type=str, default=None,
                     help='Specify the collinear dictions to con consider for the approach (excluding frozen momenta). Example --collinear_directions "[(0.1244323,2.432e+02,...),(0.23,...)]" (default: Automatic)')
     ir_profile_parser.add_argument("-approach_direction","--approach_direction", dest='approach_direction', type=str, default=None,
@@ -2870,6 +2879,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='Enable multi_channeling in the evaluation (default: %(default)s)')
     ir_profile_parser.add_argument("-nose","--no_selfenergy", action="store_false", dest="include_external_selfenergy_SGs", default=True,
                     help='Discard the analysis for all SGs feature cuts containing external self-energy corrections.')
+    ir_profile_parser.add_argument("--LMB", dest='LMB', type=str, nargs='*', default=None,
+                    help='set LMB to consider')
     ir_profile_parser.add_argument(
         "-ncl", "--no_check_lib", action="store_false", dest="check_if_lib_file_exists", default=True,
         help="Disable the check that the corresponding library file for this supergraph exists.")
@@ -2888,7 +2899,6 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     ir_profile_parser.add_argument(
         "-no_coll", "--no_collinear", action="store_false", dest="consider_collinear_limits", default=True,
         help="Consider collinear IR limits.")
-
     def help_ir_profile(self):
         self.ir_profile_parser.print_help()
         return
@@ -3001,26 +3011,21 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             n_unresolved += len([1 for cc in collinear_sets if all(l in soft_set for l in cc) ])
             # And finally one for each soft not part of a collinear config
             n_unresolved += len([1 for l in soft_set if not any(l in cc for cc in collinear_sets)])
-            if n_unresolved>perturbative_order:
+            # Also remove the no-limit case that yields n_unresolved=0
+            # A negative perturbative_order means that we require an exact match
+            if (n_unresolved>perturbative_order if perturbative_order>=0 else n_unresolved!=(-perturbative_order)) or n_unresolved==0:
                 return False
             # Also make sure that the softs nested in a collinear only show up in the tail since otherwise the magnitude hierarchy makes no sense
             hierarchy_violated = False
             for cc in collinear_sets:
-                found_non_soft = False
                 found_soft = False
                 for e in cc:
                     if e in soft_set:
-                        if found_non_soft:
-                            hierarchy_violated = True
-                            break
-                        else:
-                            found_soft = True
+                        found_soft = True
                     else:
                         if found_soft:
                             hierarchy_violated = True
                             break
-                        else:
-                            found_non_soft = True
                 if hierarchy_violated:
                     break
             if hierarchy_violated:
@@ -3034,7 +3039,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
             SG = self.all_supergraphs[SG_name]
 
-            edge_masses = { e_name: self.model.get_particle(pdg).get('mass').upper() for e_name, pdg in SG['edge_PDGs'] }
+            edge_masses = { e_name: self.alphaLoop_interface._curr_model.get_particle(pdg).get('mass').upper() for e_name, pdg in SG['edge_PDGs'] }
 
             # First we must regenerate a TopologyGenerator instance for this supergraph
             edges_list = SG['topo_edges']
@@ -3044,12 +3049,15 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             )
             edge_signatures = SG['edge_signatures']
             all_LMBs = [ tuple(edges_list[i_edge][0] for i_edge in lmb) for lmb in SG_topo_gen.loop_momentum_bases()]
-            if args.LMB is None:
+            if args.LMB is not None:
                 if set(args.LMB) not in [set(lmb) for lmb in all_LMBs]:
                     raise alphaLoopInvalidRunCmd("The specified LMB: '%s' is not found to be valid for SG %s."%(str(args.LMB),SG_name))
-                all_LMBs = [ args.LMB, ]
+                all_LMBs = [ tuple(edge_name for edge_name in args.LMB), ]
 
             selected_ir_limits = {}
+
+            start_limits_derivation_time = time.time()
+            #logger.info("Now deriving IR limits for %s..."%SG_name)
 
             if args.ir_limits not in [ ['cutkosky',], ['all',]]:
                 
@@ -3060,9 +3068,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 parsed_limtis = None
                 IR_limits_per_SG[selected_SGs[0]] = parsed_limtis
 
-            elif args.ir_limits == ['all','cutkosky']:
+            elif args.ir_limits in [ ['cutkosky',], ['all',]]:
                 
-                if args.ir_limits == 'all':
+                if args.ir_limits == ['all',]:
                     all_combinations_of_active_legs = [ (None, [e[0] for e in edges_list if (args.include_massive or edge_masses[e[0]]=='ZERO') and not all(s==0 for s in edge_signatures[e[0]][0])] ), ]
                 else:
                     all_combinations_of_active_legs = [ 
@@ -3074,8 +3082,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     # Soft configs are easy to enumerate. We always keep the no-soft case too.
                     soft_combinations = [tuple([]),]
                     if args.consider_soft_limits:
-                        for po in range(1,args.perturbative_order+1):
-                            soft_combinations.extend( itertools.combinations(all_active_legs,po) )
+                        for po in range(1,abs(args.perturbative_order)+1):
+                            soft_combinations.extend( tuple(sorted(sc)) for sc in itertools.combinations(all_active_legs,po) )
 
 
                     if not args.consider_collinear_limits:
@@ -3086,30 +3094,30 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                         def consume_leg(collinear_configurations, remaining_legs):
                             n_unresolved = sum((len(cc)-1) for cc in collinear_configurations) if len(collinear_configurations)>0 else 0
-                            if len(remaining_legs)==0 or (len(collinear_configurations)==0 and len(remaining_legs)<=1) or n_unresolved>=args.perturbative_order:
+                            if len(remaining_legs)==0 or (len(collinear_configurations)==0 and len(remaining_legs)<=1) or n_unresolved>=abs(args.perturbative_order):
                                 # Then we terminate the recursion and return the list itself
                                 return [(collinear_configurations, remaining_legs),]
                             else:
                                 new_collinear_configurations = []
                                 # We can either absorb the next remaining leg into one of the collinear set
-                                for i_r_leg in range(len(remaining_legs)):
-                                    new_collinear_configurations.extend(
-                                        [ 
-                                            ( tuple([ cc if j_cc!=i_cc else cc+[remaining_legs[i_r_leg],] for j_cc, cc in enumerate(collinear_configurations)]), remaining_legs[:i_r_leg]+remaining_legs[i_r_leg+1:] ) 
-                                            for i_cc in range(len(collinear_configurations)) 
-                                        ]
-                                    )
+                                if len(collinear_configurations)>0:
+                                    for i_r_leg in range(len(remaining_legs)):
+                                        new_collinear_configurations.extend(
+                                            [ 
+                                                ( tuple([ cc if j_cc!=i_cc else cc+tuple([remaining_legs[i_r_leg],]) for j_cc, cc in enumerate(collinear_configurations)]), remaining_legs[:i_r_leg]+remaining_legs[i_r_leg+1:] ) 
+                                                for i_cc in range(len(collinear_configurations)) 
+                                            ]
+                                        )
                                 # or we can create a new collinear set if there are at least two remaining legs
                                 if len(remaining_legs)>=2:
                                     for leg_pair in itertools.combinations(range(len(remaining_legs)),2):
                                         # Add both orderings in the collinear, C(i,j) and C(j,i)
                                         new_collinear_configurations.append(
-                                                ( tuple(list(collinear_configurations)+[remaining_legs[leg_pair[0]],remaining_legs[leg_pair[1]]]), tuple( r for i_r, r in enumerate(remaining_legs) if i_r not in leg_pair ) )
+                                                ( tuple(list(collinear_configurations)+[(remaining_legs[leg_pair[0]],remaining_legs[leg_pair[1]],)]), tuple( r for i_r, r in enumerate(remaining_legs) if i_r not in leg_pair ) )
                                         )
                                         new_collinear_configurations.append(
-                                                ( tuple(list(collinear_configurations)+[remaining_legs[leg_pair[1]],remaining_legs[leg_pair[0]]]), tuple( r for i_r, r in enumerate(remaining_legs) if i_r not in leg_pair ) )
+                                                ( tuple(list(collinear_configurations)+[(remaining_legs[leg_pair[1]],remaining_legs[leg_pair[0]],)]), tuple( r for i_r, r in enumerate(remaining_legs) if i_r not in leg_pair ) )
                                         )
-                                
                             # Then we recurse and flatten (also including the original configuration)
                             return sum([ consume_leg(cc, rl) for cc, rl in new_collinear_configurations ], [(collinear_configurations, remaining_legs),] )
 
@@ -3117,13 +3125,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         collinear_configurations = consume_leg( tuple([]), tuple(all_active_legs) )
 
                         # Now drop identical configurations as well as spectator legs that do not matter any longer.
-                        collinear_configurations = list(set([ set(cc) for cc, rl in ir_configurations ]))
+                        collinear_configurations = list(set([ tuple(sorted(cc)) for cc, rl in collinear_configurations ]))
 
                         # If the softs are required, then insert them, otherwise drop remaining legs.
                         for collinear_configuration in collinear_configurations:
                             for soft_config in soft_combinations:
-                                if ( set(collinear_configuration), set(soft_config) ) not in selected_ir_limits and validate_limit(collinear_configuration, soft_config, args.perturbative_order):
-                                    selected_ir_limits[( set(collinear_configuration), set(soft_config) )] = cut_ID
+                                if ( collinear_configuration, soft_config ) not in selected_ir_limits and validate_limit(collinear_configuration, soft_config, args.perturbative_order):
+                                    selected_ir_limits[( collinear_configuration, soft_config )] = cut_ID
 
             
             IR_limits_per_SG[SG_name] = {}
@@ -3132,6 +3140,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             for (collinear_sets, soft_set), cut_ID in selected_ir_limits.items():
                 all_edges_in_this_limit = set( (sum([list(cc) for cc in collinear_sets],[]) if len(collinear_sets)>0 else [])+list(soft_set) )
                 selected_LMB_id = None
+                extra_spectator = None
                 for i_lmb, LMB in enumerate(all_LMBs):
 
                     # If a cut ID is specified, make sure that this LMB includes all but one of the cut edges, for improved readibility
@@ -3141,36 +3150,74 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                             continue
 
                     edges_in_limit_but_not_in_LMB = [e for e in all_edges_in_this_limit if e not in LMB]
-                    edges_in_LMB_but_not_in_limit = [e for e in LMB if e not in all_edges_in_this_limit]
 
                     if len(edges_in_limit_but_not_in_LMB)==0:
                         selected_LMB_id = i_lmb
                         break
+                
+                # If an LMB was not found then do a second pass to try and find it by allowing up to one spectator
+                if selected_LMB_id is None:
 
-                    elif len(edges_in_LMB_but_not_in_limit)==0 and len(edges_in_limit_but_not_in_LMB)==1:
-                        # This can in principle be a valid candidate, however we must check that the list of edges in this limit is not one more than the length of the LMB!
-                        # This can happen because we are not looking at vaccuum graphs, we must consider the option of adding an extra dependent momentum to the
-                        # list, so as to cover for example the case of two sets of collinear splitting, back to back in a 1>4 kin. config.
-                        # However we must make sure that the edge not in LMB is not soft
-                        if edges_in_limit_but_not_in_LMB[0] not in soft_set:
-                            selected_LMB_id = i_lmb
-                            break
-                else:
+                    for i_lmb, LMB in enumerate(all_LMBs):
+
+                        # If a cut ID is specified, make sure that this LMB includes all but one of the cut edges, for improved readibility
+                        if cut_ID is not None:
+                            edges_in_cut_but_not_in_LMB = [cut['name'] for cut in SG['cutkosky_cuts'][cut_ID]['cuts'] if cut['name'] not in LMB]
+                            if len(edges_in_cut_but_not_in_LMB)>1:
+                                continue
+
+                        edges_in_limit_but_not_in_LMB = [e for e in all_edges_in_this_limit if e not in LMB]
+
+                        if len(edges_in_limit_but_not_in_LMB)==1:
+                            # This can in principle be a valid candidate, however we must check that the list of edges in this limit is not one more than the length of the LMB!
+                            # This can happen because we are not looking at vaccuum graphs, we must consider the option of adding an extra dependent momentum to the
+                            # list, so as to cover for example the case of two sets of collinear splitting, back to back in a 1>4 kin. config.
+                            # However we must make sure that the edge not in LMB is not soft
+                            if edges_in_limit_but_not_in_LMB[0] not in soft_set:
+                                selected_LMB_id = i_lmb
+                                extra_spectator = edges_in_limit_but_not_in_LMB[0]
+                                break
+
+                if selected_LMB_id is None:
                     # This can of course happen if the limit considered dependent momenta.
-                    #logger.debug("The following IR configuration '%s' found no hosting LMB."%self.format_ir_limit_str(collinear_sets, soft_set))
+                    #logger.debug("The following IR configuration '%s' found no hosting LMB."%self.format_ir_limit_str( (collinear_sets, soft_set) ))
                     pass
                 
                 if selected_LMB_id is not None:
-                    # TODO: sprinkle signs on the limit, and choose the "right" signs when a cut_ID is specified.
-                    IR_limits_per_SG[SG_name][ 
-                        ( set( tuple( (1,cc) for cc in collinear_set) for collinear_set in collinear_sets), set(soft_set) ) 
-                    ] = { 'i_LMB': i_lmb, 'extra_spectator': None, 'cut_ID': cut_ID }
+                    all_signed_collinear_sets = []
+                    if len(collinear_sets)==0:
+                        all_signed_collinear_sets.append(tuple([]))
+                    else:
+                        for collinear_set in collinear_sets:
+                            if cut_ID is not None:
+                                cut_info_per_edge_name = {cut['name'] : cut for cut in SG['cutkosky_cuts'][cut_ID]['cuts']}
+                                all_signed_collinear_sets.append( tuple( tuple( (cut_info_per_edge_name[cc]['sign'],cc) for cc in collinear_set) for collinear_set in collinear_sets) )
+                            else:
+                                # TODO implement a less blunt approach that does not consider all signs but deduce the meaningful ones from the signature of the edges involved in the collinear set
+                                all_signed_collinear_sets.extend(
+                                    tuple( tuple( (sign_config[i_ccs][i_cc],cc) for i_cc, cc in enumerate(collinear_set)) for i_ccs, collinear_set in enumerate(collinear_sets))
+                                    for sign_config in itertools.product(*[ [(1,)+p for p in itertools.product(*([(1,-1),]*(len(cc)-1) ))] for cc in collinear_set])
+                                )
+                    for signed_collinear_sets in all_signed_collinear_sets:
+                        IR_limits_per_SG[SG_name][ 
+                            ( signed_collinear_sets, soft_set ) 
+                        ] = { 'i_LMB': i_lmb, 'extra_spectator': extra_spectator, 'cut_ID': cut_ID }
 
-            misc.sprint("List of all IR limits constructed:\n%s"%(
-                '\n'.join( '%s : %s'%( self.format_ir_limit_str(ir_limit), pformat(IR_limits_per_SG[SG_name][ir_limit]) ) for ir_limit in sorted(list(IR_limits_per_SG[SG_name].keys())) )
+            #logger.info("A total of %d limits have been constructed in %.2fs."%(len(IR_limits_per_SG[SG_name]),time.time()-start_limits_derivation_time))
+            max_len = max(len(self.format_ir_limit_str(ir_limit, colored_output=False)) for ir_limit in IR_limits_per_SG[SG_name]) if len(IR_limits_per_SG[SG_name])>0 else 0
+            logger.info("List of all %d IR limits constructed:\n%s"%(
+                len(IR_limits_per_SG[SG_name]),
+                ' | '.join(self.format_ir_limit_str(ir_limit) for ir_limit in sorted(list(IR_limits_per_SG[SG_name].keys())))
             ))
-            
-            #TODO NOW DEBUG UNTIL HERE! and adjust below to actually carry out the tests
+            logger.info("Details of the list of all %d IR limits constructed:\n%s"%(
+                len(IR_limits_per_SG[SG_name]),
+                '\n'.join( ('%-{}s : %s'.format(
+                    max_len + (len(self.format_ir_limit_str(ir_limit, colored_output=True)) - len(self.format_ir_limit_str(ir_limit, colored_output=False)))
+                ))%( self.format_ir_limit_str(ir_limit), pformat(IR_limits_per_SG[SG_name][ir_limit]) ) for ir_limit in sorted(list(IR_limits_per_SG[SG_name].keys())) )
+            ))
+
+        return
+        #TODO NOW DEBUG UNTIL HERE! and adjust below to actually carry out the tests
 
 
     #### UV PROFILE COMMAND
