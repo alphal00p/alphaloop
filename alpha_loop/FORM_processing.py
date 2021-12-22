@@ -88,7 +88,7 @@ FORM_processing_options = {
     'generate_renormalisation_graphs' : False,
     # Set the option below to a positive integer so as to enable the splitting of large source files into many
     # with at most around the number of lines specified here. Note that this disables static and inline optimisations!
-    'max_n_lines_in_C_source' : 10000, 
+    'max_n_lines_in_C_source' : 50000, 
     'include_integration_channel_info' : True,
     'UV_min_dod_to_subtract' : 0,
     'selected_epsilon_UV_order' : 0,
@@ -3329,25 +3329,34 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
         # Deduce the SG ids from the files "integrand_PF_" or "integrand_LTD_"
         SG_ids = set([])
         for fpath in glob_module.glob(pjoin(root_output_path,'integrand_PF_*_f64.c')):
-            SG_ids.add(int(re.match(r"integrand_PF_(?P<SGID>\d+)_f64.c",os.path.basename(fpath)).group('SGID')))
+            match_re = re.match(r"integrand_PF_(?P<SGID>\d+)_f64.c",os.path.basename(fpath))
+            if match_re is not None:
+                SG_ids.add(int(match_re.group('SGID')))
         for fpath in glob_module.glob(pjoin(root_output_path,'integrand_LTD_*_f64.c')):
-            SG_ids.add(int(re.match(r"integrand_LTD_(?P<SGID>\d+)_f64.c",os.path.basename(fpath)).group('SGID')))
+            match_re = re.match(r"integrand_LTD_(?P<SGID>\d+)_f64.c",os.path.basename(fpath))
+            if match_re is not None:
+                SG_ids.add(int(match_re.group('SGID')))
 
         # Now for each SG ID process files and build a target
         repl_dict = {
             'all_sg_file_names' : [],
             'all_sg_targets' : []
         }
+        split_file_name_re = re.compile(r"^integrand_.*_s(\d+)_.*\.c$")
         for SG_id in sorted(SG_ids):
             repl_dict['all_sg_file_names'].append('$(LIBBPATH)/libFORM_sg_%d.so'%SG_id)
             dependencies = []
             for code_type in ['PF','LTD',]:
                 all_matches = list(glob_module.glob(pjoin(root_output_path,'integrand_%s_%d_*.c'%(code_type,SG_id))))+list(glob_module.glob(pjoin(root_output_path,'integrand_%s_%d_*.cpp'%(code_type,SG_id))))
                 for fpath in all_matches:
+                    # Make sure ignore split files that may have been previously generated
+                    if split_file_name_re.match(os.path.basename(fpath)):
+                        continue
                     dependencies.extend(self.split_source_file(root_output_path,os.path.basename(fpath),FORM_processing_options['max_n_lines_in_C_source']))
+            formatted_dependencies = [d.replace('.c','.o') for d in dependencies]
             repl_dict['all_sg_targets'].append(
 """$(LIBBPATH)/libFORM_sg_%(SGID)d.so: %(dependencies)s
-\t$(GPP) --shared -fPIC $(CFLAGS) -o $@ $^"""%{'SGID' : SG_id, 'dependencies' : ' '.join(dependencies) })
+\t$(GPP) --shared -fPIC $(CFLAGS) -o $@ $^"""%{'SGID' : SG_id, 'dependencies' : ' '.join(formatted_dependencies) })
 
         repl_dict['all_sg_file_names'] = ' '.join(repl_dict['all_sg_file_names'])
         repl_dict['all_sg_targets'] = '\n'.join(repl_dict['all_sg_targets'])
@@ -3357,15 +3366,30 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
             out.write(makefile_targets_template.format(**repl_dict))
 
     def split_source_file(self, root_output_path, source_code_name, max_n_lines):
-
-        # First make sure that any splitting is necessary in the first place.
-        if max_n_lines is None:
-            return [source_code_name,]
         
-        num_lines = sum(1 for line in open(pjoin(root_output_path, source_code_name),'r'))
-        if num_lines <= max_n_lines:
-            return [source_code_name,]
+        raw_source = open(pjoin(root_output_path, source_code_name),'r').readlines()
 
+        start_file_re = re.compile(r'^// Source post-processed and split into the following files: (?P<dependencies>.*)$')
+        start_file_match = start_file_re.match(raw_source[0].strip())
+        if start_file_match is not None:
+            try:
+                dependencies=eval(start_file_match.group('dependencies'))
+            except:
+                raise FormProcessingError("Could not read dependencies from first line of file '%s'."%pjoin(root_output_path, source_code_name))
+            return dependencies
+
+        num_lines = len(raw_source)
+        # First make sure that any splitting is necessary in the first place.
+        if max_n_lines is None or num_lines <= max_n_lines:
+            source_code_name_split = source_code_name.split('_')
+            # Clear out any additional file that may have existed from a previous run
+            split_file_name_template = '%s%s%s'%('_'.join(source_code_name_split[:-1]), '_s*_', source_code_name_split[-1])
+            for fpath in glob_module.glob(pjoin(root_output_path,split_file_name_template)):
+                os.remove(fpath)
+            open(pjoin(root_output_path, source_code_name),'w').write(''.join(
+                ['// Source post-processed and split into the following files: [%s,]'%source_code_name,]+raw_source
+            ))
+            return [source_code_name,]
 
         extern_c_re = re.compile(r'^extern \"C\" {$')
         start_func_re = re.compile(r"^(static|void).*{$")
@@ -3426,8 +3450,8 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
         i_file = 0
         i_func = 0
         files_written = []
+        source_code_name_split = source_code_name.split('_')
         while True:
-            source_code_name_split = source_code_name.split('_')
             split_file_name = '%s%s%s'%('_'.join(source_code_name_split[:-1]), ('_s%d_'%i_file if i_file>0 else '_'), source_code_name_split[-1])
             files_written.append(split_file_name)
             with open(pjoin(root_output_path,split_file_name),'w') as out:
@@ -3447,6 +3471,20 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
                 else:
                     i_file += 1
 
+        split_file_name_re = re.compile(r"^integrand_.*_s(\d+)_.*\.c$")
+        # Clear out any additional file that may have existed from a previous run
+        split_file_name_template = '%s%s%s'%('_'.join(source_code_name_split[:-1]), '_s*_', source_code_name_split[-1])
+        for fpath in glob_module.glob(pjoin(root_output_path,split_file_name_template)):
+            if int(split_file_name_re.match(os.path.basename(fpath)).group(1))>i_file:
+                os.remove(fpath)
+
+        # Flag the source file as processed and specify the list of files split into as comment of the first line
+        raw_source = open(pjoin(root_output_path, source_code_name),'r').readlines()
+        open(pjoin(root_output_path, source_code_name),'w').write(''.join(
+            ['// Source post-processed and split into the following files: [%s%s]'%(
+                ','.join(files_written), ',' if len(files_written)==1 else ''
+            ),]+raw_source
+        ))
         return files_written
 
     def generate_squared_topology_files(self, root_output_path, model, process_definition, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None,
