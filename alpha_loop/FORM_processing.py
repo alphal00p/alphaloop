@@ -614,6 +614,13 @@ aGraph=%s;
             lmb_metric.sort(key=lambda score:(score[0],score[1]), reverse=True)
             forced_LMB_index = lmb_metric[0][-1]
 
+        # You can hack in here your desired LMB when using the FORM processing options:
+        #   set_FORM_option number_of_lmbs 1
+        #   set_FORM_option reference_lmb 1
+        # and then specify below your pq<i> desired basis
+        #all_lmbs = [ tuple([edge_name_to_key[e] for e in ('pq7','pq9','pq10','pq13')]), ]
+        #all_lmbs = [ tuple([edge_name_to_key[e] for e in ('pq2', 'pq4', 'pq13', 'pq14','pq12') ]), ]
+
         # Then overwrite the reference LMB if the user requested it
         if (FORM_processing_options['reference_lmb'] is not None) or (forced_LMB_index is not None):
             if FORM_processing_options['reference_lmb'] is not None:

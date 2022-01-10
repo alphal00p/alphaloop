@@ -28,6 +28,7 @@ import glob
 import threading
 import networkx as nx
 import psutil
+from prettytable import PrettyTable
 
 #import matplotlib.pyplot as plt
 #from matplotlib.font_manager import FontProperties
@@ -305,6 +306,43 @@ class SuperGraph(dict):
             for _ in range(self['topo']['n_loops'])
         ]
 
+    @classmethod
+    def compute_ir_limit_perturbative_order(cls, ir_limit):
+        
+        collinear_sets, soft_set = ir_limit
+        # Count the number of unresolved, first from collinears only
+        n_unresolved = sum((len(cc)-1) for cc in collinear_sets) if len(collinear_sets)>0 else 0
+        # Then softs, first adding one for all collinears filled with softs
+        n_unresolved += len([1 for cc in collinear_sets if all(e in soft_set for e_sign, e in cc) ])
+        # And finally one for each soft not part of a collinear config
+        coll_edges = [e for c_set in collinear_sets for e_sign, e in c_set]
+        n_unresolved += len([1 for l in soft_set if not l in coll_edges])
+
+        return n_unresolved
+
+    @classmethod
+    def format_ir_limit_str(cls, ir_limit, colored_output=True):
+        collinear_sets, soft_set = ir_limit
+        # turn the collinear_sets in the canonical form if not already in it
+        collinear_sets = [[cc if isinstance(cc, tuple) else (None,cc) for cc in collinear_set] for collinear_set in collinear_sets]
+
+        if colored_output:
+            GREEN = Colours.GREEN
+            BLUE = Colours.BLUE
+            END = Colours.END
+        else:
+            GREEN = ''
+            BLUE = ''
+            END = ''
+        collinear_bit = ''.join('%sC[%s%s%s]%s'%(BLUE,END,('%s,%s'%(BLUE,END)).join(
+            (('%sS({})%s'%(GREEN,END)).format('%s') if cc[1] in soft_set else '%s')%(
+                '%s%s'%( ('?' if cc[0] is None else ('' if cc[0]>0 else '-')), cc[1] )  )    
+            for cc in collinear_set),BLUE,END) for collinear_set in collinear_sets)
+        
+        all_collinear_edges = set(sum([[cc[1] for cc in collinear_set] for collinear_set in collinear_sets],[]) if len(collinear_sets)>0 else [])
+        soft_bit = ''.join('%sS(%s)%s'%(GREEN,s,END) for s in soft_set if s not in all_collinear_edges)
+        return collinear_bit+soft_bit
+
     def check_validity(self):
         return True
 
@@ -540,6 +578,133 @@ class SuperGraph(dict):
                 res_str.append(('%s%-{:d}s%s : %s'.format(max_len))%(Colours.GREEN,k,Colours.END,v))
             else:
                 res_str.append('%s%s%s'%(Colours.BLUE,k,Colours.END))
+        return '\n'.join(res_str)
+
+    def show_IR_statistics(self, full=False, show_momenta=False, show_command=False):
+        
+        if 'ir_limits_analysis' not in self:
+            return "No IR profile information available."
+
+        res_str = []
+
+        IR_limits_per_order = {}
+        for ir_limit in self['ir_limits_analysis']:
+            pert_order = SuperGraph.compute_ir_limit_perturbative_order(ir_limit)
+            if pert_order in IR_limits_per_order:
+                IR_limits_per_order[pert_order].append(ir_limit)
+            else:
+                IR_limits_per_order[pert_order] = [ir_limit,]
+
+        for pert_order in sorted(list(IR_limits_per_order.keys())):
+            header = 'N'*pert_order+'LO ir limits (%d) :'%len(IR_limits_per_order[pert_order])
+            res_str.append('-'*len(header)) 
+            res_str.append('%s%s%s %s(%d)%s:'%(
+                Colours.GREEN,
+                'N'*pert_order+'LO ir limits',
+                Colours.END,
+                Colours.BLUE,
+                len(IR_limits_per_order[pert_order]),
+                Colours.END
+            ))
+            res_str.append('-'*len(header)) 
+            max_IR_limit_str_len = max(len(SuperGraph.format_ir_limit_str(ir_limit,colored_output=False)) for ir_limit in self['ir_limits_analysis'] )
+            for ir_limit in sorted(IR_limits_per_order[pert_order]):
+                result = self['ir_limits_analysis'][ir_limit]
+                cuts_sum_dod_colour = Colours.GREEN if (result['cuts_sum']['dod']['central'] < -1 + min(max(10.0*abs(result['cuts_sum']['dod']['std_err']),0.05),0.2)) else Colours.RED
+                max_cut_dod = max(result['per_cut'].values(), key=lambda d: d['dod']['central'])
+                severity_central = (max_cut_dod['dod']['central']-result['cuts_sum']['dod']['central'])
+                severity_std_err = math.sqrt(result['cuts_sum']['dod']['std_err']**2+max_cut_dod['dod']['std_err']**2)
+                res_str.append(('> %-{}s : %s%s%s %-12s dod: itg = %-32s cuts_sum = %-32s severity = %-32s'.format(
+                        max_IR_limit_str_len+(len(SuperGraph.format_ir_limit_str(ir_limit,colored_output=True))-len(SuperGraph.format_ir_limit_str(ir_limit,colored_output=False)))
+                    ))%(
+                    SuperGraph.format_ir_limit_str(ir_limit),
+                    Colours.GREEN if result['status'][0] else Colours.RED, 'PASSED' if result['status'][0] else 'FAILED', Colours.END,
+                    '(%s)'%result['status'][1],
+                    'N/A' if result['complete_integrand']['dod']['status'] not in ['SUCESS','UNSTABLE'] else (
+                        '%s%s%.5f +/- %.1g%s'%(
+                            Colours.GREEN if result['status'][0] else Colours.RED,
+                            '+' if result['complete_integrand']['dod']['central']>=0. else '',
+                            result['complete_integrand']['dod']['central'], result['complete_integrand']['dod']['std_err'],
+                            Colours.END
+                    )),
+                    'N/A' if result['complete_integrand']['dod']['status'] not in ['SUCESS','UNSTABLE'] else (
+                        '%s%s%.5f +/- %.1g%s'%(cuts_sum_dod_colour, '+' if result['cuts_sum']['dod']['central']>=0. else '',
+                        result['cuts_sum']['dod']['central'], result['cuts_sum']['dod']['std_err'],Colours.END)
+                    ),
+                    'N/A' if result['complete_integrand']['dod']['status'] not in ['SUCESS','UNSTABLE'] else (
+                        '%s%s%.5f +/- %.1g%s'%(Colours.BLUE,'+' if severity_central>=0. else '', severity_central, severity_std_err, Colours.END)
+                    )
+                ))
+                if show_command:
+                    res_str.append('  %s'%result['command'])
+                if show_momenta:
+                    asymptotic_momenta = [ Vector(v) for v in result['defining_LMB_momenta'][-1][1] ]
+                    res_str.append('  | IR limit asymptotic momenta configuration:')
+                    res_str.append( '\n'.join('    %s%-5s%s : %-20s'%(Colours.BLUE, prop_name, Colours.END, 
+                            ', '.join( '%s%.10e'%('+' if vi>=0. else '', vi) for vi in list(
+                                sum( l*factor for l, factor in zip(asymptotic_momenta,sig[0]) )+
+                                sum( l*factor for l, factor in zip(self['ir_limits_analysis_setup']['external_momenta'],sig[1]) )
+                                ) )
+                        ) for prop_name, sig in sorted(self['edge_signatures'].items(), key=lambda el: (-1,el[0]) if re.match('^pq\d+$',el[0]) is None else (int(el[0][2:]),el[0]) ) ) ) 
+                if not full:
+                    continue
+                pt = PrettyTable()
+                pt.title = 'Detailed results'
+                pt.field_names = ["Cut", "dod", "max eval (scaling)", "asymptotic t"]
+                for field in pt.field_names:
+                    pt.align[field] = "l"
+                for cut_ID in sorted(result['per_cut'])+['cuts_sum','complete_integrand']:
+                    if not isinstance(cut_ID, int):
+                        container = result[cut_ID]
+                        cut_descr = '%s%s%s'%(Colours.BLUE, cut_ID.replace('_',' '),Colours.END)
+                    else:
+                        container = result['per_cut'][cut_ID]
+                        cut_descr = '%s#%d%s (%s)'%(
+                            Colours.BLUE, cut_ID, Colours.END, ','.join(c for c in sorted([c['name'] for c in self['cutkosky_cuts'][cut_ID]['cuts']]))
+                        )
+                    dod_colour = Colours.GREEN if (container['dod']['central'] < -1 + min(max(10.0*abs(container['dod']['std_err']),0.05),0.2)) else Colours.RED
+                    dod_descr = '%s%s%-5.5f+/-%-5.1g%s'%(
+                        dod_colour,
+                        '+' if container['dod']['central']>=0. else '',container['dod']['central'],container['dod']['std_err'],
+                        Colours.END
+                    )
+                    max_eval = max( container['evaluations'], key = lambda e: abs(e[1]) )
+                    max_eval_descr = '%s%.16e %s %.16ej (%s)'%(
+                        '+' if max_eval[1].real >=0. else '-', abs(max_eval[1].real),
+                        '+' if max_eval[1].imag >=0. else '-', abs(max_eval[1].imag),
+                        '%.2e'%max_eval[0]
+                    )
+                    if isinstance(cut_ID, int):
+                        asympt_t = result['per_cut'][cut_ID]['LU_scalings'][-1][1]
+                        asympt_t_descr = '%.16e'%asympt_t
+                    else:
+                        asympt_t_descr = 'N/A'
+                    pt.add_row([cut_descr,dod_descr,max_eval_descr,asympt_t_descr])
+
+                res_str.extend([ '  %s'%line for line in pt.get_string().split('\n') ])    
+
+        failed_limits_per_order = {
+            pert_order : [ ir_limit for ir_limit in ir_limits if not self['ir_limits_analysis'][ir_limit]['status'][0] ]
+            for pert_order, ir_limits in IR_limits_per_order.items()
+        }
+        n_fails = sum(len(v) for v in failed_limits_per_order.values())
+        if n_fails==0:
+            res_str.append('-'*len('All %d IR limits passed!'%len(self['ir_limits_analysis'])))
+            res_str.append('%sAll %d IR limits passed!%s'%(Colours.GREEN, len(self['ir_limits_analysis']), Colours.END))
+            res_str.append('-'*len('All %d IR limits passed!'%len(self['ir_limits_analysis'])))
+        else:
+            res_str.append('-'*len('The following %d/%s IR limits failed:'%(n_fails,len(self['ir_limits_analysis']))))
+            res_str.append("%sThe following %d/%d IR limits failed:%s"%(Colours.RED, n_fails, len(self['ir_limits_analysis']), Colours.END))
+            for pert_order in sorted(failed_limits_per_order):
+                if len(failed_limits_per_order[pert_order])==0:
+                    continue
+                res_str.append('%s%s (%d)%s : %s'%(
+                    Colours.RED, 'N'*pert_order+'LO', len(failed_limits_per_order[pert_order]), Colours.END, ' | '.join(
+                        SuperGraph.format_ir_limit_str(ir_limit) for ir_limit in sorted(failed_limits_per_order[pert_order])
+                    )
+                ))
+            res_str.append('-'*len('The following %d/%s IR limits failed:'%(n_fails,len(self['ir_limits_analysis']))))
+
         return '\n'.join(res_str)
 
     def contains_external_selfenergy(self):
@@ -1326,6 +1491,16 @@ class SuperGraphCollection(dict):
                 res_str.append(('%s%-{:d}s%s : %s'.format(max_len))%(Colours.GREEN,k,Colours.END,v))
             else:
                 res_str.append('%s%s%s'%(Colours.BLUE,k,Colours.END))
+
+        return '\n'.join(res_str)
+
+    def show_IR_statistics(self,full=False, show_momenta=False, show_command=False):
+        
+        res_str = []
+        for SG_name in sorted(list(self.keys())):
+            res_str.append("\nIR profile of %s%s%s:\n%s"%(Colours.GREEN,SG_name,Colours.END, self[SG_name].show_IR_statistics(
+                full=full, show_momenta=show_momenta, show_command=show_command
+            )))
 
         return '\n'.join(res_str)
 
@@ -2806,27 +2981,41 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             self.do_display('--deformation%s'%(' --show_momenta' if args.show_momenta else ''))
 
     @classmethod
-    def format_ir_limit_str(cls, ir_limit, colored_output=True):
-        collinear_sets, soft_set = ir_limit
-        # turn the collinear_sets in the canonical form if not already in it
-        collinear_sets = [[cc if isinstance(cc, tuple) else (1,cc) for cc in collinear_set] for collinear_set in collinear_sets]
+    def parse_IR_limit(cls, ir_limit_str):
+        """ From a string representation of the limit, for instance 'C[+pq5,-pq4,pq7,S(?pq8)]C[-pq9,?pq10]S(pq11)S(pq13)', it returns the 
+        signed IR limit, with ? for the sign represented with None,instead of +1 or -1.
+        For the above, it would return:
+        (
+            (
+                ( (1, 'pq5'), (-1, 'pq4'), (1, 'pq7'), (None, 'pq8') ), 
+                ( (-1, 'pq9'), (None, 'pq10') )
+            ),
+            ('pq8', 'pq11', 'pq13')
+        )
+        """
+        ir_limit_str = ir_limit_str.replace(' ','')
+        collinear_re = re.compile(r"C\[[\d,\-\(\)\+\?\w]*\]")
+        collinear_sets = []
+        for collinear_set in collinear_re.findall(ir_limit_str):
+            collinear_sets.append([])
+            for collinear_edge in collinear_set[2:-1].split(','):
+                edge_specification = collinear_edge[2:-1] if collinear_edge[0] == 'S' else collinear_edge
+                if edge_specification[0] == '?':
+                    collinear_sets[-1].append((None,edge_specification[1:]))
+                elif edge_specification[0] == '-':
+                    collinear_sets[-1].append((-1,edge_specification[1:]))
+                elif edge_specification[0] == '+':
+                    collinear_sets[-1].append((+1,edge_specification[1:]))
+                else:
+                    collinear_sets[-1].append((+1,edge_specification))
 
-        if colored_output:
-            GREEN = Colours.GREEN
-            BLUE = Colours.BLUE
-            END = Colours.END
-        else:
-            GREEN = ''
-            BLUE = ''
-            END = ''
-        collinear_bit = ''.join('%sC[%s%s%s]%s'%(BLUE,END,('%s,%s'%(BLUE,END)).join(
-            (('%sS({})%s'%(GREEN,END)).format('%s') if cc[1] in soft_set else '%s')%(
-                '%s%s'%( ('' if cc[0]>0 else '-'), cc[1] )  )    
-            for cc in collinear_set),BLUE,END) for collinear_set in collinear_sets)
-        
-        all_collinear_edges = set(sum([[cc[1] for cc in collinear_set] for collinear_set in collinear_sets],[]) if len(collinear_sets)>0 else [])
-        soft_bit = ''.join('%sS(%s)%s'%(GREEN,s,END) for s in soft_set if s not in all_collinear_edges)
-        return collinear_bit+soft_bit
+        soft_re = re.compile(r"S\([\d,\-\+\?\w]*\)")
+        soft_set = []
+        for soft_edge in soft_re.findall(ir_limit_str):
+            edge_specification = soft_edge[2:-1]
+            soft_set.append(edge_specification[1:] if edge_specification[0] in ['?','-','+'] else edge_specification)
+
+        return ( tuple(tuple(coll_set) for coll_set in collinear_sets), tuple(soft_set) )
 
     #### IR PROFILE COMMAND
     ir_profile_parser = ArgumentParser(prog='ir_profile')
@@ -2834,15 +3023,15 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='the name(s) of a supergraph to run the IR profile for')
     ir_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=20,
                     help='force a certain number of points to be considered for the ir profile')
-    ir_profile_parser.add_argument("-max","--max_scaling", dest='max_scaling', type=float, default=1.0e-05,
+    ir_profile_parser.add_argument("-max","--max_scaling", dest='max_scaling', type=float, default=1.0e-03,
                     help='maximum IR scaling to consider')
-    ir_profile_parser.add_argument("-min","--min_scaling", dest='min_scaling', type=float, default=1.0e0,
+    ir_profile_parser.add_argument("-min","--min_scaling", dest='min_scaling', type=float, default=1.0e-05,
                     help='minimum IR scaling to consider')
     ir_profile_parser.add_argument("-s","--seed", dest='seed', type=int, default=0,
                     help='specify random seed')
     ir_profile_parser.add_argument("-rp","--required_precision", dest='required_precision', type=float, default=None,
                     help='minimum required relative precision for returning a result.')
-    ir_profile_parser.add_argument("-t","--target_scaling", dest='target_scaling', type=int, default=1,
+    ir_profile_parser.add_argument("-t","--target_scaling", dest='target_scaling', type=int, default=-1,
                     help='set target IR scaling (default=-1)')
     ir_profile_parser.add_argument(
         "-f", "--f128", action="store_true", dest="f128", default=False,
@@ -2868,19 +3057,23 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     ir_profile_parser.add_argument("-n_max","--n_max", dest='n_max', type=int, default=-1,
                     help='Set the maximum number of IR tests to perform per SG (default: all)')
     ir_profile_parser.add_argument("-po","--perturbative_order", dest='perturbative_order', type=int, default=3,
-                    help='Set the deepest perturbative order to consider in the IR limits (default:  %(default)s)')
+                    help='Set the deepest perturbative order to consider in the IR limits. When negative, the test will consider only limits of exactly that order (default:  %(default)s).')
     ir_profile_parser.add_argument("-irl","--ir_limits", dest='ir_limits', type=str, nargs='*', default=None,
                     help='Specify the particular IR limits for this ir profile Keywords allowed: "all", "cutkosky" . Example --ir_limits "C(pq1,-pq3,d1) C(-pq3,pq5,-pq8,d2) S(pq7,pq8)" "S(pq3)" (default: cutkosky)')
     ir_profile_parser.add_argument("-cd","--collinear_directions", dest='collinear_directions', type=str, default=None,
-                    help='Specify the collinear dictions to con consider for the approach (excluding frozen momenta). Example --collinear_directions "[(0.1244323,2.432e+02,...),(0.23,...)]" (default: Automatic)')
-    ir_profile_parser.add_argument("-approach_direction","--approach_direction", dest='approach_direction', type=str, default=None,
-                    help='Particular direction in LMB used for approaching the IR configuration. Example --approach_direction "(0.1244323,2.432e+02,1.03,...)" (default: random)')
+                    help='Specify the collinear dictions to con consider for the approach (excluding frozen momenta). Example --collinear_directions "[(0.1244323,2.432e+02,0.43),(0.23,...)]" (default: random)')
+    ir_profile_parser.add_argument("-approach_directions","--approach_directions", dest='approach_directions', type=str, default=None,
+                    help='Particular direction in LMB used for approaching the IR configuration. Example --approach_directions "[(-0.132,-2.432e+02,0.11),(0.23,-0.1,...)]" (default: random)')
+    ir_profile_parser.add_argument("-xs","--xs", dest='xs', type=str, default=None,
+                    help='Set of collinear fractions for collinear edges. Example --xs "[0.75 0.24 0.12]" (default: progression starting from 0.75 which each successor multiplied by 2/3)')
     ir_profile_parser.add_argument("-mc","--multi_channeling", action="store_true", dest="multi_channeling", default=False,
                     help='Enable multi_channeling in the evaluation (default: %(default)s)')
     ir_profile_parser.add_argument("-nose","--no_selfenergy", action="store_false", dest="include_external_selfenergy_SGs", default=True,
                     help='Discard the analysis for all SGs feature cuts containing external self-energy corrections.')
     ir_profile_parser.add_argument("--LMB", dest='LMB', type=str, nargs='*', default=None,
                     help='set LMB to consider')
+    ir_profile_parser.add_argument("-ic","--ignore_cut_configs", dest='ignore_cut_configs', type=int, default=3,
+                    help='Ignore a test if the last "ic" evaluations were zero as this implies that the configuration was likely cut away by the observable. Set negative to disable. (default: %(default)s)')
     ir_profile_parser.add_argument(
         "-ncl", "--no_check_lib", action="store_false", dest="check_if_lib_file_exists", default=True,
         help="Disable the check that the corresponding library file for this supergraph exists.")
@@ -2888,11 +3081,23 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         "-sm","--show_momenta", action="store_true", dest="show_momenta", default=False,
         help="Show the terminal kinematic configuration approached for this IR limit.")
     ir_profile_parser.add_argument(
+        "-sc","--show_command", action="store_true", dest="show_command", default=False,
+        help="Show the command to reproduce a particular IR limit test in the final report.")
+    ir_profile_parser.add_argument(
+        "-fr","--full_report", action="store_true", dest="full_report", default=False,
+        help="Show a full report of the results obtained at the end of the profiling.")
+    ir_profile_parser.add_argument(
         "-v", "--verbose", action="store_true", dest="verbose", default=False,
         help="Enable verbose output.")
     ir_profile_parser.add_argument(
+        "-nad", "--no_analyze_deformation", action="store_false", dest="analyze_deformation", default=True,
+        help="Disable the analysis of the deformation.")
+    ir_profile_parser.add_argument(
         "-m", "--include_massive", action="store_true", dest="include_massive", default=False,
         help="Consider massive legs for the IR limits.")
+    ir_profile_parser.add_argument(
+        "-as", "--all_softs", action="store_false", dest="only_soft_massless_boson", default=True,
+        help="Consider any particle as potentially soft, not just massless bosons.")
     ir_profile_parser.add_argument(
         "-no_soft", "--no_soft", action="store_false", dest="consider_soft_limits", default=True,
         help="Consider soft IR limits.")
@@ -2921,6 +3126,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         args = self.split_arg(line)
         args = self.ir_profile_parser.parse_args(args)
+
+        if args.seed != 0:
+            random.seed(args.seed)
 
         if args.multi_channeling:
             self.hyperparameters.set_parameter('General.multi_channeling',True)
@@ -2981,6 +3189,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # HOWEVER for now we do not claim to support frozen momenta
             raise NotImplementedError("For now frozen momenta are not supported for the ir_profile command. But this can easily be added if need be.")
 
+        # Built external momenta. Remember that they appear twice.
+        external_momenta = [ Vector(v[1:]) for v in self.hyperparameters['CrossSection']['incoming_momenta'] ]
+        external_momenta.extend(external_momenta)
+
         if args.required_precision is None:
             self.hyperparameters['General']['stability_checks'][-1]['relative_precision']=1.0e-99
         else:
@@ -2990,36 +3202,98 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if frozen_momenta and len(selected_SGs)>1:
             raise alphaLoopInvalidRunCmd("For amplitude LU mockups, the ir profile should be run for a single SG at a time.")
 
+        max_n_collinears = abs(args.perturbative_order)
         if args.collinear_directions is not None:
-            args.approach_direction = eval(args.approach_direction)
+            try:
+                args.collinear_directions = eval(args.collinear_directions)
+                args.collinear_directions = [ Vector(v) for v in args.collinear_directions ]
+            except Exception as e:
+                raise alphaLoopInvalidRunCmd("Could not parse the specified collinear directions: '%s'. Error: %s"%(args.collinear_directions, str(e)))
+            if len(args.collinear_directions) != max_n_collinears:
+                raise alphaLoopInvalidRunCmd("For the perturbative order considered (%d), a total of %d collinear dierections should be specified (not %d)."%(args.perturbative_order,max_n_collinears,len(args.collinear_directions)))
+        else:
+            args.collinear_directions = [ Vector([random.random() for i_comp in range(0,3)]) for i_vec in range(max_n_collinears) ]
+        # Normalize the collinear directions
+        try:
+            args.collinear_directions = [ v/abs(v) for v in args.collinear_directions ]
+        except ZeroDivisionError as e:
+            raise alphaLoopInvalidRunCmd("Collinear directions should have a non-zero norm This is not the case for: %s."%(str(args.collinear_directions)))
 
-        if args.approach_direction is not None:
-            args.approach_direction = eval(args.approach_direction)
-            if len(args.approach_direction) != (self.all_supergraphs[selected_SGs[0]]['topo']['n_loops'] - (0 if frozen_momenta is None else len(frozen_momenta['out'])))*3:
-                raise alphaLoopInvalidRunCmd("Expected %d components for the approach direction, but only %d were specified."%(
-                    (self.all_supergraphs[selected_SGs[0]]['topo']['n_loops'] - (0 if frozen_momenta is None else len(frozen_momenta['out'])))*3 ,len(args.approach_direction))) 
+        # Remember that approach_directions are also used to pad the LMB if the ir_limits does not specify it all
+        max_n_approach_directions = max(2*max_n_collinears, self.all_supergraphs[selected_SGs[0]]['topo']['n_loops'])
+        if args.approach_directions is not None:
+            try:
+                args.approach_directions = eval(args.approach_directions)
+                args.approach_directions = [ Vector(v) for v in args.approach_directions ]
+            except Exception as e:
+                raise alphaLoopInvalidRunCmd("Could not parse the specified collinear directions: '%s'. Error: %s"%(args.collinear_directions, str(e)))
+            if len(args.approach_directions) != max_n_approach_directions:
+                raise alphaLoopInvalidRunCmd("For the perturbative order considered (%d) and the number of loops in the supergraphs, a total of %d approach directions should be specified (not %d)."%(args.perturbative_order,max_n_approach_directions,len(args.approach_directions)))
+        else:
+            args.approach_directions = [ Vector([random.random() for i_comp in range(0,3)]) for i_vec in range(max_n_approach_directions) ]
+        # Normalize the collinear directions
+        try:
+            args.approach_directions = [ v/abs(v) for v in args.approach_directions ]
+        except ZeroDivisionError as e:
+            raise alphaLoopInvalidRunCmd("Approach directions should have a non-zero norm This is not the case for: %s."%(str(args.approach_directions)))
+
+        max_n_collinear_fractions = abs(args.perturbative_order)+1
+        if args.xs is not None:
+            try:
+                args.xs = eval(args.xs)
+            except Exception as e:
+                raise alphaLoopInvalidRunCmd("Could not parse the specified collinear directions: '%s'. Error: %s"%(args.collinear_directions, str(e)))
+            if len(args.xs) != max_n_collinear_fractions:
+                raise alphaLoopInvalidRunCmd("For the perturbative order considered (%d), a total of %d collinear fractions must be specified (not %d)."%(args.perturbative_order,max_n_collinear_fractions,len(args.xs)))
+            if any((x>=1. or x<=0.) for x in args.xs):
+                raise alphaLoopInvalidRunCmd("Collinear fractions specified must be within ]0.,1.[.")
+        else:
+            args.xs = [ 0.75*(2./3.)**(i_x) for i_x in range(max_n_collinear_fractions) ]
+        # Make sure the x's are given in descending order.
+        args.xs.sort(reverse=True)
 
         if args.ir_limits is None:
             args.ir_limits = ['cutkosky',]
         
         logger.info("Starting IR profile...")
 
-        def validate_limit(collinear_sets, soft_set, perturbative_order):
-            # Count the number of unresolved, first from collinears only
-            n_unresolved = sum((len(cc)-1) for cc in collinear_sets) if len(collinear_sets)>0 else 0
-            # Then softs, first adding one for all collinears filled with softs
-            n_unresolved += len([1 for cc in collinear_sets if all(l in soft_set for l in cc) ])
-            # And finally one for each soft not part of a collinear config
-            n_unresolved += len([1 for l in soft_set if not any(l in cc for cc in collinear_sets)])
+        def validate_limit(collinear_sets, soft_set, edge_PDGs, user_options):
+            
+            perturbative_order = user_options.perturbative_order
+
+            if user_options.only_soft_massless_boson:
+                for soft_edge in soft_set:
+                    soft_particle = self.alphaLoop_interface._curr_model.get_particle(edge_PDGs[soft_edge])
+                    if soft_particle.get('mass').upper() != 'ZERO' or soft_particle.get('spin')%2==0:
+                        return False
+
+            # Assign a dummy sign to collinear edge if not assigned
+            if len(collinear_sets)>0 and not isinstance(collinear_sets[0][0], tuple):
+                collinear_sets = tuple([
+                    tuple([ (None, collinear_edge) for collinear_edge in collinear_set]) for collinear_set in collinear_sets
+                ])
+
+            if not user_options.include_massive:
+                for coll_set in collinear_sets:
+                    for e_sign, e in coll_set:
+                        if self.alphaLoop_interface._curr_model.get_particle(edge_PDGs[e]).get('mass').upper()!='ZERO':
+                            return False
+                for e in soft_set:
+                    if self.alphaLoop_interface._curr_model.get_particle(edge_PDGs[e]).get('mass').upper()!='ZERO':
+                        return False
+
+            n_unresolved = SuperGraph.compute_ir_limit_perturbative_order( (collinear_sets, soft_set) )
+
             # Also remove the no-limit case that yields n_unresolved=0
             # A negative perturbative_order means that we require an exact match
             if (n_unresolved>perturbative_order if perturbative_order>=0 else n_unresolved!=(-perturbative_order)) or n_unresolved==0:
                 return False
+
             # Also make sure that the softs nested in a collinear only show up in the tail since otherwise the magnitude hierarchy makes no sense
             hierarchy_violated = False
             for cc in collinear_sets:
                 found_soft = False
-                for e in cc:
+                for e_sign, e in cc:
                     if e in soft_set:
                         found_soft = True
                     else:
@@ -3032,13 +3306,18 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 return False
             return True
 
+        if self.hyperparameters['General']['deformation_strategy'] in ['none',]:
+            args.analyze_deformation = False
+
         # Prepare the run
         IR_limits_per_SG = {}
+        LMBs_info_per_SG = {}
 
         for i_SG, SG_name in enumerate(selected_SGs):
 
             SG = self.all_supergraphs[SG_name]
 
+            edge_PDGs = { e_name: pdg for e_name, pdg in SG['edge_PDGs'] }
             edge_masses = { e_name: self.alphaLoop_interface._curr_model.get_particle(pdg).get('mass').upper() for e_name, pdg in SG['edge_PDGs'] }
 
             # First we must regenerate a TopologyGenerator instance for this supergraph
@@ -3054,19 +3333,56 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     raise alphaLoopInvalidRunCmd("The specified LMB: '%s' is not found to be valid for SG %s."%(str(args.LMB),SG_name))
                 all_LMBs = [ tuple(edge_name for edge_name in args.LMB), ]
 
+            if args.LMB is not None and args.UV_indices is not None:
+                all_LMBs = [tuple(edge_name for edge_name in args.LMB)]
+            else:
+                # Store the signature of each edge part of the LMBs w.r.t the defining LMB
+                all_LMBs = [ tuple(edges_list[i_edge][0] for i_edge in lmb) for lmb in SG_topo_gen.loop_momentum_bases()]
+                # Filter out all LMBs with the same loop momenta signatures
+                new_all_LMBS = []
+                signatures_encountered = []
+                for LMB in all_LMBs:
+                    this_LMB_sig = sorted(edge_signatures[edge_name][0] for edge_name in LMB)
+                    if this_LMB_sig not in signatures_encountered:
+                        signatures_encountered.append(this_LMB_sig)
+                        new_all_LMBS.append(LMB)
+                all_LMBs = new_all_LMBS
+
+            all_LMBs_and_UV_edge_indices_and_signatures = []
+            # Then only include combination of UV_edges that yield different signature combinations
+            LMBs_info_per_SG[SG_name] = {}
+            LMBs_info_per_SG[SG_name]['LMBs_to_defining_LMB_transfo'] = {}
+            # We must keep *all* signatures actually as it matters which other ones we keep fixed.
+            #signature_combinations_considered = []
+            for LMB in all_LMBs:
+                # construct the cut basis to LTD loop momentum basis mapping
+                mat = [edge_signatures[edge_name][0] for edge_name in LMB]
+                transfo = np.linalg.inv(np.array(mat))
+                shifts = [[-p for p in edge_signatures[edge_name][1]] for edge_name in LMB]
+                LMBs_info_per_SG[SG_name]['LMBs_to_defining_LMB_transfo'][LMB] = (transfo, shifts)
+
             selected_ir_limits = {}
 
             start_limits_derivation_time = time.time()
             #logger.info("Now deriving IR limits for %s..."%SG_name)
+            IR_limits_per_SG[SG_name] = {}
 
+            user_specified_signs = None
             if args.ir_limits not in [ ['cutkosky',], ['all',]]:
                 
-                if len(selected_SGs)>0:
+                if len(selected_SGs)>1:
                     raise alphaLoopInvalidRunCmd("Specifying limits can only be done when running the test on a single supergraph.")
                 
-                #TODO parse IR limits
-                parsed_limtis = None
-                IR_limits_per_SG[selected_SGs[0]] = parsed_limtis
+                user_specified_signs = {}
+                for IR_limit in args.ir_limits:
+                    parsed_limit = self.parse_IR_limit(IR_limit)
+                    logger.info("Parsed ir limit constructed: %s"%SuperGraph.format_ir_limit_str( parsed_limit ))
+                    coll_sets_edges = tuple(tuple(coll_edge for coll_sign, coll_edge in coll_set) for coll_set in parsed_limit[0])
+                    coll_sets_signs = tuple(tuple(coll_sign for coll_sign, coll_edge in coll_set) for coll_set in parsed_limit[0])
+                    soft_edges = parsed_limit[1]
+                    cut_ID = None
+                    selected_ir_limits[ ( coll_sets_edges, soft_edges) ] = cut_ID
+                    user_specified_signs[ ( coll_sets_edges, soft_edges) ] = coll_sets_signs
 
             elif args.ir_limits in [ ['cutkosky',], ['all',]]:
                 
@@ -3130,11 +3446,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         # If the softs are required, then insert them, otherwise drop remaining legs.
                         for collinear_configuration in collinear_configurations:
                             for soft_config in soft_combinations:
-                                if ( collinear_configuration, soft_config ) not in selected_ir_limits and validate_limit(collinear_configuration, soft_config, args.perturbative_order):
+                                if ( collinear_configuration, soft_config ) not in selected_ir_limits and validate_limit(collinear_configuration, soft_config, edge_PDGs, args):
                                     selected_ir_limits[( collinear_configuration, soft_config )] = cut_ID
-
-            
-            IR_limits_per_SG[SG_name] = {}
 
             # We must now find a suitable LMB to probe each selected IR limit
             for (collinear_sets, soft_set), cut_ID in selected_ir_limits.items():
@@ -3156,7 +3469,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         break
                 
                 # If an LMB was not found then do a second pass to try and find it by allowing up to one spectator
-                if selected_LMB_id is None:
+                # This also only makes sense to do if there is more than one collinear set.
+                if selected_LMB_id is None and len(collinear_sets)>1:
 
                     for i_lmb, LMB in enumerate(all_LMBs):
 
@@ -3179,46 +3493,431 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 break
 
                 if selected_LMB_id is None:
-                    # This can of course happen if the limit considered dependent momenta.
-                    #logger.debug("The following IR configuration '%s' found no hosting LMB."%self.format_ir_limit_str( (collinear_sets, soft_set) ))
+                    # This can of course happen if the limit considered has more than one dependent momenta.
+                    # But if the user had specified limits they should all be valid in principle, so raise if it's not the case:
+                    if args.ir_limits not in [ ['cutkosky',], ['all',]]:
+                        raise InvalidCmd("The user-specified limit '%s' could not find an accommodating LMB for its approach. This likely means it contains more than one dependent momentum."%SuperGraph.format_ir_limit_str( (collinear_sets, soft_set) ) )
+                    #logger.debug("The following IR configuration '%s' found no hosting LMB."%SuperGraph.format_ir_limit_str( (collinear_sets, soft_set) ))
                     pass
                 
                 if selected_LMB_id is not None:
                     all_signed_collinear_sets = []
-                    if len(collinear_sets)==0:
-                        all_signed_collinear_sets.append(tuple([]))
+                    if user_specified_signs is not None:
+                        if len(collinear_sets)==0:
+                            all_signed_collinear_sets.append( tuple([]) )
+                        else:
+                            # Enforce the signs specified by the user
+                            for i_set, (coll_set_signs, coll_set_edges) in enumerate(zip(user_specified_signs[(collinear_sets, soft_set)],collinear_sets)):
+                                for coll_set_sign, coll_set_edge in zip(coll_set_signs,coll_set_edges):
+                                    sign_options = [(1,coll_set_edge),(-1,coll_set_edge)] if coll_set_sign is None else [(coll_set_sign,coll_set_edge),]
+                                    new_all_signed_collinear_sets = []
+                                    if len(all_signed_collinear_sets) == 0:
+                                        new_all_signed_collinear_sets = [ [[sign_option,],] for sign_option in sign_options ]
+                                    else:
+                                        for signed_collinear_sets in all_signed_collinear_sets:
+                                            if len(signed_collinear_sets)<=i_set:
+                                                new_all_signed_collinear_sets.extend([ 
+                                                    signed_collinear_sets+[[sign_option,],] for sign_option in sign_options ])
+                                            else:
+                                                new_all_signed_collinear_sets.extend([
+                                                    signed_collinear_sets[:-1]+[signed_collinear_sets[-1]+[sign_option,],]
+                                                    for sign_option in sign_options ])
+                                    all_signed_collinear_sets = new_all_signed_collinear_sets
+                            all_signed_collinear_sets = [ tuple(tuple(coll_set) for coll_set in signed_collinear_sets) for signed_collinear_sets in all_signed_collinear_sets]
                     else:
-                        for collinear_set in collinear_sets:
-                            if cut_ID is not None:
-                                cut_info_per_edge_name = {cut['name'] : cut for cut in SG['cutkosky_cuts'][cut_ID]['cuts']}
-                                all_signed_collinear_sets.append( tuple( tuple( (cut_info_per_edge_name[cc]['sign'],cc) for cc in collinear_set) for collinear_set in collinear_sets) )
-                            else:
-                                # TODO implement a less blunt approach that does not consider all signs but deduce the meaningful ones from the signature of the edges involved in the collinear set
-                                all_signed_collinear_sets.extend(
-                                    tuple( tuple( (sign_config[i_ccs][i_cc],cc) for i_cc, cc in enumerate(collinear_set)) for i_ccs, collinear_set in enumerate(collinear_sets))
-                                    for sign_config in itertools.product(*[ [(1,)+p for p in itertools.product(*([(1,-1),]*(len(cc)-1) ))] for cc in collinear_set])
-                                )
+                        # Find all suitable configurations
+                        if len(collinear_sets)==0:
+                            all_signed_collinear_sets.append(tuple([]))
+                        else:
+                            for collinear_set in collinear_sets:
+                                if cut_ID is not None:
+                                    cut_info_per_edge_name = {cut['name'] : cut for cut in SG['cutkosky_cuts'][cut_ID]['cuts']}
+                                    all_signed_collinear_sets.append( tuple( tuple( (cut_info_per_edge_name[cc]['sign'],cc) for cc in collinear_set) for collinear_set in collinear_sets) )
+                                else:
+                                    # TODO implement a less blunt approach that does not consider all signs but deduce the meaningful ones from the signature of the edges involved in the collinear set
+                                    all_signed_collinear_sets.extend(
+                                        tuple( tuple( (sign_config[i_ccs][i_cc],cc) for i_cc, cc in enumerate(collinear_set)) for i_ccs, collinear_set in enumerate(collinear_sets))
+                                        for sign_config in itertools.product(*[ [(1,)+p for p in itertools.product(*([(1,-1),]*(len(cc)-1) ))] for cc in collinear_set])
+                                    )
+
                     for signed_collinear_sets in all_signed_collinear_sets:
-                        IR_limits_per_SG[SG_name][ 
-                            ( signed_collinear_sets, soft_set ) 
-                        ] = { 'i_LMB': i_lmb, 'extra_spectator': extra_spectator, 'cut_ID': cut_ID }
+                        IR_limits_per_SG[SG_name][ ( signed_collinear_sets, soft_set ) ] = { 'approach_LMB': all_LMBs[selected_LMB_id], 'extra_spectator': extra_spectator, 'cut_ID': cut_ID }
 
             #logger.info("A total of %d limits have been constructed in %.2fs."%(len(IR_limits_per_SG[SG_name]),time.time()-start_limits_derivation_time))
-            max_len = max(len(self.format_ir_limit_str(ir_limit, colored_output=False)) for ir_limit in IR_limits_per_SG[SG_name]) if len(IR_limits_per_SG[SG_name])>0 else 0
-            logger.info("List of all %d IR limits constructed:\n%s"%(
+            IR_limits_per_order_for_this_SG = {}
+            for ir_limit in IR_limits_per_SG[SG_name]:
+                pert_order = SuperGraph.compute_ir_limit_perturbative_order(ir_limit)
+                if pert_order in IR_limits_per_order_for_this_SG:
+                    IR_limits_per_order_for_this_SG[pert_order].append(ir_limit)
+                else:
+                    IR_limits_per_order_for_this_SG[pert_order] = [ir_limit,]
+            logger.info("List of all %d IR limits constructed for %s:\n%s"%(
                 len(IR_limits_per_SG[SG_name]),
-                ' | '.join(self.format_ir_limit_str(ir_limit) for ir_limit in sorted(list(IR_limits_per_SG[SG_name].keys())))
+                SG_name,
+                '\n'.join([
+                    (
+                        '%s%s%s (%d) : '%(Colours.BLUE, 'N'*pert_order+'LO'+' '*(max(IR_limits_per_order_for_this_SG.keys())-pert_order), Colours.END, len(IR_limits_per_order_for_this_SG[pert_order]))+
+                        ' | '.join(SuperGraph.format_ir_limit_str(ir_limit) for ir_limit in sorted(IR_limits_per_order_for_this_SG[pert_order]))
+                    )
+                    for pert_order in sorted(list(IR_limits_per_order_for_this_SG.keys()))
+                ])
             ))
-            logger.info("Details of the list of all %d IR limits constructed:\n%s"%(
-                len(IR_limits_per_SG[SG_name]),
-                '\n'.join( ('%-{}s : %s'.format(
-                    max_len + (len(self.format_ir_limit_str(ir_limit, colored_output=True)) - len(self.format_ir_limit_str(ir_limit, colored_output=False)))
-                ))%( self.format_ir_limit_str(ir_limit), pformat(IR_limits_per_SG[SG_name][ir_limit]) ) for ir_limit in sorted(list(IR_limits_per_SG[SG_name].keys())) )
-            ))
+            #max_len = max(len(SuperGraph.format_ir_limit_str(ir_limit, colored_output=False)) for ir_limit in IR_limits_per_SG[SG_name]) if len(IR_limits_per_SG[SG_name])>0 else 0
+            # logger.info("Details of the list of all %d IR limits constructed:\n%s"%(
+            #     len(IR_limits_per_SG[SG_name]),
+            #     '\n'.join( ('%-{}s : %s'.format(
+            #         max_len + (len(SuperGraph.format_ir_limit_str(ir_limit, colored_output=True)) - len(SuperGraph.format_ir_limit_str(ir_limit, colored_output=False)))
+            #     ))%( SuperGraph.format_ir_limit_str(ir_limit), pformat(IR_limits_per_SG[SG_name][ir_limit]) ) for ir_limit in sorted(list(IR_limits_per_SG[SG_name].keys())) )
+            # ))
 
-        return
-        #TODO NOW DEBUG UNTIL HERE! and adjust below to actually carry out the tests
+        # WARNING it is important that the rust workers instantiated only go out of scope when this function terminates
+        rust_workers = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+        if args.f128 or not args.no_f128:
+            hyperparameters_backup=copy.deepcopy(self.hyperparameters)
+            for entry in self.hyperparameters['General']['stability_checks']:
+                entry['prec'] = 32
+            rust_workers_f128 = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+            self.hyperparameters = hyperparameters_backup
+        t_start_profile = time.time()
+        n_passed = 0
+        n_failed = 0
+        n_fit_failed = 0
+        n_limits_tested = 0
+        SG_passed = 0
+        SG_failed = 0
 
+        n_tot_limits = sum(len(IR_limits_per_SG[SG_name]) for SG_name in selected_SGs)
+
+        with progressbar.ProgressBar(
+                prefix=("IR profiling. {variables.pert_order} IR limit: {variables.ir_limit} {variables.i_limit}/{variables.n_limits} {variables.passed}\u2713, {variables.failed}\u2717, SGs: {variables.SG_passed}\u2713, {variables.SG_failed}\u2717, SG: {variables.SG_name} "), 
+                max_value=n_tot_limits,variables={
+                    'ir_limit': 'N/A', 'pert_order': 'N/A', 'passed': 0, 'failed': 0, 'SG_name': 'N/A', 'i_limit': 0, 'n_limits': 0, 'SG_passed': 0, 'SG_failed': 0
+                }
+            ) as bar:
+
+            for i_SG, SG_name in enumerate(selected_SGs):
+                
+                SG = self.all_supergraphs[SG_name]
+
+                IR_limits = IR_limits_per_SG[SG_name]
+
+                skip_furhter_tests_in_this_SG = False
+                this_SG_failed = False
+
+                bar.update(SG_name=SG_name)
+                bar.update(n_limits=len(IR_limits))
+
+                SG['ir_limits_analysis_setup'] = {
+                    'external_momenta' : external_momenta
+                } 
+                SG['ir_limits_analysis'] = {}
+
+                this_SG_failed = False
+
+                IR_limits_per_order_for_this_SG = {}
+                for ir_limit in IR_limits_per_SG[SG_name]:
+                    pert_order = SuperGraph.compute_ir_limit_perturbative_order(ir_limit)
+                    if pert_order in IR_limits_per_order_for_this_SG:
+                        IR_limits_per_order_for_this_SG[pert_order].append(ir_limit)
+                    else:
+                        IR_limits_per_order_for_this_SG[pert_order] = [ir_limit,]
+                sorted_IR_limits = sum([sorted(IR_limits_per_order_for_this_SG[pert_order]) for pert_order in sorted(list(IR_limits_per_order_for_this_SG.keys()))],[])
+                
+                max_IR_limit_str_len = max(len(SuperGraph.format_ir_limit_str(ir_limit,colored_output=False)) for ir_limit in IR_limits_per_SG[SG_name] )
+
+                for i_limit, ir_limit in enumerate(sorted_IR_limits):
+                    ir_limit_info = IR_limits[ir_limit]
+
+                    reproducible_command = 'ir_profile %s --ir_limits %s %s --max %.16f --min %.16f --n_points %d --collinear_directions %s --approach_directions %s --xs %s'%(
+                        SG_name,
+                        SuperGraph.format_ir_limit_str(ir_limit, colored_output=False),
+                        '--f128' if args.f128 else '',
+                        args.max_scaling,
+                        args.min_scaling,
+                        args.n_points,
+                        str([['%.16e'%v_i for v_i in v] for v in args.collinear_directions]).replace(' ','').replace("'",''),
+                        str([['%.16e'%v_i for v_i in v] for v in args.approach_directions]).replace(' ','').replace("'",''),
+                        str(['%.16e'%x for x in args.xs]).replace(' ','').replace("'",'')
+                    )
+                    SG['ir_limits_analysis'][ir_limit] = {
+                        'ir_limit_info' : ir_limit_info,
+                        'status' : None,
+                        'command' : reproducible_command
+                    }
+                    bar.update(ir_limit=(('%-{}s'.format(
+                            max_IR_limit_str_len+( len(SuperGraph.format_ir_limit_str(ir_limit,colored_output=True))-len(SuperGraph.format_ir_limit_str(ir_limit,colored_output=False)) )
+                        ))%SuperGraph.format_ir_limit_str(ir_limit)))
+                    bar.update(i_limit=i_limit)
+                    bar.update(pert_order='N'*SuperGraph.compute_ir_limit_perturbative_order(ir_limit)+'LO')
+
+                    analysis_results = self.perform_IR_analysis(SG, ir_limit, ir_limit_info, LMBs_info_per_SG[SG_name], external_momenta, 
+                        rust_workers[SG_name],rust_workers_f128[SG_name], args, command_to_reproduce=reproducible_command)
+
+                    # We expect dod of at most five sigma above 0.0 for the integral to be convergent.
+                    if analysis_results['complete_integrand']['dod']['status'] == 'CUTAWAY':
+                        analysis_results['status'] = (True, 'CUTAWAY')
+                    elif analysis_results['complete_integrand']['dod']['status'] == 'UNSTABLE':
+                        # If the t-scaling is constantly rescaling this configuration away from the limit (e.g. as it would in NNLO ir limits of ddx@NLO)
+                        # then this is fine, and we must just check that the overall dod is at least, say 0.5 less than target dod.
+                        test_passed = (analysis_results['complete_integrand']['dod']['central'] < (float(args.target_scaling)-0.5)+min(max(10.0*abs(analysis_results['complete_integrand']['dod']['std_err']),0.05),0.2) )
+                        analysis_results['status'] = (test_passed, 'UNSTABLE')
+                    else:
+                        test_passed = (analysis_results['complete_integrand']['dod']['central'] < float(args.target_scaling)+min(max(10.0*abs(analysis_results['complete_integrand']['dod']['std_err']),0.05),0.2) )
+                        analysis_results['status'] = (test_passed, 'CONVERGENT' if test_passed else 'DIVERGENT')
+
+                    SG['ir_limits_analysis'][ir_limit].update(analysis_results)
+
+
+                    n_limits_tested += 1
+                    bar.update(n_limits_tested)
+
+                    if not analysis_results['status'][0]:
+                        n_failed +=1
+                        this_SG_failed = True
+                        if args.skip_once_failed:
+                            n_limits_tested += (len(IR_limits.keys())-i_limit-1)
+                            bar.update(failed=n_failed)
+                            bar.update(n_limits_tested)
+                            break
+                    else:
+                        n_passed += 1
+                        bar.update(passed=n_passed)
+                
+                if this_SG_failed:
+                    SG_failed += 1
+                    bar.update(SG_failed=SG_failed)
+                else:
+                    SG_passed += 1
+                    bar.update(SG_passed=SG_passed)
+
+        logger.info("IR analysis of %d limits of %d supergraphs performed in %.0fs."%(n_tot_limits, len(selected_SGs), time.time()-t_start_profile))
+
+        logger.info("Writing out processed yaml supergaphs on disk...")
+
+        # Write out the results into processed topologies
+        self.all_supergraphs.export(pjoin(self.dir_path, self._rust_inputs_folder))
+        display_options = [selected_SGs[0],] if len(selected_SGs)==1 else []
+        display_options.append('--ir')
+        if args.full_report:
+            display_options.append('--full')
+        if args.show_momenta:
+            display_options.append('--show_momenta')
+        if args.show_command:
+            display_options.append('--show_command')
+        self.do_display(' '.join(display_options))
+
+    def perform_IR_analysis(self, SG, ir_limit, ir_limit_info, LMBs_info, external_momenta, rust_worker, rust_worker_f128, args, command_to_reproduce=None):
+        """
+            Performs the IR analysis for the selected SG objectand using the rust_workers provided.
+            Also info about LMBs available are provided as well. User args are forwarded as well.
+        """
+
+        E_cm = SG.get_E_cm(self.hyperparameters)
+
+        coll_sets = ir_limit[0]
+        soft_set = ir_limit[1]
+        
+        # If there is a spectator, then we must find the collinear set it belongs to since for that set the collinear direction will be forced to be opposite of the sum of all other collinear directions
+        spectator_collinear_set_id = None
+        if ir_limit_info['extra_spectator'] is not None:
+            for i_coll_set, coll_set in enumerate(coll_sets):
+                for e_sign, e in coll_set:
+                    if ir_limit_info['extra_spectator']==e:
+                        spectator_collinear_set_id = i_coll_set
+                        break
+                if spectator_collinear_set_id is not None:
+                    break
+            if spectator_collinear_set_id is None:
+                raise MadGraph5Error("Could not find the collinear set hosting the specified extra spectator. This occurred when processing the following limit:\n%s"%command_to_reproduce)
+
+        # First in order is to build the asymptotic value of all collinear momenta in the approach LMB.
+        final_collinear_momenta = []
+        for i_coll_set, coll_set in enumerate(coll_sets):
+            if spectator_collinear_set_id is not None and i_coll_set==spectator_collinear_set_id:
+                final_collinear_momenta.append([None,]*len(coll_set))
+            else:
+                final_collinear_momenta.append(
+                    [ args.collinear_directions[i_coll_set]*args.xs[i_edge_in_coll_set]*E_cm*coll_edge_sign for i_edge_in_coll_set, (coll_edge_sign, coll_edge) in enumerate(coll_set) ]
+                )
+        
+        # Now address the "spectator_set"
+        if spectator_collinear_set_id is not None:
+            # Compute the overall anti-collinear direction provided by all other final momenta in other sets
+            overall_anticollinear_direction = Vector([0.,]*3)
+            for i_coll_set, coll_set in enumerate(coll_sets):
+                if i_coll_set!=spectator_collinear_set_id:
+                    # Exclude the softs in the limit because they will be sent to zero.
+                    overall_anticollinear_direction += sum(v for i_v, v in enumerate(final_collinear_momenta[i_coll_set]) if coll_set[i_v][1] not in soft_set)
+            # We will force the spectator set to converge to the opposite direction
+            normalisation = sum( args.xs[i_edge_in_coll_set]*coll_edge_sign for i_edge_in_coll_set, (coll_edge_sign, coll_edge) in enumerate(coll_sets[spectator_collinear_set_id]) if coll_edge not in soft_set )
+            if normalisation==0.:
+                raise InvalidCmd("The specified xs progrssion (%s) is problematic for the following limit '%s' because the overall anti-collinear direction induced has zero norm. Pick a different xs progression."%(
+                    str(args.xs), SuperGraph.format_ir_limit_str(ir_limit) 
+                ))
+            overall_anticollinear_direction = (-overall_anticollinear_direction)/normalisation
+            for i_coll_edge, (coll_edge_sign, coll_edge) in enumerate(coll_sets[spectator_collinear_set_id]):
+                final_collinear_momenta[spectator_collinear_set_id][i_coll_edge] = overall_anticollinear_direction*args.xs[i_coll_edge]*coll_edge_sign
+
+        # Compute the log-spaced sequence of rescaling
+        scalings = [ 10.**((math.log10(args.min_scaling)+i*((math.log10(args.max_scaling)-math.log10(args.min_scaling))/(args.n_points-1))))
+                        for i in range(args.n_points) ]
+
+        # The scaling becomes progressively more severe as we approach more stringent limits, we therefore tame it here according to the number of scalings
+        n_scalings = len(coll_sets)+len(soft_set)
+        scalings = [scaling**((1./n_scalings)**0.5) for scaling in scalings]
+
+        results = {
+            'defining_LMB_momenta': [],
+            'complete_integrand' : {
+                'evaluations'  : [],
+            },
+            'cuts_sum' : {
+                'evaluations'  : [],
+            },
+            'per_cut': {
+                i_cut: {
+                    'LU_scalings'  : [],
+                    'evaluations'  : [],
+                    'deformations' : [] if args.analyze_deformation else None,
+                } for i_cut in range(len(SG['cutkosky_cuts']))
+            }
+        }
+
+        # We are now ready to perform the scan
+        for scaling in scalings:
+
+            # Derive momenta for this scaling
+            rescaled_momenta = {}
+            
+            # First the collinears
+            for i_coll_set, coll_set in enumerate(coll_sets):
+                for i_coll_edge, (coll_ege_sign, coll_edge) in enumerate(coll_set):
+                    
+                    # Use orthogonal approach directions so that different approach directions are comparable
+                    orthogonal_approach_direction = args.approach_directions[len(rescaled_momenta)]-args.approach_directions[len(rescaled_momenta)].dot(final_collinear_momenta[i_coll_set][i_coll_edge])
+                    try:
+                        orthogonal_approach_direction /= abs(orthogonal_approach_direction)
+                    except ZeroDivisionError as e:
+                        raise InvalidCmd("For ir limit '%s', the specified approach direction happens to be collinear to the specified collinear direction."%(SuperGraph.format_ir_limit_str(ir_limit)))
+
+                    rescaled_momenta[coll_edge] = final_collinear_momenta[i_coll_set][i_coll_edge] + scaling*orthogonal_approach_direction*E_cm
+                    # Also apply soft-scaling if required
+                    if coll_edge in soft_set:
+                        rescaled_momenta[coll_edge] *= scaling
+            
+            # Then the pure softs
+            for soft_edge in soft_set:
+                if soft_edge not in rescaled_momenta:
+                    rescaled_momenta[soft_edge] = scaling*args.approach_directions[len(rescaled_momenta)]*E_cm
+            
+            # Now find the LMB momenta, if not defined then pad with the next approach directions available..
+            rescaled_momenta_in_approach_lmb = []
+            i_padding = 0
+            for lmb_edge in ir_limit_info['approach_LMB']:
+                if lmb_edge in rescaled_momenta:
+                    rescaled_momenta_in_approach_lmb.append(rescaled_momenta[lmb_edge])
+                else:
+                    rescaled_momenta_in_approach_lmb.append(args.approach_directions[len(rescaled_momenta)+i_padding]*E_cm)
+                    i_padding += 1
+
+            # Now transform these input momenta in the defining LMB
+            transfo, parametric_shifts = LMBs_info['LMBs_to_defining_LMB_transfo'][ir_limit_info['approach_LMB']]
+            shifts = [ sum([external_momenta[i_shift]*shift 
+                        for i_shift, shift in enumerate(parametric_shift)]) for parametric_shift in parametric_shifts ]
+            rescaled_momenta_in_defining_lmb = transfo.dot(
+                [list(rm+shift) for rm, shift in zip(rescaled_momenta_in_approach_lmb,shifts)] )
+
+            results['defining_LMB_momenta'].append( (scaling, tuple(tuple(vi for vi in v) for v in rescaled_momenta_in_defining_lmb)) )
+
+            # Now map these momenta in the defining LMB into x variables in the unit hypercube
+            xs_in_defining_lmb = []
+            overall_jac = 1.0
+            for i_k, k in enumerate(rescaled_momenta_in_defining_lmb):
+                # This is cheap, always do in f128
+                if args.f128 or True:
+                    x1, x2, x3, jac = rust_worker.inv_parameterize_f128( list(k), i_k, E_cm**2)
+                else:
+                    x1, x2, x3, jac = rust_worker.inv_parameterize( list(k), i_k, E_cm**2)
+                xs_in_defining_lmb.extend([x1, x2, x3])
+                overall_jac *= jac
+
+            # We are now ready to sample!
+            for i_cut in ([None,]+list(range(len(SG['cutkosky_cuts'])))):
+
+                if i_cut is None:
+
+                    with utils.suppress_output(active=(not args.show_rust_warnings)):
+                        if args.f128:
+                            res_re, res_im = rust_worker_f128.evaluate_integrand(xs_in_defining_lmb)
+                        else:
+                            res_re, res_im = rust_worker.evaluate_integrand(xs_in_defining_lmb)
+                    results['complete_integrand']['evaluations'].append( (scaling, complex(res_re, res_im)*overall_jac ) )
+
+                else:
+                    # Now obtain the rescaling for these momenta
+                    LU_scaling_solutions = rust_worker.get_scaling(rescaled_momenta_in_defining_lmb,i_cut)
+                    if LU_scaling_solutions is None or len(LU_scaling_solutions)==0 or all(LU_scaling[0]<0. for LU_scaling in LU_scaling_solutions):
+                        if args.show_warnings:
+                            logger.warning("Could not find t-rescaling solution for SG '%s' with cut ID #%d for IR limit %s: %s\nInput LMB momenta: %s"%(
+                                SG['name'], i_cut, SuperGraph.format_ir_limit_str(ir_limit), str(LU_scaling_solutions), str(rescaled_momenta_in_defining_lmb) ))
+                        continue
+                    LU_scaling_solutions = list(LU_scaling_solutions)
+                    LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
+                    if LU_scaling>0.0 and args.show_warnings:
+                        logger.warning("Found unexpected t-rescaling solution for SG '%s' with cut ID #%d for IR limit %s: %s\nInput LMB momenta: %s"%(
+                                SG['name'], i_cut, SuperGraph.format_ir_limit_str(ir_limit), str(LU_scaling_solutions), str(rescaled_momenta_in_defining_lmb) ))
+
+                    while LU_scaling < 0.0:
+                        if len(LU_scaling_solutions)==0:
+                            break
+                        LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
+                    results['per_cut'][i_cut]['LU_scalings'].append((scaling, LU_scaling, LU_scaling_jacobian))
+
+                    if args.f128:
+                        res_re, res_im = rust_worker.evaluate_cut_f128(rescaled_momenta_in_defining_lmb,i_cut,LU_scaling,LU_scaling_jacobian)                            
+                    else:
+                        res_re, res_im = rust_worker.evaluate_cut(rescaled_momenta_in_defining_lmb,i_cut,LU_scaling,LU_scaling_jacobian)
+                    results['per_cut'][i_cut]['evaluations'].append( (scaling, complex(res_re, res_im) ) )
+                    if len(results['cuts_sum']['evaluations'])>0 and results['cuts_sum']['evaluations'][-1][0] == scaling:
+                        results['cuts_sum']['evaluations'][-1] = (scaling, results['cuts_sum']['evaluations'][-1][1]+complex(res_re, res_im))
+                    else:
+                        results['cuts_sum']['evaluations'].append( (scaling, complex(res_re, res_im)) )
+
+                    if args.analyze_deformation:
+                        energies = [0.]*SG['n_loops']
+                        # We do not support frozen momenta for now anyway
+                        #if frozen_momenta is not None:
+                        #    energies[-len(frozen_momenta['out']):] =[ v[0] for v  in frozen_momenta['out'] ]
+                        with utils.suppress_output(active=(not args.show_rust_warnings)):
+                            if args.f128:
+                                cmb_deformation = rust_worker_f128.get_cut_deformation([ [energy,]+list(v) for energy, v in zip(energies,rescaled_momenta_in_defining_lmb) ],i_cut)
+                            else:
+                                cmb_deformation = rust_worker.get_cut_deformation([ [energy,]+list(v) for energy, v in zip(energies,rescaled_momenta_in_defining_lmb) ],i_cut)
+                        results['per_cut'][i_cut]['deformations'].append( (scaling, tuple(tuple(vi for vi in v[1:]) for v in cmb_deformation) ) )
+
+        
+        # Now compute some basic derived quantities, like dod
+        for container in ( [ results['complete_integrand'], results['cuts_sum'], ]+[ results['per_cut'][i_cut] for i_cut in range(len(SG['cutkosky_cuts'])) ] ):
+
+            dod, standard_error, number_of_points_considered, successful_fit = utils.compute_dod(container['evaluations'])
+            # Our scaling goes towards zero here, so we must swap the sign of the dod.
+            dod *= -1.
+            # Also include dod from jacobian behavior in the soft limit. Ignore collinear jacobian linear suppression as it should not be necessary.
+            # Also subtract one so as to make the natural target dod -1 (since we're approaching a finite point here.)
+            dod -= 1.*float(len(soft_set))+1
+
+            dod_status = 'SUCESS' if successful_fit else 'UNSTABLE'
+            if args.ignore_cut_configs > 0:
+                if all(r[1]==complex(0.,0.) for r in container['evaluations'][-args.ignore_cut_configs:]):
+                    dod_status ='CUTAWAY'
+
+            container['dod'] = {
+                'status'  : dod_status,
+                'central' : dod,
+                'std_err' : standard_error
+            }
+
+        return results
 
     #### UV PROFILE COMMAND
     uv_profile_parser = ArgumentParser(prog='uv_profile')
@@ -3811,11 +4510,17 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         '--deformation',action="store_true", dest="deformation", default=False,
         help="Show deformation profile information")
     display_parser.add_argument(
+        '--ir',action="store_true", dest="ir", default=False,
+        help="Show ir profile information")
+    display_parser.add_argument(
         "-f","--full", action="store_true", dest="full", default=False,
         help="exhaustively show information")
     display_parser.add_argument(
         "-sm","--show_momenta", action="store_true", dest="show_momenta", default=False,
         help="Show the momenta of the edges in the E-surfaces for the intersection point approached in the deformation profile.")
+    display_parser.add_argument(
+        "-sc","--show_command", action="store_true", dest="show_command", default=False,
+        help="Show the command to reproduce each test reported.")
     def help_display(self):
         self.display_parser.print_help()
         return
@@ -3844,11 +4549,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         # First code for particular information
         if args.timing:
             if args.SG_name:
-                logger.info("Timing profile for supergraph '%s':\n%s"%(
+                logger.info("Timing profile for supergraph '%s':\n%s\n"%(
                     args.SG_name, self.all_supergraphs[args.SG_name].show_timing_statistics()
                 ))
             else:
-                logger.info("Overall timing profile for all supergraphs:\n%s"%(
+                logger.info("Overall timing profile for all supergraphs:\n%s\n"%(
                     self.all_supergraphs.show_timing_statistics()
                 ))
 
@@ -3856,12 +4561,24 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             if args.SG_name:
                 sg_collection = SuperGraphCollection()
                 sg_collection[args.SG_name] = self.all_supergraphs[args.SG_name]
-                logger.info("UV profile for supergraph '%s':\n%s"%(
+                logger.info("UV profile for supergraph '%s':\n%s\n"%(
                     args.SG_name, sg_collection.show_UV_statistics()
                 ))
             else:
-                logger.info("Overall UV profile for all supergraphs:\n%s"%(
+                logger.info("Overall UV profile for all supergraphs:\n%s\n"%(
                     self.all_supergraphs.show_UV_statistics()
+                ))
+
+        if args.ir:
+            if args.SG_name:
+                sg_collection = SuperGraphCollection()
+                sg_collection[args.SG_name] = self.all_supergraphs[args.SG_name]
+                logger.info("IR profile for supergraph '%s':\n%s\n"%(
+                    args.SG_name, sg_collection.show_IR_statistics(full=args.full, show_momenta=args.show_momenta, show_command=args.show_command)
+                ))
+            else:
+                logger.info("Overall IR profile for all supergraphs:\n%s\n"%(
+                    self.all_supergraphs.show_IR_statistics(full=args.full, show_momenta=args.show_momenta, show_command=args.show_command)
                 ))
 
         if args.deformation:
@@ -3877,7 +4594,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 ))
 
         # Only show general statistics when not showing anything else
-        if args.timing or args.uv:
+        if args.timing or args.uv or args.ir:
             return
 
         if args.SG_name is None:
