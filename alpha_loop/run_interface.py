@@ -28,6 +28,7 @@ import glob
 import threading
 import networkx as nx
 import psutil
+import pickle
 from prettytable import PrettyTable
 
 #import matplotlib.pyplot as plt
@@ -267,8 +268,12 @@ class SuperGraph(dict):
             if '\n' in record:
                 flat_record = yaml.load(record, Loader=Loader)
             else:
-                with open(record,'r') as f:
-                    flat_record = yaml.load(f, Loader=Loader)
+                if record.endswith('.pkl'):
+                    with open(record,'rb') as f:
+                        flat_record = pickle.load(f)
+                else:
+                    with open(record,'r') as f:
+                        flat_record = yaml.load(f, Loader=Loader)
         elif isinstance(record, dict):
             flat_record = record
         else:
@@ -580,15 +585,27 @@ class SuperGraph(dict):
                 res_str.append('%s%s%s'%(Colours.BLUE,k,Colours.END))
         return '\n'.join(res_str)
 
-    def show_IR_statistics(self, full=False, show_momenta=False, show_command=False):
+    def show_IR_statistics(self, full=False, show_momenta=False, show_command=False, ir_limits=None):
         
-        if 'ir_limits_analysis' not in self:
+        if 'ir_limits_analysis' not in self or len(self['ir_limits_analysis'])==0:
             return "No IR profile information available."
 
         res_str = []
 
+        if ir_limits is None:
+            ir_limits_to_consider = self['ir_limits_analysis']
+        else:
+            ir_limits_to_consider = {ir_limit: ir_limit_result for ir_limit, ir_limit_result in self['ir_limits_analysis'].items() if ir_limit in ir_limits}
+            if len(ir_limits_to_consider)!=len(self['ir_limits_analysis']):
+                res_str.append("User specified to display only %s%d%s out of %s%d%s IR limits available for this supergraph."%(
+                    Colours.RED, len(ir_limits_to_consider), Colours.END, Colours.GREEN, len(self['ir_limits_analysis']), Colours.END
+                ))
+
+        if len(ir_limits_to_consider) == 0:
+            return "The specified IR limit(s) are not found in this supergraph."
+
         IR_limits_per_order = {}
-        for ir_limit in self['ir_limits_analysis']:
+        for ir_limit in ir_limits_to_consider:
             pert_order = SuperGraph.compute_ir_limit_perturbative_order(ir_limit)
             if pert_order in IR_limits_per_order:
                 IR_limits_per_order[pert_order].append(ir_limit)
@@ -607,9 +624,9 @@ class SuperGraph(dict):
                 Colours.END
             ))
             res_str.append('-'*len(header)) 
-            max_IR_limit_str_len = max(len(SuperGraph.format_ir_limit_str(ir_limit,colored_output=False)) for ir_limit in self['ir_limits_analysis'] )
+            max_IR_limit_str_len = max(len(SuperGraph.format_ir_limit_str(ir_limit,colored_output=False)) for ir_limit in ir_limits_to_consider )
             for ir_limit in sorted(IR_limits_per_order[pert_order]):
-                result = self['ir_limits_analysis'][ir_limit]
+                result = ir_limits_to_consider[ir_limit]
                 cuts_sum_dod_colour = Colours.GREEN if (result['cuts_sum']['dod']['central'] < -1 + min(max(10.0*abs(result['cuts_sum']['dod']['std_err']),0.05),0.2)) else Colours.RED
                 max_cut_dod = max(result['per_cut'].values(), key=lambda d: d['dod']['central'])
                 severity_central = (max_cut_dod['dod']['central']-result['cuts_sum']['dod']['central'])
@@ -620,18 +637,18 @@ class SuperGraph(dict):
                     SuperGraph.format_ir_limit_str(ir_limit),
                     Colours.GREEN if result['status'][0] else Colours.RED, 'PASSED' if result['status'][0] else 'FAILED', Colours.END,
                     '(%s)'%result['status'][1],
-                    'N/A' if result['complete_integrand']['dod']['status'] not in ['SUCESS','UNSTABLE'] else (
+                    '%sN/A%s'%(Colours.BLUE, Colours.END) if result['complete_integrand']['dod']['status'] not in ['SUCESS','UNSTABLE'] else (
                         '%s%s%.5f +/- %.1g%s'%(
                             Colours.GREEN if result['status'][0] else Colours.RED,
                             '+' if result['complete_integrand']['dod']['central']>=0. else '',
                             result['complete_integrand']['dod']['central'], result['complete_integrand']['dod']['std_err'],
                             Colours.END
                     )),
-                    'N/A' if result['complete_integrand']['dod']['status'] not in ['SUCESS','UNSTABLE'] else (
+                    '%sN/A%s'%(Colours.BLUE, Colours.END) if result['complete_integrand']['dod']['status'] not in ['SUCESS','UNSTABLE'] else (
                         '%s%s%.5f +/- %.1g%s'%(cuts_sum_dod_colour, '+' if result['cuts_sum']['dod']['central']>=0. else '',
                         result['cuts_sum']['dod']['central'], result['cuts_sum']['dod']['std_err'],Colours.END)
                     ),
-                    'N/A' if result['complete_integrand']['dod']['status'] not in ['SUCESS','UNSTABLE'] else (
+                    '%sN/A%s'%(Colours.BLUE, Colours.END) if result['complete_integrand']['dod']['status'] not in ['SUCESS','UNSTABLE'] else (
                         '%s%s%.5f +/- %.1g%s'%(Colours.BLUE,'+' if severity_central>=0. else '', severity_central, severity_std_err, Colours.END)
                     )
                 ))
@@ -684,17 +701,17 @@ class SuperGraph(dict):
                 res_str.extend([ '  %s'%line for line in pt.get_string().split('\n') ])    
 
         failed_limits_per_order = {
-            pert_order : [ ir_limit for ir_limit in ir_limits if not self['ir_limits_analysis'][ir_limit]['status'][0] ]
+            pert_order : [ ir_limit for ir_limit in ir_limits if not ir_limits_to_consider[ir_limit]['status'][0] ]
             for pert_order, ir_limits in IR_limits_per_order.items()
         }
         n_fails = sum(len(v) for v in failed_limits_per_order.values())
         if n_fails==0:
-            res_str.append('-'*len('All %d IR limits passed!'%len(self['ir_limits_analysis'])))
-            res_str.append('%sAll %d IR limits passed!%s'%(Colours.GREEN, len(self['ir_limits_analysis']), Colours.END))
-            res_str.append('-'*len('All %d IR limits passed!'%len(self['ir_limits_analysis'])))
+            res_str.append('-'*len('All %d IR limits passed!'%len(ir_limits_to_consider)))
+            res_str.append('%sAll %d IR limits passed!%s'%(Colours.GREEN, len(ir_limits_to_consider), Colours.END))
+            res_str.append('-'*len('All %d IR limits passed!'%len(ir_limits_to_consider)))
         else:
-            res_str.append('-'*len('The following %d/%s IR limits failed:'%(n_fails,len(self['ir_limits_analysis']))))
-            res_str.append("%sThe following %d/%d IR limits failed:%s"%(Colours.RED, n_fails, len(self['ir_limits_analysis']), Colours.END))
+            res_str.append('-'*len('The following %d/%s IR limits failed:'%(n_fails,len(ir_limits_to_consider))))
+            res_str.append("%sThe following %d/%d IR limits failed:%s"%(Colours.RED, n_fails, len(ir_limits_to_consider), Colours.END))
             for pert_order in sorted(failed_limits_per_order):
                 if len(failed_limits_per_order[pert_order])==0:
                     continue
@@ -703,7 +720,7 @@ class SuperGraph(dict):
                         SuperGraph.format_ir_limit_str(ir_limit) for ir_limit in sorted(failed_limits_per_order[pert_order])
                     )
                 ))
-            res_str.append('-'*len('The following %d/%s IR limits failed:'%(n_fails,len(self['ir_limits_analysis']))))
+            res_str.append('-'*len('The following %d/%s IR limits failed:'%(n_fails,len(ir_limits_to_consider))))
 
         return '\n'.join(res_str)
 
@@ -1311,18 +1328,22 @@ class SuperGraph(dict):
             node_match=lambda n1,n2: node_match_function
         )
 
-    def export(self, SG_name, dir_path):
-        with open(pjoin(dir_path,'PROCESSED_%s.yaml'%SG_name),'w') as f:
-            f.write(yaml.dump(dict(self), Dumper=Dumper, default_flow_style=False))
+    def export(self, SG_name, dir_path, pickle_output=True):
+        if pickle_output:
+            with open(pjoin(dir_path,'PROCESSED_%s.pkl'%SG_name),'wb') as f:
+                pickle.dump( dict(self), f )
+        else:
+            with open(pjoin(dir_path,'PROCESSED_%s.yaml'%SG_name),'w') as f:
+                f.write(yaml.dump(dict(self), Dumper=Dumper, default_flow_style=False))
 
 class SuperGraphCollection(dict):
     
     def __init__(self, *args, **opts):
         super(SuperGraphCollection, self).__init__(*args, **opts)
 
-    def export(self, dir_path):
+    def export(self, dir_path, pickle_output=True):
         for SG_name, SG in self.items():
-            SG.export(SG_name, dir_path)
+            SG.export(SG_name, dir_path, pickle_output=pickle_output)
 
     def summary_str(self):
 
@@ -1494,12 +1515,12 @@ class SuperGraphCollection(dict):
 
         return '\n'.join(res_str)
 
-    def show_IR_statistics(self,full=False, show_momenta=False, show_command=False):
+    def show_IR_statistics(self,full=False, show_momenta=False, show_command=False, ir_limits=None):
         
         res_str = []
         for SG_name in sorted(list(self.keys())):
             res_str.append("\nIR profile of %s%s%s:\n%s"%(Colours.GREEN,SG_name,Colours.END, self[SG_name].show_IR_statistics(
-                full=full, show_momenta=show_momenta, show_command=show_command
+                full=full, show_momenta=show_momenta, show_command=show_command, ir_limits=ir_limits
             )))
 
         return '\n'.join(res_str)
@@ -1673,15 +1694,27 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     def load_supergraphs(self):
         
         SG_collection = SuperGraphCollection()
-
+        t_start = time.time()
+        logger.info("Loading supergraphs from '%s'..."%self.dir_path)
+        n_yaml = 0
+        n_pickle = 0
         for SG in self.cross_section_set['topologies']:
-            yaml_path = pjoin(self.dir_path, self._rust_inputs_folder, 'PROCESSED_'+SG['name']+'.yaml')
-            if not os.path.isfile(yaml_path):
-                yaml_path = pjoin(self.dir_path, self._rust_inputs_folder, SG['name']+'.yaml')
-                if not os.path.isfile(yaml_path):
-                    raise alphaLoopInvalidRunCmd("Could not find yaml file at '%s' specifying the supergraph information."%yaml_path)
-            SG_collection[SG['name']] = SuperGraph(yaml_path)
+            input_path = pjoin(self.dir_path, self._rust_inputs_folder, 'PROCESSED_'+SG['name']+'.pkl')
+            if not os.path.isfile(input_path):
+                input_path = pjoin(self.dir_path, self._rust_inputs_folder, 'PROCESSED_'+SG['name']+'.yaml')
+                if not os.path.isfile(input_path):
+                    input_path = pjoin(self.dir_path, self._rust_inputs_folder, SG['name']+'.yaml')
+                    if not os.path.isfile(input_path):
+                        raise alphaLoopInvalidRunCmd("Could not find yaml file at '%s' specifying the supergraph information."%input_path)
+            if input_path.endswith('.pkl'):
+                n_pickle += 1
+            if input_path.endswith('.yaml'):
+                n_yaml += 1
+            SG_collection[SG['name']] = SuperGraph(input_path)
         
+        logger.info('%d supergraphs (%s%d%s with %spickle%s format and %s%d%s with %syaml%s format) loaded in %s%.0fs%s.'%(
+            len(SG_collection), Colours.GREEN, n_pickle, Colours.END,Colours.GREEN,Colours.END, 
+            Colours.RED, n_yaml, Colours.END,Colours.RED,Colours.END,Colours.BLUE, time.time()-t_start,Colours.END) )
         return SG_collection
 
     #### TIMING PROFILE COMMAND
@@ -3376,7 +3409,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 user_specified_signs = {}
                 for IR_limit in args.ir_limits:
                     parsed_limit = self.parse_IR_limit(IR_limit)
-                    logger.info("Parsed ir limit constructed: %s"%SuperGraph.format_ir_limit_str( parsed_limit ))
+                    #logger.info("Parsed ir limit constructed: %s"%SuperGraph.format_ir_limit_str( parsed_limit ))
                     coll_sets_edges = tuple(tuple(coll_edge for coll_sign, coll_edge in coll_set) for coll_set in parsed_limit[0])
                     coll_sets_signs = tuple(tuple(coll_sign for coll_sign, coll_edge in coll_set) for coll_set in parsed_limit[0])
                     soft_edges = parsed_limit[1]
@@ -3609,10 +3642,16 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 bar.update(SG_name=SG_name)
                 bar.update(n_limits=len(IR_limits))
 
-                SG['ir_limits_analysis_setup'] = {
+                this_ir_limits_analysis_setup = {
                     'external_momenta' : external_momenta
                 } 
-                SG['ir_limits_analysis'] = {}
+                if 'ir_limits_analysis' in SG:
+                    if SG['ir_limits_analysis_setup'] != this_ir_limits_analysis_setup:
+                        SG['ir_limits_analysis_setup'] = this_ir_limits_analysis_setup
+                        SG['ir_limits_analysis'] = {}
+                else:
+                    SG['ir_limits_analysis_setup'] = this_ir_limits_analysis_setup
+                    SG['ir_limits_analysis'] = {}
 
                 this_SG_failed = False
 
@@ -3698,7 +3737,12 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         # Write out the results into processed topologies
         self.all_supergraphs.export(pjoin(self.dir_path, self._rust_inputs_folder))
-        display_options = [selected_SGs[0],] if len(selected_SGs)==1 else []
+        display_options = []
+        if len(selected_SGs)==1:
+            display_options.append(selected_SGs[0])
+            display_options.append(' '.join(
+                ['--ir_limits',]+[ SuperGraph.format_ir_limit_str(ir_limit, colored_output=False) for ir_limit in IR_limits_per_SG[selected_SGs[0]] ]
+            ))
         display_options.append('--ir')
         if args.full_report:
             display_options.append('--full')
@@ -4492,6 +4536,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     def do_refresh_derived_data(self, line):
         """ Remove all processed data, on disk as well."""
 
+        for file_path in glob.glob(pjoin(self.dir_path, self._rust_inputs_folder, 'PROCESSED_*.pkl')):
+            shutil.move(file_path, pjoin(self.dir_path, self._rust_inputs_folder,'BACKUP_%s'%(
+                os.path.basename(file_path)
+            )))
         for file_path in glob.glob(pjoin(self.dir_path, self._rust_inputs_folder, 'PROCESSED_*.yaml')):
             shutil.move(file_path, pjoin(self.dir_path, self._rust_inputs_folder,'BACKUP_%s'%(
                 os.path.basename(file_path)
@@ -4517,6 +4565,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     display_parser.add_argument(
         "-f","--full", action="store_true", dest="full", default=False,
         help="exhaustively show information")
+    display_parser.add_argument("-irl","--ir_limits", dest='ir_limits', type=str, nargs='*', default=None,
+        help='Specify the particular IR limits to show. Example --ir_limits "C(pq1,-pq3,d1) C(-pq3,pq5,-pq8,d2) S(pq7,pq8)" "S(pq3)" (default: all)')
     display_parser.add_argument(
         "-sm","--show_momenta", action="store_true", dest="show_momenta", default=False,
         help="Show the momenta of the edges in the E-surfaces for the intersection point approached in the deformation profile.")
@@ -4572,15 +4622,20 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 ))
 
         if args.ir:
+            if args.ir_limits is not None:
+                try:
+                    args.ir_limits = [ self.parse_IR_limit(ir_limit) for ir_limit in args.ir_limits ]
+                except Exception as e:
+                    raise InvalidCmd("Could not parse the specified ir limits. Error: %s"%str(e))
             if args.SG_name:
                 sg_collection = SuperGraphCollection()
                 sg_collection[args.SG_name] = self.all_supergraphs[args.SG_name]
                 logger.info("IR profile for supergraph '%s':\n%s\n"%(
-                    args.SG_name, sg_collection.show_IR_statistics(full=args.full, show_momenta=args.show_momenta, show_command=args.show_command)
+                    args.SG_name, sg_collection.show_IR_statistics(full=args.full, show_momenta=args.show_momenta, show_command=args.show_command, ir_limits=args.ir_limits)
                 ))
             else:
                 logger.info("Overall IR profile for all supergraphs:\n%s\n"%(
-                    self.all_supergraphs.show_IR_statistics(full=args.full, show_momenta=args.show_momenta, show_command=args.show_command)
+                    self.all_supergraphs.show_IR_statistics(full=args.full, show_momenta=args.show_momenta, show_command=args.show_command, ir_limits=args.ir_limits)
                 ))
 
         if args.deformation:
