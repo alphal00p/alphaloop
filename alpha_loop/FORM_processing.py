@@ -3360,7 +3360,7 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
                     if split_file_name_re.match(os.path.basename(fpath)):
                         continue
                     dependencies.extend(self.split_source_file(root_output_path,os.path.basename(fpath),FORM_processing_options['max_n_lines_in_C_source']))
-            formatted_dependencies = [d.replace('.c','.o') for d in dependencies]
+            formatted_dependencies = [d.replace('.cpp','.o').replace('.c','.o') for d in dependencies]
             repl_dict['all_sg_targets'].append(
 """$(LIBBPATH)/libFORM_sg_%(SGID)d.so: %(dependencies)s
 \t$(GPP) --shared -fPIC $(CFLAGS) -o $@ $^"""%{'SGID' : SG_id, 'dependencies' : ' '.join(formatted_dependencies) })

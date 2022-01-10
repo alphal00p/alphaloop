@@ -3252,7 +3252,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         # Make sure the x's are given in descending order.
         args.xs.sort(reverse=True)
 
-        if args.ir_limits is None:
+        if args.ir_limits is None or len(args.ir_limits)==0:
             args.ir_limits = ['cutkosky',]
         
         logger.info("Starting IR profile...")
@@ -3600,6 +3600,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 SG = self.all_supergraphs[SG_name]
 
                 IR_limits = IR_limits_per_SG[SG_name]
+                if len(IR_limits)==0:
+                    continue
 
                 skip_furhter_tests_in_this_SG = False
                 this_SG_failed = False
@@ -3764,7 +3766,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         # The scaling becomes progressively more severe as we approach more stringent limits, we therefore tame it here according to the number of scalings
         n_scalings = len(coll_sets)+len(soft_set)
-        scalings = [scaling**((1./n_scalings)**0.5) for scaling in scalings]
+        scalings = [scaling**((1./n_scalings)**0.25) for scaling in scalings]
 
         results = {
             'defining_LMB_momenta': [],

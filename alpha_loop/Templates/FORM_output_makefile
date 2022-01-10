@@ -30,7 +30,7 @@ include makefile_targets.inc
 %_f128.o: %_f128.c
 	$(GPP) -c $(CFLAGSf128) $< -o $@
 
-%_fmpr.o: %_fmpr.cpp
+%_mpfr.o: %_mpfr.cpp
 	$(GPP) -c $(CFLAGSFMPR) $< -o $@
 
 clean:
