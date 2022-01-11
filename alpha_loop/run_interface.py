@@ -3634,7 +3634,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         n_tot_limits = sum(len(IR_limits_per_SG[SG_name]) for SG_name in selected_SGs)
 
         with progressbar.ProgressBar(
-                prefix=("IR profiling. {variables.pert_order} IR limit: {variables.ir_limit} {variables.i_limit}/{variables.n_limits} {variables.passed}\u2713, {variables.failed}\u2717, SGs: {variables.SG_passed}\u2713, {variables.SG_failed}\u2717, SG: {variables.SG_name} "), 
+                prefix=("IR profiling. {variables.pert_order} IR limit: {variables.ir_limit} {variables.i_limit}/{variables.n_limits} %s{variables.passed}\u2713%s, %s{variables.failed}\u2717%s, SGs: %s{variables.SG_passed}\u2713%s, %s{variables.SG_failed}\u2717%s, SG: {variables.SG_name} "%(
+                    Colours.GREEN, Colours.END, Colours.RED, Colours.END, Colours.GREEN, Colours.END, Colours.RED, Colours.END
+                )), 
                 max_value=n_tot_limits,variables={
                     'ir_limit': 'N/A', 'pert_order': 'N/A', 'passed': 0, 'failed': 0, 'SG_name': 'N/A', 'i_limit': 0, 'n_limits': 0, 'SG_passed': 0, 'SG_failed': 0
                 }
