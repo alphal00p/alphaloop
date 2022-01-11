@@ -597,7 +597,7 @@ class SuperGraph(dict):
         else:
             ir_limits_to_consider = {ir_limit: ir_limit_result for ir_limit, ir_limit_result in self['ir_limits_analysis'].items() if ir_limit in ir_limits}
             if len(ir_limits_to_consider)!=len(self['ir_limits_analysis']):
-                res_str.append("User specified to display only %s%d%s out of %s%d%s IR limits available for this supergraph."%(
+                res_str.append("User specified to display %sonly %d%s %sout of %d%s IR limits available for this supergraph."%(
                     Colours.RED, len(ir_limits_to_consider), Colours.END, Colours.GREEN, len(self['ir_limits_analysis']), Colours.END
                 ))
 
@@ -3048,7 +3048,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             edge_specification = soft_edge[2:-1]
             soft_set.append(edge_specification[1:] if edge_specification[0] in ['?','-','+'] else edge_specification)
 
-        return ( tuple(tuple(coll_set) for coll_set in collinear_sets), tuple(soft_set) )
+        return ( tuple(sorted(tuple(coll_set) for coll_set in collinear_sets)), tuple(sorted(soft_set)) )
 
     #### IR PROFILE COMMAND
     ir_profile_parser = ArgumentParser(prog='ir_profile')
@@ -3437,8 +3437,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                     if not args.consider_collinear_limits:
                         for soft_config in soft_combinations:
-                            if ( set([]), set(soft_config) ) not in selected_ir_limits:
-                                selected_ir_limits[( set([]), set(soft_config) )] = cut_ID
+                            this_ir_limit = ( tuple([]), tuple(sorted(soft_config)) )
+                            if this_ir_limit not in selected_ir_limits:
+                                selected_ir_limits[this_ir_limit] = cut_ID
                     else:
 
                         def consume_leg(collinear_configurations, remaining_legs):
@@ -3479,8 +3480,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         # If the softs are required, then insert them, otherwise drop remaining legs.
                         for collinear_configuration in collinear_configurations:
                             for soft_config in soft_combinations:
-                                if ( collinear_configuration, soft_config ) not in selected_ir_limits and validate_limit(collinear_configuration, soft_config, edge_PDGs, args):
-                                    selected_ir_limits[( collinear_configuration, soft_config )] = cut_ID
+                                this_ir_limit = ( tuple(sorted(collinear_configuration)) , tuple(sorted(soft_config)) )
+                                if this_ir_limit not in selected_ir_limits and validate_limit(this_ir_limit[0], this_ir_limit[1], edge_PDGs, args):
+                                    selected_ir_limits[this_ir_limit] = cut_ID
 
             # We must now find a suitable LMB to probe each selected IR limit
             for (collinear_sets, soft_set), cut_ID in selected_ir_limits.items():
@@ -3574,7 +3576,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                     )
 
                     for signed_collinear_sets in all_signed_collinear_sets:
-                        IR_limits_per_SG[SG_name][ ( signed_collinear_sets, soft_set ) ] = { 'approach_LMB': all_LMBs[selected_LMB_id], 'extra_spectator': extra_spectator, 'cut_ID': cut_ID }
+                        IR_limits_per_SG[SG_name][ ( tuple(sorted(signed_collinear_sets)), soft_set ) ] = { 'approach_LMB': all_LMBs[selected_LMB_id], 'extra_spectator': extra_spectator, 'cut_ID': cut_ID }
 
             #logger.info("A total of %d limits have been constructed in %.2fs."%(len(IR_limits_per_SG[SG_name]),time.time()-start_limits_derivation_time))
             IR_limits_per_order_for_this_SG = {}
@@ -3584,6 +3586,16 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     IR_limits_per_order_for_this_SG[pert_order].append(ir_limit)
                 else:
                     IR_limits_per_order_for_this_SG[pert_order] = [ir_limit,]
+            
+            # Sanity check of the canonicalisation of the limit and its parsing
+            for ir_limit in IR_limits_per_SG[SG_name]:
+                if ir_limit != self.parse_IR_limit(SuperGraph.format_ir_limit_str(ir_limit, colored_output=False)):
+                    raise MadGraph5Error("Inconsistent parsing/canonicalisation for the following IR limit: %s\n%s vs %s"%(
+                        SuperGraph.format_ir_limit_str(ir_limit),
+                        self.parse_IR_limit(SuperGraph.format_ir_limit_str(ir_limit,colored_output=False)),
+                        ir_limit
+                    ))
+
             logger.info("List of all %d IR limits constructed for %s:\n%s"%(
                 len(IR_limits_per_SG[SG_name]),
                 SG_name,
