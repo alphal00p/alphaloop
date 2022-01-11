@@ -3054,11 +3054,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     ir_profile_parser = ArgumentParser(prog='ir_profile')
     ir_profile_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='+',
                     help='the name(s) of a supergraph to run the IR profile for')
-    ir_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=20,
+    ir_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=30,
                     help='force a certain number of points to be considered for the ir profile')
     ir_profile_parser.add_argument("-max","--max_scaling", dest='max_scaling', type=float, default=1.0e-03,
                     help='maximum IR scaling to consider')
-    ir_profile_parser.add_argument("-min","--min_scaling", dest='min_scaling', type=float, default=1.0e-05,
+    ir_profile_parser.add_argument("-min","--min_scaling", dest='min_scaling', type=float, default=1.0e-04,
                     help='minimum IR scaling to consider')
     ir_profile_parser.add_argument("-s","--seed", dest='seed', type=int, default=0,
                     help='specify random seed')
@@ -3595,18 +3595,18 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         self.parse_IR_limit(SuperGraph.format_ir_limit_str(ir_limit,colored_output=False)),
                         ir_limit
                     ))
-
-            logger.info("List of all %d IR limits constructed for %s:\n%s"%(
-                len(IR_limits_per_SG[SG_name]),
-                SG_name,
-                '\n'.join([
-                    (
-                        '%s%s%s (%d) : '%(Colours.BLUE, 'N'*pert_order+'LO'+' '*(max(IR_limits_per_order_for_this_SG.keys())-pert_order), Colours.END, len(IR_limits_per_order_for_this_SG[pert_order]))+
-                        ' | '.join(SuperGraph.format_ir_limit_str(ir_limit) for ir_limit in sorted(IR_limits_per_order_for_this_SG[pert_order]))
-                    )
-                    for pert_order in sorted(list(IR_limits_per_order_for_this_SG.keys()))
-                ])
-            ))
+            if len(selected_SGs)==1:
+                logger.info("\nList of all %s%d IR limits%s constructed for %s%s%s:\n%s"%(
+                    Colours.GREEN, len(IR_limits_per_SG[SG_name]), Colours.END,
+                    Colours.GREEN, SG_name, Colours.END,
+                    '\n'.join([
+                        (
+                            '%s%s%s (%d) : '%(Colours.BLUE, 'N'*pert_order+'LO'+' '*(max(IR_limits_per_order_for_this_SG.keys())-pert_order), Colours.END, len(IR_limits_per_order_for_this_SG[pert_order]))+
+                            ' | '.join(SuperGraph.format_ir_limit_str(ir_limit) for ir_limit in sorted(IR_limits_per_order_for_this_SG[pert_order]))
+                        )
+                        for pert_order in sorted(list(IR_limits_per_order_for_this_SG.keys()))
+                    ])
+                ))
             #max_len = max(len(SuperGraph.format_ir_limit_str(ir_limit, colored_output=False)) for ir_limit in IR_limits_per_SG[SG_name]) if len(IR_limits_per_SG[SG_name])>0 else 0
             # logger.info("Details of the list of all %d IR limits constructed:\n%s"%(
             #     len(IR_limits_per_SG[SG_name]),
@@ -3727,9 +3727,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     if not analysis_results['status'][0]:
                         n_failed +=1
                         this_SG_failed = True
+                        bar.update(failed=n_failed)
                         if args.skip_once_failed:
                             n_limits_tested += (len(IR_limits.keys())-i_limit-1)
-                            bar.update(failed=n_failed)
                             bar.update(n_limits_tested)
                             break
                     else:
@@ -3821,8 +3821,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         for i in range(args.n_points) ]
 
         # The scaling becomes progressively more severe as we approach more stringent limits, we therefore tame it here according to the number of scalings
-        n_scalings = len(coll_sets)+len(soft_set)
-        scalings = [scaling**((1./n_scalings)**0.25) for scaling in scalings]
+        #n_scalings = len(coll_sets)+len(soft_set)
+        n_scalings = SuperGraph.compute_ir_limit_perturbative_order(ir_limit)
+        scalings = [scaling**((1./n_scalings)**1.0) for scaling in scalings]
 
         results = {
             'defining_LMB_momenta': [],
