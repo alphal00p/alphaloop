@@ -627,7 +627,7 @@ class SuperGraph(dict):
             max_IR_limit_str_len = max(len(SuperGraph.format_ir_limit_str(ir_limit,colored_output=False)) for ir_limit in ir_limits_to_consider )
             for ir_limit in sorted(IR_limits_per_order[pert_order]):
                 result = ir_limits_to_consider[ir_limit]
-                cuts_sum_dod_colour = Colours.GREEN if (result['cuts_sum']['dod']['central'] < -1 + min(max(10.0*abs(result['cuts_sum']['dod']['std_err']),0.05),0.2)) else Colours.RED
+                cuts_sum_dod_colour = Colours.GREEN if (result['cuts_sum']['dod']['central'] < -1 + max(min(max(10.0*abs(result['cuts_sum']['dod']['std_err']),0.05),0.2),self['ir_limits_analysis_setup']['min_dod_tolerance'])) else Colours.RED
                 max_cut_dod = max(result['per_cut'].values(), key=lambda d: d['dod']['central'])
                 severity_central = (max_cut_dod['dod']['central']-result['cuts_sum']['dod']['central'])
                 severity_std_err = math.sqrt(result['cuts_sum']['dod']['std_err']**2+max_cut_dod['dod']['std_err']**2)
@@ -663,6 +663,7 @@ class SuperGraph(dict):
                                 sum( l*factor for l, factor in zip(self['ir_limits_analysis_setup']['external_momenta'],sig[1]) )
                                 ) )
                         ) for prop_name, sig in sorted(self['edge_signatures'].items(), key=lambda el: (-1,el[0]) if re.match('^pq\d+$',el[0]) is None else (int(el[0][2:]),el[0]) ) ) ) 
+
                 if not full:
                     continue
                 pt = PrettyTable()
@@ -679,7 +680,7 @@ class SuperGraph(dict):
                         cut_descr = '%s#%d%s (%s)'%(
                             Colours.BLUE, cut_ID, Colours.END, ','.join(c for c in sorted([c['name'] for c in self['cutkosky_cuts'][cut_ID]['cuts']]))
                         )
-                    dod_colour = Colours.GREEN if (container['dod']['central'] < -1 + min(max(10.0*abs(container['dod']['std_err']),0.05),0.2)) else Colours.RED
+                    dod_colour = Colours.GREEN if (container['dod']['central'] < -1 + max(min(max(10.0*abs(container['dod']['std_err']),0.05),0.2),self['ir_limits_analysis_setup']['min_dod_tolerance'])) else Colours.RED
                     dod_descr = '%s%s%-5.5f+/-%-5.1g%s'%(
                         dod_colour,
                         '+' if container['dod']['central']>=0. else '',container['dod']['central'],container['dod']['std_err'],
@@ -3066,6 +3067,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='minimum required relative precision for returning a result.')
     ir_profile_parser.add_argument("-t","--target_scaling", dest='target_scaling', type=int, default=-1,
                     help='set target IR scaling (default=-1)')
+    ir_profile_parser.add_argument("-mdt","--dod_tolerance", dest='min_dod_tolerance', type=float, default=0.3,
+                    help='set the minimal dod tolerance (default=%(default)s)')
     ir_profile_parser.add_argument(
         "-f", "--f128", action="store_true", dest="f128", default=False,
         help="Perfom the IR profile using f128 arithmetics.")
@@ -3657,7 +3660,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 bar.update(n_limits=len(IR_limits))
 
                 this_ir_limits_analysis_setup = {
-                    'external_momenta' : external_momenta
+                    'external_momenta' : external_momenta,
+                    'min_dod_tolerance' : args.min_dod_tolerance
                 } 
                 if 'ir_limits_analysis' in SG:
                     if SG['ir_limits_analysis_setup'] != this_ir_limits_analysis_setup:
@@ -3714,10 +3718,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     elif analysis_results['complete_integrand']['dod']['status'] == 'UNSTABLE':
                         # If the t-scaling is constantly rescaling this configuration away from the limit (e.g. as it would in NNLO ir limits of ddx@NLO)
                         # then this is fine, and we must just check that the overall dod is at least, say 0.5 less than target dod.
-                        test_passed = (analysis_results['complete_integrand']['dod']['central'] < (float(args.target_scaling)-0.5)+min(max(10.0*abs(analysis_results['complete_integrand']['dod']['std_err']),0.05),0.2) )
+                        test_passed = (analysis_results['complete_integrand']['dod']['central'] < (float(args.target_scaling)-0.5)+max(min(max(10.0*abs(analysis_results['complete_integrand']['dod']['std_err']),0.05),0.2),args.min_dod_tolerance) )
                         analysis_results['status'] = (test_passed, 'UNSTABLE')
                     else:
-                        test_passed = (analysis_results['complete_integrand']['dod']['central'] < float(args.target_scaling)+min(max(10.0*abs(analysis_results['complete_integrand']['dod']['std_err']),0.05),0.2) )
+                        test_passed = (analysis_results['complete_integrand']['dod']['central'] < float(args.target_scaling)+max(min(max(10.0*abs(analysis_results['complete_integrand']['dod']['std_err']),0.05),0.2),args.min_dod_tolerance) )
                         analysis_results['status'] = (test_passed, 'CONVERGENT' if test_passed else 'DIVERGENT')
 
                     SG['ir_limits_analysis'][ir_limit].update(analysis_results)
