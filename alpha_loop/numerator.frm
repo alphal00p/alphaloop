@@ -449,7 +449,7 @@ id ifmatch->massctdone prop(x2?{`Q'},virtual,p7?,idx4?,idx3?)*
     vx(x1?{`QBAR'},`GLU',x2?{`Q'},p1?,p2?,p3?,idx1?,idx2?,idx3?)*
     vx(x1?{`QBAR'},`GLU',x2?{`Q'},p4?,p5?,p6?,idx4?,idx5?,idx6?)*
     g(p1?,p6?)*g(p3?,p4?)*g(p4?,p7?)*g(p5?,p2?)*g(p6?,p1?)*g(idx2?,idx5?) =
-        + i_ * ((4/3)/16/pi^2) * (rat(-3,ep) + (-4 - 3*(logmu - logmasses(x1)))) * masses(x1) * gamma(dirac[idx1], dirac[idx6]);
+        + i_ * (1/16/pi^2) * (rat(-3,ep) + (-4 - 3*(logmu - logmasses(x1)))) * masses(x1) * gamma(dirac[idx1], dirac[idx6]);
 
     Print "Unsubstituted massct: %t";
     exit "Critical error";
