@@ -103,7 +103,8 @@ FORM_processing_options = {
     'FORM_setup': {
     #   'MaxTermSize':'100K',
     #   'Workspace':'1G'
-    }
+    },
+    'optimize_c_output_mode_per_pair_of_factors' : False
 }
 
 # Can switch to tmpdir() if necessary at some point
@@ -121,18 +122,152 @@ def temporary_fix_FORM_output(FORM_output):
     previous_line = None
     for line in FORM_output.split('\n'):
         if line.startswith('      _ +=  '):
-            line = '      %s'%line[12:]
+            #line = '      %s'%line[12:]
             if previous_line is not None:
-                new_output.append(previous_line[:-1])
+                if previous_line[:-1].strip()!='':
+                    new_output.append(previous_line[:-1])
             previous_line = line
         else:
             if previous_line is not None:
-                new_output.append(previous_line)
+                if previous_line.strip()!='':
+                    new_output.append(previous_line)
             previous_line = line
     if previous_line is not None:
         new_output.append(previous_line)
-    
-    return '\n'.join(new_output)
+
+    #return '\n'.join(new_output)
+
+    # Check if there is a multiline return (i.e. by checking for balanced parenthesis), in which case we reformat it to make it 
+    # multiple lines so as to help compiler.
+    def balanced_parenthesis(s):
+        """ Returns None if balanced, and otherwise index of first offending parenthesis """
+        #pairs = {"{": "}", "(": ")", "[": "]"}
+        pairs = {"(": ")"}
+        stack = []
+        for i_c, c in enumerate(s):
+            #if c in "{[(":
+            if c=="(":
+                stack.append((i_c,c))
+            elif stack and c == pairs[stack[-1][1]]:
+                stack.pop()
+            elif c==")":
+                return i_c
+        
+        return (stack[0][0] if len(stack)>0 else None)
+
+    currently_in_unbalanced_context = None
+    processed_output = []
+    forest_re = re.compile(r'forestid\((\d+)\)')
+    power_re = re.compile(r'pow\((\w*)\,(\d+)\)')
+#    power_re = re.compile(r'pow\((mUV)\,(\d+)\)')
+
+    Z_counter = {'count' : 2}
+    structures_seen = {}
+    known_structures = {
+        'logmUVmu' : None,
+    }
+    def reset_function_context_vars():
+        Z_counter['count'] = 2
+        structures_seen.clear()
+        for k in known_structures:
+            known_structures[k] = None
+
+    def chunks(lst, n):
+        """Yield successive n-sized chunks from lst."""
+        for i in range(0, len(lst), n):
+            yield tuple(lst[i:i + n])
+
+    def process_line(l, first=False):
+        new_lines = []
+        processed_line = l
+
+        # Optimize forests
+        for forestID in list(re.findall(forest_re,l)):
+            forest_structure = 'forestid(%s)'%forestID
+            if forest_structure not in structures_seen:
+                Z_counter['count'] += 1
+                structures_seen[forest_structure] = 'Z%d_'%Z_counter['count']
+                new_lines.append('%s = %s;'%(structures_seen[forest_structure], forest_structure))
+            processed_line = processed_line.replace(forest_structure,structures_seen[forest_structure])
+
+        # Optimize know structures
+        for structure, var in list(known_structures.items()):
+            if var is None and structure in processed_line:
+                Z_counter['count'] += 1
+                known_structures[structure] = 'Z%d_'%Z_counter['count']
+                new_lines.append('%s = %s;'%(known_structures[structure], structure))
+            if structure in processed_line:
+                processed_line = processed_line.replace(structure,known_structures[structure])
+
+        # Optimize powers
+        for power_arg, power_int in list(re.findall(power_re,l)):
+            power_structure = 'pow(%s,%s)'%(power_arg, power_int)
+            if power_structure not in structures_seen:
+                Z_counter['count'] += 1
+                structures_seen[power_structure] = 'Z%d_'%Z_counter['count']
+                new_lines.append('%s = %s;'%(structures_seen[power_structure], power_structure))
+            processed_line = processed_line.replace(power_structure,structures_seen[power_structure])
+
+        # Iteratively optimize doublets
+        if FORM_processing_options['optimize_c_output_mode_per_pair_of_factors']:
+            processed_line=processed_line.replace(' ','')
+            sign_in_front = ''
+            if processed_line[0] in ['+','-']:
+                sign_in_front = processed_line[0]
+                processed_line = processed_line[1:]
+            factors = processed_line.split('*')
+            while len(factors)>1:
+                factors.sort()
+                new_factors = []
+                for factors_pair in chunks(factors,2):
+                    if len(factors_pair)==2:
+                        if factors_pair not in structures_seen:
+                            Z_counter['count'] += 1
+                            structures_seen[factors_pair] = 'Z%d_'%Z_counter['count']
+                            new_lines.append('%s = %s;'%(structures_seen[factors_pair], '*'.join(factors_pair)))
+                        new_factors.append(structures_seen[factors_pair])
+                    else:
+                        new_factors.append(factors_pair[0])
+                factors = new_factors
+            processed_line = '%s%s'%(sign_in_front, '*'.join(factors))
+
+        if first:
+            new_lines.append('Z2_ = %s'%processed_line+';')
+        else:
+            new_lines.append('Z2_ += %s'%processed_line+';')
+        return new_lines
+
+    for line in new_output:
+        if currently_in_unbalanced_context is None:
+            unbalanced_index = balanced_parenthesis(line)
+            if unbalanced_index is None:
+                processed_output.append(line)
+            else:
+                if not line.strip().startswith('return'):
+                    raise FormProcessingError("Unbalanced parenthesis for a line that is not a return line, this is not expected. Line: '%s'"%line)
+                currently_in_unbalanced_context = unbalanced_index
+                # Reset all global replacement rules
+                reset_function_context_vars()
+
+                # Make sure the symbol before the unbalenced parenthesis is indeed '*'
+                if line[unbalanced_index]!='(' or line[unbalanced_index-1]!='*':
+                    raise FormProcessingError("Unexpected strucuture for line with unbalanced parenthesis. Line: '%s'"%line)
+                processed_output.append(line[:(unbalanced_index-1)].replace('return','Z1_ = ')+';')
+                processed_output.extend(process_line(line[(unbalanced_index+1):], first=True))
+        else:
+            if not line.startswith('      _ +='):
+                raise FormProcessingError("Unexpected format of line in unbalanced context. Line: '%s'"%line)
+            unbalanced_index = balanced_parenthesis(line)
+            if unbalanced_index is None:
+                processed_output.extend(process_line(line[10:]))
+            else:
+                if line[-1]!=';' or unbalanced_index!=(len(line)-2):
+                    raise FormProcessingError("Unexpected end of balanced context. Line: '%s'"%line)
+                currently_in_unbalanced_context = None
+                processed_output.extend(process_line(line[10:-2]))
+                processed_output.append('return Z1_*Z2_;')
+
+    return '\n'.join(processed_output)
 
 class FormProcessingError(MadGraph5Error):
     """ Error for the FORM processing phase."""
@@ -3387,7 +3522,8 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
 
         num_lines = len(raw_source)
         # First make sure that any splitting is necessary in the first place.
-        if max_n_lines is None or num_lines <= max_n_lines:
+        # For safety impose a minimum of a thousand lines per SG otherwise it may start spewing too many files.
+        if max_n_lines is None or max_n_lines<=1000 or num_lines <= max_n_lines:
             source_code_name_split = source_code_name.split('_')
             # Clear out any additional file that may have existed from a previous run
             split_file_name_template = '%s%s%s'%('_'.join(source_code_name_split[:-1]), '_s*_', source_code_name_split[-1])
