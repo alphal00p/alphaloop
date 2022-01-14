@@ -115,27 +115,88 @@ for resource in resources_to_link:
     if not os.path.exists(pjoin(FORM_workspace,resource)):
         utils.ln(pjoin(plugin_path,resource),starting_dir=FORM_workspace)
 
+# TODO only useful for the C output mode of FORM
+def temporary_preprocess_multiline_blocks(FORM_output):
+
+    def combine_lines(lines):
+        combined_line = ''
+        for i_line, line in enumerate(lines):
+            l = line if not line.endswith('\\') else line[:-1]
+            if i_line == 0:
+                combined_line += l
+            else:
+                combined_line += l.strip()
+        return combined_line
+
+    new_lines = []
+    
+    prev_line = None
+    lines_in_current_block = []
+    is_in_multiline_block = False
+    was_last_line_a_return = False
+    for i_line, line in enumerate(FORM_output.split('\n')):
+        stripped_line = line.strip()
+        if stripped_line.startswith('return') and not stripped_line[-1]==';':
+            lines_in_current_block.append(line)
+            is_in_multiline_block =True
+            continue
+        if stripped_line==';':
+            if not is_in_multiline_block:
+                if len(lines_in_current_block)!=0:
+                    raise FormProcessingError('ERROR A in preprocessing of multiline blocks of FORM output at line %d, line:\n%s'%(i_line, line))
+                new_lines[-1] += ';'
+                continue
+            if len(lines_in_current_block)==0:
+                raise FormProcessingError('ERROR B in preprocessing of multiline blocks of FORM output at line %d, line:\n%s'%(i_line, line))
+            new_lines.append(combine_lines(lines_in_current_block))
+            lines_in_current_block = []
+            continue
+
+        if stripped_line.startswith('_ +='):
+            if not is_in_multiline_block:
+                raise FormProcessingError('ERROR C in preprocessing of multiline blocks of FORM output at line %d, line:\n%s'%(i_line, line))
+            if len(lines_in_current_block)!=0:
+                raise FormProcessingError('ERROR D in preprocessing of multiline blocks of FORM output at line %d, line:\n%s'%(i_line, line))
+
+        if not is_in_multiline_block:
+            new_lines.append(line)
+            continue
+
+        lines_in_current_block.append(line)
+
+        if stripped_line[-1]==';':
+            new_lines.append(combine_lines(lines_in_current_block))
+            lines_in_current_block = [] 
+            is_in_multiline_block = False
+
+    if is_in_multiline_block or len(lines_in_current_block)>0:
+        raise FormProcessingError('ERROR E in preprocessing of multiline blocks of FORM output at line %d, line:\n%s'%(i_line, line))
+
+    return new_lines
+
 #TODO Remove once FORM will have fixed its C output bug
 def temporary_fix_FORM_output(FORM_output):
 
-    new_output = []
-    previous_line = None
-    for line in FORM_output.split('\n'):
-        if line.startswith('      _ +=  '):
-            #line = '      %s'%line[12:]
-            if previous_line is not None:
-                if previous_line[:-1].strip()!='':
-                    new_output.append(previous_line[:-1])
-            previous_line = line
-        else:
-            if previous_line is not None:
-                if previous_line.strip()!='':
-                    new_output.append(previous_line)
-            previous_line = line
-    if previous_line is not None:
-        new_output.append(previous_line)
+    # new_output = []
+    # previous_line = None
+    # for line in FORM_output.split('\n'):
+    #     if line.startswith('      _ +=  '):
+    #         line = '      %s'%line[12:]
+    #         if previous_line is not None:
+    #             if previous_line[:-1].strip()!='':
+    #                 new_output.append(previous_line[:-1])
+    #         previous_line = line
+    #     else:
+    #         if previous_line is not None:
+    #             if previous_line.strip()!='':
+    #                 new_output.append(previous_line)
+    #         previous_line = line
+    # if previous_line is not None:
+    #     new_output.append(previous_line)
 
-    #return '\n'.join(new_output)
+    # return '\n'.join(new_output)
+
+    new_output = temporary_preprocess_multiline_blocks(FORM_output)
 
     # Check if there is a multiline return (i.e. by checking for balanced parenthesis), in which case we reformat it to make it 
     # multiple lines so as to help compiler.
