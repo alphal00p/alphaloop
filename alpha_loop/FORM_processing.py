@@ -88,8 +88,8 @@ FORM_processing_options = {
     'generate_renormalisation_graphs' : False,
     # Set the option below to a positive integer so as to enable the splitting of large source files into many
     # with at most around the number of lines specified here. Note that this disables static and inline optimisations!
-    'max_n_lines_in_C_source' : 50000,
-    'max_n_lines_in_C_function' : 5000, 
+    'max_n_lines_in_C_source' : 20000,
+    'max_n_lines_in_C_function' : 1000, 
     'include_integration_channel_info' : True,
     'UV_min_dod_to_subtract' : 0,
     'selected_epsilon_UV_order' : 0,
@@ -105,7 +105,7 @@ FORM_processing_options = {
     #   'MaxTermSize':'100K',
     #   'Workspace':'1G'
     },
-    'optimize_c_output_mode_per_pair_of_factors' : False
+    'optimize_c_output_mode_per_pair_of_factors' : 'flat'
 }
 
 # Can switch to tmpdir() if necessary at some point
@@ -218,7 +218,6 @@ def temporary_fix_FORM_output(FORM_output):
         return (stack[0][0] if len(stack)>0 else None)
 
     currently_in_unbalanced_context = None
-    processed_output = []
     forest_re = re.compile(r'forestid\((\d+)\)')
     power_re = re.compile(r'pow\((\w*)\,(\d+)\)')
 #    power_re = re.compile(r'pow\((mUV)\,(\d+)\)')
@@ -271,7 +270,7 @@ def temporary_fix_FORM_output(FORM_output):
             processed_line = processed_line.replace(power_structure,structures_seen[power_structure])
 
         # Iteratively optimize doublets
-        if FORM_processing_options['optimize_c_output_mode_per_pair_of_factors']:
+        if FORM_processing_options['optimize_c_output_mode_per_pair_of_factors'] is not None:
             processed_line=processed_line.replace(' ','')
             sign_in_front = ''
             if processed_line[0] in ['+','-']:
@@ -291,6 +290,8 @@ def temporary_fix_FORM_output(FORM_output):
                     else:
                         new_factors.append(factors_pair[0])
                 factors = new_factors
+                if FORM_processing_options['optimize_c_output_mode_per_pair_of_factors']=='flat':
+                    break
             processed_line = '%s%s'%(sign_in_front, '*'.join(factors))
 
         if first:
@@ -299,6 +300,7 @@ def temporary_fix_FORM_output(FORM_output):
             new_lines.append('Z2_ += %s'%processed_line+';')
         return new_lines
 
+    processed_output = []
     for line in new_output:
         if currently_in_unbalanced_context is None:
             unbalanced_index = balanced_parenthesis(line)
@@ -3571,20 +3573,26 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
 
     def split_function(self, function):
 
-        if (FORM_processing_options['max_n_lines_in_C_function'] is None or FORM_processing_options['max_n_lines_in_C_function']<=500):# and False:
+        if (FORM_processing_options['max_n_lines_in_C_function'] is None or FORM_processing_options['max_n_lines_in_C_function']<=20):# and False:
             return [function,]
-        
+
+        # Trim function head and trail empty lines
+        while len(function)>0 and function[0].strip()=='':
+            function.pop(0)
+        while len(function)>0 and function[-1].strip()=='':
+            function.pop(-1)
+
         if len(function) <= FORM_processing_options['max_n_lines_in_C_function']:
             return [function,]
 
         # Check if function is candidate for being split
         # Be strict intentionally here so as to easily be able to tweak what is allowed to be split and not in the C-code generation
-        if not (function[-2].startswith('\t*out =') or function[-2].startswith('\treturn ')):
+        if not (function[-2].strip().startswith('*out =') or function[-2].strip().startswith('return ')):
             return [function,]
 
         function_prototype_re = re.compile(r'^(?P<type>\S*)\s(?P<name>[^\(]*)\((?P<args>[^\)]*)\)(?P<suffix>.*)$')
         zs_re = re.compile(r'^(?P<type>[^ ]*)\s(?P<zs>(Z\d+\_,?)*)\;$')
-        z_def_re = re.compile(r'^[^ ]*Z\d+\_\s*=\s*')
+        z_def_re = re.compile(r'^[^ ]*Z\d+\_\s*[+|-]?=\s*')
         var_def_re = re.compile(r'^(?P<type>[^ ]*)\s(?P<name>[^ ]*)\s*=\s*')
 
         a_Z = re.compile(r'Z(\d+)_')
@@ -3665,7 +3673,7 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
                 function_splits.append(process_line(line))
                 continue
             else:
-                if not (line.startswith('\t*out =') or line.startswith('\treturn ')):
+                if not (line.strip().startswith('*out =') or line.strip().startswith('return ')):
                     raise FormProcessingError("Function body contained a line that is not a Z definition:\n'%s'"%line)
                 mother_function_trail_lines.append(process_line(line))
                 did_function_end = True
@@ -3732,7 +3740,7 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
         #logger.critical("I GOT THIS MANY LINES for '%s': %d (max=%s)"%(pjoin(root_output_path, source_code_name),num_lines, str(max_n_lines)))
         # First make sure that any splitting is necessary in the first place.
         # For safety impose a minimum of a thousand lines per SG otherwise it may start spewing too many files.
-        if (max_n_lines is None or max_n_lines<=500 or num_lines <= max_n_lines):# and False:
+        if (max_n_lines is None or max_n_lines<=200 or num_lines <= max_n_lines):# and False:
             source_code_name_split = source_code_name.split('_')
             # Clear out any additional file that may have existed from a previous run
             split_file_name_template = '%s%s%s'%('_'.join(source_code_name_split[:-1]), '_s*_', source_code_name_split[-1])
