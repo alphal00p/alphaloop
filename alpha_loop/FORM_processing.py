@@ -88,7 +88,8 @@ FORM_processing_options = {
     'generate_renormalisation_graphs' : False,
     # Set the option below to a positive integer so as to enable the splitting of large source files into many
     # with at most around the number of lines specified here. Note that this disables static and inline optimisations!
-    'max_n_lines_in_C_source' : 50000, 
+    'max_n_lines_in_C_source' : 50000,
+    'max_n_lines_in_C_function' : 5000, 
     'include_integration_channel_info' : True,
     'UV_min_dod_to_subtract' : 0,
     'selected_epsilon_UV_order' : 0,
@@ -3568,6 +3569,151 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
         with open(pjoin(root_output_path,'makefile_targets.inc'),'w') as out:
             out.write(makefile_targets_template.format(**repl_dict))
 
+    def split_function(self, function):
+
+        if (FORM_processing_options['max_n_lines_in_C_function'] is None or FORM_processing_options['max_n_lines_in_C_function']<=500):# and False:
+            return [function,]
+        
+        if len(function) <= FORM_processing_options['max_n_lines_in_C_function']:
+            return [function,]
+
+        # Check if function is candidate for being split
+        # Be strict intentionally here so as to easily be able to tweak what is allowed to be split and not in the C-code generation
+        if not (function[-2].startswith('\t*out =') or function[-2].startswith('\treturn ')):
+            return [function,]
+
+        function_prototype_re = re.compile(r'^(?P<type>\S*)\s(?P<name>[^\(]*)\((?P<args>[^\)]*)\)(?P<suffix>.*)$')
+        zs_re = re.compile(r'^(?P<type>[^ ]*)\s(?P<zs>(Z\d+\_,?)*)\;$')
+        z_def_re = re.compile(r'^[^ ]*Z\d+\_\s*=\s*')
+        var_def_re = re.compile(r'^(?P<type>[^ ]*)\s(?P<name>[^ ]*)\s*=\s*')
+
+        a_Z = re.compile(r'Z(\d+)_')
+
+        # First combine all multiline into a single line and remove trailing newlines
+        new_function_lines = []
+        current_multiline_content = []
+        for line in function:
+            if line.endswith('\n'):
+                line = line[:-1]
+            if line.strip()=='':
+                new_function_lines.append('')
+                continue
+            if not any(line.endswith(c) for c in ';}{'):
+                if len(current_multiline_content)==0:
+                    current_multiline_content.append(line)
+                else:
+                    current_multiline_content.append(line.strip())
+            else:
+                if len(current_multiline_content)>0:
+                    current_multiline_content.append(line.strip())
+                    new_function_lines.append(''.join(current_multiline_content))
+                    current_multiline_content = []
+                else:
+                    new_function_lines.append(line)
+
+        function = new_function_lines
+
+        # Obtain function prototype
+        function_prototype_match = function_prototype_re.match(function[0])
+        if function_prototype_match is None:
+            raise FormProcessingError("Parsing error when attempting to split function with prototype:\n%s"%function[0])
+
+        mother_function_header_lines = []
+        mother_function_body_lines = []
+        mother_function_trail_lines = []
+        function_splits = []
+        args_for_splits = []
+        Z_type = None
+        # Now detect the "header" of the function
+        in_body = False
+        did_function_end = False
+
+        def process_line(line):
+            return re.sub(a_Z,r'Zs_[\1]',line)
+
+        for line in function:
+            if did_function_end:
+                mother_function_trail_lines.append(process_line(line))
+                continue
+            if not in_body:
+                if line.strip()=='':
+                    mother_function_header_lines.append(line)
+                    continue
+                if z_def_re.match(line):
+                    in_body = True
+                else:
+                    zs_match = zs_re.match(line)
+                    if zs_match:
+                        Z_type = zs_match['type'].strip()
+                        max_z_num = max( int(z_i) for z_i in re.findall('Z(\d+)_',zs_match['zs']) )
+                        mother_function_header_lines.append('\t%s Zs_[%d];'%(Z_type, max_z_num+1))
+                        continue
+                    
+                    var_def_match = var_def_re.match(line)
+                    if var_def_match:
+                        args_for_splits.append( ( var_def_match.group('type').strip(), var_def_match.group('name') ) )
+                    mother_function_header_lines.append(process_line(line))
+                    continue
+            
+            if Z_type is None:
+                raise FormProcessingError("Body of main function to split reached even though Zs definition has not been found yet.")
+
+            if line.strip()=='':
+                continue
+
+            if z_def_re.match(line):
+                function_splits.append(process_line(line))
+                continue
+            else:
+                if not (line.startswith('\t*out =') or line.startswith('\treturn ')):
+                    raise FormProcessingError("Function body contained a line that is not a Z definition:\n'%s'"%line)
+                mother_function_trail_lines.append(process_line(line))
+                did_function_end = True
+                continue
+        
+        new_functions = [ ]
+
+        # Now time to split the function!
+        # First define the prototype of the split functions and the call signature
+        all_args = [ tuple(arg.strip().split(' ')) for arg in function_prototype_match.group('args').split(',')]
+        
+        # Remove the "out" pointer that is of no use for the split functions
+        all_args = [a for a in all_args if a[1]!='out']
+
+        # Add the necessary arguments
+        all_args = [ arg for arg in args_for_splits if arg not in all_args ] + [ (Z_type, 'Zs_[]') ] + all_args
+        if len(set(a[1] for a in all_args))!=len(all_args):
+            raise FormProcessingError("Split function constructed contains arguments with same names but different types: %s"%str(all_args))
+
+        split_function_prototype = 'void {}_split_%d({}){}'.format(
+            function_prototype_match.group('name'),
+            ', '.join( ('%s %s'%a for a in  all_args) ),
+            function_prototype_match.group('suffix')
+        )
+        split_function_call = '\t{}_split_%d({});'.format(
+            function_prototype_match.group('name'),
+            ', '.join( (('%s'%a[1]).replace('[]','') for a in  all_args) )
+        )
+
+        def chunks(lst, n):
+            """Yield successive n-sized chunks from lst."""
+            for i in range(0, len(lst), n):
+                yield lst[i:i + n]
+        
+        for i_chunk, chunk in enumerate(chunks(function_splits,FORM_processing_options['max_n_lines_in_C_function'])):
+            new_functions.append([split_function_prototype%i_chunk,])
+            mother_function_body_lines.append(split_function_call%i_chunk)
+
+            new_functions[-1].extend(chunk)
+            new_functions[-1].append('}')
+
+        new_functions.append(mother_function_header_lines+mother_function_body_lines+mother_function_trail_lines)
+
+        # Reinstate the new line character at the end of each line
+        new_functions = [ [fl+'\n' for fl in f] for f in new_functions]
+        
+        return new_functions
+
     def split_source_file(self, root_output_path, source_code_name, max_n_lines):
         
         raw_source = open(pjoin(root_output_path, source_code_name),'r').readlines()
@@ -3582,9 +3728,11 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
             return dependencies
 
         num_lines = len(raw_source)
+        
+        #logger.critical("I GOT THIS MANY LINES for '%s': %d (max=%s)"%(pjoin(root_output_path, source_code_name),num_lines, str(max_n_lines)))
         # First make sure that any splitting is necessary in the first place.
         # For safety impose a minimum of a thousand lines per SG otherwise it may start spewing too many files.
-        if max_n_lines is None or max_n_lines<=1000 or num_lines <= max_n_lines:
+        if (max_n_lines is None or max_n_lines<=500 or num_lines <= max_n_lines):# and False:
             source_code_name_split = source_code_name.split('_')
             # Clear out any additional file that may have existed from a previous run
             split_file_name_template = '%s%s%s'%('_'.join(source_code_name_split[:-1]), '_s*_', source_code_name_split[-1])
@@ -3600,7 +3748,6 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
         end_func_re = re.compile(r"}\s*$")
         header = []
         functions = []
-        forward_declarations = []
         in_function = False
         in_extern_C = False
         extern_C_code = []
@@ -3636,7 +3783,6 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
                 extern_C_code.append(line)
             elif start_func_re.match(line):
                 in_function = True
-                forward_declarations.append(line.replace('static','').replace('inline','').replace(' {',';').strip()+'\n')
                 functions.append([line.replace('static','').replace('inline','').strip()+'\n',])
             else:
                 if not in_function:
@@ -3649,6 +3795,10 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
                             raise FormProcessingError("Error: found out-of-function code that is not a header in %s: '%s'"%(pjoin(root_output_path, source_code_name),line))
                 else:
                     functions[-1].append(line)
+
+        # Possibly split functions into smaller subfunctions
+        functions = sum([self.split_function(function) for function in functions],[])
+        forward_declarations = [ f[0].replace('static','').replace('inline','').replace(' {',';').strip()+'\n' for f in functions]
 
         #print("In source code %s, found %d header lines and %d functions totalling %d lines."%(pjoin(root_output_path, source_code_name),len(header),len(functions), sum(len(f) for f in functions)))
         i_file = 0
