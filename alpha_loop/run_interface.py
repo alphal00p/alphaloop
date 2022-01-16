@@ -3092,6 +3092,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         help="Show exhaustive information for each fail.")
     ir_profile_parser.add_argument("-n_max","--n_max", dest='n_max', type=int, default=-1,
                     help='Set the maximum number of IR tests to perform per SG (default: all)')
+    ir_profile_parser.add_argument("-n_raisings","--n_raisings", dest='n_raisings', type=int, default=-1,
+                    help='Specify the exact value of the sum of raised propagator powers involved in the limit considered (default: no constraint)')
     ir_profile_parser.add_argument("-po","--perturbative_order", dest='perturbative_order', type=int, default=3,
                     help='Set the deepest perturbative order to consider in the IR limits. When negative, the test will consider only limits of exactly that order (default:  %(default)s).')
     ir_profile_parser.add_argument("-irl","--ir_limits", dest='ir_limits', type=str, nargs='*', default=None,
@@ -3369,27 +3371,52 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     raise alphaLoopInvalidRunCmd("The specified LMB: '%s' is not found to be valid for SG %s."%(str(args.LMB),SG_name))
                 all_LMBs = [ tuple(edge_name for edge_name in args.LMB), ]
 
-            if args.LMB is not None and args.UV_indices is not None:
-                all_LMBs = [tuple(edge_name for edge_name in args.LMB)]
+            # For each raised propagators, store the representatives as list in the value, and place the first one as the representative present in the LMBs.
+            raised_propagators_map = {}
+            for (edge, sig) in edge_signatures.items():
+                hashable_sig = (tuple(sig[0]),tuple(sig[1]))
+                if hashable_sig in raised_propagators_map:
+                    raised_propagators_map[hashable_sig].append(edge)
+                else:
+                    raised_propagators_map[hashable_sig] = [edge,]
+            new_raised_propagators_map = {}
+            #all_cc_edges = set(sum([[cc_edge['name'] for cc_edge in cuts_info['cuts']] for cuts_info in SG['cutkosky_cuts']],[]))
+            all_cc_edges = set(cc_edge['name'] for cuts_info in SG['cutkosky_cuts'] for cc_edge in cuts_info['cuts'])
+            for hashable_sig, edges in raised_propagators_map.items():
+                if len(edges)==1:
+                    new_raised_propagators_map[edges[0]]=edges
+                else:
+                    # Find the reprentative in all Cutkosky cuts
+                    repr_edges = [ edge for edge in edges if edge in all_cc_edges ]
+                    if len(repr_edges) == 0:
+                        # Then pick the first one for representative
+                        new_raised_edges_ordering = [edges[0],]
+                    elif len(repr_edges) > 1:
+                        raise alphaLoopInvalidRunCmd("Found more than one edge representative for raised propagators in all cutkosky cuts, that should never happen.")
+                    else:
+                        new_raised_edges_ordering = [repr_edges[0],]+[edge for edge in edges if edge!=repr_edges[0]]
+                    for edge in edges:
+                        new_raised_propagators_map[edge] = new_raised_edges_ordering
+            raised_propagators_map = new_raised_propagators_map
+
+            # Make sure that the edges considered in the LMB are only the chosen representative ones
+            if args.LMB:
+                all_LMBs = [tuple(raised_propagators_map[edge_name][0] for edge_name in args.LMB)]
             else:
                 # Store the signature of each edge part of the LMBs w.r.t the defining LMB
-                all_LMBs = [ tuple(edges_list[i_edge][0] for i_edge in lmb) for lmb in SG_topo_gen.loop_momentum_bases()]
+                all_LMBs = [ tuple(raised_propagators_map[edges_list[i_edge][0]][0] for i_edge in lmb) for lmb in SG_topo_gen.loop_momentum_bases()]
                 # Filter out all LMBs with the same loop momenta signatures
                 new_all_LMBS = []
                 signatures_encountered = []
                 for LMB in all_LMBs:
-                    this_LMB_sig = sorted(edge_signatures[edge_name][0] for edge_name in LMB)
+                    this_LMB_sig = sorted( (edge_signatures[edge_name][0],edge_signatures[edge_name][1]) for edge_name in LMB)
                     if this_LMB_sig not in signatures_encountered:
                         signatures_encountered.append(this_LMB_sig)
                         new_all_LMBS.append(LMB)
                 all_LMBs = new_all_LMBS
 
-            all_LMBs_and_UV_edge_indices_and_signatures = []
-            # Then only include combination of UV_edges that yield different signature combinations
             LMBs_info_per_SG[SG_name] = {}
             LMBs_info_per_SG[SG_name]['LMBs_to_defining_LMB_transfo'] = {}
-            # We must keep *all* signatures actually as it matters which other ones we keep fixed.
-            #signature_combinations_considered = []
             for LMB in all_LMBs:
                 # construct the cut basis to LTD loop momentum basis mapping
                 mat = [edge_signatures[edge_name][0] for edge_name in LMB]
@@ -3428,6 +3455,17 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     all_combinations_of_active_legs = [ 
                         (cut_ID, [cut['name'] for cut in cuts_info['cuts'] if (args.include_massive or edge_masses[cut['name']]=='ZERO')] ) 
                         for cut_ID, cuts_info in enumerate(SG['cutkosky_cuts']) ]
+
+                # Make sure that raised propagator appear in the active legs only once and only with the chosen representative
+                combinations_seen = []
+                new_all_combinations_of_active_legs = []
+                for cut_ID, all_active_legs in all_combinations_of_active_legs:
+                    sorted_active_legs = [ l for l in  all_active_legs if len(raised_propagators_map[l])>0 ]
+                    sorted_active_legs = tuple(sorted( [ raised_propagators_map[l][0] for l in  sorted_active_legs ] ))
+                    if sorted_active_legs not in combinations_seen:
+                        new_all_combinations_of_active_legs.append( (cut_ID, list(sorted_active_legs)) )
+                        combinations_seen.append(sorted_active_legs)
+                all_combinations_of_active_legs = new_all_combinations_of_active_legs
 
                 for cut_ID, all_active_legs in all_combinations_of_active_legs:
 
@@ -3490,6 +3528,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # We must now find a suitable LMB to probe each selected IR limit
             for (collinear_sets, soft_set), cut_ID in selected_ir_limits.items():
                 all_edges_in_this_limit = set( (sum([list(cc) for cc in collinear_sets],[]) if len(collinear_sets)>0 else [])+list(soft_set) )
+                # Make sure that the minimal number of raised propagaotrs requested is met:
+                if args.n_raisings >= 0 and sum( [len(raised_propagators_map[edge])-1 for edge in all_edges_in_this_limit] ) != args.n_raisings:
+                    continue
+
                 selected_LMB_id = None
                 extra_spectator = None
                 for i_lmb, LMB in enumerate(all_LMBs):
@@ -3581,6 +3623,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     for signed_collinear_sets in all_signed_collinear_sets:
                         IR_limits_per_SG[SG_name][ ( tuple(sorted(signed_collinear_sets)), soft_set ) ] = { 'approach_LMB': all_LMBs[selected_LMB_id], 'extra_spectator': extra_spectator, 'cut_ID': cut_ID }
 
+            # Now limit the number of limits to n_max (ones if specified), chosen randomly
+            if args.n_max>0 and len(IR_limits_per_SG[SG_name])>args.n_max:
+                if args.seed != 0:
+                    random.seed(args.seed)
+                selected_IR_limits = random.sample(sorted(list(IR_limits_per_SG[SG_name].keys())),args.n_max)
+                IR_limits_per_SG[SG_name] = { k:v for k,v in IR_limits_per_SG[SG_name].items() if k in selected_IR_limits }
+
             #logger.info("A total of %d limits have been constructed in %.2fs."%(len(IR_limits_per_SG[SG_name]),time.time()-start_limits_derivation_time))
             IR_limits_per_order_for_this_SG = {}
             for ir_limit in IR_limits_per_SG[SG_name]:
@@ -3610,6 +3659,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         for pert_order in sorted(list(IR_limits_per_order_for_this_SG.keys()))
                     ])
                 ))
+            
             #max_len = max(len(SuperGraph.format_ir_limit_str(ir_limit, colored_output=False)) for ir_limit in IR_limits_per_SG[SG_name]) if len(IR_limits_per_SG[SG_name])>0 else 0
             # logger.info("Details of the list of all %d IR limits constructed:\n%s"%(
             #     len(IR_limits_per_SG[SG_name]),
