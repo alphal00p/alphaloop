@@ -160,27 +160,11 @@ class SquaredTopologyGenerator:
                         for uv_sg in uv_limit['uv_subgraphs']:
                             subgraph_internal_edges = [e[0] for i, e in enumerate(uv_sg['graph'].edge_map_lin) if i not in uv_sg['graph'].ext]
 
-                            uv_sg['gluon_bubble'] = None
                             uv_sg['internal_bubble'] = None
                             uv_sg['mass_ct'] = None
 
                             if len(uv_sg['graph'].edge_map_lin) - len(subgraph_internal_edges) == 2:
-                                if len(uv_limit['spinney']) == 1:
-                                    if len(uv_sg['graph'].edge_map_lin) < len(diag_info['graph'].edge_map_lin):
-                                        #uv_sg['internal_bubble'] = copy.deepcopy(uv_sg['graph'])
-                                        #internal_bubbles.append((uv_sg['internal_bubble'], subgraph_internal_edges))
-                                        pass
-
-                                # apply the gluon self-energy treatment to all non-nested graphs
-                                if all(uv_sg['graph_index'] not in vv['subgraph_indices'] for vv in uv_limit['uv_subgraphs']):
-                                    if particle_ids[uv_sg['graph'].edge_map_lin[uv_sg['graph'].ext[0]][0]] == 21:
-                                        # check if the gluon self-energy creates a linear or quadratic IR divergence (heuristically)
-                                        if has_2l_bubble:
-                                            uv_sg['gluon_bubble'] = 1
-                                        else:
-                                            uv_sg['gluon_bubble'] = 2
-
-                                if particle_ids[uv_sg['graph'].edge_map_lin[uv_sg['graph'].ext[0]][0]] == 6:
+                                if masses[uv_sg['graph'].edge_map_lin[uv_sg['graph'].ext[0]][0]] > 0.:
                                     uv_sg['mass_ct'] = True
 
                     diag_info['internal_bubbles'] = internal_bubbles
@@ -199,8 +183,8 @@ class SquaredTopologyGenerator:
                                 dg['id'] = graph_counter
                                 graph_counter += 1
 
-                                if uv_sg['gluon_bubble'] is not None and dgi < 2:
-                                    dg['gluon_bubble_id'] = graph_counter
+                                if dg['derivatives'] < uv_sg['taylor_order']:
+                                    dg['soft_ct_id'] = graph_counter
                                     graph_counter += 1
 
                             uv_sg['integrated_ct_id'] = graph_counter
@@ -349,12 +333,8 @@ class SquaredTopologyGenerator:
                                         1 + len([1 for _,mn in loop_topo.propagator_map.items() if mn == p.name])) for p in ll.propagators], derived_ll_power - orig_ll_power))
                                     prop = ll.propagators[0]
 
-                                    if uv_subgraph['gluon_bubble'] and di < 2:
-                                        # for the gluon bubble, we keep the 0th and 1st order of the UV CT as is, so that it substracts the quadratic soft and UV
-                                        # note that the UV expansion does not need to be changed, as mUV contributions only appear at the second order
-                                        # this procedure only works for one-loop gluon bubbles
-                                        pass
-                                    else:
+                                    # keep the original mass for the soft CT part of the Taylor expansion
+                                    if d['derivatives'] >= uv_subgraph['taylor_order']:
                                         prop.uv = True
                                         prop.m_squared = mu_uv**2
                                     prop.power = derived_ll_power
@@ -363,7 +343,7 @@ class SquaredTopologyGenerator:
 
                                 loop_topo.uv_loop_lines = (uv_loop_lines, basis_shift_map)
 
-                                if uv_subgraph['gluon_bubble'] and di < 2:
+                                if d['derivatives'] < uv_subgraph['taylor_order']:
                                     d['loop_topo_orig_mass'] = copy.deepcopy(loop_topo)
                                     for ll in loop_topo.loop_lines:
                                         ll.propagators[0].uv = True

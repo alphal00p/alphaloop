@@ -454,7 +454,7 @@ class TopologyGenerator(object):
                             gn = copy.deepcopy(uv_subgraph)
                             for loop_line in c:
                                 gn.powers[loop_lines[loop_line][0]] += 1
-                            derived_graphs.append({'graph': gn})
+                            derived_graphs.append({'graph': gn, 'derivatives': d})
 
                     graph_configuration = {
                         'graph_index': graph_index,

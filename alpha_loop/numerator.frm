@@ -171,7 +171,7 @@ Set lorentzdummy: mud1,...,mud40;
 CF gamma, gammatrace(c), GGstring, NN, vector,g(s),delta(s),tmps(s),T, counter,color, prop, replace;
 CF f, vx, vxs(s), uvx, vec, vec1;
 CF subs, configurations, conf, tder, cmb, cbtofmb, fmbtocb, diag, forestid, der, energy, spatial(s), onshell, uvcutoff;
-CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, irtopo, intuv, integrateduv, gluonbubble;
+CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, irtopo, intuv, integrateduv;
 CT gammatracetensor(c),opengammastring;
 
 CF logmUVmu; * make it a function so that the optimizer makes sure it is only computed once
@@ -825,64 +825,41 @@ repeat id subgraph(?a,p?) = subgraph(?a);
         Multiply replace_(t, 1);
     endargument;
 
-* Taylor expand the propagators to the right depth
-* p carries a t dependence that determines the order
-* t1 determines the powers of the UV propagator
-    if (count(gluonbubble,1));
-* for the gluon self-energy with quadratic IR divergence, the 0th and 1st order are only expanded in the external momentum and not the mass
-* and their integrated counterterm is 0. The 2nd order term is patched to cancel contributions between the UV CT of the original graph and the UV CT of the
-* 0th order IR CT. This patching works for one-loop self-energies
-        #do gb=2,1,-1
-            id ifnomatch->endgdb`gb' gluonbubble^`gb' = 1;
-
-            id uvprop(k?,t1?,0,m?) = uvprop(k,t1,1,m);
-            id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
-            repeat;
-                id once ifnomatch->skiptruncation`gb' uvprop(k?,t1?,p?,m?)*t^x1?*tmax^x2? = uvprop(k,t1,1,m) * t^x1*tmax^x2 * theta_(x2-x1) *
-                    (1 + (-2*p.k - p.p) * t1 + 4*p.k^2 * t1^2);
-                id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
-                label skiptruncation`gb';
-            endrepeat;
-
-            id t^`gb'*m?allmasses = 0; * drop masses
-            if (count(t,1) < `gb') id uvtopo(?a) = irtopo(?a); * select the proper topology without UV rearrangement
-
-* drop the integrated counterterm
-            id intuv(x?) = x;
-            if ((count(vxs,1)) && (count(t,1) < `gb')) Discard;
-
-            label endgdb`gb';
-        #enddo
-    else;
-* rescale all masses in the numerator coming from the expansion if we are UV expanding
-        if (count(uvprop,1));
-            repeat id m?allmasses = tmp(m);
-            id tmp(m?) = t*m;
-        endif;
-
-* expand the propagators without loop momentum dependence
-        id uvprop(k?,t1?,0,m?) = uvprop(k,t1,1,m) * (1 - (mUV^2*t^2-m^2*t^2) * t1 + (mUV^2*t^2-m^2*t^2)^2 * t1^2 + ALARM * t^5);
+* Taylor expand the numerator and propagators to order tmax
+* The orders up to tmax - 1 will only be expanded in the external momenta
+* and the tmax order will be expanded in the masses too and every propagator will get an mUV mass
+* this way, spurious IR divergences in the external momenta of self-energies will be canceled as well
+* note: p carries a t dependence that determines the order, t1 determines the powers of the UV propagator
+    id uvprop(k?,t1?,0,m?) = uvprop(k,t1,1,m);
+    repeat;
+        id once ifnomatch->skiptruncation uvprop(k?,t1?,p?,m?)*t^x1?*tmax^x2? = uvprop(k,t1,1,m) * t^x1*tmax^x2 * theta_(x2-x1) *
+            (1 + (-2*p.k - p.p) * t1 + 4*p.k^2 * t1^2) + ALARM * t^3;
         id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
-        repeat;
-            id once ifnomatch->skiptruncation0 uvprop(k?,t1?,p?,m?)*t^x1?*tmax^x2? = uvprop(k,t1,1,m) * t^x1*tmax^x2 * theta_(x2-x1) *
-                (1 +
-                    (-2*p.k-(p.p+mUV^2*t^2-m^2*t^2)) * t1 +
-                    (+4*p.k^2+4*p.k*(p.p+mUV^2*t^2-m^2*t^2)+(p.p+mUV^2*t^2-m^2*t^2)^2) * t1^2 +
-                    (-8*p.k^3-12*p.k^2*(p.p+mUV^2*t^2-m^2*t^2)) * t1^3 +
-                    (16*p.k^4) * t1^4 +
-                    ALARM * t^5);
-            id t^x1?*tmax^x2? = t^x1*tmax^x2 * theta_(x2-x1);
-            label skiptruncation0;
-        endrepeat;
-    endif;
-
-    id t = 1;
-    id tmax = 1;
+        label skiptruncation;
+    endrepeat;
 
     if (count(ALARM, 1));
         Print "UV Taylor expansion depth exceeded.";
         exit "";
     endif;
+
+    if (count(t,1) == count(tmax,1));
+* drop IR topology and all masses and keep UV topology
+        id xirexpand = 0;
+        id xuvexpand = 1;
+        id m?allmasses = 0;
+    else;
+* keep a UV version of the IR topology
+        id uvtopo(?a) = irtopo(?a)*xirexpand + uvtopo(?a)*xuvexpand;
+        id xirexpand*xuvexpand = 0;
+
+* drop the integrated counterterm as they always evaluate to 0
+        id intuv(x?) = x;
+        if ((count(irtopo,1)) && (count(vxs,1))) Discard;
+    endif;
+
+    id t = 1;
+    id tmax = 1;
 
 * match the denominator structure to a diagram
     id uvprop(?a,m?) = uvprop(?a);
@@ -1040,6 +1017,8 @@ repeat id subgraph(?a,p?) = subgraph(?a);
 
 id xnomsbar = 0;
 id xlct = 1;
+id xuvexpand = 0;
+id xirexpand = 1;
 Multiply replace_(mUV2, mUV);
 .sort:local-uv-done;
 Drop uvdiag`uvdiagtotalstart',...,uvdiag`uvdiagend';

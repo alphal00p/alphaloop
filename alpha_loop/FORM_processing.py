@@ -1398,7 +1398,7 @@ aGraph=%s;
                             for dg in uv_subgraph['derived_graphs']:
                                 graphs.append((signature_offset, dg['id'], dg['loop_topo'], None))
                                 if 'loop_topo_orig_mass' in dg:
-                                   graphs.append((signature_offset, dg['gluon_bubble_id'], dg['loop_topo_orig_mass'], None))
+                                   graphs.append((signature_offset, dg['soft_ct_id'], dg['loop_topo_orig_mass'], None))
                             graphs.append((signature_offset, uv_subgraph['integrated_ct_id'], uv_subgraph['integrated_ct_bubble_graph'], None))
                             signature_offset += uv_subgraph['derived_graphs'][0]['loop_topo'].n_loops
                         if len(uv_structure['bubble']) > 0:
@@ -1818,9 +1818,9 @@ CTable ltdmap(0:{},0:{});
                                 topo_map += '\tid uvtopo({},{},k1?,...,k{}?) = diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
                                     '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], dg['id'], dg['graph'].n_loops)
 
-                                if 'gluon_bubble_id' in dg:
+                                if 'soft_ct_id' in dg:
                                     topo_map += '\tid irtopo({},{},k1?,...,k{}?) = diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
-                                        '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], dg['gluon_bubble_id'], dg['graph'].n_loops)
+                                        '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], dg['soft_ct_id'], dg['graph'].n_loops)
 
                             # construct the vertex structure of the UV subgraph
                             # TODO: are the LTD vertices reliable?
@@ -1885,9 +1885,6 @@ CTable ltdmap(0:{},0:{});
                                 uv_diag = 'uvtopo({},1)'.format(uv_subgraph['id'])
                             else:
                                 uv_diag = 'uvtopo({},1,{})'.format(uv_subgraph['id'], uv_diag_moms)
-
-                            if uv_subgraph['gluon_bubble']:
-                                uv_diag += '*gluonbubble^{}'.format(uv_subgraph['gluon_bubble'])
 
                             if FORM_processing_options['generate_integrated_UV_CTs']:
                                 if uv_subgraph['mass_ct'] and FORM_processing_options['on_shell_renormalisation']:
