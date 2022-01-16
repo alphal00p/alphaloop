@@ -153,9 +153,6 @@ CF uvid;
 #endprocedure
 
 #procedure IntegrateUV3L()
-    Print +s;
-    .sort:aaa;
-
     id uvprop(k1?,n1?) = uvprop(k1,n1)*tmps(k1,-k1);
 
 * mercedes
@@ -398,7 +395,7 @@ CF uvid;
 #endprocedure
 
 #procedure Masters()
-    id uvid(1,1) = rat(ep,1) * mUV2^2 * -(rat(1,ep) + 1 + (1 + 1/12*pi^2)*rat(ep,1) + (1 + 1/12*pi^2 - 1/3*z3)*rat(ep^2,1));
+    id uvid(1,1) = rat(ep,1) * mUV2^2 * (rat(1,ep) + 1 + (1 + 1/12*pi^2)*rat(ep,1) + (1 + 1/12*pi^2 - 1/3*z3)*rat(ep^2,1));
     id uvid(2,1) = rat(ep^2,1) * (rat(1,ep^2) + pi^2/6 - (-2*z3)/3 * rat(ep, 1));
     id uvid(2,2) = 2 * ( -8453430797319808/21639331090712481 + 28375860251062315/42167665933747557 * rat(ep, 1));
 
@@ -428,7 +425,7 @@ CF uvid;
     Keep brackets;
 
 * Normalize with alphaLoop convention
-    id uvid(n?,?a) = uvid(n,?a) * (i_*16*pi^2)^-n;
+    id uvid(n?,?a) = uvid(n,?a) * (-i_*16*pi^2)^-n;
 
 * add log(mUV^2/mu^2)-dependence
     id uvid(n?,?a) = uvid(n,?a) * (1 - logmUVmu * rat(ep, 1) + 1/2 * logmUVmu^2 * rat(ep^2, 1) - 1/6 * logmUVmu^3 * rat(ep^3, 1))^n;
