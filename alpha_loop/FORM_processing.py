@@ -105,7 +105,7 @@ FORM_processing_options = {
     #   'MaxTermSize':'100K',
     #   'Workspace':'1G'
     },
-    'optimize_c_output_mode_per_pair_of_factors' : 'flat'
+    'optimize_c_output_mode_per_pair_of_factors' : None
 }
 
 # Can switch to tmpdir() if necessary at some point
