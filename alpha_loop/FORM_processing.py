@@ -116,7 +116,7 @@ for resource in resources_to_link:
     if not os.path.exists(pjoin(FORM_workspace,resource)):
         utils.ln(pjoin(plugin_path,resource),starting_dir=FORM_workspace)
 
-# TODO only useful for the C output mode of FORM
+# This is only necessary when running with older versions of FORM that could have terms on multiple lines.
 def temporary_preprocess_multiline_blocks(FORM_output):
 
     def combine_lines(lines):
@@ -175,7 +175,6 @@ def temporary_preprocess_multiline_blocks(FORM_output):
 
     return new_lines
 
-#TODO Remove once FORM will have fixed its C output bug
 def temporary_fix_FORM_output(FORM_output):
 
     # new_output = []
@@ -197,7 +196,10 @@ def temporary_fix_FORM_output(FORM_output):
 
     # return '\n'.join(new_output)
 
-    new_output = temporary_preprocess_multiline_blocks(FORM_output)
+    # The old FORM version required the preprocessing step below which merged terms appearing on multiple lines when not intended to be so.
+    #new_output = temporary_preprocess_multiline_blocks(FORM_output)
+    # With the new FORM version we can directly use the current output.
+    new_output = FORM_output.split('\n')
 
     # Check if there is a multiline return (i.e. by checking for balanced parenthesis), in which case we reformat it to make it 
     # multiple lines so as to help compiler.
@@ -301,14 +303,14 @@ def temporary_fix_FORM_output(FORM_output):
         return new_lines
 
     processed_output = []
-    for line in new_output:
+    for i_line, line in enumerate(new_output):
         if currently_in_unbalanced_context is None:
             unbalanced_index = balanced_parenthesis(line)
             if unbalanced_index is None:
                 processed_output.append(line)
             else:
                 if not line.strip().startswith('return'):
-                    raise FormProcessingError("Unbalanced parenthesis for a line that is not a return line, this is not expected. Line: '%s'"%line)
+                    raise FormProcessingError("Unbalanced parenthesis for a line that is not a return line, this is not expected. Line #%d: '%s'"%(i_line+1, line))
                 currently_in_unbalanced_context = unbalanced_index
                 # Reset all global replacement rules
                 reset_function_context_vars()
@@ -319,16 +321,19 @@ def temporary_fix_FORM_output(FORM_output):
                 processed_output.append(line[:(unbalanced_index-1)].replace('return','Z1_ = ')+';')
                 processed_output.extend(process_line(line[(unbalanced_index+1):], first=True))
         else:
-            if not line.startswith('      _ +='):
+            #if not line.startswith('      _ +='):
+            if not (line.startswith('       +') or line.startswith('       -')):
                 raise FormProcessingError("Unexpected format of line in unbalanced context. Line: '%s'"%line)
             unbalanced_index = balanced_parenthesis(line)
             if unbalanced_index is None:
-                processed_output.extend(process_line(line[10:]))
+                #processed_output.extend(process_line(line[10:]))
+                processed_output.extend(process_line(line[7:]))
             else:
                 if line[-1]!=';' or unbalanced_index!=(len(line)-2):
                     raise FormProcessingError("Unexpected end of balanced context. Line: '%s'"%line)
                 currently_in_unbalanced_context = None
-                processed_output.extend(process_line(line[10:-2]))
+                #processed_output.extend(process_line(line[10:-2]))
+                processed_output.extend(process_line(line[7:-2]))
                 processed_output.append('return Z1_*Z2_;')
 
     return '\n'.join(processed_output)
