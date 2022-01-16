@@ -116,18 +116,71 @@ for resource in resources_to_link:
     if not os.path.exists(pjoin(FORM_workspace,resource)):
         utils.ln(pjoin(plugin_path,resource),starting_dir=FORM_workspace)
 
+# Check if there is a multiline return (i.e. by checking for balanced parenthesis), in which case we reformat it to make it 
+# multiple lines so as to help compiler.
+def balanced_parenthesis(s):
+    """ Returns None if balanced, and otherwise index of first offending parenthesis """
+    #pairs = {"{": "}", "(": ")", "[": "]"}
+    pairs = {"(": ")"}
+    stack = []
+    for i_c, c in enumerate(s):
+        #if c in "{[(":
+        if c=="(":
+            stack.append((i_c,c))
+        elif stack and c == pairs[stack[-1][1]]:
+            stack.pop()
+        elif c==")":
+            return i_c
+    
+    return (stack[0][0] if len(stack)>0 else None)
+
 # This is only necessary when running with older versions of FORM that could have terms on multiple lines.
 def temporary_preprocess_multiline_blocks(FORM_output):
 
-    def combine_lines(lines):
-        combined_line = ''
-        for i_line, line in enumerate(lines):
-            l = line if not line.endswith('\\') else line[:-1]
-            if i_line == 0:
-                combined_line += l
-            else:
-                combined_line += l.strip()
-        return combined_line
+    def combine_lines(lines, split_terms=False):
+
+        if not split_terms:
+            combined_line = ''
+            for i_line, line in enumerate(lines):
+                l = line if not line.endswith('\\') else line[:-1]
+                if i_line == 0:
+                    combined_line += l
+                else:
+                    combined_line += l.strip()
+
+            return [combined_line,]
+        else:
+            combined_lines = [lines[0],]
+            # Now split terms within the inner most parenthesis
+            first_unbalanced_parenthesis_index = balanced_parenthesis(lines[0])
+            if first_unbalanced_parenthesis_index is None:
+                raise FormProcessingError("No imbalanced parenthesis in first line to combine within an output C context.")
+            
+            current_running_line = ''
+            for i_line, line in enumerate(lines[1:]):
+                if not (line.startswith('       - ') or line.startswith('       + ')):
+                    if current_running_line == '':
+                        combined_lines[-1] += line.strip()
+                    else:
+                        current_running_line += line.strip()
+                    continue
+                current_running_line = combine_lines([current_running_line,line],split_terms=False)[0]
+                b_par = balanced_parenthesis(current_running_line)
+                if b_par is None:
+                    combined_lines.append('      _ += %s'%current_running_line)
+                    current_running_line = ''
+                else:
+                    if current_running_line[b_par]==')':
+                        if i_line != len(lines)-2:
+                            raise FormProcessingError('The closing parenthesis of the an output C block did not happen on the last line of the block.')
+                        combined_lines.append('      _ += %s'%current_running_line)
+                        current_running_line = ''
+                    else:
+                        continue
+            if current_running_line!='':
+                raise FormProcessingError('Accumulated line of a C output block was not added.')
+
+            return combined_lines
 
     new_lines = []
     
@@ -149,7 +202,7 @@ def temporary_preprocess_multiline_blocks(FORM_output):
                 continue
             if len(lines_in_current_block)==0:
                 raise FormProcessingError('ERROR B in preprocessing of multiline blocks of FORM output at line %d, line:\n%s'%(i_line, line))
-            new_lines.append(combine_lines(lines_in_current_block))
+            new_lines.extend(combine_lines(lines_in_current_block, split_terms=False))
             lines_in_current_block = []
             continue
 
@@ -166,7 +219,7 @@ def temporary_preprocess_multiline_blocks(FORM_output):
         lines_in_current_block.append(line)
 
         if stripped_line[-1]==';':
-            new_lines.append(combine_lines(lines_in_current_block))
+            new_lines.extend(combine_lines(lines_in_current_block, split_terms=True))
             lines_in_current_block = [] 
             is_in_multiline_block = False
 
@@ -196,29 +249,12 @@ def temporary_fix_FORM_output(FORM_output):
 
     # return '\n'.join(new_output)
 
-    # The old FORM version required the preprocessing step below which merged terms appearing on multiple lines when not intended to be so.
-    #new_output = temporary_preprocess_multiline_blocks(FORM_output)
+    # FORM can still break lines into multiple ones that need to be merged,
+    # however within a block of "C output" style, each term within the big overall parenthesis should not be split.
+    new_output = temporary_preprocess_multiline_blocks(FORM_output)
     # With the new FORM version we can directly use the current output.
-    new_output = FORM_output.split('\n')
-
-    # Check if there is a multiline return (i.e. by checking for balanced parenthesis), in which case we reformat it to make it 
-    # multiple lines so as to help compiler.
-    def balanced_parenthesis(s):
-        """ Returns None if balanced, and otherwise index of first offending parenthesis """
-        #pairs = {"{": "}", "(": ")", "[": "]"}
-        pairs = {"(": ")"}
-        stack = []
-        for i_c, c in enumerate(s):
-            #if c in "{[(":
-            if c=="(":
-                stack.append((i_c,c))
-            elif stack and c == pairs[stack[-1][1]]:
-                stack.pop()
-            elif c==")":
-                return i_c
-        
-        return (stack[0][0] if len(stack)>0 else None)
-
+    #new_output = FORM_output.split('\n')
+    
     currently_in_unbalanced_context = None
     forest_re = re.compile(r'forestid\((\d+)\)')
     power_re = re.compile(r'pow\((\w*)\,(\d+)\)')
@@ -242,6 +278,7 @@ def temporary_fix_FORM_output(FORM_output):
 
     def process_line(l, first=False):
         new_lines = []
+        #processed_line = l.replace(' ','')
         processed_line = l
 
         # Optimize forests
@@ -321,19 +358,19 @@ def temporary_fix_FORM_output(FORM_output):
                 processed_output.append(line[:(unbalanced_index-1)].replace('return','Z1_ = ')+';')
                 processed_output.extend(process_line(line[(unbalanced_index+1):], first=True))
         else:
-            #if not line.startswith('      _ +='):
-            if not (line.startswith('       +') or line.startswith('       -')):
+            if not line.startswith('      _ +='):
+            #if not (line.startswith('       +') or line.startswith('       -')):
                 raise FormProcessingError("Unexpected format of line in unbalanced context. Line: '%s'"%line)
             unbalanced_index = balanced_parenthesis(line)
             if unbalanced_index is None:
-                #processed_output.extend(process_line(line[10:]))
-                processed_output.extend(process_line(line[7:]))
+                processed_output.extend(process_line(line[10:]))
+                #processed_output.extend(process_line(line[7:]))
             else:
                 if line[-1]!=';' or unbalanced_index!=(len(line)-2):
                     raise FormProcessingError("Unexpected end of balanced context. Line: '%s'"%line)
                 currently_in_unbalanced_context = None
-                #processed_output.extend(process_line(line[10:-2]))
-                processed_output.extend(process_line(line[7:-2]))
+                processed_output.extend(process_line(line[10:-2]))
+                #processed_output.extend(process_line(line[7:-2]))
                 processed_output.append('return Z1_*Z2_;')
 
     return '\n'.join(processed_output)
