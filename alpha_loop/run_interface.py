@@ -4019,7 +4019,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             dod *= -1.
             # Also include dod from jacobian behavior in the soft limit. Ignore collinear jacobian linear suppression as it should not be necessary.
             # Also subtract one so as to make the natural target dod -1 (since we're approaching a finite point here.)
-            dod -= 1.*float(len(soft_set))+1
+            dod -= 2.*float(len(soft_set))+1
 
             dod_status = 'SUCESS' if successful_fit else 'UNSTABLE'
             if args.ignore_cut_configs > 0:
