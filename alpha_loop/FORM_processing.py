@@ -151,20 +151,22 @@ def temporary_preprocess_multiline_blocks(FORM_output):
             return [combined_line,]
         else:
             combined_lines = [lines[0],]
-            # Now split terms within the inner most parenthesis
-            first_unbalanced_parenthesis_index = balanced_parenthesis(lines[0])
-            if first_unbalanced_parenthesis_index is None:
-                raise FormProcessingError("No imbalanced parenthesis in first line to combine within an output C context.")
-            
+
             current_running_line = ''
             for i_line, line in enumerate(lines[1:]):
                 if not (line.startswith('       - ') or line.startswith('       + ')):
                     if current_running_line == '':
-                        combined_lines[-1] += line.strip()
+                        combined_lines[-1] = combine_lines([combined_lines[-1],line],split_terms=False)[0]
+                        continue
                     else:
-                        current_running_line += line.strip()
-                    continue
-                current_running_line = combine_lines([current_running_line,line],split_terms=False)[0]
+                        current_running_line = combine_lines([current_running_line,line],split_terms=False)[0]
+                else:
+                    current_running_line = combine_lines([current_running_line,line],split_terms=False)[0]
+
+                if len(combined_lines)==1:
+                    if balanced_parenthesis(combined_lines[0]) is None:
+                        raise FormProcessingError("No imbalanced parenthesis in first line to combine within an output C context.")
+
                 b_par = balanced_parenthesis(current_running_line)
                 if b_par is None:
                     combined_lines.append('      _ += %s'%current_running_line)
@@ -177,8 +179,9 @@ def temporary_preprocess_multiline_blocks(FORM_output):
                         current_running_line = ''
                     else:
                         continue
+
             if current_running_line!='':
-                raise FormProcessingError('Accumulated line of a C output block was not added.')
+                raise FormProcessingError('Accumulated line of a C output block was not added:\n%s'%current_running_line)
 
             return combined_lines
 
