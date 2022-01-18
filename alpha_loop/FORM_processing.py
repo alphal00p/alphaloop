@@ -72,7 +72,7 @@ FORM_processing_options = {
     # Define the extra aguments for the compilation
     'compilation-options': [],
     'cores': 2, #multiprocessing.cpu_count(),
-    'extra-options': {'OPTIMITERATIONS': 1000, 'NUMERATOR': 0, 'SUMDIAGRAMSETS': 'nosum', 'MAXVARSFOROPTIM': 1500},
+    'extra-options': {'OPTIMITERATIONS': 1000, 'NUMERATOR': 0, 'SUMDIAGRAMSETS': 'nosum', 'MAXVARSFOROPTIM': 3500},
     # If None, only consider the LMB originally chosen.
     # If positive and equal to N, consider the first N LMB from the list of LMB automatically generated
     # If negative consider all possible LMBs.
@@ -105,7 +105,7 @@ FORM_processing_options = {
     #   'MaxTermSize':'100K',
     #   'Workspace':'1G'
     },
-    'optimize_c_output_mode_per_pair_of_factors' : None
+    'optimize_c_output_mode_per_pair_of_factors' : 'flat'
 }
 
 # Can switch to tmpdir() if necessary at some point
