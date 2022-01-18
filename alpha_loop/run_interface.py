@@ -3479,7 +3479,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     if not args.consider_collinear_limits:
                         for soft_config in soft_combinations:
                             this_ir_limit = ( tuple([]), tuple(sorted(soft_config)) )
-                            if this_ir_limit not in selected_ir_limits:
+                            if this_ir_limit not in selected_ir_limits and validate_limit(this_ir_limit[0], this_ir_limit[1], edge_PDGs, args):
                                 selected_ir_limits[this_ir_limit] = cut_ID
                     else:
 
