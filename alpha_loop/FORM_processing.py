@@ -1400,7 +1400,7 @@ aGraph=%s;
                                 graphs.append((signature_offset, uv_subgraph['internal_bubble_id'], uv_subgraph['internal_bubble_loop_topo'], internal_bubble_ext_edges))
                             for dg in uv_subgraph['derived_graphs']:
                                 graphs.append((signature_offset, dg['id'], dg['loop_topo'], None))
-                                if 'loop_topo_orig_mass' in dg:
+                                if 'soft_ct_id' in dg:
                                    graphs.append((signature_offset, dg['soft_ct_id'], dg['loop_topo_orig_mass'], None))
                             graphs.append((signature_offset, uv_subgraph['integrated_ct_id'], uv_subgraph['integrated_ct_bubble_graph'], None))
                             signature_offset += uv_subgraph['derived_graphs'][0]['loop_topo'].n_loops

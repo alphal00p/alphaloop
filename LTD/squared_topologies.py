@@ -146,7 +146,7 @@ class SquaredTopologyGenerator:
                     vw = {v: vertex_weights[v] if v in vertex_weights else 0 for e in diag_info['graph'].edge_map_lin for v in e[1:]}
                     ew = {e: edge_weights[e] if e in edge_weights else -2 for e, _, _ in diag_info['graph'].edge_map_lin}
                     
-                    uv_limits = diag_info['graph'].construct_uv_limits(vw, ew, 
+                    uv_limits = diag_info['graph'].construct_uv_limits(vw, ew, particle_ids=particle_ids,
                                 UV_min_dod_to_subtract=self.generation_options.get('UV_min_dod_to_subtract',0) )
 
                     internal_bubbles = []
@@ -317,6 +317,14 @@ class SquaredTopologyGenerator:
                                     analytic_result=0)
                                 loop_topo.external_kinematics = []
 
+                                # when soft derivatives have to be taken we use that quadratic graphs are self-energies
+                                # this means that only one propagator in the loop line has a shift
+                                # if this is not the case (for example in some EFT), a warning will have been given
+                                d['loop_topo_orig_mass'] = copy.deepcopy(loop_topo)
+                                for ll in d['loop_topo_orig_mass'].loop_lines:
+                                    for prop in ll.propagators:
+                                        prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
+
                                 # take the UV limit of the diagram, add the mass and set the parametric shift to 0
                                 # collect the parametric shifts of the loop lines such that it can be used to Taylor expand
                                 # the UV subgraph
@@ -331,24 +339,17 @@ class SquaredTopologyGenerator:
                                     # note: we assume that every propagator has power 1 and that only merging of identical edges raises it
                                     uv_loop_lines.append((ll.signature, [(p.name, p.parametric_shift,
                                         1 + len([1 for _,mn in loop_topo.propagator_map.items() if mn == p.name])) for p in ll.propagators], derived_ll_power - orig_ll_power))
-                                    prop = ll.propagators[0]
 
-                                    # keep the original mass for the soft CT part of the Taylor expansion
-                                    if d['derivatives'] >= uv_subgraph['taylor_order']:
-                                        prop.uv = True
-                                        prop.m_squared = mu_uv**2
+                                    prop = ll.propagators[0]
+                                    prop.uv = True
+                                    prop.m_squared = mu_uv**2
                                     prop.power = derived_ll_power
                                     prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
                                     ll.propagators = [prop]
 
                                 loop_topo.uv_loop_lines = (uv_loop_lines, basis_shift_map)
 
-                                if d['derivatives'] < uv_subgraph['taylor_order']:
-                                    d['loop_topo_orig_mass'] = copy.deepcopy(loop_topo)
-                                    for ll in loop_topo.loop_lines:
-                                        ll.propagators[0].uv = True
-                                        ll.propagators[0].m_squared = mu_uv**2
-
+                                d['loop_topo_orig_mass'].uv_loop_lines = (uv_loop_lines, basis_shift_map)
                                 d['loop_topo'] = loop_topo
 
                             #  construct the normalizing tadpole for the integrated UV counterterm

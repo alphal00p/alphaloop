@@ -361,7 +361,7 @@ class TopologyGenerator(object):
 
         return forest
 
-    def construct_uv_limits(self, vertex_weights, edge_weights, UV_min_dod_to_subtract=0):
+    def construct_uv_limits(self, vertex_weights, edge_weights, particle_ids=None, UV_min_dod_to_subtract=0):
         """Construct the uv limits by factorizing out all UV subgraphs from smallest to largest"""
         f = self.contruct_uv_forest(vertex_weights, edge_weights, UV_min_dod_to_subtract=UV_min_dod_to_subtract)
         #print('subgraph forest', f)
@@ -432,7 +432,11 @@ class TopologyGenerator(object):
                         sig = tuple(uv_subgraph.edge_map_lin[k[0]][0] for k in uv_subgraph.propagators[uv_subgraph.edge_name_map[m]] 
                             if uv_subgraph.edge_map_lin[k[0]][0] in subgraph_loop_edges)
                         assert(len(sig) > 0)
-                        # note that also loop lines without shifts receive higher-order corrections
+
+                        # propagators without shifts do not receive higher-order corrections using the soft CT
+                        if not any(edge_id in uv_subgraph.ext for (edge_id, _) in uv_subgraph.propagators[uv_subgraph.edge_name_map[m]]):
+                            continue
+
                         loop_lines[sig].append(m)
                     loop_lines = [p for l, p in loop_lines.items()]
 
@@ -453,6 +457,8 @@ class TopologyGenerator(object):
                         for c in combinations_with_replacement(range(len(loop_lines)), d):
                             gn = copy.deepcopy(uv_subgraph)
                             for loop_line in c:
+                                if len(loop_lines[loop_line]) > 1 and (particle_ids is None or len(set(particle_ids[m] for m in loop_lines[loop_line])) > 1):
+                                    print('WARNING: two or more propagators with shift in a loop line %s: %s. This could produce a bad soft CT if the masses are not the same:' % (str(loop_lines[loop_line]), str(uv_subgraph.edge_map_lin)))
                                 gn.powers[loop_lines[loop_line][0]] += 1
                             derived_graphs.append({'graph': gn, 'derivatives': d})
 
@@ -463,7 +469,6 @@ class TopologyGenerator(object):
                         'derived_graphs': derived_graphs,
                         'external_edges': subgraph_external_edges,
                         'loop_edges': subgraph_loop_edges,
-                        'loop_lines': loop_lines,
                         'graph': copy.deepcopy(uv_subgraph),
                     }
 
