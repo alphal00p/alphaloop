@@ -1011,13 +1011,15 @@ utils.bcolors.RED,utils.bcolors.ENDC
 
         try:
             # Temporarily force the scalings of edges and nodes as per user specification 
-            for e, s in processed_args['edge_scalings'].items():
-                FORM_processing.forced_edge_scalings[e] = s
-                if not e.startswith('q'):
-                    FORM_processing.forced_edge_scalings['p%s'%e] = s
-            for e_list, s in processed_args['node_scalings'].items():
-                FORM_processing.forced_node_scalings[tuple(sorted(e_list))] = s
-                FORM_processing.forced_node_scalings[tuple(sorted([('p%s'%e if not e.startswith('q') else e) for e in e_list]))] = s  
+            if processed_args['edge_scalings'] is not None:
+                for e, s in processed_args['edge_scalings'].items():
+                    FORM_processing.forced_edge_scalings[e] = s
+                    if not e.startswith('q'):
+                        FORM_processing.forced_edge_scalings['p%s'%e] = s
+            if processed_args['node_scalings'] is not None:
+                for e_list, s in processed_args['node_scalings'].items():
+                    FORM_processing.forced_node_scalings[tuple(sorted(e_list))] = s
+                    FORM_processing.forced_node_scalings[tuple(sorted([('p%s'%e if not e.startswith('q') else e) for e in e_list]))] = s  
             lu_scalar_exporter = aL_exporters.LUScalarTopologyExporter(
                 self,
                 output_path, processed_args['topology'], 
