@@ -108,6 +108,22 @@ FORM_processing_options = {
     'optimize_c_output_mode_per_pair_of_factors' : 'flat'
 }
 
+dummy_scalar_PDGs = {
+    3370 : 'ZERO',
+    3371 : 'massdummya',
+    3372 : 'massdummyb',
+    3373 : 'massdummyc',
+    3374 : 'massdummyd',
+    3375 : 'massdummye',
+    3376 : 'massdummyf',
+    3377 : 'massdummyg',
+    3378 : 'massdummyh',
+    3379 : 'massdummyi'
+}
+
+forced_edge_scalings = {}
+forced_node_scalings = {}
+
 # Can switch to tmpdir() if necessary at some point
 FORM_workspace = pjoin(plugin_path,'FORM_workspace')
 Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
@@ -694,7 +710,7 @@ class FORMSuperGraph(object):
             else:
                 color = "Gray"
             edge_repl_dict['edge_color'] = color
-            edge_label_pieces = ['psi' if edge_data['PDG'] == 1337 else get_part_name(edge_data['PDG']),]
+            edge_label_pieces = ['psi' if edge_data['PDG'] in dummy_scalar_PDGs else get_part_name(edge_data['PDG']),]
             if 'name' in edge_data and self._include_edge_name_in_rendering:
                 edge_label_pieces.append(edge_data['name'])
             if self._include_momentum_routing_in_rendering:
@@ -1552,14 +1568,23 @@ CTable ltdmap(0:{},0:{});
 """.format(max_diag_set_id, max_diag_id, max_diag_set_id, max_diag_id, ltd_topo_map, ltd_integrand_body))
 
 
-    def get_edge_scaling(self, pdg):
+    def get_edge_scaling(self, pdg, edge_name=None):
+
+        if edge_name is not None and edge_name in forced_edge_scalings:
+            return forced_edge_scalings[edge_name]
+
         # all scalings that deviate from -2
         scalings = {1: -1, 2: -1, 3: -1, 4: -1, 5: -1, 6: -1, 11: -1, 12: -1, 13: -1}
         return scalings[abs(pdg)] if abs(pdg) in scalings else -2
 
-    def get_node_scaling(self, pdgs_input):
+    def get_node_scaling(self, pdgs_input, names_of_edges_connected=None):
+
+        if names_of_edges_connected is not None and names_of_edges_connected in forced_node_scalings:
+            return forced_node_scalings[names_of_edges_connected]
+        
         # Remove dummy particles
         pdgs = tuple([ (-(abs(pdg)%1000) if pdg<0 else pdg%1000) for pdg in pdgs_input if pdg not in [1122,]])
+
         # only the triple gluon vertex and the ghost gluon vertex have a non-zero scaling
         if pdgs == (25, 21, 21):
             return 2
@@ -1634,8 +1659,8 @@ CTable ltdmap(0:{},0:{});
             numerator_structure={},
             FORM_numerator={'call_signature': {'id': call_signature_ID}},
             FORM_integrand={'call_signature': {'id': call_signature_ID}},
-            edge_weights={e['name']: self.get_edge_scaling(e['PDG']) for e in self.edges.values()},
-            vertex_weights={nv: self.get_node_scaling(n['PDGs']) for nv, n in self.nodes.items()},
+            edge_weights={e['name']: self.get_edge_scaling(e['PDG'],e['name']) for e in self.edges.values()},
+            vertex_weights={nv: self.get_node_scaling( n['PDGs'], tuple(sorted([ self.edges[eID]['name'] for eID in n['edge_ids'] ])) ) for nv, n in self.nodes.items()},
             generation_options=FORM_processing_options,
             analytic_result=(self.benchmark_result if hasattr(self,"benchmark_result") else None),
             default_kinematics=self.default_kinematics,
@@ -2376,7 +2401,7 @@ class FORMSuperGraphList(list):
         sig = topo_generator.get_signature_map()
 
         edges = {i: {
-            'PDG': 1337 if e[0] not in particle_ids else particle_ids[e[0]],
+            'PDG': 3370 if e[0] not in particle_ids else particle_ids[e[0]],
             'indices': (1 + i * 2,) if vertices.count(e[1]) == 1 or vertices.count(e[2]) == 1 else (1 + i * 2, 1 + i * 2 + 1),
             'signature': [sig[e[0]][0],
                     [ i+o for i,o in zip(sig[e[0]] [1][:len(sig[e[0]] [1])//2], sig[e[0]] [1][len(sig[e[0]] [1])//2:])]],
@@ -2387,7 +2412,7 @@ class FORMSuperGraphList(list):
         }
 
         nodes = {v: {
-            'PDGs': tuple(e['PDG'] if v == e['vertices'][1] or e['PDG'] == 1337 else model.get_particle(e['PDG']).get_anti_pdg_code() for e in edges.values() if v in e['vertices']),
+            'PDGs': tuple(e['PDG'] if (v == e['vertices'][1] or e['PDG'] in dummy_scalar_PDGs) else model.get_particle(e['PDG']).get_anti_pdg_code() for e in edges.values() if v in e['vertices']),
             'edge_ids': tuple(ei for ei, e in edges.items() if v in e['vertices']),
             'indices': tuple(e['indices'][0] if v == e['indices'][0] or len(e['indices']) == 1 else e['indices'][1] for e in edges.values() if v in e['vertices']),
             'momenta': tuple('DUMMY' for e in edges.values() if v in e['vertices']),
@@ -2411,7 +2436,7 @@ class FORMSuperGraphList(list):
 
         # set the correct particle ordering for all the edges
         for n in nodes.values():
-            if len(n['PDGs']) > 1 and all(nn != 1337 for nn in n['PDGs']):
+            if len(n['PDGs']) > 1 and all(nn not in dummy_scalar_PDGs for nn in n['PDGs']):
                 edge_order = FORMSuperGraph.sort_edges(model, [{'PDG': pdg, 'index': i} for i, pdg in enumerate(n['PDGs'])])
                 for g in ('PDGs', 'indices', 'momenta', 'edge_ids'):
                     n[g] = tuple(n[g][eo['index']] for eo in edge_order)
@@ -3902,7 +3927,7 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
 
         # Set sensible jet_ids if none
         if jet_ids is None:
-            jet_ids=tuple(list(range(1,6))+list(range(-1,-6,-1))+[21,82,-82,1337])
+            jet_ids=tuple(list(range(1,6))+list(range(-1,-6,-1))+[21,82,-82]+list(dummy_scalar_PDGs.keys()))
 
         contributing_supergraphs = []
 
@@ -4568,7 +4593,7 @@ class FORMProcessor(object):
                 for i_lmb,_,_,sg in super_graphs[0].additional_lmbs:
                     sg.draw(self.model, output_dir, FORM_id=i_graph, lmb_id=i_lmb)
 
-    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None, header="", integrand_type=None, force_overall_factor=None):
+    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None, header="", integrand_type=None, force_overall_factor=None, additional_params=None):
         assert(header in ['MG', 'QG', ''])
 
         if self.forced_options:
@@ -4585,6 +4610,8 @@ class FORMProcessor(object):
             'vev': self.model['parameter_dict']['mdl_vev'].real,
             'pi': 'M_PI',
         }
+        if additional_params is not None:
+            params.update(additional_params)
 
         if force_overall_factor is None:
             helicity_averaging_factor = 1

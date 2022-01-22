@@ -860,7 +860,10 @@ utils.bcolors.RED,utils.bcolors.ENDC
             'numerator': '1',
             'externals': None,
             'lmb' : None,
-            'analytical_result': 0.0, 
+            'masses': None,
+            'analytical_result': 0.0,
+            'edge_scalings' : None,
+            'node_scalings' : None
         }
         mandatory_args = ['topology', 'externals']
 
@@ -901,6 +904,57 @@ utils.bcolors.RED,utils.bcolors.ENDC
                     raise alphaLoopInvalidCmd("Each element of the topology specified must be a tuple ('edge_name', node_int_id_left, node_int_id_right) ")                        
 
                 processed_args['topology'] = topology
+
+            if key == '--masses':
+                try:
+                    masses=eval(value)
+                except Exception as e:
+                    traceback.print_exc()
+                    raise alphaLoopInvalidCmd(
+                        "Could not process specified masses of edges: %s"%value+
+                        "\n The following Python intepreter error occured then: %s"%str(e))
+                if not isinstance(topology, (tuple, list)):
+                    raise alphaLoopInvalidCmd("Specified masses must be a tuple or a list")
+                if any(
+                    ( (not isinstance(me,(tuple,list))) or (not isinstance(me[0],str)) or (not isinstance(me[1],float)) )
+                    for me in masses ):
+                    raise alphaLoopInvalidCmd("Each element of the masses specified must be a tuple ('edge_name', float_mass) ")                        
+
+                processed_args['masses'] = dict(masses)
+
+            if key == '--edge_scalings':
+                try:
+                    edge_scalings=eval(value)
+                except Exception as e:
+                    traceback.print_exc()
+                    raise alphaLoopInvalidCmd(
+                        "Could not process specified scalings of edges: %s"%value+
+                        "\n The following Python intepreter error occured then: %s"%str(e))
+                if not isinstance(edge_scalings, (tuple, list)):
+                    raise alphaLoopInvalidCmd("Specified edge scalings must be a tuple or a list")
+                if any(
+                    ( (not isinstance(es,(tuple,list))) or (not isinstance(es[0],str)) or (not isinstance(es[1],int)) )
+                    for es in edge_scalings ):
+                    raise alphaLoopInvalidCmd("Each element of the specified edge scalings must be a tuple ('edge_name', int_scaling) ")                        
+
+                processed_args['edge_scalings'] = dict(edge_scalings)
+
+            if key == '--node_scalings':
+                try:
+                    node_scalings=eval(value)
+                except Exception as e:
+                    traceback.print_exc()
+                    raise alphaLoopInvalidCmd(
+                        "Could not process specified scalings of nodes: %s"%value+
+                        "\n The following Python intepreter error occured then: %s"%str(e))
+                if not isinstance(node_scalings, (tuple, list)):
+                    raise alphaLoopInvalidCmd("Specified node scalings must be a tuple or a list")
+                if any(
+                    ( (not isinstance(ns,(tuple,list))) or (not isinstance(ns[0],(tuple,list)) or not all(isinstance(nse,str) for nse in ns[0])) or (not isinstance(ns[1],int)) )
+                    for ns in node_scalings ):
+                    raise alphaLoopInvalidCmd("Each element of the specified node scalings must be a tuple ( ('edge_nameA', 'edge_nameB', ...) , int_scaling) ")                        
+
+                processed_args['node_scalings'] = dict(node_scalings)
 
             if key == '--name':
                 if "'" in value or '"' in value:
@@ -955,18 +1009,34 @@ utils.bcolors.RED,utils.bcolors.ENDC
                 raise alphaLoopInvalidCmd("Missing mandatory option '%s' for command do_output_LU_scalar."%arg)
 
 
-        lu_scalar_exporter = aL_exporters.LUScalarTopologyExporter(
-            self,
-            output_path, processed_args['topology'], 
-            processed_args['externals'], processed_args['name'], 
-            processed_args['lmb'], self._curr_model, 
-            benchmark_result=processed_args['analytical_result'],
-            alphaLoop_options=self.alphaLoop_options,
-            MG5aMC_options=self.options,
-            numerator=processed_args['numerator'],
-        )
+        try:
+            # Temporarily force the scalings of edges and nodes as per user specification 
+            for e, s in processed_args['edge_scalings'].items():
+                FORM_processing.forced_edge_scalings[e] = s
+                if not e.startswith('q'):
+                    FORM_processing.forced_edge_scalings['p%s'%e] = s
+            for e_list, s in processed_args['node_scalings'].items():
+                FORM_processing.forced_node_scalings[tuple(sorted(e_list))] = s
+                FORM_processing.forced_node_scalings[tuple(sorted([('p%s'%e if not e.startswith('q') else e) for e in e_list]))] = s  
+            lu_scalar_exporter = aL_exporters.LUScalarTopologyExporter(
+                self,
+                output_path, processed_args['topology'], 
+                processed_args['externals'], processed_args['name'], 
+                processed_args['lmb'], self._curr_model, 
+                benchmark_result=processed_args['analytical_result'],
+                alphaLoop_options=self.alphaLoop_options,
+                MG5aMC_options=self.options,
+                numerator=processed_args['numerator'],
+                edge_masses=processed_args['masses']
+            )
+        
+            lu_scalar_exporter.output()
+        except Exception as e:
+            FORM_processing.forced_edge_scalings = {}
+            FORM_processing.forced_node_scalings = {}
+            raise e
 
-        lu_scalar_exporter.output()
+
 
     def do_output_scalar_integral(self, line):
         """ Generates and directly output a scalar integal topology as a mock-up of a LU integrand (with or without numerator).

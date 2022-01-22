@@ -5,7 +5,7 @@ On nospacesinnumbers;
 
 *--#[ setup :
 
-#define PSI "1337"
+#define PSI "3370,3371,3372,3373,3374,3375,3376,3377,3378,3379"
 #define GLU "21"
 #define PHO "22"
 #define EP "-11"
@@ -115,7 +115,16 @@ Fill masses(82) = 0;
 Fill masses(21) = 0;
 Fill masses(22) = 0;
 Fill masses(25) = massh;
-Fill masses(1337) = 0;
+Fill masses(3370) = 0;
+Fill masses(3371) = massdummya;
+Fill masses(3372) = massdummyb;
+Fill masses(3373) = massdummyc;
+Fill masses(3374) = massdummyd;
+Fill masses(3375) = massdummye;
+Fill masses(3376) = massdummyf;
+Fill masses(3377) = massdummyg;
+Fill masses(3378) = massdummyh;
+Fill masses(3379) = massdummyi;
 
 **************************************************
 * START SE parameters
@@ -264,9 +273,9 @@ id prop(x?{`QBAR'}, virtual, p?, idx1?, idx2?) = - i_ * d_(colF[idx1], colF[idx2
 id prop(`H', virtual, p?, idx1?, idx2?) = -i_;
 id prop(`H', in, p?, idx1?) = 1;
 id prop(`H', out, p?, idx1?) = 1;
-id prop(`PSI', virtual, p?, idx1?, idx2?) = -i_;
-id prop(`PSI', in, p?, idx1?) = 1;
-id prop(`PSI', out, p?, idx1?) = 1;
+id prop(x?{`PSI'}, virtual, p?, idx1?, idx2?) = -i_;
+id prop(x?{`PSI'}, in, p?, idx1?) = 1;
+id prop(x?{`PSI'}, out, p?, idx1?) = 1;
 
 **************************************************
 * START SE prop couplings Feynman rules
@@ -469,9 +478,9 @@ id prop(x?{`QBAR'}, virtual, p?, idx1?, idx2?) = gamma(dirac[idx1], p, dirac[idx
 id prop(`H', virtual, p?, idx1?, idx2?) = 1;
 id prop(`H', in, p?, idx1?) = 1;
 id prop(`H', out, p?, idx1?) = 1;
-id prop(`PSI', virtual, p?, idx1?, idx2?) = 1;
-id prop(`PSI', in, p?, idx1?) = 1;
-id prop(`PSI', out, p?, idx1?) = 1;
+id prop(x?{`PSI'}, virtual, p?, idx1?, idx2?) = 1;
+id prop(x?{`PSI'}, in, p?, idx1?) = 1;
+id prop(x?{`PSI'}, out, p?, idx1?) = 1;
 
 **************************************************
 * START SE prop Lorentz Feynman rules

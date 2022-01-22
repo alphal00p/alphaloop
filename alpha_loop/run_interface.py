@@ -65,6 +65,8 @@ import alpha_loop.integrator.havana as havana
 import alpha_loop.integrator.pyCubaIntegrator as pyCubaIntegrator
 from alpha_loop.integrator.worker import ALStandaloneIntegrand, Havana
 
+from alpha_loop.FORM_processing import dummy_scalar_PDGs
+
 Colours = utils.bcolors
 
 from madgraph.iolibs.files import cp, ln, mv
@@ -908,7 +910,8 @@ class SuperGraph(dict):
                     edges_to_shrink = sum([ signatures_to_edges[(tuple(self['edge_signatures'][edge][0]),tuple(self['edge_signatures'][edge][1]))] for edge in loop_propagators],[])
                     if len(set(edges_to_shrink))!=len(edges_to_shrink):
                         raise alphaLoopRunInterfaceError("This is not necessarily wrong but the fact that this assert crashed (for %s)"%self['name']+
-                            " indicates that there may be a problem that not all repeated propagators were merged into a single propagator with higher power in the yaml output.")
+                            " indicates that there may be a problem that not all repeated propagators were merged into a single propagator with higher power in the yaml output.\n"+
+                            "Alternatively we may have two propagators with the same loop momentum signature but different mass, this is not tested yet.")
                     effective_node_id_offset += 100
                     non_shrunk_edges_for_this_CC_cut, subgraph_info = self.shrink_edges(non_shrunk_edges_for_this_CC_cut, edges_to_shrink, effective_node_id_offset)
                     subgraph_info['side_of_cutkosky_cut'] = 'left' if i_side==0 else 'right'
@@ -1655,9 +1658,12 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             candidates = [fp for fp in glob.glob(pjoin(self.dir_path, self._rust_inputs_folder,'*.yaml')) if 
                             not os.path.basename(fp).startswith('SG') 
                             and not os.path.basename(fp).startswith('PROCESSED_SG') 
-                            and not os.path.basename(fp).startswith('BACKUP_PROCESSED_SG')]
+                            and not os.path.basename(fp).startswith('BACKUP_PROCESSED_SG')
+                            ]
             if len(candidates)!=1:
-                raise alphaLoopInvalidRunCmd("Could not find cross-section set yaml file in path %s"%(pjoin(self.dir_path, self._rust_inputs_folder)))
+                candidates = [cdt for cdt in candidates if cdt.endswith('_set.yaml')]
+                if len(candidates)!=1:
+                    raise alphaLoopInvalidRunCmd("Could not find cross-section set yaml file in path %s"%(pjoin(self.dir_path, self._rust_inputs_folder)))
             cross_section_set_yaml_file_path = candidates[0]
 
         self.cross_section_set_file_name = os.path.basename(cross_section_set_yaml_file_path)
@@ -1665,6 +1671,20 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         self.all_supergraphs = self.load_supergraphs()
 
         super(alphaLoopRunInterface, self).__init__(*args, **opts)
+
+    def get_particle_mass(self, pdg):
+        
+        if pdg in dummy_scalar_PDGs:
+            return dummy_scalar_PDGs[pdg]
+        else:
+            return self.alphaLoop_interface._curr_model.get_particle(pdg).get('mass')
+
+    def get_particle_spin(self, pdg):
+
+        if pdg in dummy_scalar_PDGs:
+            return 1
+        else:
+            return self.alphaLoop_interface._curr_model.get_particle(pdg).get('spin')
 
     def get_rust_worker(self, supergraph_name):
         """ Return a rust worker instance to evaluate the LU representation """
@@ -3301,8 +3321,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
             if user_options.only_soft_massless_boson:
                 for soft_edge in soft_set:
-                    soft_particle = self.alphaLoop_interface._curr_model.get_particle(edge_PDGs[soft_edge])
-                    if soft_particle.get('mass').upper() != 'ZERO' or soft_particle.get('spin')%2==0:
+                    if self.get_particle_mass(edge_PDGs[soft_edge]).upper() != 'ZERO' or self.get_particle_spin(edge_PDGs[soft_edge])%2==0:
                         return False
 
             # Assign a dummy sign to collinear edge if not assigned
@@ -3314,10 +3333,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             if not user_options.include_massive:
                 for coll_set in collinear_sets:
                     for e_sign, e in coll_set:
-                        if self.alphaLoop_interface._curr_model.get_particle(edge_PDGs[e]).get('mass').upper()!='ZERO':
+                        if self.get_particle_mass(edge_PDGs[e]).upper()!='ZERO':
                             return False
                 for e in soft_set:
-                    if self.alphaLoop_interface._curr_model.get_particle(edge_PDGs[e]).get('mass').upper()!='ZERO':
+                    if self.get_particle_mass(edge_PDGs[e]).upper()!='ZERO':
                         return False
 
             n_unresolved = SuperGraph.compute_ir_limit_perturbative_order( (collinear_sets, soft_set) )
@@ -3356,7 +3375,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             SG = self.all_supergraphs[SG_name]
 
             edge_PDGs = { e_name: pdg for e_name, pdg in SG['edge_PDGs'] }
-            edge_masses = { e_name: self.alphaLoop_interface._curr_model.get_particle(pdg).get('mass').upper() for e_name, pdg in SG['edge_PDGs'] }
+            edge_masses = { e_name: self.get_particle_mass(pdg).upper() for e_name, pdg in SG['edge_PDGs'] }
 
             # First we must regenerate a TopologyGenerator instance for this supergraph
             edges_list = SG['topo_edges']

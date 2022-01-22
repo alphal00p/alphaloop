@@ -1654,13 +1654,26 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
 class LUScalarTopologyExporter(QGRAFExporter):
 
-    def __init__(self, cli, output_path, topology, externals, name, lmb, model, benchmark_result=0.0, numerator='1', **opts):
+    def __init__(self, cli, output_path, topology, externals, name, lmb, model, edge_masses=None, benchmark_result=0.0, numerator='1', **opts):
         
         self.alphaLoop_options = opts.pop('alphaLoop_options',{})
         self.MG5aMC_options = opts.pop('MG5aMC_options',{})
         self.cli = cli
         self.dir_path = os.path.abspath(output_path)
         self.topology = topology
+        # Set all particles massless by default
+        self.particle_ids = { edge_key[0]: 3370 for edge_key in self.topology }
+        self.unique_masses = [ 0., ]
+        if edge_masses is not None:
+            # collect the value of all identical masses
+            self.unique_masses = sorted(list(set(edge_masses.values())))
+            if self.unique_masses[0] != 0.:
+                self.unique_masses = [0.,]+self.unique_masses
+            if len(self.unique_masses)>len(FORM_processing.dummy_scalar_PDGs):
+                raise alphaLoopExporterError("Too many different edge masses have been specified.")
+            for k, v in edge_masses.items():
+                self.particle_ids[k] = 337*10 + self.unique_masses.index(v)
+
         self.externals = externals
         self.name = name
         self.lmb = lmb
@@ -1668,21 +1681,31 @@ class LUScalarTopologyExporter(QGRAFExporter):
         self.numerator = numerator
 
         self.model = copy.deepcopy(model)
-        self.model['particles'].append(base_objects.Particle({
-            'name': 'psi',
-            'antiname': 'psi',
-            'spin' : 1,
-            'color': 1,
-            # We can think of generalising the pipeline for massive scalars too.
-            'mass': 'ZERO',
-            'width': 'ZERO', 
-            'pdg_code': 1337,
-            'line': 'dashed',
-            'is_part':True,
-            'self_antipart': True
-        }))
+        for i_scalar in range(len(self.unique_masses)):
+            # Given our usecase, it's not really necessary here to add the mass parameters as actual parameters of the model.
+            self.model['particles'].append(base_objects.Particle({
+                'name': 'psi',
+                'antiname': 'psi',
+                'spin' : 1,
+                'color': 1,
+                # We can think of generalising the pipeline for massive scalars too.
+                'mass': 'ZERO' if i_scalar == 0 else FORM_processing.dummy_scalar_PDGs[337*10+i_scalar],
+                'width': 'ZERO', 
+                'pdg_code': 337*10+i_scalar,
+                'line': 'dashed',
+                'is_part':True,
+                'self_antipart': True
+            }))
+            if i_scalar != 0:
+                new_dummy_mass_param = base_objects.ModelVariable(FORM_processing.dummy_scalar_PDGs[337*10+i_scalar], '%.8e'%self.unique_masses[i_scalar], 'real', tuple([]))
+                self.model.add_param(new_dummy_mass_param, tuple([]) )
+                self.model['parameter_dict'][FORM_processing.dummy_scalar_PDGs[337*10+i_scalar]] = self.unique_masses[i_scalar]
+
         # We must add the scalar particle to it!
+        self.model.parameters_dict = None
         self.model.reset_dictionaries()
+        #misc.sprint([pcv.name for pcv in self.model.get('parameters')[('external',)]])
+        #stop
 
     def build_output_directory(self):
 
@@ -1707,7 +1730,7 @@ class LUScalarTopologyExporter(QGRAFExporter):
 
         return FORM_processing.FORMSuperGraphList.from_squared_topology(
             self.topology, self.name, self.externals, computed_model, loop_momenta_names=self.lmb,
-            benchmark_result=self.benchmark_result
+            benchmark_result=self.benchmark_result, particle_ids = self.particle_ids
         )
     
     def get_overall_factor(self):
@@ -1762,7 +1785,9 @@ class LUScalarTopologyExporter(QGRAFExporter):
         form_processor.generate_numerator_functions(
             FORM_output_path, output_format=self.alphaLoop_options['FORM_processing_output_format'],
             workspace=FORM_workspace, header="", integrand_type=self.alphaLoop_options['FORM_integrand_type'],
-            force_overall_factor=self.get_overall_factor()
+            force_overall_factor=self.get_overall_factor(), additional_params = { 
+                FORM_processing.dummy_scalar_PDGs[337*10+i+1] : dummy_mass
+                for i, dummy_mass in enumerate(self.unique_masses[1:]) }
         )
 
         # Draw
