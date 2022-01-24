@@ -1459,7 +1459,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         for i in range(1,self.n_final):
             for k in range(i,self.n_final+1):
                 M[i-1] += self.masses[k-1]
-        
+
         weight *= 8.*self.rho(
             M[self.n_final-2],
             self.masses[self.n_final-1],

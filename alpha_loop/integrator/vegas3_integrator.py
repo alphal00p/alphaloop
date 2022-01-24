@@ -126,6 +126,7 @@ class ParallelWrappedIntegrand(vegas.BatchIntegrand):
     def batch_integrand(self, inputs_list, result):
         """ Integrand wrapper spawning an independent process for the computation of
         the batch of points listed in inputs_list."""
+
         p = Process(target=ParallelWrappedIntegrand.batch_integrand_process, args=(
                                                     self.integrands, inputs_list, result))
         p.start()
@@ -259,7 +260,7 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
 
         fct_inputs = np.array([dims[i].lower_bound + x*(dims[i].upper_bound - dims[i].lower_bound) 
                                                                          for i, x in enumerate(x_inputs)])
-        
+
         all_results = {}
         found_non_dict = False
         summed_res = 0.
@@ -395,7 +396,7 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
                 raise IntegratorError("Vegas3 could not save its integration grid to '%s'. Error: %s"%(
                                                                     self.load_grids,str(e)))
             logger.info('Vegas3 saved its integration grids to file: %s'%self.save_grids)
-           
+
         if self.n_iterations_refine > 0 and self.n_points_refine > 0:
             # Final integration
             if MPI_RANK == 0:

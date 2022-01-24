@@ -5514,7 +5514,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     phase=self.hyperparameters['Integrator']['integrated_phase'],
                     show_warnings=args.show_warnings,
                     return_individual_channels = do_include_all_channels,
-                    frozen_momenta=frozen_momenta
+                    frozen_momenta=frozen_momenta,
+                    SG_name = SG_name,
+                    rust_input_path = pjoin(self.dir_path, self._rust_inputs_folder)
                 )
 
             # Inspect mode
@@ -5530,6 +5532,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 logger.info("Final weight for point xs=[%s] :\n %s"%(
                     ' '.join('%.16f'%x for x in args.xs), pformat(res) 
                 ))
+                if hasattr(my_integrand, 'rust_timing'):
+                    logger.info("Time spent in rust %.0fs (%d calls over %d point) vs total integration time %.0fs (%.2f%%)"%(
+                        my_integrand.rust_timing.value, my_integrand.n_total_rust_calls.value, 1, 
+                        my_integrand.total_timing.value, (my_integrand.rust_timing.value/my_integrand.total_timing.value)*100.
+                    ))
                 return
 
                 # import matplotlib
@@ -5607,7 +5614,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         my_integrator = selected_integrator(my_integrand, **integrator_options)
 
+        start_integration_time = time.time()
         result = my_integrator.integrate()
+        integration_time = time.time()-start_integration_time
 
         if args.integrator == 'vegas3' and my_integrator.full_result is not None:
             logger.info('')
@@ -5615,11 +5624,23 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             logger.info('')
             logger.info("Complete integration result for all integrand components:")
             max_key_length = max(len(k) for k in my_integrator.full_result.keys())
-            for k in sorted(my_integrator.full_result.keys()):
+            tot_res = 0.
+            tot_res_stdev = 0. 
+            for i_k, k in enumerate(sorted(my_integrator.full_result.keys())):
+                if i_k != 0:
+                    tot_res += my_integrator.full_result[k].mean
+                    tot_res_stdev += my_integrator.full_result[k].sdev**2
                 logger.info(('%-{}s : %s%.6g +/- %.4g (%.2g%%)'.format(max_key_length))%(k, 
                     ' ' if my_integrator.full_result[k].mean>=0. else '',
                     my_integrator.full_result[k].mean, my_integrator.full_result[k].sdev,
                     abs(my_integrator.full_result[k].sdev/my_integrator.full_result[k].mean)*100. if my_integrator.full_result[k].mean!=0. else 0.
+                ))
+            tot_res_stdev = math.sqrt(tot_res_stdev)
+            if tot_res!=0.:
+                logger.info("Result for sum over all channels: %s%.6g +/- %.4g (%.2g%%)"%(
+                    ' ' if tot_res>=0. else '',
+                    tot_res, tot_res_stdev,
+                    abs(tot_res_stdev/tot_res)*100. if tot_res!=0. else 0.
                 ))
 
         # RAvg.mean : mean 
@@ -5641,6 +5662,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         logger.info("Zero weights fraction: %.6g%%"%(
             float((my_integrand.n_zero_evals.value / max(my_integrand.n_evals.value,1)))*100.
         ))
+
+        if hasattr(my_integrand, 'rust_timing'):
+            logger.info("Time spent in rust %.0fs (%d calls over %d points) vs total integration time %.0fs (%.2f%%)"%(
+                my_integrand.rust_timing.value, my_integrand.n_total_rust_calls.value, my_integrand.n_total_integrand_calls.value, 
+                my_integrand.total_timing.value, (my_integrand.rust_timing.value/my_integrand.total_timing.value)*100.
+            ))
+
         if my_integrand.max_eval_positive.value != 0.0:
             logger.info("Maximum posivite weight found: %.6g (%.1e x central value) for xs=[%s]"%(
                 my_integrand.max_eval_positive.value, 

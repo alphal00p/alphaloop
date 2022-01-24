@@ -537,7 +537,7 @@ class DummyFrozenHFunction(object):
 class AdvancedIntegrand(integrands.VirtualIntegrand):
 
     def __init__(self, rust_worker, SG, model, h_function, hyperparameters, channel_for_generation = None, external_phase_space_generation_type="flat", debug=0, phase='real', 
-        selected_cut_and_side=None, selected_LMB=None, show_warnings=True, return_individual_channels=False, frozen_momenta=None,
+        selected_cut_and_side=None, selected_LMB=None, show_warnings=True, return_individual_channels=False, frozen_momenta=None, SG_name = None, rust_input_path = None,
         **opts):
         """ Set channel_for_generation to (selected_cut_and_side_index, selected_LMB_index) to disable multichaneling and choose one particular channel for the parameterisation. """
 
@@ -546,6 +546,8 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         self.rust_worker = rust_worker
         self.model = model
         self.SG = SG
+        self.SG_name = SG_name
+        self.rust_input_path = rust_input_path
         self.phase = phase
         self.hyperparameters = hyperparameters
         self.conformal_map = lin_conformal
@@ -563,6 +565,10 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         self.selected_LMB=selected_LMB
 
         self.n_aborted_evals = Value('i', 0)
+        self.rust_timing = Value('d',0.)
+        self.total_timing = Value('d',0.)
+        self.n_total_rust_calls = Value('i',0)
+        self.n_total_integrand_calls = Value('i',0)
 
         if external_phase_space_generation_type not in ['flat','advanced']:
             raise InvalidCmd("External phase-space generation mode not supported: %s"%external_phase_space_generation_type)
@@ -580,7 +586,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             self.dimensions.append(integrands.ContinuousDimension('x_t',lower_bound=0.0, upper_bound=1.0))
             # Then the remaining ones will first be for the final-state mappings (the number depends on the particular Cutkosky cut)
             # and of the remaining loop variables
-            self.dimensions.extend([ 
+            self.dimensions.extend([
                 integrands.ContinuousDimension('x_%d'%i_dim,lower_bound=0.0, upper_bound=1.0) 
                 for i_dim in range(1,SG['topo']['n_loops']*3) 
             ])
@@ -598,9 +604,12 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
         # We must now build the reduced topology of the supergraph to obtain channels
         self.SG.set_integration_channels()
+
+        self.optimise_integration_channels()
+
+        selected_channels = [(i_channel, channel_info) for i_channel, channel_info in enumerate(self.SG['SG_multichannel_info']) if 
+                                self.external_phase_space_generation_type != 'flat' or channel_info['side']=='left']
         if self.debug>2: 
-            selected_channels = [(i_channel, channel_info) for i_channel, channel_info in enumerate(self.SG['SG_multichannel_info']) if 
-                                    self.external_phase_space_generation_type != 'flat' or channel_info['side']=='left']
             logger.debug("\n>>> Integration channel analysis (%d channels):"%len(selected_channels))
             for i_cut, cut_info in enumerate(self.SG['cutkosky_cuts']):
                 logger.info("\n>> Multichannel info for cut #%d:\n%s"%(i_cut,pformat(cut_info['multichannel_info'])))
@@ -609,6 +618,142 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                 logger.info("\n>>Info of channel #%d:\n%s"%(
                     i_channel, pformat(channel_info)
                 ))
+
+        logger.info("A total of %d channels have been constructed and %s"%(
+            (sum( max(len(channel_info['loop_LMBs']),1) for i_channel, channel_info in selected_channels) if len(selected_channels)>0 else 0),
+            ( "we will integrate over all of them." if self.channel_for_generation is None 
+                else "we will integrate over the following %d specified ones: %s"%(len(self.channel_for_generation), str(self.channel_for_generation)) )
+        ))
+
+        self.build_PS_generators()
+
+    def optimise_integration_channels(self, static=True, dynamic=True):
+
+        def finalize_optimisation(new_channels_to_overwrite, save_on_disk=True):
+            new_channels_info = {}
+            for i_channel, i_LMB in sorted(new_channels_to_overwrite):
+                if i_channel in new_channels_info:
+                    new_channels_info[i_channel]['loop_LMBs'].append(self.SG['SG_multichannel_info'][i_channel]['loop_LMBs'][i_LMB])
+                else:
+                    new_channel_info = copy.deepcopy(self.SG['SG_multichannel_info'][i_channel])
+                    new_channel_info['loop_LMBs'] = [self.SG['SG_multichannel_info'][i_channel]['loop_LMBs'][i_LMB],]
+                    new_channels_info[i_channel] = new_channel_info
+            self.SG['SG_multichannel_info'] = [ new_channels_info[i_channel] for i_channel in sorted(list(new_channels_info.keys())) ]
+            if save_on_disk:
+                copied_SG = copy.deepcopy(self.SG)
+                del copied_SG['SG_multichannel_info']
+                copied_SG['optimised_channels_from_python_integrate'] = sorted(new_channels_to_overwrite)
+                copied_SG.export(self.SG_name, self.rust_input_path)
+                logger.info("Saved optimised channels from python integrated on disk for %s."%self.SG_name)
+
+        if 'optimised_channels_from_python_integrate' in self.SG:
+            logger.info("Recycled optimised channels from supergraph metadata stored on disk.")
+            finalize_optimisation(self.SG['optimised_channels_from_python_integrate'],save_on_disk=False)
+            return
+
+        new_channels = []
+        original_n_channels = 0
+        if static:
+            # Optimize the multichannels by removing doubles due to symmetries in momentum routing.
+            # ===============================================================================================================
+            all_channels_added_so_far = []
+            for i_channel, channel in enumerate(self.SG['SG_multichannel_info']):
+                # Ignore left-side vs right-side cut and only take the left-side representative
+                if self.external_phase_space_generation_type == 'flat' and channel_info['side']!='left':
+                    continue
+                edge_names_in_basis = []
+                # First add the momenta from the Cutkosky cut. Prefer to select vector bosons as independent momenta
+                identified_dependent_edge = False
+                for cut_edge in self.SG['cutkosky_cuts'][channel['cutkosky_cut_id']]['cuts']:
+                    if not identified_dependent_edge and abs(cut_edge['particle_id']) not in [21,22,23,24]:
+                        identified_dependent_edge = True
+                        continue
+                    edge_names_in_basis.append(cut_edge['name'])
+                if not identified_dependent_edge:
+                    del edge_names_in_basis[-1]
+                # Now complement the basis with all possible ones from the remaining loops to the left and right of the cut
+                first = True
+                for i_LMB, LMB in enumerate(channel['loop_LMBs']):
+                    original_n_channels += 1
+                    defining_edges_for_this_channel = edge_names_in_basis+LMB['loop_edges']
+                    signatures = [ self.SG['edge_signatures'][edge_name] for edge_name in defining_edges_for_this_channel ]
+                    canonical_signatures = set([ (tuple(sig[0]),tuple(sig[1])) for sig in signatures] )
+                    if set(canonical_signatures) in all_channels_added_so_far:
+                        continue
+                    all_channels_added_so_far.append(set(canonical_signatures))
+                    new_channels.append( (i_channel, i_LMB) )
+        else:
+            new_channels = []
+            for i_channel, channel in enumerate(self.SG['SG_multichannel_info']):
+                for i_LMB, LMB in enumerate(channel['loop_LMBs']):
+                    new_channels.append( (i_channel, i_LMB) )
+                    original_n_channels += 1
+        # ===============================================================================================================
+
+        if not dynamic:
+            finalize_optimisation(new_channels,save_on_disk=False)
+            return
+
+        if len(self.hyperparameters['Selectors']['active_selectors'])>0:
+            logger.warning("Cannot do the dynamic optimisation of channels in the presence of a selector.\n"+
+                "Disable the selector and run the optimisation with 'inspect' if you want to enable this feature.")
+            finalize_optimisation(new_channels,save_on_disk=False)
+            return
+
+        # Optimize the multichannels by finding groups of identical ones through direct evaluations
+        # ===============================================================================================================
+        self.build_PS_generators()
+        new_SG_multichannel_info = []
+        last_new_SG_multichannel_info = []
+        n_attempts = 0
+        _MAX_ATTEMPTS = 10
+        while True:
+            
+            if n_attempts >= _MAX_ATTEMPTS:
+                raise SamplerError("Could not find a stable configuration of optimised integration channels in %d attempts."%n_attempts)
+
+            test_continuous_inputs = self.dimensions.get_continuous_dimensions().random_sample()
+            test_discrete_inputs = self.dimensions.get_discrete_dimensions().random_sample()
+            logger.info("Now detecting identical channels using evaluations with continuous inputs:\n%s\nand discrete inputs\n%s"%(
+                test_continuous_inputs, test_discrete_inputs
+            ))
+            channel_evaluations = {}
+            unstable_point_found = False
+            for i_channel, channel_info in enumerate(self.SG['SG_multichannel_info']):
+                for i_LMB, LMB in enumerate(channel_info['loop_LMBs']):
+                    if (i_channel, i_LMB) not in new_channels:
+                        continue
+                    wgt_for_this_channel = self.evaluate_channel(test_continuous_inputs, test_discrete_inputs, i_channel, i_LMB, multi_channeling=False)
+                    if wgt_for_this_channel is None or wgt_for_this_channel == 0.:
+                        # Unstable point for this test, skip this attempt and pick another seed:
+                        unstable_point_found =True
+                        logger.info("An unstable point was found when trying to dynamically optimise integration channel, a different point will be picked now.")
+                        break
+                    truncated_res = '%.12e'%wgt_for_this_channel
+                    if truncated_res in channel_evaluations:
+                        channel_evaluations[truncated_res].append( (i_channel, i_LMB, wgt_for_this_channel) )
+                    else:
+                        channel_evaluations[truncated_res] = [(i_channel, i_LMB, wgt_for_this_channel), ]
+                if unstable_point_found:
+                    break
+            n_attempts += 1
+            if unstable_point_found:
+                continue
+
+            if self.debug>2: logger.debug("The following grouping of integration channels as been constructed:\n%s"%pformat(channel_evaluations))
+            new_SG_multichannel_info = sorted([ (identical_channels[0][0], identical_channels[0][1]) for identical_channels in channel_evaluations.values() ])
+            if self.debug>2: logger.debug("Tentative new list of integration channels to consider:\n%s"%new_SG_multichannel_info)
+            # Test if this result is compatible with previous ones
+            if new_SG_multichannel_info == last_new_SG_multichannel_info:
+                break
+            else:
+                last_new_SG_multichannel_info = new_SG_multichannel_info
+        
+        logger.info("The dynamic optimisation of channels reduced their number from %d to %d."%(original_n_channels,len(new_SG_multichannel_info)))
+        finalize_optimisation(new_SG_multichannel_info,save_on_disk=True)
+        # ===============================================================================================================
+
+    def build_PS_generators(self):
 
         # First we must regenerate a TopologyGenerator instance for this supergraph
         # We actually won't need it!
@@ -657,7 +802,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                 generator_beam_Es = (initial_state_masses[0]/2.,initial_state_masses[0]/2.)
             else:
                 generator_initial_state_masses = initial_state_masses
-                generator_beam_Es = (E_cm/2.,E_cm/2.)
+                generator_beam_Es = (self.E_cm/2.,self.E_cm/2.)
             
             if self.frozen_momenta is not None:
                 
@@ -720,7 +865,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                 self.multichannel_generators[i_channel] =  PS.SingleChannelPhasespace(
                         generator_initial_state_masses, final_state_masses, 
                         beam_Es=generator_beam_Es, beam_types=(0,0),
-                        model=model, topology=selected_topology, path = selected_generator_path,
+                        model=self.model, topology=selected_topology, path = selected_generator_path,
                         dimensions = self.dimensions.get_dimensions(['x_%d'%i_dim for i_dim in range(1,n_external_state_dofs+1)])
                     )
 
@@ -874,6 +1019,9 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
     def __call__(self, continuous_inputs, discrete_inputs, selected_cut_and_side=None, selected_LMB=None, **opts):
 
+        with self.n_total_integrand_calls.get_lock():
+            self.n_total_integrand_calls.value += 1
+
         start_time = time.time()
 
         self.n_evals.value += 1
@@ -890,7 +1038,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         final_res = 0.
         if self.debug or self.return_individual_channels:
             all_channel_weights = {}
-
+            
             # Set a dummy result with all entries set to zero when we encounter a numerical crash
             all_channel_weights_set_to_none = {}
             for i_channel, channel_info in enumerate(self.SG['SG_multichannel_info']):
@@ -902,7 +1050,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                     if selected_LMB is not None and i_LMB not in selected_LMB:
                         continue
                     all_channel_weights_set_to_none[(i_channel,i_LMB)] = None
-
+            
         if self.channel_for_generation is None:
 
             # Now we loop over channels 
@@ -928,7 +1076,8 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                             if self.show_warnings: logger.warning("Aborting point now.")
                             this_channel_wgt = None
                         if this_channel_wgt is None:
-                            self.n_aborted_evals.value += 1
+                            with self.n_aborted_evals.get_lock():
+                                self.n_aborted_evals.value += 1
                             if self.show_warnings: logger.warning("Exceptional sample point encountered at xs = [ %s ]"%( ' '.join('%.16f'%x for x in continuous_inputs) ))
                             if self.show_warnings: logger.warning("%sNumber of exceptional sample points %d/%d (%.3f%%)%s"%( 
                                 utils.bcolors.RED,
@@ -971,7 +1120,8 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                 final_res += this_channel_wgt
 
         if self.debug: logger.debug('Python integrand evaluation time = %.2f ms.'%((time.time()-start_time)*1000.0))
-
+        with self.total_timing.get_lock():
+            self.total_timing.value += (time.time()-start_time)
         self.update_evaluation_statistics(list(continuous_inputs),final_res)
 
         if self.return_individual_channels:
@@ -1184,7 +1334,11 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         for i_v, v in enumerate(upscaled_input_momenta_in_LMB):
             if self.frozen_momenta is not None and i_v >= (len(upscaled_input_momenta_in_LMB)-len(self.frozen_momenta['out'])):
                 continue
+            rust_start_time = time.time()
             kx, ky, kz, inv_jac = self.rust_worker.inv_parameterize(list(v), i_v, self.E_cm**2)
+            rust_end_time = time.time()
+            with self.rust_timing.get_lock():
+                self.rust_timing.value += (rust_end_time-rust_start_time)
             undo_aL_parameterisation *= inv_jac
             aL_xs.extend([kx, ky, kz])
         # When there are frozen momenta we must pad the input xs of alphaloop with the frozen xs
@@ -1196,6 +1350,11 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
         # Finally actually call alphaLoop full integrand
         rust_start_time = time.time()
         re, im = self.rust_worker.evaluate_integrand( aL_xs )
+        rust_end_time = time.time()
+        with self.rust_timing.get_lock():
+            self.rust_timing.value += (rust_end_time-rust_start_time)
+        with self.n_total_rust_calls.get_lock():
+            self.n_total_rust_calls.value += 1
         if self.debug: logger.debug('Rust integrand evaluation time = %.2f ms.'%((time.time()-rust_start_time)*1000.0))
 
         aL_wgt = complex(re, im)
@@ -1207,14 +1366,22 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             reconstituted_res = complex(0., 0.)
             for cut_ID, cut_info in enumerate(self.SG['cutkosky_cuts']):
                 logger.debug("    Result for cut_ID #%d with external edges %s"%(cut_ID, ', '.join(c['name'] for c in cut_info['cuts']) ))
+                rust_start_time = time.time()
                 scaling_solutions = list(self.rust_worker.get_scaling(upscaled_input_momenta_in_LMB, cut_ID))
+                rust_end_time = time.time()
+                with self.rust_timing.get_lock():
+                    self.rust_timing.value += (rust_end_time-rust_start_time)
                 scaling, scaling_jacobian = scaling_solutions.pop(0)
                 while scaling < 0.0:
                     if len(scaling_solutions)==0:
                         break
                     scaling, scaling_jacobian = scaling_solutions.pop(0)
                 logger.debug("    > t-scaling, t-scaling jacobian = %.16f, %.16f"%(scaling, scaling_jacobian))
+                rust_start_time = time.time()
                 re, im = self.rust_worker.evaluate_cut_f128(upscaled_input_momenta_in_LMB,cut_ID,scaling,scaling_jacobian)
+                rust_end_time = time.time()
+                with self.rust_timing.get_lock():
+                    self.rust_timing.value += (rust_end_time-rust_start_time)
                 this_cut_res = complex(re, im)
                 if self.hyperparameters['CrossSection']['picobarns'] or False:
                     this_cut_res /= 0.389379304e9
