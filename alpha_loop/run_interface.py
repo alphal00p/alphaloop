@@ -3047,6 +3047,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             ('pq8', 'pq11', 'pq13')
         )
         """
+        if 'C(' in ir_limit_str or 'S[' in ir_limit_str:
+            raise alphaLoopInvalidRunCmd("The ir limit specified with '%s' contains C(...) or S[...]. Notice that the convention is instead C[...] and S[...].")
+
         ir_limit_str = ir_limit_str.replace(' ','')
         collinear_re = re.compile(r"C\[[\d,\-\(\)\+\?\w]*\]")
         collinear_sets = []
@@ -3865,13 +3868,15 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         # First in order is to build the asymptotic value of all collinear momenta in the approach LMB.
         final_collinear_momenta = []
+        i_xs_offset = 0
         for i_coll_set, coll_set in enumerate(coll_sets):
             if spectator_collinear_set_id is not None and i_coll_set==spectator_collinear_set_id:
                 final_collinear_momenta.append([None,]*len(coll_set))
             else:
                 final_collinear_momenta.append(
-                    [ args.collinear_directions[i_coll_set]*args.xs[i_edge_in_coll_set]*E_cm*coll_edge_sign for i_edge_in_coll_set, (coll_edge_sign, coll_edge) in enumerate(coll_set) ]
+                    [ args.collinear_directions[i_coll_set]*args.xs[i_xs_offset+i_edge_in_coll_set]*E_cm*coll_edge_sign for i_edge_in_coll_set, (coll_edge_sign, coll_edge) in enumerate(coll_set) ]
                 )
+                i_xs_offset += len(coll_set)
         
         # Now address the "spectator_set"
         if spectator_collinear_set_id is not None:
@@ -3882,14 +3887,14 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     # Exclude the softs in the limit because they will be sent to zero.
                     overall_anticollinear_direction += sum(v for i_v, v in enumerate(final_collinear_momenta[i_coll_set]) if coll_set[i_v][1] not in soft_set)
             # We will force the spectator set to converge to the opposite direction
-            normalisation = sum( args.xs[i_edge_in_coll_set]*coll_edge_sign for i_edge_in_coll_set, (coll_edge_sign, coll_edge) in enumerate(coll_sets[spectator_collinear_set_id]) if coll_edge not in soft_set )
+            normalisation = sum( args.xs[i_xs_offset+i_edge_in_coll_set]*coll_edge_sign for i_edge_in_coll_set, (coll_edge_sign, coll_edge) in enumerate(coll_sets[spectator_collinear_set_id]) if coll_edge not in soft_set )
             if normalisation==0.:
                 raise InvalidCmd("The specified xs progrssion (%s) is problematic for the following limit '%s' because the overall anti-collinear direction induced has zero norm. Pick a different xs progression."%(
                     str(args.xs), SuperGraph.format_ir_limit_str(ir_limit) 
                 ))
             overall_anticollinear_direction = (-overall_anticollinear_direction)/normalisation
             for i_coll_edge, (coll_edge_sign, coll_edge) in enumerate(coll_sets[spectator_collinear_set_id]):
-                final_collinear_momenta[spectator_collinear_set_id][i_coll_edge] = overall_anticollinear_direction*args.xs[i_coll_edge]*coll_edge_sign
+                final_collinear_momenta[spectator_collinear_set_id][i_coll_edge] = overall_anticollinear_direction*args.xs[i_xs_offset+i_coll_edge]*coll_edge_sign
 
         # Compute the log-spaced sequence of rescaling
         scalings = [ 10.**((math.log10(args.min_scaling)+i*((math.log10(args.max_scaling)-math.log10(args.min_scaling))/(args.n_points-1))))
