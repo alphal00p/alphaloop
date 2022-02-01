@@ -858,6 +858,10 @@ repeat id subgraph(?a,p?) = subgraph(?a);
         id xuvexpand = 1;
         id m?allmasses = 0;
     else;
+        #ifdef `UVTEST'
+            Discard;
+        #endif
+
 * keep a UV version of the IR topology
         id uvtopo(?a) = irtopo(?a)*xirexpand + uvtopo(?a)*xuvexpand;
         id xirexpand*xuvexpand = 0;

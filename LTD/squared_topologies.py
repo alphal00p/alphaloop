@@ -18,7 +18,7 @@ class SquaredTopologyGenerator:
         MG_numerator={}, subgraphs_info={},overall_numerator=1., numerator_structure={},
         cut_filter=set(), FORM_numerator={}, FORM_integrand={},
         vertex_weights={}, edge_weights={}, generation_options={},analytic_result=None,
-        default_kinematics=None):
+        default_kinematics=None, uv_test=None):
 
         self.name = name
         self.topo = TopologyGenerator(edges, powers)
@@ -127,6 +127,8 @@ class SquaredTopologyGenerator:
         has_2l_bubble = any(len(cut_info['diagram_sets'][0]['diagram_info']) > 2 and
                             any(len(g['graph'].ext) == 2 and len(g['graph'].edge_map_lin) > 4 for g in cut_info['diagram_sets'][0]['diagram_info'])
                         for cut_info in cut_infos)
+
+        pure_forest_counter = 0
 
         for cutkosky_cut, cut_info in zip(cutkosky_cuts, cut_infos):
             c = cut_info['cuts']
@@ -336,14 +338,24 @@ class SquaredTopologyGenerator:
                                         + len([1 for _,mn in loop_topo.propagator_map.items() if mn == pp.name])
                                      for pp in ll.propagators)
 
+                                    if uv_structure['remaining_graph'].n_loops == 0 and len(uv_structure['uv_subgraphs']) > 0 and \
+                                        uv_test == pure_forest_counter:
+                                        # raise every loop line so that it has at least 2 propagators by raising the first prop
+                                        if orig_ll_power == 1:
+                                            prop_pow = 2
+                                        else:
+                                            prop_pow = 1
+                                    else:
+                                        prop_pow = 1
+
                                     # note: we assume that every propagator has power 1 and that only merging of identical edges raises it
                                     uv_loop_lines.append((ll.signature, [(p.name, p.parametric_shift,
-                                        1 + len([1 for _,mn in loop_topo.propagator_map.items() if mn == p.name])) for p in ll.propagators], derived_ll_power - orig_ll_power))
+                                        (prop_pow if ii == 0 else 1) + len([1 for _,mn in loop_topo.propagator_map.items() if mn == p.name])) for ii, p in enumerate(ll.propagators)], derived_ll_power - orig_ll_power))
 
                                     prop = ll.propagators[0]
                                     prop.uv = True
                                     prop.m_squared = mu_uv**2
-                                    prop.power = derived_ll_power
+                                    prop.power = derived_ll_power + prop_pow - 1
                                     prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
                                     ll.propagators = [prop]
 
@@ -412,6 +424,10 @@ class SquaredTopologyGenerator:
                             uv_structure['forest_to_cb_matrix'] = (loopsi.tolist(), shifti.tolist(), extshiti.tolist(), loops, shift.tolist(), extshift.tolist())
                         else:
                             uv_structure['forest_to_cb_matrix'] = ([[]], [[]], [[]], [[]], [[]], [[]])
+
+                        if uv_structure['remaining_graph'].n_loops == 0 and len(uv_structure['uv_subgraphs']) > 0:
+                            pure_forest_counter += 1
+
             self.cuts.append(cut_info)
 
     def export(self, output_path, model=None, include_integration_channel_info=False, optimize_channels=False):

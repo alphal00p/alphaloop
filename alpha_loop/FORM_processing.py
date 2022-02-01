@@ -85,6 +85,7 @@ FORM_processing_options = {
     'generate_integrated_UV_CTs' : True,
     'on_shell_renormalisation' : False,
     'perform_msbar_subtraction' : True,
+    'uv_test': None,
     'generate_renormalisation_graphs' : False,
     # Set the option below to a positive integer so as to enable the splitting of large source files into many
     # with at most around the number of lines specified here. Note that this disables static and inline optimisations!
@@ -1664,7 +1665,8 @@ CTable ltdmap(0:{},0:{});
             generation_options=FORM_processing_options,
             analytic_result=(self.benchmark_result if hasattr(self,"benchmark_result") else None),
             default_kinematics=self.default_kinematics,
-            cut_filter=cut_filter
+            cut_filter=cut_filter,
+            uv_test = FORM_processing_options['uv_test']
         )
         # check if cut is possible
         if len(topo.cuts) == 0:
@@ -1707,10 +1709,14 @@ CTable ltdmap(0:{},0:{});
         uv_diagrams = []
         uv_forest = []
         topo_map = '#procedure uvmap()\n'
+
+        pure_forest_counter = 0
         for cut_index, cut in enumerate(topo.cuts):
             for diag_set in cut['diagram_sets']:
                 diag_set_uv_conf = []
                 diag_momenta = []
+
+                has_uv = FORM_processing_options['uv_test'] is None
 
                 n_loops = len(self.edges) - len(self.nodes) + 1
                 cmb_offset = len(cut['cuts']) - 1
@@ -1732,6 +1738,20 @@ CTable ltdmap(0:{},0:{});
                     bubble_uv_derivative = ''
                     for uv_index, uv_structure in enumerate(diag_info['uv']):
                         forest_element = []
+
+                        if FORM_processing_options['uv_test'] is not None:
+                            if uv_structure['remaining_graph'].n_loops == 0 and len(uv_structure['uv_subgraphs']) > 0:
+                                pure_forest_counter += 1
+
+                                if FORM_processing_options['uv_test'] < 0 or FORM_processing_options['uv_test'] == pure_forest_counter - 1:
+                                    conf = []
+                                    has_uv = True
+                                else:
+                                    if uv_index > 0:
+                                        continue
+                            else:
+                                if uv_index > 0:
+                                    continue
 
                         # construct the map from the cmb/lmb to the forest basis
                         forest_to_cb = []
@@ -1983,8 +2003,13 @@ CTable ltdmap(0:{},0:{});
                 if diag_set_uv_conf != []:
                     conf += '*{}'.format('*'.join(diag_set_uv_conf))
 
+                if not has_uv:
+                    continue
+
                 configurations.append(conf)
-            configurations[-1] += '\n'
+
+            if len(configurations) > 0:
+                configurations[-1] += '\n'
 
         topo_map += '#endprocedure\n'
 
@@ -2299,7 +2324,9 @@ class FORMSuperGraphIsomorphicList(list):
             'OPTIMISATIONSTRATEGY':FORM_processing_options['optimisation_strategy'],
         }
         if not FORM_processing_options['perform_msbar_subtraction']:
-            FORM_vars['NOMSBARSUBTRACTION'] = 1 
+            FORM_vars['NOMSBARSUBTRACTION'] = 1
+        if FORM_processing_options['uv_test']:
+            FORM_vars['UVTEST'] = 1
 
         if FORM_processing_options['renormalisation_finite_terms']=='together':
             # Keep all terms, so set the discared power to 0
