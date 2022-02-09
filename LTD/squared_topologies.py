@@ -151,35 +151,23 @@ class SquaredTopologyGenerator:
                     uv_limits = diag_info['graph'].construct_uv_limits(vw, ew, particle_ids=particle_ids,
                                 UV_min_dod_to_subtract=self.generation_options.get('UV_min_dod_to_subtract',0) )
 
-                    internal_bubbles = []
                     for uv_limit in uv_limits:
-                        # generate bubble derivative graphs out of remaining graphs
-                        bubble_derivatives = []
-
                         uv_limit['bubble'] = []
 
-                        # find all internal bubble momenta, we use that in gauge theories an internal bubble will be UV divergent
                         for uv_sg in uv_limit['uv_subgraphs']:
                             subgraph_internal_edges = [e[0] for i, e in enumerate(uv_sg['graph'].edge_map_lin) if i not in uv_sg['graph'].ext]
 
-                            uv_sg['internal_bubble'] = None
-                            uv_sg['mass_ct'] = None
-
+                            uv_sg['onshell'] = None
                             if len(uv_sg['graph'].edge_map_lin) - len(subgraph_internal_edges) == 2:
-                                if masses[uv_sg['graph'].edge_map_lin[uv_sg['graph'].ext[0]][0]] > 0.:
-                                    uv_sg['mass_ct'] = True
+                                ext_edge = uv_sg['graph'].edge_map_lin[uv_sg['graph'].ext[0]][0]
+                                if masses[ext_edge] > 0.:
+                                    uv_sg['onshell'] = [uv_sg['graph'].edge_map_lin[i][0] for i in uv_sg['graph'].ext]
 
-                    diag_info['internal_bubbles'] = internal_bubbles
-            
                     # give every subdiagram a globally unique id
                     for uv_limit in uv_limits:
                         for uv_sg in uv_limit['uv_subgraphs']:
                             uv_sg['id'] = graph_counter
                             graph_counter += 1
-
-                            if uv_sg['internal_bubble'] is not None:
-                                uv_sg['internal_bubble_id'] = graph_counter
-                                graph_counter += 1
 
                             for dgi, dg in enumerate(uv_sg['derived_graphs']):
                                 dg['id'] = graph_counter
@@ -323,9 +311,11 @@ class SquaredTopologyGenerator:
                                 # this means that only one propagator in the loop line has a shift
                                 # if this is not the case (for example in some EFT), a warning will have been given
                                 d['loop_topo_orig_mass'] = copy.deepcopy(loop_topo)
-                                for ll in d['loop_topo_orig_mass'].loop_lines:
-                                    for prop in ll.propagators:
-                                        prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
+                                # do not drop the shift for the 0th order of the on-shell expansion
+                                if not uv_subgraph['onshell'] or dg['derivatives'] > 0:
+                                    for ll in d['loop_topo_orig_mass'].loop_lines:
+                                        for prop in ll.propagators:
+                                            prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
 
                                 # take the UV limit of the diagram, add the mass and set the parametric shift to 0
                                 # collect the parametric shifts of the loop lines such that it can be used to Taylor expand
@@ -389,22 +379,6 @@ class SquaredTopologyGenerator:
                             loop_topo.external_kinematics = []
 
                             uv_subgraph['integrated_ct_bubble_graph'] = loop_topo
-
-                            if uv_subgraph['internal_bubble']:
-                                # keep the shift in terms of the local topology
-                                (loop_mom_map, shift_map) = self.topo.build_proto_topology(uv_subgraph['internal_bubble'], c, skip_shift=True)
-
-                                uv_subgraph['internal_bubble_loop_topo'] = uv_subgraph['internal_bubble'].create_loop_topology(name + '_' + ''.join(cut_name) + '_' + str(i),
-                                    # provide dummy external momenta
-                                    ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
-                                    fixed_deformation=False,
-                                    mass_map=masses,
-                                    loop_momentum_map=loop_mom_map,
-                                    numerator_tensor_coefficients=[[0., 0.,]],
-                                    shift_map=shift_map,
-                                    check_external_momenta_names=False,
-                                    analytic_result=0)
-                                uv_subgraph['internal_bubble_loop_topo'].external_kinematics = []
 
                         forest_to_cb.extend([x[0] for x in uv_structure['remaining_graph_loop_topo'].loop_momentum_map])
 

@@ -179,12 +179,12 @@ Set lorentzdummy: mud1,...,mud40;
 
 CF gamma, gammatrace(c), GGstring, NN, vector,g(s),delta(s),tmps(s),T, counter,color, prop, replace;
 CF f, vx, vxs(s), uvx, vec, vec1;
-CF subs, configurations, conf, tder, cmb, cbtofmb, fmbtocb, diag, forestid, der, energy, spatial(s), onshell, uvcutoff;
+CF subs, configurations, conf, tder, cmb, cbtofmb, fmbtocb, diag, forestid, der, energy, spatial(s), onshell;
 CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, irtopo, intuv, integrateduv;
 CT gammatracetensor(c),opengammastring;
 
 CF logmUVmu; * make it a function so that the optimizer makes sure it is only computed once
-S UVRenormFINITE, massct, ICT, mUV, logmu, logmUV, logmt, z3, mi1L1, alarmMi1L1;
+S UVRenormFINITE, ICT, mUV, logmu, logmUV, logmt, z3, mi1L1, alarmMi1L1;
 Fill logmasses(6) = logmt;
 Fill logmasses(-6) = logmt;
 
@@ -442,30 +442,6 @@ repeat id prop(x?{`Q'}, in, p?, idx1?)*prop(x?{`Q'}, out, p?, idx2?) = gamma(dir
 repeat id prop(x?{`Q'}, in, p?, idx1?)*prop(x?{`Q'}, out, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x)*gamma(dirac[idx1], dirac[idx2]);
 repeat id prop(x?{`LBAR'}, out, p?, idx1?)*prop(x?{`LBAR'}, in, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) - masses(x)*gamma(dirac[idx1], dirac[idx2]);
 repeat id prop(x?{`QBAR'}, out, p?, idx1?)*prop(x?{`QBAR'}, in, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) - masses(x)*gamma(dirac[idx1], dirac[idx2]);
-
-if (count(massct, 1));
-* workaround matching bug https://github.com/vermaseren/form/issues/386
-id vx(?a,x1?,p1?,p2?,p3?,x2?,?b) = vx(?a,x1,p1,p2,p3,x2,?b)*g(p1,-p1)*g(p2,-p2)*g(p3,-p3);
-id vx(?a,x1?,p1?,p2?,p3,p4?,x2?,?b) = vx(?a,x1,p1,p2,p3,p4,x2,?b)*g(p1,-p1)*g(p2,-p2)*g(p3,-p3)*g(p4,-p4);
-
-* TODO: for 2-loop delta_m, multiply the result by massct so that the power of massct reflects the number of loops
-
-id prop(`GLU',virtual,p1?,idx1?,idx2?) = prop(`GLU',virtual,p1,idx1,idx2)*g(idx1,idx2); * gluon momentum and index can appear in any order
-
-* TODO: understand fudge factor 4/3
-id ifmatch->massctdone prop(x2?{`Q'},virtual,p7?,idx4?,idx3?)*
-    prop(`GLU',virtual,p8?,idx7?,idx8?)*
-    vx(x1?{`QBAR'},`GLU',x2?{`Q'},p1?,p2?,p3?,idx1?,idx2?,idx3?)*
-    vx(x1?{`QBAR'},`GLU',x2?{`Q'},p4?,p5?,p6?,idx4?,idx5?,idx6?)*
-    g(p1?,p6?)*g(p3?,p4?)*g(p4?,p7?)*g(p5?,p2?)*g(p6?,p1?)*g(idx2?,idx5?) =
-        + i_ * (1/16/pi^2) * (rat(-3,ep) + (-4 - 3*(logmu - logmasses(x1)))) * masses(x1) * gamma(dirac[idx1], dirac[idx6]);
-
-    Print "Unsubstituted massct: %t";
-    exit "Critical error";
-
-    label massctdone;
-    id g(p1?,p2?) = 1;
-endif;
 
 * virtual edges
 id prop(`GLU', virtual, p?, idx1?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
@@ -808,14 +784,6 @@ repeat id subgraph(?a,p?) = subgraph(?a);
     id opengammastring(?a) = gamma(?a);
     #call FeynmanRulesMomentum()
 
-    if (count(massct, 1));
-* divide by the normalizing factor of the denominator that is added to the topology
-        id massct^n? = (i_ * (4 * pi)^2 * 2 * mUV2^2)^n;
-        id uvprop(?a) = 1;
-        id uvtopo(?a) = 1;
-        id tmax = 1;
-    endif;
-
 * linearize the gamma matrices and convert them to tensors
 * this makes them suitable for differentiation
     repeat id once gamma(s1?,?a,p?!vector_,?b,s2?) = p(mudummy)*gamma(s1,?a,mudummy,?b,s2);
@@ -830,7 +798,7 @@ repeat id subgraph(?a,p?) = subgraph(?a);
 
     id uvconf2(p?) = replace_(p, t * p);
 
-    argument uvprop,1,vxs,uvtopo,irtopo,diag,onshell,intuv;
+    argument uvprop,1,vxs,uvtopo,irtopo,diag,diagextra,onshell,intuv;
         Multiply replace_(t, 1);
     endargument;
 
@@ -861,6 +829,9 @@ repeat id subgraph(?a,p?) = subgraph(?a);
         #ifdef `UVTEST'
             Discard;
         #endif
+
+* the on-shell expansion only affects the 0th order
+        if (count(t, 1) && count(onshell, 1)) Discard;
 
 * keep a UV version of the IR topology
         id uvtopo(?a) = irtopo(?a)*xirexpand + uvtopo(?a)*xuvexpand;
@@ -965,40 +936,24 @@ repeat id subgraph(?a,p?) = subgraph(?a);
 *        exit "Critical error";
     endif;
 
-    id onshell(p?,E?) = onshell(p,E)*uvcutoff(p.p);
-    argument uvcutoff;
-        Multiply replace_(<p1,ps1>,...,<p20,ps20>,<c1,cs1>,...,<c20,cs20>,<fmb1,fmbs1>,...,<fmb20,fmbs20>);
-    endargument;
-
-* Internal bubble treatment
-    AB+ cmb,diag,fmbtocb,uvcutoff;
-    .sort:bubble-treatment-1;
+* expand massive self-energies around (m,0,0,0)
+    AB+ cmb,diag,diagextra,fmbtocb;
+    .sort:onshell-treatment-1;
     Keep brackets;
 
-* set on-shell conditions for the internal bubble external momentum
 * we use that the cmb momenta that make up the bubble external momentum only appear in that combination
-* FIXME: does not work when term is differentiated further, we have to apply substitution after all differentiations
     splitfirstarg onshell;
     id onshell(p1?,-p?vector_,E?) = onshell(-p1,p,-E);
     id onshell(-p?vector_,E?) = onshell(p,-E);
 
-    id onshell(p1?,p2?,E?) = onshell(p1+p2,p1,p2,E);
-    id onshell(p1?,E?) = onshell(p1,p1,E);
-    argument onshell,1;
-        Multiply replace_(<p1,ps1>,...,<p20,ps20>,<c1,cs1>,...,<c20,cs20>,<fmb1,fmbs1>,...,<fmb20,fmbs20>);
-    endargument;
-
-    id onshell(ks?,k?,p?,E?) = replace_(p, E*energyselector - ks - k);
-    id onshell(ks?,p?,E?) = replace_(p, E*energyselector - ks);
-
-    id energyselector.p?spatialparts = 0;
+    id onshell(k?,p?,E?) = replace_(p, E*energyselector- k);
+    id onshell(p?,E?) = replace_(p, E*energyselector);
 
     if (count(onshell, 1));
         Print "Unsubstituted on-shell condition: %t";
         exit "Critical error";
     endif;
-    B uvcutoff;
-    .sort:bubble-treatment-3;
+    .sort:onshell-treatment-2;
 
 * Substitute the masters and expand in ep
     #call SubstituteMasters()
@@ -1054,7 +1009,7 @@ id gamma(?a) = opengammastring(?a);
 #call Gstring(opengammastring,0)
 
 * External bubble treatment
-AB+ cmb,diag,fmbtocb,uvcutoff;
+AB+ cmb,diag,diagextra,fmbtocb;
 .sort:bubble-treatment;
 Keep brackets;
 
@@ -1070,7 +1025,8 @@ endif;
 
 * split off the energy part: energyselector=(1,0,0,0,..), fmbs = spatial part
 * fmbs1.fmbs2 will later get a minus sign to honour the Minkowksi metric
-AB+ cmb,energy,diag,fmbtocb,uvcutoff;
+AB+ cmb,energy,diag,diagextra,fmbtocb;
+Print +s;
 .sort:energy-splitoff-1;
 Keep brackets;
 #do i=1,`NFINALMOMENTA'
@@ -1134,7 +1090,7 @@ id energyselector.p?spatialparts = 0;
 id p?.energyselector = penergy(p);
 id p1?spatialparts.p2?spatialparts = -p1.p2; * add a -1 to fix the metric
 id p1?spatialparts.p? = spatial(p1,p);
-argument spatial,uvcutoff;
+argument spatial;
     Multiply replace_(<ps1,p1>,...,<ps40,p40>,<cs1,c1>,...,<cs40,c40>);
 endargument;
 
@@ -1397,7 +1353,7 @@ id replace(?a) = replace_(?a);
 id energy(p?) = penergy(p);
 id energies(p?) = penergy(p);
 
-B+ penergy,spatial,energies,allenergies,ellipsoids,constants,uvcutoff;
+B+ penergy,spatial,energies,allenergies,ellipsoids,constants;
 .sort:func-prep;
 Keep brackets;
 
@@ -1406,7 +1362,7 @@ argument ellipsoids;
 endargument;
 
 repeat id allenergies(x?,p?,m?,?a) = energync(x,p.p+m*m)*allenergies(?a);
-argument energync, 2, uvcutoff;
+argument energync, 2;
     id p1?.p2? = spatial(p1, p2);
 endargument;
 chainin energync;
@@ -1427,17 +1383,17 @@ endargument;
 #$OFFSET = 0;
 #do i=1,`$MAXP'
     id penergy(p`i') = lm`$OFFSET';
-    argument energies, ellipsoids, constants, uvcutoff;
+    argument energies, ellipsoids, constants;
         id penergy(p`i') = lm`$OFFSET';
     endargument;
     #$OFFSET = $OFFSET + 1;
     #do j=`i',`$MAXP'
-        argument energies, ellipsoids, constants, uvcutoff;
+        argument energies, ellipsoids, constants;
             id p`i'.p`j' = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
         id spatial(p`i', p`j') = lm`$OFFSET';
-        argument energies, uvcutoff;
+        argument energies;
             id spatial(p`i', p`j') = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
@@ -1446,29 +1402,29 @@ endargument;
 
 #do i=1,`$MAXK'
     id penergy(c`i') = lm`$OFFSET';
-    argument energies, ellipsoids, constants, uvcutoff;
+    argument energies, ellipsoids, constants;
         id penergy(c`i') = lm`$OFFSET';
     endargument;
     #$OFFSET = $OFFSET + 1;
     #do j=1,`$MAXP'
-        argument energies, ellipsoids, constants, uvcutoff;
+        argument energies, ellipsoids, constants;
             id c`i'.p`j' = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
         id spatial(p`j', c`i') = lm`$OFFSET';
-        argument energies, uvcutoff;
+        argument energies;
             id spatial(p`j', c`i') = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
     #enddo
 
     #do j=`i',`$MAXK'
-        argument energies, ellipsoids, constants, uvcutoff;
+        argument energies, ellipsoids, constants;
             id c`i'.c`j' = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
         id spatial(c`i', c`j') = lm`$OFFSET';
-        argument energies, uvcutoff;
+        argument energies;
             id spatial(c`i', c`j') = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;

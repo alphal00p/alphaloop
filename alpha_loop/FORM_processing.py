@@ -83,7 +83,7 @@ FORM_processing_options = {
     'FORM_call_sig_id_offset_for_additional_lmb' : 1000000,
     'generate_arb_prec_output' : False,
     'generate_integrated_UV_CTs' : True,
-    'on_shell_renormalisation' : False,
+    'on_shell_renormalisation' : True,
     'perform_msbar_subtraction' : True,
     'uv_test': None,
     'generate_renormalisation_graphs' : False,
@@ -1411,14 +1411,11 @@ aGraph=%s;
                     for uv_structure in diag_info['uv']:
                         signature_offset = 0 # offset in the forest basis
                         for uv_subgraph in uv_structure['uv_subgraphs']:
-                            if uv_subgraph['internal_bubble'] is not None:
-                                internal_bubble_ext_edges = (uv_subgraph['internal_bubble'].edge_map_lin[uv_subgraph['internal_bubble'].ext[0]][0],
-                                    uv_subgraph['internal_bubble'].edge_map_lin[uv_subgraph['internal_bubble'].ext[1]][0])
-                                graphs.append((signature_offset, uv_subgraph['internal_bubble_id'], uv_subgraph['internal_bubble_loop_topo'], internal_bubble_ext_edges))
                             for dg in uv_subgraph['derived_graphs']:
-                                graphs.append((signature_offset, dg['id'], dg['loop_topo'], None))
+                                massct = uv_subgraph['onshell']
+                                graphs.append((signature_offset, dg['id'], dg['loop_topo'], massct))
                                 if 'soft_ct_id' in dg:
-                                   graphs.append((signature_offset, dg['soft_ct_id'], dg['loop_topo_orig_mass'], None))
+                                   graphs.append((signature_offset, dg['soft_ct_id'], dg['loop_topo_orig_mass'], massct))
                             graphs.append((signature_offset, uv_subgraph['integrated_ct_id'], uv_subgraph['integrated_ct_bubble_graph'], None))
                             signature_offset += uv_subgraph['derived_graphs'][0]['loop_topo'].n_loops
                         if len(uv_structure['bubble']) > 0:
@@ -1427,26 +1424,18 @@ aGraph=%s;
                         else:
                             graphs.append((signature_offset, uv_structure['remaining_graph_id'], uv_structure['remaining_graph_loop_topo'], None))
 
-                for signature_offset, graph_id, g, internal_bubble_ext_edges in graphs:
+                for signature_offset, graph_id, g, self_energy_ext_edges in graphs:
                     signatures, n_props, energies, constants, shift_map, unique_energy = [], [], [], [], [], []
                     pf_prefactor = ['1']
                     prop_mom_in_lmb = {}
                     prop_id = {}
 
                     on_shell_condition = {}
-                    if internal_bubble_ext_edges is not None:
-                        # construct the on-shell condition
-                        ext_edge = next(ee for ee in self.edges.values() if ee['name'] == internal_bubble_ext_edges[0])
-                        edge_mass = 'masses({})'.format(ext_edge['PDG'])
-                        # TODO: could there have been a sign flip in the loop topology?
-                        totalmom = self.momenta_decomposition_to_string(ext_edge['signature'], False)
-                        energy_instr = '{},{}'.format(totalmom, edge_mass)
-                        if energy_instr not in unique_energies:
-                            unique_energies[energy_instr] = len(unique_energies)
-                        energies.append('E{},{}'.format(unique_energies[energy_instr], energy_instr))
+                    if self_energy_ext_edges is not None:
+                        # construct the on-shell condition, TODO: check sign
+                        ext_edge = next(ee for ee in self.edges.values() if ee['name'] == self_energy_ext_edges[0])
                         on_shell_condition[tuple(ext_edge['signature'][0] +
-                            ext_edge['signature'][1] + [0]*len( ext_edge['signature'][1]))] = 'E{}'.format(unique_energies[energy_instr])
-
+                            ext_edge['signature'][1] + [0]*len( ext_edge['signature'][1]))] = 'masses({})'.format(ext_edge['PDG'])
                     for li, l in enumerate(g.loop_lines):
                         is_constant = all(s == 0 for s in l.signature)
                         if not is_constant:
@@ -1459,7 +1448,7 @@ aGraph=%s;
                             for s, v in zip(l.signature, g.loop_momentum_map):
                                 lmp += s * np.array(v[0])
 
-                            if internal_bubble_ext_edges is None:
+                            if self_energy_ext_edges is None:
                                 # transport shift to LMB
                                 shift = np.array([0]*topo.topo.n_loops)
                                 extshift = np.array(p.parametric_shift[1])
@@ -1468,17 +1457,18 @@ aGraph=%s;
                                     extshift += s * np.array(c['signature'][1])
                                 extshift = np.array(list(extshift[:len(extshift)//2]) + [0]*(len(extshift)//2)) +\
                                     np.array(list(extshift[len(extshift)//2:]) + [0]*(len(extshift)//2))
+                                totalmom = self.momenta_decomposition_to_string((lmp + shift, extshift), True)
                             else:
                                 # for on-shell graphs, the shifts are still in the graph basis
-                                ext_edge_sigs = [next(ee for ee in self.edges.values() if ee['name'] == e)['signature'] for e in internal_bubble_ext_edges]
+                                ext_edge_sigs = [next(ee for ee in self.edges.values() if ee['name'] == e)['signature'] for e in self_energy_ext_edges]
                                 shift = np.array([0]*topo.topo.n_loops)
                                 extshift = np.array([0]*len(ext_edge_sigs[0][1]))
                                 for s, c in zip(p.parametric_shift[1], ext_edge_sigs):
                                     shift += s * np.array(c[0])
                                     extshift += s * np.array(c[1])
                                 extshift = np.array(list(extshift) + [0]*len(extshift))
-
-                            totalmom = self.momenta_decomposition_to_string((lmp + shift, extshift), True)
+                                # drop the spatial shift
+                                totalmom = self.momenta_decomposition_to_string((lmp, np.array([0]*len(ext_edge_sigs[0][1]))), True)
 
                             # recycle energy computations when there are duplicate edges
                             edge_mass = 'masses({})'.format(next(ee for ee in self.edges.values() if ee['name'] == p.name)['PDG'])
@@ -1488,7 +1478,9 @@ aGraph=%s;
                                     unique_energies[energy_instr] = len(unique_energies)
 
                                 pf_prefactor.append('2*E{}'.format(unique_energies[energy_instr]) if p.power == 1 else '(2*E{})^{}'.format(unique_energies[energy_instr], p.power))
-                                energies.append('E{},{}'.format(unique_energies[energy_instr], energy_instr))
+                                e_str = 'E{},{}'.format(unique_energies[energy_instr], energy_instr)
+                                if e_str not in energies:
+                                    energies.append(e_str)
                                 prop_id[(li, pi)] = unique_energies[energy_instr]
                                 prop_mom_in_lmb[unique_energies[energy_instr]] = (lmp, shift, extshift)
 
@@ -1721,18 +1713,6 @@ CTable ltdmap(0:{},0:{});
                 n_loops = len(self.edges) - len(self.nodes) + 1
                 cmb_offset = len(cut['cuts']) - 1
                 for diag_info in diag_set['diagram_info']:
-                    # construct the internal bubble on-shell conditions
-                    bubble_conditions = []
-                    for bubble_graph, bubble_momenta in diag_info['internal_bubbles']:
-                        # TODO: what about signs? Could be -E?
-                        ib_edge = bubble_graph.edge_map_lin[bubble_graph.ext[0]][0]
-                        ext_edge_sig = next(ee for ee in self.edges.values() if ee['name'] == ib_edge)
-                        edge_mass = 'masses({})'.format(ext_edge_sig['PDG'])
-                        totalmom = self.momenta_decomposition_to_string(ext_edge_sig['signature'], False)
-                        energy_instr = '{},{}'.format(totalmom, edge_mass)
-                        bubble_treatment = 'onshell({},E{})'.format(totalmom, diag_set['energies'][energy_instr])
-                        bubble_conditions.append((bubble_momenta, bubble_treatment, totalmom, ib_edge))
-
                     # write the entire UV structure as a sum
                     conf = []
                     bubble_uv_derivative = ''
@@ -1934,11 +1914,13 @@ CTable ltdmap(0:{},0:{});
                             else:
                                 uv_diag = 'uvtopo({},1,{})'.format(uv_subgraph['id'], uv_diag_moms)
 
+                            if uv_subgraph['onshell'] is not None and FORM_processing_options['on_shell_renormalisation']:
+                                ext_edge_sig = next(ee for ee in self.edges.values() if ee['name'] == uv_subgraph['onshell'][0])
+                                totalmom = self.momenta_decomposition_to_string(ext_edge_sig['signature'], False)
+                                uv_diag += '*onshell({},masses({}))'.format(totalmom, ext_edge_sig['PDG'])
+
                             if FORM_processing_options['generate_integrated_UV_CTs']:
-                                if uv_subgraph['mass_ct'] and FORM_processing_options['on_shell_renormalisation']:
-                                    uv_diag += '*(1 - {}*(1+massct)*diag({},{},{}))'.format('*'.join(vertex_structure), diag_set['id'], uv_subgraph['integrated_ct_id'], uv_diag_moms)
-                                else:
-                                    uv_diag += '*intuv(1 - {}*diag({},{},{}))'.format('*'.join(vertex_structure), diag_set['id'], uv_subgraph['integrated_ct_id'], uv_diag_moms)
+                                uv_diag += '*intuv(1 - {}*diag({},{},{}))'.format('*'.join(vertex_structure), diag_set['id'], uv_subgraph['integrated_ct_id'], uv_diag_moms)
 
                             uv_conf_diag = '-tmax^{}*{}*{}'.format(uv_subgraph['taylor_order'],'*'.join(uv_props),uv_diag)
                             if uv_conf_diag not in uv_diagrams:
@@ -1946,28 +1928,9 @@ CTable ltdmap(0:{},0:{});
 
                             uv_conf = 'uvdiag({})'.format(uv_diagrams.index(uv_conf_diag))
 
-                            # subtract the on-shell version for every UV CT that also affects the internal bubble subtraction graph
-                            # FIXME: this is not multi-loop ready yet
-                            subtractions = []
-                            for bubble_momenta, onshell_condition, bubble_mom, bubble_ext_mom in bubble_conditions:
-                                # skip adding the on-shell condition if the bubble ext momentum is taken into the UV
-                                if any(any(e[0] == bubble_ext_mom for i, e in enumerate(uvsg['graph'].edge_map_lin) if i not in uvsg['graph'].ext)
-                                        for uvsg in uv_structure['uv_subgraphs']):
-                                    continue
-
-                                subgraph_internal_edges = [e[0] for i, e in enumerate(uv_subgraph['graph'].edge_map_lin) if i not in uv_subgraph['graph'].ext]
-                                if len(set(subgraph_internal_edges) - set(bubble_momenta)) == 0:
-                                    subtractions.append('(1-{})'.format(onshell_condition, bubble_mom))
-
-                            sg_call = 'subgraph({}{},{}{},{})'.format(uv_subgraph['graph_index'],
+                            sg_call = 'subgraph({}{},{},{})'.format(uv_subgraph['graph_index'],
                                 (',' if len(uv_subgraph['subgraph_indices']) > 0 else '') + ','.join(str(si) for si in uv_subgraph['subgraph_indices']),
-                                uv_conf, '' if len(subtractions) == 0 else ('*'  + '*'.join(subtractions)), uv_diag_moms)
-
-                            if uv_subgraph['internal_bubble'] is not None:
-                                # TODO: which bubble condition?
-                                # add the subtraction for the OS bubble
-                                sg_call = '(subgraph(-1,-diag({},{},{})*{},{})+{})'.format(
-                                    diag_set['id'], uv_subgraph['internal_bubble_id'], uv_diag_moms, bubble_conditions[-1][1], uv_diag_moms, sg_call)
+                                uv_conf, uv_diag_moms)
 
                             forest_element.append(sg_call)
 
@@ -3383,7 +3346,7 @@ const complex<double> I{ 0.0, 1.0 };
                                     main_code
                                 )
 
-                                main_code_f128 = main_code.replace('pi', 'mppp::real128_pi()').replace('uvcutoff', 'uvcutofff128').replace('complex<double>', 'complex128')
+                                main_code_f128 = main_code.replace('pi', 'mppp::real128_pi()').replace('complex<double>', 'complex128')
                                 main_code_f128 = float_pattern.sub(r'real128(\1q)', main_code_f128)
                                 main_code_f128 = main_code_f128.replace('(lm,', '_f128(lm,')
                                 integrand_f128_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}_f128({0} lm[], {1} params[], {0}* out) {{{5}}}'.format(dual_base_type_f128, base_type_f128, itype, i, int(conf[0]),
@@ -3592,8 +3555,6 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
         params['gs'] = 'params[2]'
         params['small_mass_sq'] = 'params[3]'
         params['uv_cutoff_scale_sq'] = 'params[4]'
-        params['uvcutoff(p)'] = '((p).real() < uv_cutoff_scale_sq.real() ? 1.0 : 0.)' # TODO: is creal safe?
-        params['uvcutofff128(p)'] = '((p).real() < uv_cutoff_scale_sq.real() ? 1.0q : 0.q)'
 
         header_code = \
 """
