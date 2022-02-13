@@ -312,7 +312,7 @@ class SquaredTopologyGenerator:
                                 # if this is not the case (for example in some EFT), a warning will have been given
                                 d['loop_topo_orig_mass'] = copy.deepcopy(loop_topo)
                                 # do not drop the shift for the 0th order of the on-shell expansion
-                                if not uv_subgraph['onshell'] or dg['derivatives'] > 0:
+                                if not uv_subgraph['onshell'] or d['derivatives'] > 0:
                                     for ll in d['loop_topo_orig_mass'].loop_lines:
                                         for prop in ll.propagators:
                                             prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]

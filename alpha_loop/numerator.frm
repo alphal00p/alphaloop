@@ -796,7 +796,34 @@ repeat id subgraph(?a,p?) = subgraph(?a);
     id uvconf2(-p?vector_) = uvconf2(p);
     repeat id uvconf2(p?)*uvconf2(p?) = uvconf2(p);
 
-    id uvconf2(p?) = replace_(p, t * p);
+* evaluate massive self-energies around p_os=(m,0,0,0) for the 0th order term and
+* take derivatives in p^mu but use (p-p_os)^mu as a prefactor for the higher-order terms
+    AB+ cmb,diag,diagextra,fmbtocb;
+    .sort:onshell-treatment-1;
+    Keep brackets;
+
+    if (count(onshell,1));
+        id uvconf2(p?) = 1;
+
+* we use that the cmb momenta that make up the bubble external momentum only appear in that combination
+        splitfirstarg onshell;
+        id onshell(p1?,-p?vector_,E?) = onshell(-p1,p,-E);
+        id onshell(-p?vector_,E?) = onshell(p,-E);
+
+        Multiply xnoos + xos; * create the OS term
+        if (count(xos,1));
+            id onshell(k?,p?,E?) = replace_(p, E*energyselector - k);
+            id onshell(p?,E?) = replace_(p, E*energyselector);
+            id uvprop(k?,t1?,p?,m?) = uvprop(k,t1,0,m); * prevent expansion of the propagators
+            id xos = 1;
+        else;
+            id onshell(k?,p?,E?) = replace_(p, t * (p + k - E*energyselector) - k);
+            id onshell(p?,E?) = replace_(p, t * (p - E*energyselector));
+        endif;
+    else;
+        id uvconf2(p?) = replace_(p, t * p);
+    endif;
+    .sort:onshell-treatment-2;
 
     argument uvprop,1,vxs,uvtopo,irtopo,diag,diagextra,onshell,intuv;
         Multiply replace_(t, 1);
@@ -820,6 +847,10 @@ repeat id subgraph(?a,p?) = subgraph(?a);
         exit "";
     endif;
 
+* drop the 0th order of the non-OS CT
+    if ((count(t,1) == 0) && count(xnoos,1)) Discard;
+    id xnoos = 1;
+
     if (count(t,1) == count(tmax,1));
 * drop IR topology and all masses and keep UV topology
         id xirexpand = 0;
@@ -829,10 +860,6 @@ repeat id subgraph(?a,p?) = subgraph(?a);
         #ifdef `UVTEST'
             Discard;
         #endif
-
-* the on-shell expansion only affects the 0th order
-        if (count(t, 1) && count(onshell, 1)) Discard;
-
 * keep a UV version of the IR topology
         id uvtopo(?a) = irtopo(?a)*xirexpand + uvtopo(?a)*xuvexpand;
         id xirexpand*xuvexpand = 0;
@@ -935,25 +962,6 @@ repeat id subgraph(?a,p?) = subgraph(?a);
 * TODO: is there a risk for dummy index collisions?
 *        exit "Critical error";
     endif;
-
-* expand massive self-energies around (m,0,0,0)
-    AB+ cmb,diag,diagextra,fmbtocb;
-    .sort:onshell-treatment-1;
-    Keep brackets;
-
-* we use that the cmb momenta that make up the bubble external momentum only appear in that combination
-    splitfirstarg onshell;
-    id onshell(p1?,-p?vector_,E?) = onshell(-p1,p,-E);
-    id onshell(-p?vector_,E?) = onshell(p,-E);
-
-    id onshell(k?,p?,E?) = replace_(p, E*energyselector- k);
-    id onshell(p?,E?) = replace_(p, E*energyselector);
-
-    if (count(onshell, 1));
-        Print "Unsubstituted on-shell condition: %t";
-        exit "Critical error";
-    endif;
-    .sort:onshell-treatment-2;
 
 * Substitute the masters and expand in ep
     #call SubstituteMasters()
