@@ -817,8 +817,9 @@ repeat id subgraph(?a,p?) = subgraph(?a);
             id uvprop(k?,t1?,p?,m?) = uvprop(k,t1,0,m); * prevent expansion of the propagators
             id xos = 1;
         else;
-            id onshell(k?,p?,E?) = replace_(p, t * (p + k - E*energyselector) - k);
-            id onshell(p?,E?) = replace_(p, t * (p - E*energyselector));
+* wrap the OS mass in a function so that it does not get set to 0 in the mass expansion later on
+            id onshell(k?,p?,E?) = replace_(p, t * (p + k - tmp(E)*energyselector) - k);
+            id onshell(p?,E?) = replace_(p, t * (p - tmp(E)*energyselector));
         endif;
     else;
         id uvconf2(p?) = replace_(p, t * p);
@@ -868,6 +869,8 @@ repeat id subgraph(?a,p?) = subgraph(?a);
         id intuv(x?) = x;
         if ((count(irtopo,1)) && (count(vxs,1))) Discard;
     endif;
+
+    id tmp(m?) = m;
 
     id t = 1;
     id tmax = 1;
