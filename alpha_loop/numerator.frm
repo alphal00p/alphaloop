@@ -798,7 +798,7 @@ repeat id subgraph(?a,p?) = subgraph(?a);
 
 * evaluate massive self-energies around p_os=(m,0,0,0) for the 0th order term and
 * take derivatives in p^mu but use (p-p_os)^mu as a prefactor for the higher-order terms
-    AB+ cmb,diag,diagextra,fmbtocb;
+    AB+ cmb,diag,fmbtocb;
     .sort:onshell-treatment-1;
     Keep brackets;
 
@@ -825,7 +825,7 @@ repeat id subgraph(?a,p?) = subgraph(?a);
     endif;
     .sort:onshell-treatment-2;
 
-    argument uvprop,1,vxs,uvtopo,irtopo,diag,diagextra,onshell,intuv;
+    argument uvprop,1,vxs,uvtopo,irtopo,diag,onshell,intuv;
         Multiply replace_(t, 1);
     endargument;
 
@@ -1017,7 +1017,7 @@ id gamma(?a) = opengammastring(?a);
 #call Gstring(opengammastring,0)
 
 * External bubble treatment
-AB+ cmb,diag,diagextra,fmbtocb;
+AB+ cmb,diag,fmbtocb;
 .sort:bubble-treatment;
 Keep brackets;
 
@@ -1033,7 +1033,7 @@ endif;
 
 * split off the energy part: energyselector=(1,0,0,0,..), fmbs = spatial part
 * fmbs1.fmbs2 will later get a minus sign to honour the Minkowksi metric
-AB+ cmb,energy,diag,diagextra,fmbtocb;
+AB+ cmb,energy,diag,fmbtocb;
 Print +s;
 .sort:energy-splitoff-1;
 Keep brackets;
