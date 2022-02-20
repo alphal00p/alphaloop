@@ -65,7 +65,6 @@ if __name__ == "__main__":
 
 plugin_path = os.path.dirname(os.path.realpath( __file__ ))
 
-
 FORM_processing_options = {
     'FORM_path': str(Path(plugin_path).parent.joinpath('libraries', 'form', 'sources', 'form').resolve()),
     'tFORM_path': str(Path(plugin_path).parent.joinpath('libraries', 'form', 'sources', 'tform').resolve()),
@@ -90,7 +89,8 @@ FORM_processing_options = {
     # Set the option below to a positive integer so as to enable the splitting of large source files into many
     # with at most around the number of lines specified here. Note that this disables static and inline optimisations!
     'max_n_lines_in_C_source' : 20000,
-    'max_n_lines_in_C_function' : 1000, 
+    'max_n_lines_in_C_function' : 1000,
+    'max_n_files_in_library' : 100,
     'include_integration_channel_info' : True,
     'UV_min_dod_to_subtract' : 0,
     'selected_epsilon_UV_order' : 0,
@@ -3587,6 +3587,11 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
     def post_process_source_code(self, root_output_path):
         """ Possibly split source files if necessary and generates makefile targets."""
 
+        def chunks(lst, n):
+            """Yield successive n-sized chunks from lst."""
+            for i in range(0, len(lst), n):
+                yield tuple(lst[i:i + n])
+
         # Deduce the SG ids from the files "integrand_PF_" or "integrand_LTD_"
         SG_ids = set([])
         for fpath in glob_module.glob(pjoin(root_output_path,'integrand_PF_*_f64.c')):
@@ -3603,9 +3608,10 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
             'all_sg_file_names' : [],
             'all_sg_targets' : []
         }
-        split_file_name_re = re.compile(r"^integrand_.*_s(\d+)_.*\.c$")
+        split_file_name_re = re.compile(r"^integrand_.*_s(\d+)_.*\.(c|cpp)$")
+        dependency_re = re.compile(r"^integrand_(?P<integrand_type>[A-Za-z]*)_(?P<SG_id>\d+)(?P<split_id>_s\d+)?_(?P<precision>.*)\.o$")
         for SG_id in sorted(SG_ids):
-            repl_dict['all_sg_file_names'].append('$(LIBBPATH)/libFORM_sg_%d.so'%SG_id)
+
             dependencies = []
             for code_type in ['PF','LTD',]:
                 all_matches = list(glob_module.glob(pjoin(root_output_path,'integrand_%s_%d_*.c'%(code_type,SG_id))))+list(glob_module.glob(pjoin(root_output_path,'integrand_%s_%d_*.cpp'%(code_type,SG_id))))
@@ -3615,9 +3621,51 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
                         continue
                     dependencies.extend(self.split_source_file(root_output_path,os.path.basename(fpath),FORM_processing_options['max_n_lines_in_C_source']))
             formatted_dependencies = [d.replace('.cpp','.o').replace('.c','.o') for d in dependencies]
-            repl_dict['all_sg_targets'].append(
-"""$(LIBBPATH)/libFORM_sg_%(SGID)d.so: %(dependencies)s
+
+            repl_dict['all_sg_file_names'].append('$(LIBBPATH)/libFORM_sg_%d.so'%SG_id)
+            if FORM_processing_options['max_n_files_in_library'] is None or FORM_processing_options['max_n_files_in_library']<=0 or FORM_processing_options['max_n_files_in_library'] > len(formatted_dependencies):
+                repl_dict['all_sg_targets'].append(
+    """$(LIBBPATH)/libFORM_sg_%(SGID)d.so: %(dependencies)s
 \t$(GPP) --shared -fPIC $(CFLAGS) -o $@ $^"""%{'SGID' : SG_id, 'dependencies' : ' '.join(formatted_dependencies) })
+            else:
+                type_ordering = {'PF' : 0, 'LTD': 1}
+                precision_ordering = {'f64': 0, 'f128': 1, 'mpfr' :2}
+                parsed_dependencies = {}
+                for d in formatted_dependencies:
+                    d_specs = dependency_re.match(d).groupdict()
+                    d_specs['split_id'] = 0 if d_specs['split_id'] is None else int(d_specs['split_id'][2:])
+                    if (d_specs['integrand_type'],d_specs['precision']) in parsed_dependencies:
+                        parsed_dependencies[(d_specs['integrand_type'],d_specs['precision'])].append( (d_specs['split_id'],d) )
+                    else:
+                        parsed_dependencies[(d_specs['integrand_type'],d_specs['precision'])] = [ (d_specs['split_id'],d), ]
+                for k in parsed_dependencies.keys():
+                    parsed_dependencies[k] = [ d[1] for d in sorted(parsed_dependencies[k], key=lambda v: v[0]) ]
+                sorted_dependency_keys = sorted( list(parsed_dependencies.keys()), key=lambda k: ( type_ordering[k[0]], precision_ordering[k[1]] ) )
+
+                # Collect the overall files containing the primary called functions
+                primary_source_files = []
+                libs_used_overall = []
+                for (int_type, prec) in sorted_dependency_keys:
+                    primary_source_files.append(parsed_dependencies[(int_type, prec)].pop(-1))
+                    libs_used_thus_far = []
+                    for i_chunk, chunk in enumerate(chunks(parsed_dependencies[(int_type, prec)],FORM_processing_options['max_n_files_in_library'])):
+                        libs_used_thus_far.append('FORM_sg_%d_%s_%s_s%d'%(SG_id,int_type,prec,i_chunk+1))
+                        repl_dict['all_sg_targets'].append(
+    """$(LIBBPATH)/lib%(lib_name)s.so: %(dependencies)s %(lib_deps)s
+\t$(GPP) --shared -fPIC $(CFLAGS) -L$(LIBBPATH) %(lib_links)s-o $@ %(dependencies)s"""%{
+                            'lib_name' : libs_used_thus_far[-1], 'dependencies' : ' '.join(chunk),
+                            'lib_deps' : ' '.join('$(LIBBPATH)/lib%s.so'%l for l in libs_used_thus_far[:-1]),
+                            'lib_links': ' '.join('-l%s'%l for l in libs_used_thus_far[:-1])+(' 'if len(libs_used_thus_far)>1 else '')
+                        })
+                    libs_used_overall.extend(libs_used_thus_far)
+                # Add the main library now
+                repl_dict['all_sg_targets'].append(
+    """$(LIBBPATH)/libFORM_sg_%(SGID)d.so: %(dependencies)s %(lib_deps)s
+\t$(GPP) --shared -fPIC $(CFLAGS) -L$(LIBBPATH) %(lib_links)s-o $@ %(dependencies)s"""%{
+                            'SGID' : SG_id, 'dependencies' : ' '.join(primary_source_files),
+                            'lib_deps' : ' '.join('$(LIBBPATH)/lib%s.so'%l for l in libs_used_overall),
+                            'lib_links': ' '.join('-l%s'%l for l in libs_used_overall)+(' 'if len(libs_used_overall)>1 else '')
+                        })
 
         repl_dict['all_sg_file_names'] = ' '.join(repl_dict['all_sg_file_names'])
         repl_dict['all_sg_targets'] = '\n'.join(repl_dict['all_sg_targets'])

@@ -1472,7 +1472,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 field_name = self.qgraf_field_replace[self.model.get_particle(abs(field))['name']]
             else:
                 field_name = self.qgraf_field_replace[self.model.get_particle(abs(field))['antiname']]
-            dict_replace['final_states'] += 'true=iprop[{},{},10];\n'.format(field_name, required_final_states.count(field))
+            dict_replace['final_states'] += 'true=iprop[{},{},30];\n'.format(field_name, required_final_states.count(field))
 
         shutil.copy(self.qgraf_model, pjoin(self.dir_path, 'qgraf','model.dat'))
         shutil.copy(self.qgraf_style, pjoin(self.dir_path, 'qgraf','orientedGraphPython.sty'))
@@ -1534,7 +1534,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 field_name = self.qgraf_field_replace[self.model.get_particle(abs(field))['name']]
             else:
                 field_name = self.qgraf_field_replace[self.model.get_particle(abs(field))['antiname']]
-            dict_replace['final_states'] += 'true=iprop[{},{},10];\n'.format(field_name, required_final_states.count(field))
+            dict_replace['final_states'] += 'true=iprop[{},{},30];\n'.format(field_name, required_final_states.count(field))
 
         shutil.copy(self.qgraf_model, pjoin(self.dir_path, 'qgraf','model.dat'))
         shutil.copy(self.qgraf_style, pjoin(self.dir_path, 'qgraf','orientedGraphPython.sty'))
@@ -1592,7 +1592,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                 field_name = self.qgraf_field_replace[self.model.get_particle(abs(field))['name']]
             else:
                 field_name = self.qgraf_field_replace[self.model.get_particle(abs(field))['antiname']]
-            dict_replace['final_states'] += 'true=iprop[{},{},10];\n'.format(field_name, required_final_states.count(field))
+            dict_replace['final_states'] += 'true=iprop[{},{},30];\n'.format(field_name, required_final_states.count(field))
 
         shutil.copy(self.qgraf_model, pjoin(self.dir_path, 'qgraf','model.dat'))
         shutil.copy(self.qgraf_style, pjoin(self.dir_path, 'qgraf','orientedGraphPython.sty'))
@@ -1636,7 +1636,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         self.replace_make_opt_c_compiler(self.MG5aMC_options['cpp_compiler'])
 
 
-    def standalone_qgraf_file(self):
+    def NON_HACKED_standalone_qgraf_file(self):
         logger.info('Create standalone QGRAF from: {}'.format(self.qgraf_output))
 
         with open(self.qgraf_output, 'w') as f:
@@ -1651,6 +1651,29 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                         f.write('graph_names+=[\"SG_QG{}\"]\n'.format(n_graph))
                         n_graph += 1
                     f.write(line+'\n')
+
+    def HACKED_standalone_qgraf_file(self):
+        logger.info('Create standalone QGRAF from: {}'.format(self.qgraf_output))
+
+        with open(self.qgraf_output, 'w') as f:
+            f.write("graphs=[]\n")
+            f.write("graph_names=[]\n")
+            include_graph = True
+            with open(self.qgraf_raw_output, 'r') as stream:
+                n_graph = 0
+                for line in stream.read().splitlines():
+                    if 'graphs=[]' in line or 'graph_names=[]' in line:
+                        continue
+                    if 'graphs.append' in line:
+                        include_graph = (n_graph==0)
+                        if include_graph:
+                            f.write('graph_names+=[\"SG_QG{}\"]\n'.format(n_graph))
+                        n_graph += 1
+                    if include_graph:
+                        f.write(line+'\n')
+
+    def standalone_qgraf_file(self):
+        return self.NON_HACKED_standalone_qgraf_file()
 
 class LUScalarTopologyExporter(QGRAFExporter):
 

@@ -631,8 +631,8 @@ class SuperGraph(dict):
                 result = ir_limits_to_consider[ir_limit]
                 cuts_sum_dod_colour = Colours.GREEN if (result['cuts_sum']['dod']['central'] < -1 + max(min(max(10.0*abs(result['cuts_sum']['dod']['std_err']),0.05),0.2),self['ir_limits_analysis_setup']['min_dod_tolerance'])) else Colours.RED
                 max_cut_dod = max(result['per_cut'].values(), key=lambda d: d['dod']['central'])
-                severity_central = (max_cut_dod['dod']['central']-result['cuts_sum']['dod']['central'])
-                severity_std_err = math.sqrt(result['cuts_sum']['dod']['std_err']**2+max_cut_dod['dod']['std_err']**2)
+                severity_central = (max_cut_dod['dod']['central']-result['complete_integrand']['dod']['central'])
+                severity_std_err = math.sqrt(result['complete_integrand']['dod']['std_err']**2+max_cut_dod['dod']['std_err']**2)
                 res_str.append(('> %-{}s : %s%s%s %-12s dod: itg = %-32s cuts_sum = %-32s severity = %-32s'.format(
                         max_IR_limit_str_len+(len(SuperGraph.format_ir_limit_str(ir_limit,colored_output=True))-len(SuperGraph.format_ir_limit_str(ir_limit,colored_output=False)))
                     ))%(
@@ -3120,7 +3120,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     ir_profile_parser.add_argument("-po","--perturbative_order", dest='perturbative_order', type=int, default=3,
                     help='Set the deepest perturbative order to consider in the IR limits. When negative, the test will consider only limits of exactly that order (default:  %(default)s).')
     ir_profile_parser.add_argument("-irl","--ir_limits", dest='ir_limits', type=str, nargs='*', default=None,
-                    help='Specify the particular IR limits for this ir profile Keywords allowed: "all", "cutkosky" . Example --ir_limits "C(pq1,-pq3,d1) C(-pq3,pq5,-pq8,d2) S(pq7,pq8)" "S(pq3)" (default: cutkosky)')
+                    help='Specify the particular IR limits for this ir profile Keywords allowed: "all", "cutkosky" . Example --ir_limits "C[pq1,-pq3] C[pq3,-pq5,S(pq8)] S(pq7,pq8)" "S(pq3)" (default: cutkosky)')
     ir_profile_parser.add_argument("-cd","--collinear_directions", dest='collinear_directions', type=str, default=None,
                     help='Specify the collinear dictions to con consider for the approach (excluding frozen momenta). Example --collinear_directions "[(0.1244323,2.432e+02,0.43),(0.23,...)]" (default: random)')
     ir_profile_parser.add_argument("-approach_directions","--approach_directions", dest='approach_directions', type=str, default=None,
@@ -3298,7 +3298,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         except ZeroDivisionError as e:
             raise alphaLoopInvalidRunCmd("Approach directions should have a non-zero norm This is not the case for: %s."%(str(args.approach_directions)))
 
-        max_n_collinear_fractions = abs(args.perturbative_order)+1
+        max_n_collinear_fractions = 2*abs(args.perturbative_order)
         if args.xs is not None:
             try:
                 args.xs = eval(args.xs)

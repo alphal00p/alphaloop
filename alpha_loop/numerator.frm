@@ -1507,12 +1507,16 @@ Keep brackets;
             id energies(?a$energies) = 1;
             id constants(?a$constants) = 1;
             .sort:conf-`ext'-0;
+
+
             #if (`$isdenominator' == 1)
                 #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "#CONSTANTS\n%$\n#CONSTANTS", $constants
                 #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "#ENERGIES\n%$\n#ENERGIES", $energies
                 #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "#ELLIPSOIDS\n%$\n#ELLIPSOIDS",$ellipsoids
+            #endif
 
-                Format C;
+            Format C;
+            #if (`forestcount' < `MAXVARSFOROPTIM')
                 #if `OPTIMLVL' > 1
                     Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
                 #else
@@ -1523,29 +1527,17 @@ Keep brackets;
                 #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "%O"
                 #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "\n\treturn %E;",FF`ext'
             #else
-                Format C;
-                #if `forestcount' < `MAXVARSFOROPTIM'
-                    #if `OPTIMLVL' > 1
-                        Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
-                    #else
-                        Format O1,stats=on;
-                    #endif
+                .sort:strip-content-0;
+                L content = content_(FF`ext');
+                ToPolynomial;
+                .sort:strip-content-1;
+                L FF`ext' = FF`ext' / content;
+                FromPolynomial;
+                .sort:strip-content-2;
+                #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "\n\treturn %E*(%+E);",content,FF`ext'
+                Drop content;
+            #endif
 
-                    #Optimize FF`ext'
-                    #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "%O"
-                    #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "\n\treturn %E;",FF`ext'
-                #else
-                    .sort:strip-content-0;
-                    L content = content_(FF`ext');
-                    ToPolynomial;
-                    .sort:strip-content-1;
-                    L FF`ext' = FF`ext' / content;
-                    FromPolynomial;
-                    .sort:strip-content-2;
-                    #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "\n\treturn %E*(%+E);",content,FF`ext'
-                    Drop content;
-                #endif
-            #endif 
             .sort:optim-`ext'-1;
 
             #clearoptimize;
