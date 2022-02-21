@@ -177,6 +177,9 @@ class SquaredTopologyGenerator:
                                     dg['soft_ct_id'] = graph_counter
                                     graph_counter += 1
 
+                                    if uv_sg['onshell']:
+                                        dg['onshell_ct_id'] = graph_counter
+                                        graph_counter += 1
                             uv_sg['integrated_ct_id'] = graph_counter
                             graph_counter += 1
                         uv_limit['remaining_graph_id'] = graph_counter

@@ -184,7 +184,7 @@ CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, irtopo, intuv, integr
 CT gammatracetensor(c),opengammastring;
 
 CF logmUVmu; * make it a function so that the optimizer makes sure it is only computed once
-S UVRenormFINITE, ICT, mUV, logmu, logmUV, logmt, z3, mi1L1, alarmMi1L1;
+S UVRenormFINITE, ICT, mUV, logmu, logmUV, logmt, z3, mi1L1, alarmMi1L1, gamma0;
 Fill logmasses(6) = logmt;
 Fill logmasses(-6) = logmt;
 
@@ -797,7 +797,7 @@ repeat id subgraph(?a,p?) = subgraph(?a);
     repeat id uvconf2(p?)*uvconf2(p?) = uvconf2(p);
 
 * evaluate massive self-energies around p_os=(m,0,0,0) for the 0th order term and
-* take derivatives in p^mu but use (p-p_os)^mu as a prefactor for the higher-order terms
+* take derivatives in p^mu but use (p - gamma^0*p_os)^mu as a prefactor for the higher-order terms
     AB+ cmb,diag,fmbtocb;
     .sort:onshell-treatment-1;
     Keep brackets;
@@ -810,16 +810,21 @@ repeat id subgraph(?a,p?) = subgraph(?a);
         id onshell(p1?,-p?vector_,E?) = onshell(-p1,p,-E);
         id onshell(-p?vector_,E?) = onshell(p,-E);
 
-        Multiply xnoos + xos; * create the OS term
-        if (count(xos,1));
-            id onshell(k?,p?,E?) = replace_(p, E*energyselector - k);
-            id onshell(p?,E?) = replace_(p, E*energyselector);
+        Multiply xnoos + xos + xneg; * create the OS terms
+        if (count(xos,1) || count(xneg,1));
+            if (count(xneg,1));
+                id onshell(k?,p?,E?) = replace_(p, -E*energyselector - k);
+                id onshell(p?,E?) = replace_(p, -E*energyselector);
+            else;
+                id onshell(k?,p?,E?) = replace_(p, E*energyselector - k);
+                id onshell(p?,E?) = replace_(p, E*energyselector);
+            endif;
             id uvprop(k?,t1?,p?,m?) = uvprop(k,t1,0,m); * prevent expansion of the propagators
             id xos = 1;
         else;
 * wrap the OS mass in a function so that it does not get set to 0 in the mass expansion later on
-            id onshell(k?,p?,E?) = replace_(p, t * (p + k - tmp(E)*energyselector) - k);
-            id onshell(p?,E?) = replace_(p, t * (p - tmp(E)*energyselector));
+            id onshell(k?,p?,E?) = replace_(p, t * (p + k - gamma0*tmp(E)*energyselector) - k);
+            id onshell(p?,E?) = replace_(p, t * (p - gamma0*tmp(E)*energyselector));
         endif;
     else;
         id uvconf2(p?) = replace_(p, t * p);
@@ -898,7 +903,17 @@ repeat id subgraph(?a,p?) = subgraph(?a);
         id irtopo(?a) = 1;
     endif;
 
+* select the OS topology with the negative mass
+    if (count(xneg,1));
+        id irtopo(x1?,x2?,?a) = irtopo(x1,x2,xneg,?a);
+        id xneg = 1;
+    endif;
+
     #call uvmap()
+
+* insert the gamma^0_ij from the OS CT
+    id opengammastring(s1?,?a,s2?)*gamma0 = opengammastring(s1,energyselector,?a,s2);
+
     if (count(uvtopo, 1, irtopo, 1, tmp, 1));
         Print "Unsubstituted UV topology: %t";
         exit "Critical error";
@@ -958,6 +973,7 @@ repeat id subgraph(?a,p?) = subgraph(?a);
 
 * Simplify all open gamma strings so that the Ds are contracted out
     #call Gstring(opengammastring,0)
+    id energyselector.energyselector = 1;
 
     if (match(opengammastring(s1?,?a,mu?lorentzdummy,?b,s2?)) || count(vec1,1));
         Print "Warning: dummy index left in gamma string after projecting: %t";

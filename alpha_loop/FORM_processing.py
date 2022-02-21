@@ -1412,10 +1412,13 @@ aGraph=%s;
                         signature_offset = 0 # offset in the forest basis
                         for uv_subgraph in uv_structure['uv_subgraphs']:
                             for dg in uv_subgraph['derived_graphs']:
-                                massct = uv_subgraph['onshell']
-                                graphs.append((signature_offset, dg['id'], dg['loop_topo'], massct))
+                                graphs.append((signature_offset, dg['id'], dg['loop_topo'], None))
                                 if 'soft_ct_id' in dg:
+                                   massct = (False, uv_subgraph['onshell']) if uv_subgraph['onshell'] is not None else None
                                    graphs.append((signature_offset, dg['soft_ct_id'], dg['loop_topo_orig_mass'], massct))
+                                if 'onshell_ct_id' in dg:
+                                   massct = (True, uv_subgraph['onshell']) if uv_subgraph['onshell'] is not None else None
+                                   graphs.append((signature_offset, dg['onshell_ct_id'], dg['loop_topo_orig_mass'], massct))
                             graphs.append((signature_offset, uv_subgraph['integrated_ct_id'], uv_subgraph['integrated_ct_bubble_graph'], None))
                             signature_offset += uv_subgraph['derived_graphs'][0]['loop_topo'].n_loops
                         if len(uv_structure['bubble']) > 0:
@@ -1424,18 +1427,20 @@ aGraph=%s;
                         else:
                             graphs.append((signature_offset, uv_structure['remaining_graph_id'], uv_structure['remaining_graph_loop_topo'], None))
 
-                for signature_offset, graph_id, g, self_energy_ext_edges in graphs:
+                for signature_offset, graph_id, g, onshell in graphs:
                     signatures, n_props, energies, constants, shift_map, unique_energy = [], [], [], [], [], []
                     pf_prefactor = ['1']
                     prop_mom_in_lmb = {}
                     prop_id = {}
 
                     on_shell_condition = {}
-                    if self_energy_ext_edges is not None:
+                    if onshell is not None:
+                        flip_mass_sign, self_energy_ext_edges = onshell
+
                         # construct the on-shell condition, TODO: check sign
                         ext_edge = next(ee for ee in self.edges.values() if ee['name'] == self_energy_ext_edges[0])
                         on_shell_condition[tuple(ext_edge['signature'][0] +
-                            ext_edge['signature'][1] + [0]*len( ext_edge['signature'][1]))] = 'masses({})'.format(ext_edge['PDG'])
+                            ext_edge['signature'][1] + [0]*len( ext_edge['signature'][1]))] = '{}masses({})'.format('-' if flip_mass_sign else '', ext_edge['PDG'])
                     for li, l in enumerate(g.loop_lines):
                         is_constant = all(s == 0 for s in l.signature)
                         if not is_constant:
@@ -1448,7 +1453,7 @@ aGraph=%s;
                             for s, v in zip(l.signature, g.loop_momentum_map):
                                 lmp += s * np.array(v[0])
 
-                            if self_energy_ext_edges is None:
+                            if onshell is None:
                                 # transport shift to LMB
                                 shift = np.array([0]*topo.topo.n_loops)
                                 extshift = np.array(p.parametric_shift[1])
@@ -1847,7 +1852,13 @@ CTable ltdmap(0:{},0:{});
                                     '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], dg['id'], dg['graph'].n_loops)
 
                                 if 'soft_ct_id' in dg:
-                                    topo_map += '\tid irtopo({},{},k1?,...,k{}?) = diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
+                                    if 'onshell_ct_id' in dg:
+                                        topo_map += '\tid irtopo({},{},k1?,...,k{}?) = (1+gamma0)/2*diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
+                                            '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], dg['soft_ct_id'], dg['graph'].n_loops)
+                                        topo_map += '\tid irtopo({},{},xneg,k1?,...,k{}?) = (1-gamma0)/2*diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
+                                            '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], dg['onshell_ct_id'], dg['graph'].n_loops)
+                                    else:
+                                        topo_map += '\tid irtopo({},{},k1?,...,k{}?) = diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
                                         '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], dg['soft_ct_id'], dg['graph'].n_loops)
 
                             # construct the vertex structure of the UV subgraph
