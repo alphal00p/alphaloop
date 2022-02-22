@@ -869,6 +869,7 @@ repeat id subgraph(?a,p?) = subgraph(?a);
 * keep a UV version of the IR topology
         id uvtopo(?a) = irtopo(?a)*xirexpand + uvtopo(?a)*xuvexpand;
         id xirexpand*xuvexpand = 0;
+        id xneg*xuvexpand = 0; * only include the UV version once as xos + xneg gives one times the UV CT
 
 * drop the integrated counterterm as they always evaluate to 0
         id intuv(x?) = x;
