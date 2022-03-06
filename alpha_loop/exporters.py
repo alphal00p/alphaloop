@@ -42,6 +42,8 @@ import models.model_reader as model_reader
 
 logger = logging.getLogger('alphaLoop.Exporter')
 
+import alpha_loop.formset
+
 import alpha_loop.LTD_squared as LTD_squared
 import alpha_loop.helas_call_writers as aL_helas_call_writers
 import alpha_loop.utils as utils

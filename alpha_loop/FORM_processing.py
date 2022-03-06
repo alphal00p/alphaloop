@@ -51,6 +51,8 @@ import LTD.squared_topologies
 import LTD.ltd_utils
 import LTD.partial_fractioning
 
+import alpha_loop.formset as formset
+
 logger = logging.getLogger('alphaLoop.FORM_processing')
 
 try:
@@ -2164,8 +2166,11 @@ class FORMSuperGraphIsomorphicList(list):
             f.write('L CONF =\n +{};\n\n'.format(conf))
             f.write('L F = {}\n;'.format(form_input))
 
+        form_settings = formset.generate_form_settings(ncpus=FORM_processing_options["cores"])
+        form_settings.update(FORM_processing_options["FORM_setup"])
+
         with open(pjoin(selected_workspace,'form.set'), 'w') as f:
-            content = [ '%s %s'%(k,str(v)) for k,v in FORM_processing_options["FORM_setup"].items() ]
+            content = [ '%s %s'%(k,str(v)) for k,v in form_settings.items() ]
             f.write('\n'.join(content))
  
         FORM_cmd = ' '.join([
