@@ -1054,7 +1054,6 @@ endif;
 * split off the energy part: energyselector=(1,0,0,0,..), fmbs = spatial part
 * fmbs1.fmbs2 will later get a minus sign to honour the Minkowksi metric
 AB+ cmb,energy,diag,fmbtocb;
-Print +s;
 .sort:energy-splitoff-1;
 Keep brackets;
 #do i=1,`NFINALMOMENTA'
@@ -1092,7 +1091,7 @@ Drop tensorforest1,...,tensorforest`tensorforestcount';
 Keep brackets;
 
 * fill in the tensor forest into F and fill in the Feynman rules
-#do i=1,`forestcount'
+#do i=1,`tensorforestcount'
     id forestid(`i') = tensorforest`i';
 #enddo
 id f(x?) = forestid(x-`foreststart');
@@ -1137,21 +1136,44 @@ id ep^n? = 1;
 #endif
 id UVRenormFINITE^n? = 1;
 
-B+ forestid;
+B+ conf,forestid;
 .sort:rat-truncate;
 Keep brackets;
+
+#$activeforestcount = `forestcount';
+
+* flatten all forests for the highest loop graph, since the other amplitude is trivial
+* this drastically reduces the number of forests
+* make sure that the index pp1 is not used anywhere inside forest`i'
+#do i=1,`forestcount'
+    repeat id conf(x1?,x2?,pp1?,...,pp{`NFINALMOMENTA'-1}?)*forestid(`i') = conf(x1,x2,pp1,...,pp{`NFINALMOMENTA'-1})*forest`i';
+#enddo
+
+* remove duplicates
+repeat id cmb(?a)*cmb(?a) = cmb(?a); * keep one cmb
+id rat(x1?) = x1;
+id tder(x?) = 1;
 
 * Drop unused forests
 #do i=1,`forestcount'
     #define HASFOREST`i' "0"
     if (match(forestid(`i'))) redefine HASFOREST`i' "1";
 #enddo
-.sort:filter-unused-forests;
+.sort:forest-flatten-3;
+UnHide forest1,...,forest`forestcount';
+.sort:forest-flatten-4;
+
 #do i=1,`forestcount'
     #if `HASFOREST`i'' == 0
+        #$activeforestcount = $activeforestcount - 1;
         L forest`i' = 0;
     #endif
 #enddo
+
+.sort:forest-flatten-5;
+Hide forest1,...,forest`forestcount';
+
+.sort
 
 * If the expression is empty (due to epsilon pole selection), we still write a file
 #if ( termsin(F) == 0 )
@@ -1165,9 +1187,8 @@ AB+ cmb;
 .sort:cmb-replace;
 Keep brackets;
 id replace(?a) = replace_(?a);
-.sort:pf-splitoff;
+.sort:cmb-transform;
 UnHide forest1,...,forest`forestcount';
-Hide F;
 
 id rat(x1?,x2?) = x1/x2;
 id rat(x?) = x;
@@ -1183,7 +1204,7 @@ if (count(energy,1));
     exit "Critical error";
 endif;
 
-if (count(cmb,1) == 0);
+if ((count(cmb,1) == 0) && count(diag,1));
     Print "CMB missing: %t";
     exit "Critical error";
 endif;
@@ -1194,12 +1215,13 @@ endif;
 *********************************************
 
 #if (`INTEGRAND' == "LTD") || (`INTEGRAND' == "both")
-    Hide forest1,...,forest`forestcount';
+    Hide forest1,...,forest`forestcount',F;
 
 * copy the forest since LTD and PF may map the diag calls differently
 * TODO: unify call
     #do i=1,`forestcount'
         L forestltd`i' = forest`i';
+        L Fltd = F;
     #enddo
 
     .sort:ltd-forest-copy;
@@ -1226,7 +1248,7 @@ endif;
     id diag(xcut?,x1?,x2?,?a,x3?) = diag(?a)*ltdtopo(x1,x2)*x3*conf(-1,xcut,-1);
     id cmb(?a) = replace_(?a);
     .sort:ltd-splitoff;
-    Hide forestltd1,...,forestltd`forestcount';
+    Hide forestltd1,...,forestltd`forestcount',Fltd;
 
 * transform the LTD energies back to normal energies
     id energy(f(?a)) = energy(?a);
@@ -1281,11 +1303,11 @@ endif;
     .sort:ltd-num-0;
     UnHide forestltd1,...,forestltd`forestcount';
     .sort:ltd-num-1;
-    Drop diag1,...,diag`diagcount',forestltd1,...,forestltd`forestcount';
+    Drop diag1,...,diag`diagcount',forestltd1,...,forestltd`forestcount',Fltd;
 
 * now add all LTD structures as a special conf
     #if `diagcount' > 0
-        L FINTEGRANDLTD = F + <diag1*conf(-{1+`forestcount'})>+...+<diag`diagcount'*conf(-{`diagcount'+`forestcount'})> + <forestltd1*conf(-1,-1)>+...+<forestltd`forestcount'*conf(-`forestcount',-1)>;
+        L FINTEGRANDLTD = Fltd + <diag1*conf(-{1+`forestcount'})>+...+<diag`diagcount'*conf(-{`diagcount'+`forestcount'})> + <forestltd1*conf(-1,-1)>+...+<forestltd`forestcount'*conf(-`forestcount',-1)>;
     #endif
 
     id conf(x?)*conf(x1?{<0},?a) = conf(x,?a);
@@ -1299,7 +1321,7 @@ endif;
 
 #if (`INTEGRAND' == "PF") || (`INTEGRAND' == "both")
     .sort:pf-start-1;
-    UnHide forest1,...,forest`forestcount';
+    UnHide forest1,...,forest`forestcount',F;
     .sort:pf-start-2;
 
     #include- pftable_`SGID'.h
@@ -1328,7 +1350,7 @@ endif;
     id diag(xcut?,x1?,x2?,?a,x3?) = diag(?a)*pftopo(x1,x2)*x3*conf(-1,xcut,-1);
     id cmb(?a) = replace_(?a);
     .sort:pf-splitoff;
-    Hide forest1,...,forest`forestcount';
+    Hide forest1,...,forest`forestcount',F;
 
 * apply the numerator procedure
     #do i = 0,{`NFINALMOMENTA'-1}
@@ -1337,16 +1359,23 @@ endif;
         id f(p?) = 1;
         id once num(ncmd(?z),?x) =ncmd(?z)*num(?x);
         B+ ncmd, x1;
-        .sort:collect-ncmd;
+        .sort:collect-ncmd-`i';
         keep brackets;
 
-        id x1^r?*ncmd(?z,x?) = sum_(s,0, r - nargs_(?z), a(r,s,?z)*x^s);
-        B+ a;
-        .sort:collect-a;
-        keep brackets;
+        $aa = 1;
+        id x1^np?*ncmd(?z,x?) = tmp(x1^np*ncmd(?z,x));
+        id tmp(x?$aa) = 1;
 
-        repeat id a(r?,s?,?z,x?) = -sum_(s1, s+1,r-nargs_(?z), a(r,s1,?z)*x^(s1-s-1));
-        id a(r?,s?) = delta_(r,s);
+        inside $aa;
+            id x1^np?*ncmd(?z,x?) = sum_(n,0, np - nargs_(?z), a(np,n,?z)*tmp(x,n));
+            repeat id a(np?,n?,?z,x?) = -sum_(n1, n+1,np-nargs_(?z), a(np,n1,?z)*tmp(x,(n1-n-1)));
+            id a(np?,n?) = delta_(np,n);
+
+            id tmp(x?,n?) = x^n;
+        endinside;
+
+        Multiply $aa;
+        ModuleOption local $aa;
         .sort:energy-`i';
     #enddo
     id diag = 1;
@@ -1362,7 +1391,7 @@ endif;
 
     UnHide forest1,...,forest`forestcount';
     .sort:pf-num-2;
-    Drop diag1,...,diag`diagcount',forest1,...,forest`forestcount';
+    Drop diag1,...,diag`diagcount',forest1,...,forest`forestcount',F;
 
 * now add all PF structures as a special conf
     #if `diagcount' > 0
@@ -1533,7 +1562,7 @@ Keep brackets;
             #endif
 
             Format C;
-            #if (`forestcount' < `MAXVARSFOROPTIM')
+            #if (`$activeforestcount' < `MAXVARSFOROPTIM')
                 #if `OPTIMLVL' > 1
                     Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
                 #else
@@ -1542,7 +1571,7 @@ Keep brackets;
 
                 #Optimize FF`ext'
                 #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "%O"
-                #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "\n\treturn %E;",FF`ext'
+                #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "\n\treturn %+E;",FF`ext'
             #else
                 .sort:strip-content-0;
                 L content = content_(FF`ext');
@@ -1551,7 +1580,7 @@ Keep brackets;
                 L FF`ext' = FF`ext' / content;
                 FromPolynomial;
                 .sort:strip-content-2;
-                #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "\n\treturn %E*(%+E);",content,FF`ext'
+                #write<out_integrand_`INTEGRANDTYPE'_`SGID'.proto_c> "\n//CMODE\n\treturn %E*(%+E);\n",content,FF`ext'
                 Drop content;
             #endif
 

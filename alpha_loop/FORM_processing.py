@@ -104,6 +104,7 @@ FORM_processing_options = {
     'optimisation_strategy' : 'CSEgreedy',
     'optimise_generation_lmb' : True,
     'optimise_integration_channels' : True,
+    'FORM_use_max_mem_fraction': 0.75,
     'FORM_setup': {
     #   'MaxTermSize':'100K',
     #   'Workspace':'1G'
@@ -212,8 +213,7 @@ def temporary_preprocess_multiline_blocks(FORM_output):
     was_last_line_a_return = False
     for i_line, line in enumerate(FORM_output.split('\n')):
         stripped_line = line.strip()
-        if stripped_line.startswith('return') and not stripped_line[-1]==';':
-            lines_in_current_block.append(line)
+        if '//CMODE' in stripped_line:
             is_in_multiline_block =True
             continue
         if stripped_line==';':
@@ -2166,7 +2166,7 @@ class FORMSuperGraphIsomorphicList(list):
             f.write('L CONF =\n +{};\n\n'.format(conf))
             f.write('L F = {}\n;'.format(form_input))
 
-        form_settings = formset.generate_form_settings(ncpus=FORM_processing_options["cores"])
+        form_settings = formset.generate_form_settings(percentage=FORM_processing_options["FORM_use_max_mem_fraction"] * 100., ncpus=FORM_processing_options["cores"])
         form_settings.update(FORM_processing_options["FORM_setup"])
 
         with open(pjoin(selected_workspace,'form.set'), 'w') as f:
@@ -3359,14 +3359,14 @@ const complex<double> I{ 0.0, 1.0 };
                                     main_code = forest_pattern.sub(r'forest_\1(lm, params, E, invd)', main_code)
 
                                 integrand_main_code += '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}({0} lm[], {1} params[], {0}* out) {{{5}}}'.format(dual_base_type, base_type, itype, i, int(conf[0]),
-                                    main_code
+                                    diag_pattern.sub(r'diag_\1(lm, params, E, invd)', main_code)
                                 )
 
                                 main_code_f128 = main_code.replace('pi', 'mppp::real128_pi()').replace('complex<double>', 'complex128')
                                 main_code_f128 = float_pattern.sub(r'real128(\1q)', main_code_f128)
                                 main_code_f128 = main_code_f128.replace('(lm,', '_f128(lm,')
                                 integrand_f128_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}_f128({0} lm[], {1} params[], {0}* out) {{{5}}}'.format(dual_base_type_f128, base_type_f128, itype, i, int(conf[0]),
-                                    main_code_f128
+                                    diag_pattern.sub(r'diag_\1_f128(lm, params, E, invd)', main_code_f128)
                                 )
 
                                 main_code_mpfr = main_code.replace('pi', 'mpreal(mpfr::const_pi())').replace('complex<double>', 'mpcomplex')
@@ -3381,7 +3381,7 @@ const complex<double> I{ 0.0, 1.0 };
                                 main_code_mpfr = forest_pattern.sub(r'forest_\1_mpfr(lm, params, E, invd)', main_code_mpfr)
                                 main_code_mpfr = re.sub(r'\*out =([^;]*);', r'*out = (complex128)(\1);', main_code_mpfr)
                                 integrand_mpfr_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}_mpfr({0} lm[], {1} params[], {0}* out) {{{5}}}'.format(dual_base_type_mpfr, base_type_mpfr, itype, i, int(conf[0]),
-                                    main_code_mpfr
+                                    diag_pattern.sub(r'diag_\1_mpfr(lm, params, E, invd)', main_code_mpfr)
                                 )
 
                         
