@@ -179,7 +179,7 @@ class SystemInfo(object):
             info = subprocess.check_output(['lscpu'])
             info = info.decode('utf-8')
             info = info.strip().split('\n')
-            info = [[ss.strip() for ss in s.split(':')] for s in info]
+            info = [[ss.strip() for ss in s.split(':', 1)] for s in info]
             info = dict(info)
             cls._cpu_info = info
         return cls._cpu_info
