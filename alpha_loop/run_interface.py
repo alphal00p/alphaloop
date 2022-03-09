@@ -5,6 +5,7 @@
 #####################################################
 
 import os
+import stat
 import logging
 import sys
 import re
@@ -28,6 +29,7 @@ import glob
 import threading
 import networkx as nx
 import psutil
+import subprocess
 import pickle
 from prettytable import PrettyTable
 
@@ -3084,6 +3086,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='maximum IR scaling to consider')
     ir_profile_parser.add_argument("-min","--min_scaling", dest='min_scaling', type=float, default=1.0e-04,
                     help='minimum IR scaling to consider')
+    ir_profile_parser.add_argument("-sap","--softening_approach_power", dest='softening_approach_power', type=float, default=1.0,
+                    help='Power to softening min max scaling bounds with when sampling higher order limits. Set to zero to disable. (default: %(default)s)')
     ir_profile_parser.add_argument("-s","--seed", dest='seed', type=int, default=0,
                     help='specify random seed')
     ir_profile_parser.add_argument("-rp","--required_precision", dest='required_precision', type=float, default=None,
@@ -3092,12 +3096,17 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='set target IR scaling (default=-1)')
     ir_profile_parser.add_argument("-mdt","--dod_tolerance", dest='min_dod_tolerance', type=float, default=0.3,
                     help='set the minimal dod tolerance (default=%(default)s)')
+    ir_profile_parser.add_argument("--plots", dest='plots', type=str, nargs='?', default=None,
+                    help='Specify a file to produce plots in.')
     ir_profile_parser.add_argument(
         "-f", "--f128", action="store_true", dest="f128", default=False,
         help="Perfom the IR profile using f128 arithmetics.")
     ir_profile_parser.add_argument(
         "-nf", "--no_f128", action="store_true", dest="no_f128", default=False,
         help="Forbid automatic promotion to f128.")
+    ir_profile_parser.add_argument(
+        "-nsc", "--no_stability_check", action="store_true", dest="no_stability_check", default=False,
+        help="Disable all stability checks.")
     ir_profile_parser.add_argument(
         "-nw", "--no_warnings", action="store_false", dest="show_warnings", default=True,
         help="Do not show warnings about this IR profiling run.")
@@ -3260,6 +3269,14 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             for entry in self.hyperparameters['General']['stability_checks']:
                 entry['relative_precision'] = args.required_precision
 
+        if args.no_f128 or args.no_stability_check:
+            for entry in self.hyperparameters['General']['stability_checks']:
+                if args.no_f128:
+                    entry['prec']=16
+            if args.no_stability_check:
+                self.hyperparameters['General']['stability_checks'] = [self.hyperparameters['General']['stability_checks'][0],]
+                self.hyperparameters['General']['stability_checks'][0]['n_samples'] = 0
+
         if frozen_momenta and len(selected_SGs)>1:
             raise alphaLoopInvalidRunCmd("For amplitude LU mockups, the ir profile should be run for a single SG at a time.")
 
@@ -3304,7 +3321,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 args.xs = eval(args.xs)
             except Exception as e:
                 raise alphaLoopInvalidRunCmd("Could not parse the specified collinear directions: '%s'. Error: %s"%(args.collinear_directions, str(e)))
-            if len(args.xs) != max_n_collinear_fractions:
+            if len(args.xs) != max_n_collinear_fractions: 
                 raise alphaLoopInvalidRunCmd("For the perturbative order considered (%d), a total of %d collinear fractions must be specified (not %d)."%(args.perturbative_order,max_n_collinear_fractions,len(args.xs)))
             if any((x>=1. or x<=0.) for x in args.xs):
                 raise alphaLoopInvalidRunCmd("Collinear fractions specified must be within ]0.,1.[.")
@@ -3692,12 +3709,24 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         # WARNING it is important that the rust workers instantiated only go out of scope when this function terminates
         rust_workers = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+        rust_workers_f128 = {SG_name: None for SG_name in selected_SGs}
         if args.f128 or not args.no_f128:
             hyperparameters_backup=copy.deepcopy(self.hyperparameters)
             for entry in self.hyperparameters['General']['stability_checks']:
                 entry['prec'] = 32
             rust_workers_f128 = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
             self.hyperparameters = hyperparameters_backup
+
+        rust_workers_no_f128 = {SG_name: None for SG_name in selected_SGs}
+        if args.plots is not None:
+            hyperparameters_backup=copy.deepcopy(self.hyperparameters)
+            self.hyperparameters['General']['stability_checks'] = [self.hyperparameters['General']['stability_checks'][0],]
+            self.hyperparameters['General']['stability_checks'][-1]['relative_precision']=1.0e-99
+            self.hyperparameters['General']['stability_checks'][-1]['prec']=16
+            self.hyperparameters['General']['stability_checks'][-1]['n_samples']=0
+            rust_workers_no_f128 = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+            self.hyperparameters = hyperparameters_backup
+
         t_start_profile = time.time()
         n_passed = 0
         n_failed = 0
@@ -3707,6 +3736,12 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         SG_failed = 0
 
         n_tot_limits = sum(len(IR_limits_per_SG[SG_name]) for SG_name in selected_SGs)
+
+        plots_repl_dict = {
+            'main_body' : [],
+            'plot_function_definitions' : [],
+            'data_loading_definitions' : [],
+        }
 
         with progressbar.ProgressBar(
                 prefix=("IR profiling. {variables.pert_order} IR limit: {variables.ir_limit} {variables.i_limit}/{variables.n_limits} %s{variables.passed}\u2713%s, %s{variables.failed}\u2717%s, SGs: %s{variables.SG_passed}\u2713%s, %s{variables.SG_failed}\u2717%s, SG: {variables.SG_name} "%(
@@ -3783,6 +3818,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                     analysis_results = self.perform_IR_analysis(SG, ir_limit, ir_limit_info, LMBs_info_per_SG[SG_name], external_momenta, 
                         rust_workers[SG_name],rust_workers_f128[SG_name], args, command_to_reproduce=reproducible_command)
+                    if args.plots is not None:
+                        analysis_results_no_f128 = self.perform_IR_analysis(SG, ir_limit, ir_limit_info, LMBs_info_per_SG[SG_name], external_momenta, 
+                            rust_workers_no_f128[SG_name],rust_workers_no_f128[SG_name], args, command_to_reproduce=reproducible_command)
+                        self.plot_IR_profile_results(plots_repl_dict, analysis_results,analysis_results_no_f128, SG, SG_name, i_limit, ir_limit, args)
 
                     # We expect dod of at most five sigma above 0.0 for the integral to be convergent.
                     if analysis_results['complete_integrand']['dod']['status'] == 'CUTAWAY':
@@ -3824,9 +3863,32 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         logger.info("IR analysis of %d limits of %d supergraphs performed in %.0fs."%(n_tot_limits, len(selected_SGs), time.time()-t_start_profile))
 
         logger.info("Writing out processed yaml supergaphs on disk...")
-
         # Write out the results into processed topologies
         self.all_supergraphs.export(pjoin(self.dir_path, self._rust_inputs_folder))
+
+        if args.plots is not None:
+            if args.plots.endswith('.pdf'):
+                plot_path_base = args.plots[:-4]
+            elif '.' in os.path.basename(args.plots):
+                plot_path_base = '.'.join(args.plots.split('.')[:-1])
+            else:
+                plot_path_base = args.plots
+            plot_path_base = os.path.abspath(pjoin(MG5DIR,plot_path_base))
+            logger.info("Now Generating plots in '%s.pdf'..."%plot_path_base)
+            plots_repl_dict['main_body'] = '\n\n'.join(plots_repl_dict['main_body']) 
+            plots_repl_dict['plot_function_definitions'] = '\n\n'.join(plots_repl_dict['plot_function_definitions']) 
+            plots_repl_dict['data_loading_definitions'] = '\n\n'.join(plots_repl_dict['data_loading_definitions']) 
+            plotting_template = open(pjoin(template_dir,'plot_limits_template.py'),'r').read()
+            with open('%s.py'%plot_path_base, 'w') as f:
+                f.write(plotting_template%plots_repl_dict)
+            st = os.stat('%s.py'%plot_path_base)
+            os.chmod('%s.py'%plot_path_base, st.st_mode | stat.S_IEXEC)
+            r = subprocess.run(['%s.py'%plot_path_base, '%s.pdf'%plot_path_base, '-sc'], cwd=MG5DIR, capture_output=True)
+            if r.returncode != 0:
+                logger.warning("The generations of the plot limits failed. You can attempt to rerun it manually with:\n%s\nstdout:\n%s\nstderr:\n%s\n"%(
+                    'cd %s; ./%s.py %s.pdf -sc'%(os.path.dirname(plot_path_base),os.path.basename(plot_path_base),os.path.basename(plot_path_base)),
+                    r.stdout.decode('UTF-8'), r.stderr.decode('UTF-8') ))
+
         display_options = []
         if len(selected_SGs)==1:
             display_options.append(selected_SGs[0])
@@ -3903,7 +3965,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         # The scaling becomes progressively more severe as we approach more stringent limits, we therefore tame it here according to the number of scalings
         #n_scalings = len(coll_sets)+len(soft_set)
         n_scalings = SuperGraph.compute_ir_limit_perturbative_order(ir_limit)
-        scalings = [scaling**((1./n_scalings)**1.0) for scaling in scalings]
+        scalings = [scaling**((1./n_scalings)**args.softening_approach_power) for scaling in scalings]
 
         results = {
             'defining_LMB_momenta': [],
@@ -4058,6 +4120,74 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         return results
 
+    def plot_IR_profile_results(self, plots_repl_dict, results, results_no_f128, SG, SG_name, i_limit, ir_limit, args):
+        
+        # plots_repl_dict = {
+        #     'main_body' : [],
+        #     'plot_function_definitions' : [],
+        #     'data_loading_definitions' : [],
+        # }
+
+        str_limit = SuperGraph.format_ir_limit_str(ir_limit, colored_output=False)
+
+        plots_repl_dict['data_loading_definitions'].append(
+"""def load_data_limit_%s_%d():
+    nan, nanj = 0., 0.
+    res = %s
+    res_no_f128 = %s
+    return res, res_no_f128"""%(
+            SG_name,
+            i_limit,
+            pformat(results),
+            pformat(results_no_f128)
+        ))
+        plots_repl_dict['main_body'].append(
+"""        if (limits is None or %d in limits) and (SG_names is None or '%s' in SG_names):
+            # %s: limit %s
+            plot_limit_%s_%d(pdf, **opts)"""%(
+            i_limit, SG_name, SG_name, str_limit, SG_name, i_limit
+        ))
+
+        plots_repl_dict['plot_function_definitions'].append(
+"""def plot_limit_{sg_name:s}_{i_l:d}(pdf, show_cuts=False):
+    
+    title = "{sg_name:s} : limit #{i_l:d} {str_limit:s}"
+    pdf.attach_note(title) 
+
+    data, data_no_f128 = load_data_limit_{sg_name:s}_{i_l:d}()
+    fig, ax = plt.subplots()
+    plt.yscale('log')
+    plt.xscale('log')
+    
+    x_itg = [1./d[0] for d in data['complete_integrand']['evaluations']]
+    y_itg = [abs(d[1]) for d in data['complete_integrand']['evaluations']]
+    itg_line, = ax.plot(x_itg, y_itg,'-')
+    itg_line.set_label('Total LU itg with stab. rescue (dod=%.3g+-%.1g)'%(data['complete_integrand']['dod']['central'],data['complete_integrand']['dod']['std_err']))
+    x_itg = [1./d[0] for d in data_no_f128['complete_integrand']['evaluations']]
+    y_itg = [abs(d[1]) for d in data_no_f128['complete_integrand']['evaluations']]
+    itg_line, = ax.plot(x_itg, y_itg,'-')
+    itg_line.set_label('Total LU itg without stab. rescue (dod=%.3g+-%.1g)'%(data_no_f128['complete_integrand']['dod']['central'],data_no_f128['complete_integrand']['dod']['std_err']))
+    cut_descrs = {cut_descrs:s}
+    if show_cuts and 'per_cut' in data and len(data['per_cut'])>0:
+        sorted_cut_ids = sorted(data['per_cut'])
+        for cut_id in sorted_cut_ids:
+            x_cut = [1./d[0] for d in data['per_cut'][cut_id]['evaluations']]
+            y_cut = [abs(d[1]) for d in data['per_cut'][cut_id]['evaluations']]
+            cut_line, = ax.plot(x_cut, y_cut,'--')
+            cut_line.set_label('Cut #%d (%s) LU itg (dod=%.3g+-%.1g)'%(cut_id,cut_descrs[cut_id],data['per_cut'][cut_id]['dod']['central'],data['per_cut'][cut_id]['dod']['std_err']))
+
+    ax.legend(loc='upper left', prop={{'size': 5}})
+    ax.set(xlabel='$\lambda^{{-1}}$', ylabel='Integrand (arbitrary units)', title=title)
+    pdf.savefig()
+    plt.close()""".format(**{
+        'sg_name' : SG_name,
+        'str_limit' : str_limit,
+        'i_l' : i_limit,
+        'cut_descrs' : pformat({ i_cut : ','.join(c['name'] for c in cut['cuts'] ) for i_cut, cut in enumerate(SG['cutkosky_cuts']) }),
+        }))
+
+        return
+
     #### UV PROFILE COMMAND
     uv_profile_parser = ArgumentParser(prog='uv_profile')
     uv_profile_parser.add_argument('SG_name', metavar='SG_name', type=str, nargs='+',
@@ -4086,6 +4216,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     uv_profile_parser.add_argument(
         "-nf", "--no_f128", action="store_true", dest="no_f128", default=False,
         help="Forbid automatic promotion to f128.")
+    uv_profile_parser.add_argument(
+        "-nsc", "--no_stability_check", action="store_true", dest="no_stability_check", default=False,
+        help="Disable all stability checks.")
     uv_profile_parser.add_argument(
         "-nw", "--no_warnings", action="store_false", dest="show_warnings", default=True,
         help="Do not show warnings about this profiling run.")
@@ -4176,6 +4309,14 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         else:
             for entry in self.hyperparameters['General']['stability_checks']:
                 entry['relative_precision'] = args.required_precision
+
+        if args.no_f128 or args.no_stability_check:
+            for entry in self.hyperparameters['General']['stability_checks']:
+                if args.no_f128:
+                    entry['prec']=16
+            if args.no_stability_check:
+                self.hyperparameters['General']['stability_checks'] = [self.hyperparameters['General']['stability_checks'][0],]
+                self.hyperparameters['General']['stability_checks'][0]['n_samples'] = 0
 
         logger.info("Starting UV profile...")
 

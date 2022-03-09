@@ -184,8 +184,8 @@ def temporary_preprocess_multiline_blocks(FORM_output):
                     current_running_line = combine_lines([current_running_line,line],split_terms=False)[0]
 
                 if len(combined_lines)==1:
-                    if balanced_parenthesis(combined_lines[0]) is None:
-                        raise FormProcessingError("No imbalanced parenthesis in first line to combine within an output C context.")
+                   if balanced_parenthesis(combined_lines[0]) is None:
+                       raise FormProcessingError("No imbalanced parenthesis in first line to combine within an output C context.")
 
                 b_par = balanced_parenthesis(current_running_line)
                 if b_par is None:
@@ -216,6 +216,11 @@ def temporary_preprocess_multiline_blocks(FORM_output):
         if '//CMODE' in stripped_line:
             is_in_multiline_block =True
             continue
+        # Old detection
+        #if stripped_line.startswith('return') and not stripped_line[-1]==';':
+        #    lines_in_current_block.append(line)
+        #    is_in_multiline_block =True
+        #    continue
         if stripped_line==';':
             if not is_in_multiline_block:
                 if len(lines_in_current_block)!=0:
