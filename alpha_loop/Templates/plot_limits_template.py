@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from argparse import ArgumentParser
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.ticker import LogLocator
 
 def main(output_path=None, SG_names=None, limits=None, use_latex=None, **opts):
      
@@ -31,9 +32,9 @@ def main(output_path=None, SG_names=None, limits=None, use_latex=None, **opts):
 plotter_parser = ArgumentParser(prog='plotter')
 plotter_parser.add_argument('output_path', metavar='output_path', type=str,
     help='The full paths to write the plots into, including the .pdf extension.')
-plotter_parser.add_argument("--limits", dest='limits', type=int, nargs='?', default=None,
+plotter_parser.add_argument("--limits", dest='limits', type=int, nargs='*', default=None,
     help='Specify a list of limits ID to render.')
-plotter_parser.add_argument("--SG_name", dest='SG_names', type=str, nargs='?', default=None,
+plotter_parser.add_argument("--SG_name", dest='SG_names', type=str, nargs='*', default=None,
     help='Specify a list of SG names to render.')
 plotter_parser.add_argument(
     "-wl", "--with_latex", action="store_true", dest="use_latex", default=False,

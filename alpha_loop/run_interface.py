@@ -3819,9 +3819,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     analysis_results = self.perform_IR_analysis(SG, ir_limit, ir_limit_info, LMBs_info_per_SG[SG_name], external_momenta, 
                         rust_workers[SG_name],rust_workers_f128[SG_name], args, command_to_reproduce=reproducible_command)
                     if args.plots is not None:
+                        analysis_results_with_f128 = self.perform_IR_analysis(SG, ir_limit, ir_limit_info, LMBs_info_per_SG[SG_name], external_momenta, 
+                            rust_workers[SG_name],rust_workers_f128[SG_name], args, command_to_reproduce=reproducible_command, adjust_evaluations_to_match_dod=True)
                         analysis_results_no_f128 = self.perform_IR_analysis(SG, ir_limit, ir_limit_info, LMBs_info_per_SG[SG_name], external_momenta, 
-                            rust_workers_no_f128[SG_name],rust_workers_no_f128[SG_name], args, command_to_reproduce=reproducible_command)
-                        self.plot_IR_profile_results(plots_repl_dict, analysis_results,analysis_results_no_f128, SG, SG_name, i_limit, ir_limit, args)
+                            rust_workers_no_f128[SG_name],rust_workers_no_f128[SG_name], args, command_to_reproduce=reproducible_command, adjust_evaluations_to_match_dod=True)
+                        self.plot_IR_profile_results(plots_repl_dict, analysis_results_with_f128, analysis_results_no_f128, SG, SG_name, i_limit, ir_limit, args)
 
                     # We expect dod of at most five sigma above 0.0 for the integral to be convergent.
                     if analysis_results['complete_integrand']['dod']['status'] == 'CUTAWAY':
@@ -3904,7 +3906,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             display_options.append('--show_command')
         self.do_display(' '.join(display_options))
 
-    def perform_IR_analysis(self, SG, ir_limit, ir_limit_info, LMBs_info, external_momenta, rust_worker, rust_worker_f128, args, command_to_reproduce=None):
+    def perform_IR_analysis(self, SG, ir_limit, ir_limit_info, LMBs_info, external_momenta, rust_worker, rust_worker_f128, args, 
+                            command_to_reproduce=None, adjust_evaluations_to_match_dod=False):
         """
             Performs the IR analysis for the selected SG objectand using the rust_workers provided.
             Also info about LMBs available are provided as well. User args are forwarded as well.
@@ -4106,6 +4109,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # Also include dod from jacobian behavior in the soft limit. Ignore collinear jacobian linear suppression as it should not be necessary.
             # Also subtract one so as to make the natural target dod -1 (since we're approaching a finite point here.)
             dod -= 3.*float(len(soft_set))+1
+            if adjust_evaluations_to_match_dod:
+                container['evaluations'] = [ (s, e*(s**(3.*float(len(soft_set))+1))) for s, e in container['evaluations'] ]
 
             dod_status = 'SUCESS' if successful_fit else 'UNSTABLE'
             if args.ignore_cut_configs > 0:
@@ -4121,12 +4126,6 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         return results
 
     def plot_IR_profile_results(self, plots_repl_dict, results, results_no_f128, SG, SG_name, i_limit, ir_limit, args):
-        
-        # plots_repl_dict = {
-        #     'main_body' : [],
-        #     'plot_function_definitions' : [],
-        #     'data_loading_definitions' : [],
-        # }
 
         str_limit = SuperGraph.format_ir_limit_str(ir_limit, colored_output=False)
 
@@ -4143,21 +4142,27 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         ))
         plots_repl_dict['main_body'].append(
 """        if (limits is None or %d in limits) and (SG_names is None or '%s' in SG_names):
-            # %s: limit %s
+            # %s: IR limit %s
             plot_limit_%s_%d(pdf, **opts)"""%(
             i_limit, SG_name, SG_name, str_limit, SG_name, i_limit
         ))
 
         plots_repl_dict['plot_function_definitions'].append(
-"""def plot_limit_{sg_name:s}_{i_l:d}(pdf, show_cuts=False):
+"""def plot_limit_{sg_name:s}_{i_l:d}(pdf, show_cuts=False, **opts):
     
     title = "{sg_name:s} : limit #{i_l:d} {str_limit:s}"
     pdf.attach_note(title) 
 
     data, data_no_f128 = load_data_limit_{sg_name:s}_{i_l:d}()
     fig, ax = plt.subplots()
+    ax.set_title(title, fontdict={{'fontsize': 10, 'fontweight': 'light'}})
+    plt.grid(b=True, which='major', axis='both')
     plt.yscale('log')
     plt.xscale('log')
+    ax.yaxis.set_major_locator(LogLocator(base=100,numticks=50))
+    ax.xaxis.set_major_locator(LogLocator(base=100,numticks=50))
+    #plt.ylim(1.0e-50, 1.0e-40)
+    #plt.xlim(1.0e0, 1.0e5)
     
     x_itg = [1./d[0] for d in data['complete_integrand']['evaluations']]
     y_itg = [abs(d[1]) for d in data['complete_integrand']['evaluations']]
@@ -4176,8 +4181,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             cut_line, = ax.plot(x_cut, y_cut,'--')
             cut_line.set_label('Cut #%d (%s) LU itg (dod=%.3g+-%.1g)'%(cut_id,cut_descrs[cut_id],data['per_cut'][cut_id]['dod']['central'],data['per_cut'][cut_id]['dod']['std_err']))
 
-    ax.legend(loc='upper left', prop={{'size': 5}})
-    ax.set(xlabel='$\lambda^{{-1}}$', ylabel='Integrand (arbitrary units)', title=title)
+    ax.legend(loc='best', prop={{'size': 5}}, framealpha=1.0) # loc='lower left'
+    ax.set(xlabel='$\lambda^{{-1}}$', ylabel='Integrand (arbitrary units)')
     pdf.savefig()
     plt.close()""".format(**{
         'sg_name' : SG_name,
@@ -4210,6 +4215,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='set LMB to consider')
     uv_profile_parser.add_argument("--UV_indices", dest='UV_indices', type=int, nargs='*', default=None,
                     help='set UV indices to consider')
+    uv_profile_parser.add_argument("--plots", dest='plots', type=str, nargs='?', default=None,
+                    help='Specify a file to produce plots in.')
     uv_profile_parser.add_argument(
         "-f", "--f128", action="store_true", dest="f128", default=False,
         help="Perfom the UV profile using f128 arithmetics.")
@@ -4465,15 +4472,33 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 entry['prec'] = 32
             rust_workers_f128 = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
             self.hyperparameters = hyperparameters_backup
+        rust_workers_no_f128 = {SG_name: None for SG_name in selected_SGs}
+        if args.plots is not None:
+            hyperparameters_backup=copy.deepcopy(self.hyperparameters)
+            self.hyperparameters['General']['stability_checks'] = [self.hyperparameters['General']['stability_checks'][0],]
+            self.hyperparameters['General']['stability_checks'][-1]['relative_precision']=1.0e-99
+            self.hyperparameters['General']['stability_checks'][-1]['prec']=16
+            self.hyperparameters['General']['stability_checks'][-1]['n_samples']=0
+            rust_workers_no_f128 = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+            self.hyperparameters = hyperparameters_backup
+
+        plots_repl_dict = {
+            'main_body' : [],
+            'plot_function_definitions' : [],
+            'data_loading_definitions' : [],
+        }
+
         t_start_profile = time.time()
         n_passed = 0
         n_failed = 0
         n_fit_failed = 0
         SG_passed = 0
         SG_failed = 0
+
         with progressbar.ProgressBar(
-                prefix=("UV profile: {variables.passed}\u2713, {variables.failed}\u2717, SG: {variables.SG_passed}\u2713, {variables.SG_failed}\u2717, fit fails: {variables.fit_failed}, {variables.SG}/{variables.n_SG} ({variables.SG_name}), "+
-                        "cut ID: {variables.cut}, test #: {variables.i_test}/{variables.n_tests} (UV: {variables.uv_edge_names} fixed: {variables.fixed_edge_names}) "), 
+                prefix=("UV profile: %s{variables.passed}\u2713%s, %s{variables.failed}\u2717%s, SG: %s{variables.SG_passed}\u2713%s, %s{variables.SG_failed}\u2717%s, fit fails: {variables.fit_failed}, {variables.SG}/{variables.n_SG} ({variables.SG_name}), "%(
+                    Colours.GREEN, Colours.END, Colours.RED, Colours.END, Colours.GREEN, Colours.END, Colours.RED, Colours.END)+
+                    "cut ID: {variables.cut}, test #: {variables.i_test}/{variables.n_tests} (UV: {variables.uv_edge_names} fixed: {variables.fixed_edge_names}) "), 
                 max_value=max_count,variables={
                     'passed': n_passed, 'failed': n_failed, 'fit_failed': n_fit_failed, 'SG_passed': SG_passed, 'SG_failed': SG_failed,
                     'SG_name':selected_SGs[0], 'SG': 0, 'n_SG':len(selected_SGs),'cut':'sum', 
@@ -4524,7 +4549,12 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                     use_f128 = args.f128
                     while True:
+                        tmp_plots_repl_dict = copy.deepcopy(plots_repl_dict)
                         results = []
+                        results_for_plot = {
+                            'with_stab_rescue': { 'complete_integrand': {'evaluations' : [], 'dod' : {'central': 0., 'std_err' : 0.} } },
+                            'without_stab_rescue': { 'complete_integrand': {'evaluations' : [], 'dod' : {'central': None, 'std_err' : None} } },
+                        }
                         for scaling in scalings:
                             rescaled_momenta = [ v*scaling if i_v in UV_edge_indices else v for i_v, v in enumerate(random_momenta)]
                             # Now transform the momentum configuration in this LMB into the defining LMB
@@ -4555,17 +4585,29 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 else:
                                     res_re, res_im = rust_worker.evaluate_integrand(xs_in_defining_LMB)
                             results.append( (scaling, complex(res_re, res_im)*overall_jac ) )
+                            
+                            if args.plots is not None:
+                                # We do not want to undo the parameterisation jacobian in the plots we show
+                                results_for_plot['with_stab_rescue']['complete_integrand']['evaluations'].append( (scaling, complex(res_re, res_im)*overall_jac*(scaling**(3*float(len(UV_edge_indices)))) ) )
+                                with utils.suppress_output(active=(not args.show_rust_warnings)):
+                                    res_re, res_im = rust_workers_no_f128[SG_name].evaluate_integrand(xs_in_defining_LMB)
+                                results_for_plot['without_stab_rescue']['complete_integrand']['evaluations'].append( (scaling, complex(res_re, res_im)*overall_jac*(scaling**(3*float(len(UV_edge_indices)))) ) )
 
 #                        misc.sprint(results)
                         # Here we are in x-space, so the dod read is already the one we want.
                         dod, standard_error, number_of_points_considered, successful_fit = utils.compute_dod(results)
                         dod += 3*float(len(UV_edge_indices))
                         if all(abs(res[1])==0. for res in results[-3:]):
-                            # Then make sure this test is passed as the integrand is exactly zeor
+                            # Then make sure this test is passed as the integrand is exactly zero
                             dod = -99.0
 
                         # We expect dod of at most five sigma above 0.0 for the integral to be convergent.
                         test_passed = (dod < float(args.target_scaling)+min(max(10.0*abs(standard_error),0.05),0.2) )
+
+                        if args.plots is not None:
+                            results_for_plot['with_stab_rescue']['complete_integrand']['dod']['central'] = dod
+                            results_for_plot['with_stab_rescue']['complete_integrand']['dod']['std_err'] = standard_error
+                            self.plot_UV_profile_results(tmp_plots_repl_dict, results_for_plot, i_test, LMB, UV_edge_indices, SG_name, args)
 
                         if (successful_fit and test_passed) or use_f128:
                             break
@@ -4573,7 +4615,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                             use_f128 = True
                         else:
                             break
-
+                    
+                    plots_repl_dict = tmp_plots_repl_dict
                     do_debug = False
                     if not successful_fit and dod is not None and dod > float(args.target_scaling)-1.:
                         if args.show_warnings:
@@ -4671,7 +4714,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         dod, standard_error, number_of_points_considered, successful_fit = utils.compute_dod(results)
                         dod += 3*float(len(UV_edge_indices))
                         if all(abs(res[1])==0. for res in results[-3:]):
-                            # Then make sure this test is passed as the integrand is exactly zeor
+                            # Then make sure this test is passed as the integrand is exactly zero
                             dod = -99.0
 
                         # We expect dod of at most five sigma above 0.0 for the integral to be convergent.
@@ -4762,10 +4805,94 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         logger.info("Writing out processed yaml supergaphs on disk...")
         # Write out the results into processed topologies
         self.all_supergraphs.export(pjoin(self.dir_path, self._rust_inputs_folder))
+
+        if args.plots is not None:
+            if args.plots.endswith('.pdf'):
+                plot_path_base = args.plots[:-4]
+            elif '.' in os.path.basename(args.plots):
+                plot_path_base = '.'.join(args.plots.split('.')[:-1])
+            else:
+                plot_path_base = args.plots
+            plot_path_base = os.path.abspath(pjoin(MG5DIR,plot_path_base))
+            logger.info("Now Generating plots in '%s.pdf'..."%plot_path_base)
+            plots_repl_dict['main_body'] = '\n\n'.join(plots_repl_dict['main_body']) 
+            plots_repl_dict['plot_function_definitions'] = '\n\n'.join(plots_repl_dict['plot_function_definitions']) 
+            plots_repl_dict['data_loading_definitions'] = '\n\n'.join(plots_repl_dict['data_loading_definitions']) 
+            plotting_template = open(pjoin(template_dir,'plot_limits_template.py'),'r').read()
+            with open('%s.py'%plot_path_base, 'w') as f:
+                f.write(plotting_template%plots_repl_dict)
+            st = os.stat('%s.py'%plot_path_base)
+            os.chmod('%s.py'%plot_path_base, st.st_mode | stat.S_IEXEC)
+            r = subprocess.run(['%s.py'%plot_path_base, '%s.pdf'%plot_path_base, '-sc'], cwd=MG5DIR, capture_output=True)
+            if r.returncode != 0:
+                logger.warning("The generations of the plot limits failed. You can attempt to rerun it manually with:\n%s\nstdout:\n%s\nstderr:\n%s\n"%(
+                    'cd %s; ./%s.py %s.pdf -sc'%(os.path.dirname(plot_path_base),os.path.basename(plot_path_base),os.path.basename(plot_path_base)),
+                    r.stdout.decode('UTF-8'), r.stderr.decode('UTF-8') ))
+
         if len(selected_SGs)==1:
             self.do_display('%s --uv'%selected_SGs[0])
         else:
             self.do_display('--uv')
+
+
+    def plot_UV_profile_results(self, plots_repl_dict, results_for_plot, i_limit, LMB, UV_edge_indices, SG_name, args):
+
+        str_limit = '(inf: %s | fixed: %s)'%(','.join(LMB[i] for i in UV_edge_indices),','.join(edge for i, edge in enumerate(LMB) if i not in UV_edge_indices))
+
+        plots_repl_dict['data_loading_definitions'].append(
+"""def load_data_limit_%s_%d():
+    nan, nanj = 0., 0.
+    res = %s
+    res_no_f128 = %s
+    return res, res_no_f128"""%(
+            SG_name,
+            i_limit,
+            pformat(results_for_plot['with_stab_rescue']),
+            pformat(results_for_plot['without_stab_rescue'])
+        ))
+        plots_repl_dict['main_body'].append(
+"""        if (limits is None or %d in limits) and (SG_names is None or '%s' in SG_names):
+            # %s: limit %s
+            plot_limit_%s_%d(pdf, **opts)"""%(
+            i_limit, SG_name, SG_name, str_limit, SG_name, i_limit
+        ))
+
+        plots_repl_dict['plot_function_definitions'].append(
+"""def plot_limit_{sg_name:s}_{i_l:d}(pdf, show_cuts=False, **opts):
+    
+    title = "{sg_name:s} : UV limit #{i_l:d} {str_limit:s}"
+    pdf.attach_note(title) 
+
+    data, data_no_f128 = load_data_limit_{sg_name:s}_{i_l:d}()
+    fig, ax = plt.subplots()
+    ax.set_title(title, fontdict={{'fontsize': 10, 'fontweight': 'light'}})
+    plt.yscale('log')
+    plt.xscale('log')
+    plt.grid(b=True, which='major', axis='both')
+    ax.yaxis.set_major_locator(LogLocator(base=100,numticks=50))
+    ax.xaxis.set_major_locator(LogLocator(base=100,numticks=50))
+    #plt.ylim(1.0e-50, 1.0e-40)
+    #plt.xlim(1.0e0, 1.0e5)
+
+    x_itg = [d[0] for d in data['complete_integrand']['evaluations']]
+    y_itg = [abs(d[1]) for d in data['complete_integrand']['evaluations']]
+    itg_line, = ax.plot(x_itg, y_itg,'-')
+    itg_line.set_label('Total LU itg with stab. rescue (dod=%.3g+-%.1g)'%(data['complete_integrand']['dod']['central'],data['complete_integrand']['dod']['std_err']))
+    x_itg = [d[0] for d in data_no_f128['complete_integrand']['evaluations']]
+    y_itg = [abs(d[1]) for d in data_no_f128['complete_integrand']['evaluations']]
+    itg_line, = ax.plot(x_itg, y_itg,'--')
+    itg_line.set_label('Total LU itg without stab. rescue.')
+
+    ax.legend(loc='best', prop={{'size': 5}}, framealpha=1.0) # loc='lower left'
+    ax.set(xlabel='$\lambda$', ylabel='Integrand (arbitrary units)')
+    pdf.savefig()
+    plt.close()""".format(**{
+        'sg_name' : SG_name,
+        'str_limit' : str_limit,
+        'i_l' : i_limit,
+        }))
+
+        return
 
     def do_refresh_derived_data(self, line):
         """ Remove all processed data, on disk as well."""
