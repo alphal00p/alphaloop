@@ -46,6 +46,7 @@ import madgraph.iolibs.file_writers as writers
 from madgraph import MadGraph5Error, InvalidCmd, MG5DIR
 import models.model_reader as model_reader
 import multiprocessing
+import platform
 
 import LTD.squared_topologies
 import LTD.ltd_utils
@@ -2170,8 +2171,11 @@ class FORMSuperGraphIsomorphicList(list):
             f.write('{}\n\n'.format('\n'.join('Fill forest({}) = {};'.format(i, uv) for i,uv in enumerate(uv_forest))))
             f.write('L CONF =\n +{};\n\n'.format(conf))
             f.write('L F = {}\n;'.format(form_input))
-
-        form_settings = formset.generate_form_settings(percentage=FORM_processing_options["FORM_use_max_mem_fraction"] * 100., ncpus=FORM_processing_options["cores"])
+        
+        if platform.system() != 'Darwin':
+            form_settings = formset.generate_form_settings(percentage=FORM_processing_options["FORM_use_max_mem_fraction"] * 100., ncpus=FORM_processing_options["cores"])
+        else:
+            form_settings = {}
         form_settings.update(FORM_processing_options["FORM_setup"])
 
         with open(pjoin(selected_workspace,'form.set'), 'w') as f:
