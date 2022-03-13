@@ -3820,9 +3820,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         rust_workers[SG_name],rust_workers_f128[SG_name], args, command_to_reproduce=reproducible_command)
                     if args.plots is not None:
                         analysis_results_with_f128 = self.perform_IR_analysis(SG, ir_limit, ir_limit_info, LMBs_info_per_SG[SG_name], external_momenta, 
-                            rust_workers[SG_name],rust_workers_f128[SG_name], args, command_to_reproduce=reproducible_command, adjust_evaluations_to_match_dod=True)
+                            rust_workers[SG_name],rust_workers_f128[SG_name], args, command_to_reproduce=reproducible_command, for_plots=True)
                         analysis_results_no_f128 = self.perform_IR_analysis(SG, ir_limit, ir_limit_info, LMBs_info_per_SG[SG_name], external_momenta, 
-                            rust_workers_no_f128[SG_name],rust_workers_no_f128[SG_name], args, command_to_reproduce=reproducible_command, adjust_evaluations_to_match_dod=True)
+                            rust_workers_no_f128[SG_name],rust_workers_no_f128[SG_name], args, command_to_reproduce=reproducible_command, for_plots=True)
                         self.plot_IR_profile_results(plots_repl_dict, analysis_results_with_f128, analysis_results_no_f128, SG, SG_name, i_limit, ir_limit, args)
 
                     # We expect dod of at most five sigma above 0.0 for the integral to be convergent.
@@ -3907,7 +3907,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         self.do_display(' '.join(display_options))
 
     def perform_IR_analysis(self, SG, ir_limit, ir_limit_info, LMBs_info, external_momenta, rust_worker, rust_worker_f128, args, 
-                            command_to_reproduce=None, adjust_evaluations_to_match_dod=False):
+                            command_to_reproduce=None, for_plots=False):
         """
             Performs the IR analysis for the selected SG objectand using the rust_workers provided.
             Also info about LMBs available are provided as well. User args are forwarded as well.
@@ -4109,8 +4109,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # Also include dod from jacobian behavior in the soft limit. Ignore collinear jacobian linear suppression as it should not be necessary.
             # Also subtract one so as to make the natural target dod -1 (since we're approaching a finite point here.)
             dod -= 3.*float(len(soft_set))+1
-            if adjust_evaluations_to_match_dod:
-                container['evaluations'] = [ (s, e*(s**(3.*float(len(soft_set))+1))) for s, e in container['evaluations'] ]
+            if for_plots:
+                container['evaluations'] = [ (s, e, (s**(3.*float(len(soft_set))+1)) ) for s, e in container['evaluations'] ]
 
             dod_status = 'SUCESS' if successful_fit else 'UNSTABLE'
             if args.ignore_cut_configs > 0:
@@ -4130,7 +4130,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         str_limit = SuperGraph.format_ir_limit_str(ir_limit, colored_output=False)
 
         plots_repl_dict['data_loading_definitions'].append(
-"""def load_data_limit_%s_%d():
+"""def load_data_IR_limit_%s_%d():
     nan, nanj = 0., 0.
     res = %s
     res_no_f128 = %s
@@ -4143,17 +4143,17 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         plots_repl_dict['main_body'].append(
 """        if (limits is None or %d in limits) and (SG_names is None or '%s' in SG_names):
             # %s: IR limit %s
-            plot_limit_%s_%d(pdf, **opts)"""%(
+            plot_IR_limit_%s_%d(pdf, **opts)"""%(
             i_limit, SG_name, SG_name, str_limit, SG_name, i_limit
         ))
 
         plots_repl_dict['plot_function_definitions'].append(
-"""def plot_limit_{sg_name:s}_{i_l:d}(pdf, show_cuts=False, **opts):
+"""def plot_IR_limit_{sg_name:s}_{i_l:d}(pdf, show_cuts=False, show_dods=True, legend_size=5, include_jacobian=True, x_min_max=None, y_min_max=None, **opts):
     
     title = "{sg_name:s} : limit #{i_l:d} {str_limit:s}"
     pdf.attach_note(title) 
 
-    data, data_no_f128 = load_data_limit_{sg_name:s}_{i_l:d}()
+    data, data_no_f128 = load_data_IR_limit_{sg_name:s}_{i_l:d}()
     fig, ax = plt.subplots()
     ax.set_title(title, fontdict={{'fontsize': 10, 'fontweight': 'light'}})
     plt.grid(b=True, which='major', axis='both')
@@ -4161,27 +4161,29 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     plt.xscale('log')
     ax.yaxis.set_major_locator(LogLocator(base=100,numticks=50))
     ax.xaxis.set_major_locator(LogLocator(base=100,numticks=50))
-    #plt.ylim(1.0e-50, 1.0e-40)
-    #plt.xlim(1.0e0, 1.0e5)
+    if x_min_max is not None:
+        plt.xlim(x_min_max[0], x_min_max[1])
+    if y_min_max is not None:
+        plt.ylim(y_min_max[0], y_min_max[1])
     
-    x_itg = [1./d[0] for d in data['complete_integrand']['evaluations']]
-    y_itg = [abs(d[1]) for d in data['complete_integrand']['evaluations']]
+    x_itg = [1./d[0] for d in data['complete_integrand']['evaluations'] if abs(d[1]*(1.0 if not include_jacobian else d[2]))!=0.0 ]
+    y_itg = [abs(d[1]*(1.0 if not include_jacobian else d[2])) for d in data['complete_integrand']['evaluations'] if abs(d[1]*(1.0 if not include_jacobian else d[2]))!=0.0 ]
     itg_line, = ax.plot(x_itg, y_itg,'-')
-    itg_line.set_label('Total LU itg with stab. rescue (dod=%.3g+-%.1g)'%(data['complete_integrand']['dod']['central'],data['complete_integrand']['dod']['std_err']))
-    x_itg = [1./d[0] for d in data_no_f128['complete_integrand']['evaluations']]
-    y_itg = [abs(d[1]) for d in data_no_f128['complete_integrand']['evaluations']]
+    itg_line.set_label('Total LU itg with stab. rescue'+('' if not show_dods else ' (dod=%.3g+-%.1g)'%(data['complete_integrand']['dod']['central'],data['complete_integrand']['dod']['std_err'])))
+    x_itg = [1./d[0] for d in data_no_f128['complete_integrand']['evaluations'] if abs(d[1])!=0.0 ]
+    y_itg = [abs(d[1]*(1.0 if not include_jacobian else d[2])) for d in data_no_f128['complete_integrand']['evaluations'] if abs(d[1]*(1.0 if not include_jacobian else d[2]))!=0.0 ]
     itg_line, = ax.plot(x_itg, y_itg,'-')
-    itg_line.set_label('Total LU itg without stab. rescue (dod=%.3g+-%.1g)'%(data_no_f128['complete_integrand']['dod']['central'],data_no_f128['complete_integrand']['dod']['std_err']))
+    itg_line.set_label('Total LU itg without stab. rescue'+('' if not show_dods else ' (dod=%.3g+-%.1g)'%(data_no_f128['complete_integrand']['dod']['central'],data_no_f128['complete_integrand']['dod']['std_err'])))
     cut_descrs = {cut_descrs:s}
     if show_cuts and 'per_cut' in data and len(data['per_cut'])>0:
         sorted_cut_ids = sorted(data['per_cut'])
         for cut_id in sorted_cut_ids:
-            x_cut = [1./d[0] for d in data['per_cut'][cut_id]['evaluations']]
-            y_cut = [abs(d[1]) for d in data['per_cut'][cut_id]['evaluations']]
+            x_cut = [1./d[0] for d in data['per_cut'][cut_id]['evaluations'] if abs(d[1]*(1.0 if not include_jacobian else d[2]))!=0.0 ]
+            y_cut = [abs(d[1]*(1.0 if not include_jacobian else d[2])) for d in data['per_cut'][cut_id]['evaluations'] if abs(d[1]*(1.0 if not include_jacobian else d[2]))!=0.0 ]
             cut_line, = ax.plot(x_cut, y_cut,'--')
-            cut_line.set_label('Cut #%d (%s) LU itg (dod=%.3g+-%.1g)'%(cut_id,cut_descrs[cut_id],data['per_cut'][cut_id]['dod']['central'],data['per_cut'][cut_id]['dod']['std_err']))
+            cut_line.set_label('Cut #%d (%s)'%(cut_id,cut_descrs[cut_id])+('' if not show_dods else ' (dod=%.3g+-%.1g)'%(data['per_cut'][cut_id]['dod']['central'],data['per_cut'][cut_id]['dod']['std_err'])))
 
-    ax.legend(loc='best', prop={{'size': 5}}, framealpha=1.0) # loc='lower left'
+    ax.legend(loc='best', prop={{'size': legend_size}}, framealpha=1.0) # loc='lower left'
     ax.set(xlabel='$\lambda^{{-1}}$', ylabel='Integrand (arbitrary units)')
     pdf.savefig()
     plt.close()""".format(**{
@@ -4588,10 +4590,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                             
                             if args.plots is not None:
                                 # We do not want to undo the parameterisation jacobian in the plots we show
-                                results_for_plot['with_stab_rescue']['complete_integrand']['evaluations'].append( (scaling, complex(res_re, res_im)*overall_jac*(scaling**(3*float(len(UV_edge_indices)))) ) )
+                                results_for_plot['with_stab_rescue']['complete_integrand']['evaluations'].append( (scaling, complex(res_re, res_im)*overall_jac, (scaling**(3*float(len(UV_edge_indices)))) ) )
                                 with utils.suppress_output(active=(not args.show_rust_warnings)):
                                     res_re, res_im = rust_workers_no_f128[SG_name].evaluate_integrand(xs_in_defining_LMB)
-                                results_for_plot['without_stab_rescue']['complete_integrand']['evaluations'].append( (scaling, complex(res_re, res_im)*overall_jac*(scaling**(3*float(len(UV_edge_indices)))) ) )
+                                results_for_plot['without_stab_rescue']['complete_integrand']['evaluations'].append( (scaling, complex(res_re, res_im)*overall_jac, (scaling**(3*float(len(UV_edge_indices)))) ) )
 
 #                        misc.sprint(results)
                         # Here we are in x-space, so the dod read is already the one we want.
@@ -4840,7 +4842,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         str_limit = '(inf: %s | fixed: %s)'%(','.join(LMB[i] for i in UV_edge_indices),','.join(edge for i, edge in enumerate(LMB) if i not in UV_edge_indices))
 
         plots_repl_dict['data_loading_definitions'].append(
-"""def load_data_limit_%s_%d():
+"""def load_data_UV_limit_%s_%d():
     nan, nanj = 0., 0.
     res = %s
     res_no_f128 = %s
@@ -4853,17 +4855,17 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         plots_repl_dict['main_body'].append(
 """        if (limits is None or %d in limits) and (SG_names is None or '%s' in SG_names):
             # %s: limit %s
-            plot_limit_%s_%d(pdf, **opts)"""%(
+            plot_UV_limit_%s_%d(pdf, **opts)"""%(
             i_limit, SG_name, SG_name, str_limit, SG_name, i_limit
         ))
 
         plots_repl_dict['plot_function_definitions'].append(
-"""def plot_limit_{sg_name:s}_{i_l:d}(pdf, show_cuts=False, **opts):
+"""def plot_UV_limit_{sg_name:s}_{i_l:d}(pdf, show_cuts=False, show_dods=True, legend_size=5, include_jacobian=True, x_min_max=None, y_min_max=None, **opts):
     
     title = "{sg_name:s} : UV limit #{i_l:d} {str_limit:s}"
     pdf.attach_note(title) 
 
-    data, data_no_f128 = load_data_limit_{sg_name:s}_{i_l:d}()
+    data, data_no_f128 = load_data_UV_limit_{sg_name:s}_{i_l:d}()
     fig, ax = plt.subplots()
     ax.set_title(title, fontdict={{'fontsize': 10, 'fontweight': 'light'}})
     plt.yscale('log')
@@ -4871,19 +4873,21 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     plt.grid(b=True, which='major', axis='both')
     ax.yaxis.set_major_locator(LogLocator(base=100,numticks=50))
     ax.xaxis.set_major_locator(LogLocator(base=100,numticks=50))
-    #plt.ylim(1.0e-50, 1.0e-40)
-    #plt.xlim(1.0e0, 1.0e5)
+    if x_min_max is not None:
+        plt.xlim(x_min_max[0], x_min_max[1])
+    if y_min_max is not None:
+        plt.ylim(y_min_max[0], y_min_max[1])
 
-    x_itg = [d[0] for d in data['complete_integrand']['evaluations']]
-    y_itg = [abs(d[1]) for d in data['complete_integrand']['evaluations']]
+    x_itg = [d[0] for d in data['complete_integrand']['evaluations'] if abs(d[1]*(1.0 if not include_jacobian else d[2]))!=0.0 ]
+    y_itg = [abs(d[1]*(1.0 if not include_jacobian else d[2])) for d in data['complete_integrand']['evaluations'] if abs(d[1]*(1.0 if not include_jacobian else d[2]))!=0.0 ]
     itg_line, = ax.plot(x_itg, y_itg,'-')
-    itg_line.set_label('Total LU itg with stab. rescue (dod=%.3g+-%.1g)'%(data['complete_integrand']['dod']['central'],data['complete_integrand']['dod']['std_err']))
-    x_itg = [d[0] for d in data_no_f128['complete_integrand']['evaluations']]
-    y_itg = [abs(d[1]) for d in data_no_f128['complete_integrand']['evaluations']]
+    itg_line.set_label('Total LU itg with stab. rescue'+ ('' if not show_dods else ' (dod=%.3g+-%.1g)'%(data['complete_integrand']['dod']['central'],data['complete_integrand']['dod']['std_err'])) )
+    x_itg = [d[0] for d in data_no_f128['complete_integrand']['evaluations'] if abs(d[1]*(1.0 if not include_jacobian else d[2]))!=0.0 ]
+    y_itg = [abs(d[1]*(1.0 if not include_jacobian else d[2])) for d in data_no_f128['complete_integrand']['evaluations'] if abs(d[1]*(1.0 if not include_jacobian else d[2]))!=0.0 ]
     itg_line, = ax.plot(x_itg, y_itg,'--')
     itg_line.set_label('Total LU itg without stab. rescue.')
 
-    ax.legend(loc='best', prop={{'size': 5}}, framealpha=1.0) # loc='lower left'
+    ax.legend(loc='best', prop={{'size': legend_size}}, framealpha=1.0) # loc='lower left'
     ax.set(xlabel='$\lambda$', ylabel='Integrand (arbitrary units)')
     pdf.savefig()
     plt.close()""".format(**{

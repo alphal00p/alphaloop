@@ -42,7 +42,18 @@ plotter_parser.add_argument(
 plotter_parser.add_argument(
     "-sc", "--show_cuts", action="store_true", dest="show_cuts", default=False,
     help="Also show cuts in the final plots.")
-
+plotter_parser.add_argument(
+    "-nsd", "--no_show_dods", action="store_false", dest="show_dods", default=True,
+    help="Do not report dods in line labels.")
+plotter_parser.add_argument(
+    "-nij", "--no_include_jacobian", action="store_false", dest="include_jacobian", default=True,
+    help="Do not include jacobian weight in the lines plotted.")
+plotter_parser.add_argument("-ls","--legend_size", dest='legend_size', type=int, default=5,
+    help='Specify legend size.')
+plotter_parser.add_argument("-xs","--x_min_max", dest='x_min_max', type=float, nargs=2, default=None,
+    help='Specify min and max x coordinates to display.')
+plotter_parser.add_argument("-ys","--y_min_max", dest='y_min_max', type=float, nargs=2, default=None,
+    help='Specify min and max y coordinates to display.')
 if __name__ == '__main__':
     args = plotter_parser.parse_args()    
     main(**vars(args))
