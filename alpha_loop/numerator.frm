@@ -179,7 +179,7 @@ Set lorentzdummy: mud1,...,mud40;
 
 CF gamma, gammatrace(c), GGstring, NN, vector,g(s),delta(s),tmps(s),T, counter,color, prop, replace;
 CF f, vx, vxs(s), uvx, vec, vec1;
-CF subs, configurations, conf, tder, cmb, cbtofmb, fmbtocb, diag, forestid, der, energy, spatial(s), onshell;
+CF subs, configurations, conf, tder, cmb, cbtofmb, fmbtocb, diag, forestid, nloops, der, energy, spatial(s), onshell;
 CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, irtopo, intuv, integrateduv;
 CT gammatracetensor(c),opengammastring;
 
@@ -725,13 +725,10 @@ argtoextrasymbol tonumber,forestid,1;
 #enddo
 #define tensorforestcount "{`tensorforestend'-`tensorforeststart'}"
 
-id forestid(x1?,?a,x3?) = forestid(?a)*forest(x1)*x3*conf(-1,x1);
+id forestid(x1?,?a,x3?) = nloops(nargs_(?a))*forest(x1)*x3;
 
 .sort:tensorforest-splitoff-2;
 Hide F;
-
-id forestid(?a) = 1;
-id conf(?a) = 1;
 
 * Apply cmb to the uv subgraph
 id cmb(?a) = cmb(?a)*replace(?a);
@@ -1063,9 +1060,15 @@ id energyselector.energyselector = 1;
 id energyselector.p?spatialparts = 0;
 .sort:energy-splitoff-2;
 
-* TODO: study grouping and effects on term size
-Multiply f(1);
-repeat id f(x?)*f1?{cmb,diag,energy,tder}(?a) = f(x*f1(?a));
+* extract all scalar forests into new expressions, except for when the forest
+* does not have any loops or has all the loops
+if ((match(nloops(0)) == 0) && (match(nloops({`NFINALMOMENTA'-1})) == 0));
+    Multiply f(1);
+    repeat id f(x?)*f1?{cmb,diag,energy,tder}(?a) = f(x*f1(?a));
+endif;
+id tder(?a) = 1;
+id nloops(x?) = 1;
+
 .sort:tensorforest-0;
 
 argtoextrasymbol tonumber,f,1;
@@ -1095,6 +1098,7 @@ Keep brackets;
     id forestid(`i') = tensorforest`i';
 #enddo
 id f(x?) = forestid(x-`foreststart');
+repeat id cmb(?a)*cmb(?a) = cmb(?a);
 
 * here we can already truncate, as there are no more poles
 argument rat;
@@ -1136,24 +1140,11 @@ id ep^n? = 1;
 #endif
 id UVRenormFINITE^n? = 1;
 
-B+ conf,forestid;
+B+ forestid;
 .sort:rat-truncate;
 Keep brackets;
 
 #$activeforestcount = `forestcount';
-
-* flatten all forests for the highest loop graph, since the other amplitude is trivial
-* this drastically reduces the number of forests
-* make sure that the index pp1 is not used anywhere inside forest`i'
-#do i=1,`forestcount'
-    repeat id conf(x1?,x2?,pp1?,...,pp{`NFINALMOMENTA'-1}?)*forestid(`i') = conf(x1,x2,pp1,...,pp{`NFINALMOMENTA'-1})*forest`i';
-#enddo
-
-* remove duplicates
-repeat id cmb(?a)*cmb(?a) = cmb(?a); * keep one cmb
-id rat(x1?) = x1;
-id tder(x?) = 1;
-
 * Drop unused forests
 #do i=1,`forestcount'
     #define HASFOREST`i' "0"
