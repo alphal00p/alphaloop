@@ -73,6 +73,7 @@ FORM_processing_options = {
     'tFORM_path': str(Path(plugin_path).parent.joinpath('libraries', 'form', 'sources', 'tform').resolve()),
     # Define the extra aguments for the compilation
     'compilation-options': [],
+    'FORM_parallel_cores': 1,
     'cores': 2, #multiprocessing.cpu_count(),
     'extra-options': {'OPTIMITERATIONS': 1000, 'NUMERATOR': 0, 'SUMDIAGRAMSETS': 'nosum', 'MAXVARSFOROPTIM': 3500},
     # If None, only consider the LMB originally chosen.
@@ -2173,7 +2174,8 @@ class FORMSuperGraphIsomorphicList(list):
             f.write('L F = {}\n;'.format(form_input))
         
         if platform.system() != 'Darwin':
-            form_settings = formset.generate_form_settings(percentage=FORM_processing_options["FORM_use_max_mem_fraction"] * 100., ncpus=FORM_processing_options["cores"])
+            form_settings = formset.generate_form_settings(percentage=FORM_processing_options["FORM_use_max_mem_fraction"] * 100., ncpus=
+                FORM_processing_options["FORM_parallel_cores"] * FORM_processing_options["cores"])
         else:
             form_settings = {}
         form_settings.update(FORM_processing_options["FORM_setup"])
@@ -2181,10 +2183,13 @@ class FORMSuperGraphIsomorphicList(list):
         with open(pjoin(selected_workspace,'form.set'), 'w') as f:
             content = [ '%s %s'%(k,str(v)) for k,v in form_settings.items() ]
             f.write('\n'.join(content))
- 
-        FORM_cmd = ' '.join([
-                FORM_processing_options["FORM_path"],
-                ]+
+
+        if FORM_processing_options["FORM_parallel_cores"] == 1:
+            FORM_cmd = [FORM_processing_options["FORM_path"]]
+        else:
+            FORM_cmd = [FORM_processing_options["tFORM_path"], '-w{}'.format(FORM_processing_options["FORM_parallel_cores"]), '-W']
+
+        FORM_cmd = ' '.join(FORM_cmd +
                 [ '-D %s=%s'%(k,v) for k,v in FORM_vars.items() ] +
                 [ '-M', '-l', '-C', '%s_%s.log'%(FORM_source_to_run,i_graph)] +
                 [ FORM_source, ]

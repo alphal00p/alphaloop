@@ -1386,7 +1386,11 @@ endif;
 
 * now add all PF structures as a special conf
     #if `diagcount' > 0
-        L FINTEGRANDPF = F + <diag1*conf(-{1+`forestcount'})>+...+<diag`diagcount'*conf(-{`diagcount'+`forestcount'})> + <forest1*conf(-1,-1)>+...+<forest`forestcount'*conf(-`forestcount',-1)>;
+        #if `forestcount' > 0
+            L FINTEGRANDPF = F + <diag1*conf(-{1+`forestcount'})>+...+<diag`diagcount'*conf(-{`diagcount'+`forestcount'})> + <forest1*conf(-1,-1)>+...+<forest`forestcount'*conf(-`forestcount',-1)>;
+        #else
+            L FINTEGRANDPF = F + <diag1*conf(-{1+`forestcount'})>+...+<diag`diagcount'*conf(-{`diagcount'+`forestcount'})>;
+        #endif
     #endif
 
     id conf(x?)*conf(x1?{<0},?a) = conf(x,?a);
@@ -1524,6 +1528,7 @@ Keep brackets;
         argtoextrasymbol tonumber,conf,1;
         #redefine oldextrasymbols "`extrasymbols_'"
         B+ conf;
+        ModuleOption noparallel; * make sure the graph ordering stays intact
         .sort:conf-1;
         Hide FINTEGRAND`INTEGRANDTYPE';
         #redefine energysymbolstart "`extrasymbols_'"
@@ -1543,6 +1548,7 @@ Keep brackets;
             id ellipsoids(?a$ellipsoids) = 1;
             id energies(?a$energies) = 1;
             id constants(?a$constants) = 1;
+            ModuleOption noparallel;
             .sort:conf-`ext'-0;
 
 
