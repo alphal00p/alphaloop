@@ -3720,7 +3720,18 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
 
         # Check if function is candidate for being split
         # Be strict intentionally here so as to easily be able to tweak what is allowed to be split and not in the C-code generation
-        if not (function[-2].strip().startswith('*out =') or function[-2].strip().startswith('return ')):
+        combined_last_line = None
+        for func_line in function[::-1]:
+            if func_line.strip().endswith(';'):
+                if combined_last_line is not None:
+                    break
+                else:
+                    combined_last_line = [func_line.strip(),]
+            else:
+                if combined_last_line is not None and func_line.strip()!='':
+                    combined_last_line.insert(0,func_line.strip())
+        combined_last_line = (''.join(combined_last_line)).strip()
+        if not (combined_last_line.startswith('*out =') or combined_last_line.startswith('return ')):
             return [function,]
 
         function_prototype_re = re.compile(r'^(?P<type>\S*)\s(?P<name>[^\(]*)\((?P<args>[^\)]*)\)(?P<suffix>.*)$')
