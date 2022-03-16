@@ -395,9 +395,9 @@ CF uvid;
 #endprocedure
 
 #procedure Masters()
-    id uvid(1,1) = rat(ep,1) * mUV2^2 * (rat(1,ep) + 1 + (1 + 1/12*pi^2)*rat(ep,1) + (1 + 1/12*pi^2 - 1/3*z3)*rat(ep^2,1));
-    id uvid(2,1) = rat(ep^2,1) * (rat(1,ep^2) + pi^2/6 - (-2*z3)/3 * rat(ep, 1));
-    id uvid(2,2) = 2 * ( -8453430797319808/21639331090712481 + 28375860251062315/42167665933747557 * rat(ep, 1));
+    id uvid(1,1) = rat(ep,1) * mUV2^2 * (rat(1,ep) + 1 + (1 + 1/12*pi^2)*rat(ep,1) + (1 + 1/12*pi^2 - 1/3*z3)*rat(ep^2,1) + alarmt1m3*rat(ep^3,1));
+    id uvid(2,1) = rat(ep^2,1) * (rat(1,ep^2) + pi^2/6 - 2/3*z3 * rat(ep, 1) + alarmt2m21*rat(ep^2,1));
+    id uvid(2,2) = 2 * ( -8453430797319808/21639331090712481 + 28375860251062315/42167665933747557 * rat(ep, 1) + alarmt2m22*rat(ep^2,1));
 
 * mercedes
     id uvid(3,1,1,1,1,1,1,1) = (2 * z3*rat(1,ep) + 1/55 * (-23459561604811217099/24730222849782180 + 330 * z3) + alarmt3m111111*rat(ep,1)); 
