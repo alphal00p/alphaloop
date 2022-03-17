@@ -3394,28 +3394,22 @@ impl SquaredTopology {
         }
 
         diag_and_num_contributions *= scaling_result;
-
-        let t_index = cutkosky_cuts.cuts.len() - 1 - first_cut_with_raising;
         let cut_result: Complex<T> = match (
             cutkosky_cuts.cuts.last().unwrap().power - 1,
             max_extra_t_raisings,
         ) {
             (1, 0) => Complex::new(
-                diag_and_num_contributions.re.get_der(t_index),
-                diag_and_num_contributions.im.get_der(t_index),
+                diag_and_num_contributions.re.get_der(0),
+                diag_and_num_contributions.im.get_der(0),
             ),
             (2, 0) => Complex::new(
-                diag_and_num_contributions.re.get_der2(t_index, t_index),
-                diag_and_num_contributions.im.get_der2(t_index, t_index),
+                diag_and_num_contributions.re.get_der2(0, 0),
+                diag_and_num_contributions.im.get_der2(0, 0),
             ),
             (1, 1) => {
                 let r = Complex::new(
-                    diag_and_num_contributions
-                        .re
-                        .get_der2(first_cut_with_raising, t_index),
-                    diag_and_num_contributions
-                        .im
-                        .get_der2(first_cut_with_raising, t_index),
+                    diag_and_num_contributions.re.get_der2(0, 1),
+                    diag_and_num_contributions.im.get_der2(0, 1),
                 );
 
                 // compute the extra factor of the derivative of the t-propagator E-surface in a loop momentum energy
@@ -3429,10 +3423,8 @@ impl SquaredTopology {
                 // select all dual components of the form
                 // ep_t^(cut_t pow + extra_pow) * sum_x ep_k^(cut_k pow - x1)  * ep_l^(cut l pow - x2) * ... with x = partition of extra_pow
                 let extra_pow_1 = diag_and_num_contributions * one_extra_derivative_prefactor;
-                let sec_contrib = Complex::new(
-                    extra_pow_1.re.get_der2(t_index, t_index),
-                    extra_pow_1.im.get_der2(t_index, t_index),
-                );
+                let sec_contrib =
+                    Complex::new(extra_pow_1.re.get_der2(1, 1), extra_pow_1.im.get_der2(1, 1));
 
                 r + sec_contrib
             }
