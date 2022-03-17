@@ -28,6 +28,11 @@ except:
 
 zero_lv = vectors.LorentzVector([0.,0.,0.,0.])
 
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
+
 class Colour:
    PURPLE = '\033[95m'
    CYAN = '\033[96m'

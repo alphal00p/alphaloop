@@ -31,6 +31,7 @@ import networkx as nx
 import psutil
 import subprocess
 import pickle
+import uuid
 from prettytable import PrettyTable
 
 #import matplotlib.pyplot as plt
@@ -83,31 +84,31 @@ INITIAL=False
 
 DUMMY=99
 
-# # The class below is a trick to side-step the difficulty of multiprocessing pools in python 3.9+ to work properly
-# # with attributes that are nested functions or a rust worker instance for example.
-# # The wrapper below will store them in the global dictionary below thus avoiding the issue.
-# _CALLABLE_INSTANCES_POOL = {}
-# class CallableInstanceWrapper(object):
-#     def __init__(self, callable_instance):
-#         if len(_CALLABLE_INSTANCES_POOL)==0:
-#             self.instance_ID = 1
-#         else:
-#             self.instance_ID = max(_CALLABLE_INSTANCES_POOL.keys())+1
-#         _CALLABLE_INSTANCES_POOL[self.instance_ID] = callable_instance
+# The class below is a trick to side-step the difficulty of multiprocessing pools in python 3.9+ to work properly
+# with attributes that are nested functions or a rust worker instance for example.
+# The wrapper below will store them in the global dictionary below thus avoiding the issue.
+_CALLABLE_INSTANCES_POOL = {}
+class ThreadSafeCallableInstanceWrapper(object):
+    def __init__(self, callable_instance):
+        if len(_CALLABLE_INSTANCES_POOL)==0:
+            self.instance_ID = 1
+        else:
+            self.instance_ID = max(_CALLABLE_INSTANCES_POOL.keys())+1
+        _CALLABLE_INSTANCES_POOL[self.instance_ID] = callable_instance
 
-#     def __call__(self, *args, **opts):
-#         return _CALLABLE_INSTANCES_POOL[self.instance_ID](*args, **opts)
+    def __call__(self, *args, **opts):
+        return _CALLABLE_INSTANCES_POOL[self.instance_ID](*args, **opts)
 
-#     def __getattr__(self, name):
-#         try:
-#             return getattr(_CALLABLE_INSTANCES_POOL[self.instance_ID],name)
-#         except Exception as e:
-#             return getattr(self,name) 
-#             logger.critical("Faced exception %s when attempting to access attribute '%s' from instance of type '%s'."%(
-#                 str(e), name, type(_CALLABLE_INSTANCES_POOL[self.instance_ID])
-#             ))
-#     def __exit__(self, exc_type, exc_val, exc_tb):
-#         _CALLABLE_INSTANCES_POOL.pop(self.instance_ID)
+    def __getattr__(self, name):
+        try:
+            return getattr(_CALLABLE_INSTANCES_POOL[self.instance_ID],name)
+        except Exception as e:
+            return getattr(self,name) 
+            logger.critical("Faced exception %s when attempting to access attribute '%s' from instance of type '%s'."%(
+                str(e), name, type(_CALLABLE_INSTANCES_POOL[self.instance_ID])
+            ))
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        _CALLABLE_INSTANCES_POOL.pop(self.instance_ID)
 
 # Simply trade the version above for the function below in order to remove the above "hack"
 def CallableInstanceWrapper(instance):
@@ -1688,7 +1689,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         else:
             return self.alphaLoop_interface._curr_model.get_particle(pdg).get('spin')
 
-    def get_rust_worker(self, supergraph_name):
+    @staticmethod
+    def get_rust_worker(supergraph_name, hyperparameters, workspace_path, rust_input_path, thread_safe=False):
         """ Return a rust worker instance to evaluate the LU representation """
 
         try:
@@ -1701,18 +1703,22 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         #os.environ['MG_NUMERATOR_PATH'] = proc_path if proc_path.endswith('/') else '%s/'%proc_path
 
         # Write hyperparameters to read in in a tmp file
-        self.hyperparameters.export_to(pjoin(self.dir_path, self._run_workspace_folder, 'tmp_hyperparameters.yaml'))            
+        tmp_file_name = pjoin(workspace_path, 'tmp_hyperparameters_%s.yaml'%str(uuid.uuid4()))
+        hyperparameters.export_to(tmp_file_name)
 
         try:
             rust_worker = CrossSection( 
-                pjoin(self.dir_path, self._rust_inputs_folder, supergraph_name+'.yaml'), 
-                pjoin(self.dir_path, self._run_workspace_folder, 'tmp_hyperparameters.yaml') 
+                pjoin(rust_input_path, supergraph_name+'.yaml'), 
+                tmp_file_name
             )
         except:
-            os.remove(pjoin(self.dir_path, self._run_workspace_folder, 'tmp_hyperparameters.yaml'))
+            os.remove(tmp_file_name)
             raise
-
-        return CallableInstanceWrapper(rust_worker)
+        
+        if thread_safe:
+            return ThreadSafeCallableInstanceWrapper(rust_worker)
+        else:
+            return CallableInstanceWrapper(rust_worker)
 
     def load_supergraphs(self):
         
@@ -1786,6 +1792,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         max_count = sum( len(self.all_supergraphs[SG_name]['cutkosky_cuts']) for SG_name in selected_SGs )*(
             2 if args.f128 else 1 )
         logger.info("Starting timing profile...")
+
         # WARNING it is important that the rust workers instantiated only go out of scope when this function terminates
         self.hyperparameters['General']['stability_checks']=[self.hyperparameters['General']['stability_checks'][0],]
         self.hyperparameters['General']['stability_checks'][0]['prec']=16
@@ -1793,12 +1800,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         self.hyperparameters['General']['stability_checks'][0]['relative_precision']=1.0e-99
         self.hyperparameters['General']['stability_checks'][0]['escalate_for_large_weight_threshold']=-1.0
         self.hyperparameters['General']['stability_checks'][0]['minimal_precision_to_skip_further_checks']=1.0e-99
-        rust_workers = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+
+        rust_workers = {SG_name: alphaLoopRunInterface.get_rust_worker( SG_name, self.hyperparameters, pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder), thread_safe=False ) for SG_name in selected_SGs}
         if args.f128:
             hyperparameters_backup=copy.deepcopy(self.hyperparameters)
             for entry in self.hyperparameters['General']['stability_checks']:
                 entry['prec'] = 32
-            rust_workers_f128 = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+            rust_workers_f128 = {SG_name: alphaLoopRunInterface.get_rust_worker( SG_name, self.hyperparameters, pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder), thread_safe=False ) for SG_name in selected_SGs}
             self.hyperparameters = hyperparameters_backup
 
         t_start_profile = time.time()
@@ -1818,7 +1826,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 bar.update(SG_name=SG_name)
                 bar.update(SG=i_SG)
 
-                #rust_worker = self.get_rust_worker(SG_name)
+                #rust_worker = alphaLoopRunInterface.get_rust_worker( SG_name, self.hyperparameters, pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder), thread_safe=False )
                 rust_worker = rust_workers[SG_name]
                 if args.f128:
                     rust_worker_f128 = rust_workers_f128[SG_name]
@@ -2542,12 +2550,12 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         for i in range(args.n_points) ]
 
         # WARNING it is important that the rust workers instantiated only go out of scope when this function terminates
-        rust_workers = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+        rust_workers = {SG_name: alphaLoopRunInterface.get_rust_worker( SG_name, self.hyperparameters, pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder), thread_safe=False ) for SG_name in selected_SGs}
         if args.f128 or not args.no_f128:
             hyperparameters_backup=copy.deepcopy(self.hyperparameters)
             for entry in self.hyperparameters['General']['stability_checks']:
                 entry['prec'] = 32
-            rust_workers_f128 = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+            rust_workers_f128 = {SG_name: alphaLoopRunInterface.get_rust_worker( SG_name, self.hyperparameters, pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder), thread_safe=False ) for SG_name in selected_SGs}
             self.hyperparameters = hyperparameters_backup
         t_start_profile = time.time()
         n_passed = 0
@@ -3082,6 +3090,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='the name(s) of a supergraph to run the IR profile for')
     ir_profile_parser.add_argument("-n","--n_points", dest='n_points', type=int, default=30,
                     help='force a certain number of points to be considered for the ir profile')
+    ir_profile_parser.add_argument("-c","--cores", dest='cores', type=int, default=1,
+                    help='Specify the number of cores for parallelisation')
     ir_profile_parser.add_argument("-max","--max_scaling", dest='max_scaling', type=float, default=1.0e-03,
                     help='maximum IR scaling to consider')
     ir_profile_parser.add_argument("-min","--min_scaling", dest='min_scaling', type=float, default=1.0e-04,
@@ -3708,13 +3718,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             # ))
 
         # WARNING it is important that the rust workers instantiated only go out of scope when this function terminates
-        rust_workers = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+        rust_workers = {SG_name: (alphaLoopRunInterface.get_rust_worker( SG_name, self.hyperparameters, pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder), thread_safe=False ) if args.cores==1 else copy.deepcopy(self.hyperparameters)) for SG_name in selected_SGs}
         rust_workers_f128 = {SG_name: None for SG_name in selected_SGs}
         if args.f128 or not args.no_f128:
             hyperparameters_backup=copy.deepcopy(self.hyperparameters)
             for entry in self.hyperparameters['General']['stability_checks']:
                 entry['prec'] = 32
-            rust_workers_f128 = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+            rust_workers_f128 = {SG_name: (alphaLoopRunInterface.get_rust_worker( SG_name, self.hyperparameters, pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder), thread_safe=False ) if args.cores==1 else copy.deepcopy(self.hyperparameters)) for SG_name in selected_SGs}
             self.hyperparameters = hyperparameters_backup
 
         rust_workers_no_f128 = {SG_name: None for SG_name in selected_SGs}
@@ -3724,18 +3734,17 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             self.hyperparameters['General']['stability_checks'][-1]['relative_precision']=1.0e-99
             self.hyperparameters['General']['stability_checks'][-1]['prec']=16
             self.hyperparameters['General']['stability_checks'][-1]['n_samples']=0
-            rust_workers_no_f128 = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+            rust_workers_no_f128 = {SG_name: (alphaLoopRunInterface.get_rust_worker( SG_name, self.hyperparameters, pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder), thread_safe=False ) if args.cores==1 else copy.deepcopy(self.hyperparameters)) for SG_name in selected_SGs}
             self.hyperparameters = hyperparameters_backup
 
         t_start_profile = time.time()
         n_passed = 0
         n_failed = 0
         n_fit_failed = 0
-        n_limits_tested = 0
         SG_passed = 0
         SG_failed = 0
 
-        n_tot_limits = sum(len(IR_limits_per_SG[SG_name]) for SG_name in selected_SGs)
+        n_tot_limits = sum(len(IR_limits_per_SG[SG_name])*args.n_points*(3 if args.plots is not None else 1) for SG_name in selected_SGs)
 
         plots_repl_dict = {
             'main_body' : [],
@@ -3744,11 +3753,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         }
 
         with progressbar.ProgressBar(
-                prefix=("IR profiling. {variables.pert_order} IR limit: {variables.ir_limit} {variables.i_limit}/{variables.n_limits} %s{variables.passed}\u2713%s, %s{variables.failed}\u2717%s, SGs: %s{variables.SG_passed}\u2713%s, %s{variables.SG_failed}\u2717%s, SG: {variables.SG_name} "%(
+                prefix=("IR profiling. {variables.pert_order} IR limit: {variables.ir_limit} {variables.i_limit}/{variables.n_limits} %s{variables.passed}\u2713%s, %s{variables.failed}\u2717%s, SGs: %s{variables.SG_passed}\u2713%s, %s{variables.SG_failed}\u2717%s, SG: {variables.SG_name}, scaling #{variables.i_scaling}/{variables.n_points} "%(
                     Colours.GREEN, Colours.END, Colours.RED, Colours.END, Colours.GREEN, Colours.END, Colours.RED, Colours.END
                 )), 
                 max_value=n_tot_limits,variables={
-                    'ir_limit': 'N/A', 'pert_order': 'N/A', 'passed': 0, 'failed': 0, 'SG_name': 'N/A', 'i_limit': 0, 'n_limits': 0, 'SG_passed': 0, 'SG_failed': 0
+                    'ir_limit': 'N/A', 'pert_order': 'N/A', 'passed': 0, 'failed': 0, 'SG_name': 'N/A', 'i_limit': 0, 'n_limits': 0, 'SG_passed': 0, 'SG_failed': 0, 'i_scaling': 0, 'n_points': args.n_points
                 }
             ) as bar:
 
@@ -3816,12 +3825,12 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     bar.update(i_limit=i_limit)
                     bar.update(pert_order='N'*SuperGraph.compute_ir_limit_perturbative_order(ir_limit)+'LO')
 
-                    analysis_results = self.perform_IR_analysis(SG, ir_limit, ir_limit_info, LMBs_info_per_SG[SG_name], external_momenta, 
+                    analysis_results = self.perform_IR_analysis(bar, SG, ir_limit, ir_limit_info, LMBs_info_per_SG[SG_name], external_momenta, 
                         rust_workers[SG_name],rust_workers_f128[SG_name], args, command_to_reproduce=reproducible_command)
                     if args.plots is not None:
-                        analysis_results_with_f128 = self.perform_IR_analysis(SG, ir_limit, ir_limit_info, LMBs_info_per_SG[SG_name], external_momenta, 
+                        analysis_results_with_f128 = self.perform_IR_analysis(bar, SG, ir_limit, ir_limit_info, LMBs_info_per_SG[SG_name], external_momenta, 
                             rust_workers[SG_name],rust_workers_f128[SG_name], args, command_to_reproduce=reproducible_command, for_plots=True)
-                        analysis_results_no_f128 = self.perform_IR_analysis(SG, ir_limit, ir_limit_info, LMBs_info_per_SG[SG_name], external_momenta, 
+                        analysis_results_no_f128 = self.perform_IR_analysis(bar, SG, ir_limit, ir_limit_info, LMBs_info_per_SG[SG_name], external_momenta, 
                             rust_workers_no_f128[SG_name],rust_workers_no_f128[SG_name], args, command_to_reproduce=reproducible_command, for_plots=True)
                         self.plot_IR_profile_results(plots_repl_dict, analysis_results_with_f128, analysis_results_no_f128, SG, SG_name, i_limit, ir_limit, args)
 
@@ -3839,17 +3848,12 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                     SG['ir_limits_analysis'][ir_limit].update(analysis_results)
 
-
-                    n_limits_tested += 1
-                    bar.update(n_limits_tested)
-
                     if not analysis_results['status'][0]:
                         n_failed +=1
                         this_SG_failed = True
                         bar.update(failed=n_failed)
                         if args.skip_once_failed:
-                            n_limits_tested += (len(IR_limits.keys())-i_limit-1)
-                            bar.update(n_limits_tested)
+                            bar.update( bar.value+(len(IR_limits.keys())-i_limit-1)*args.n_points*(3 if args.plots is not None else 1) )
                             break
                     else:
                         n_passed += 1
@@ -3906,7 +3910,142 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             display_options.append('--show_command')
         self.do_display(' '.join(display_options))
 
-    def perform_IR_analysis(self, SG, ir_limit, ir_limit_info, LMBs_info, external_momenta, rust_worker, rust_worker_f128, args, 
+    @staticmethod
+    def evaluate_scalings(run_id, local_results, scalings_list, pbar, rust_worker, rust_worker_f128, workspace_path, rust_inputs_path, 
+                            final_collinear_momenta, coll_sets, soft_set, external_momenta, LMBs_info, ir_limit_info, SG, E_cm, args):
+        """ Helper function for parallelising the evaluations of multiple scaling values """
+
+        if isinstance(rust_worker, RunHyperparameters):
+            local_rust_worker = alphaLoopRunInterface.get_rust_worker(SG['name'], rust_worker, workspace_path, rust_inputs_path, thread_safe=True)
+        else:
+            local_rust_worker = rust_worker
+        if isinstance(rust_worker_f128, RunHyperparameters):
+            local_rust_worker_f128 = alphaLoopRunInterface.get_rust_worker(SG['name'], rust_worker_f128, workspace_path, rust_inputs_path, thread_safe=True)
+        else:
+            local_rust_worker_f128 = rust_worker_f128
+
+        for i_scaling, scaling in enumerate(scalings_list):
+
+            if pbar is not None: pbar.update(i_scaling=(i_scaling+1))
+
+            # Derive momenta for this scaling
+            rescaled_momenta = {}
+            
+            # First the collinears
+            for i_coll_set, coll_set in enumerate(coll_sets):
+                for i_coll_edge, (coll_ege_sign, coll_edge) in enumerate(coll_set):
+                    
+                    # Use orthogonal approach directions so that different approach directions are comparable
+                    orthogonal_approach_direction = args.approach_directions[len(rescaled_momenta)]-args.approach_directions[len(rescaled_momenta)].dot(final_collinear_momenta[i_coll_set][i_coll_edge])*args.approach_directions[len(rescaled_momenta)]
+                    try:
+                        orthogonal_approach_direction /= abs(orthogonal_approach_direction)
+                    except ZeroDivisionError as e:
+                        raise InvalidCmd("For ir limit '%s', the specified approach direction happens to be collinear to the specified collinear direction."%(SuperGraph.format_ir_limit_str(ir_limit)))
+
+                    rescaled_momenta[coll_edge] = final_collinear_momenta[i_coll_set][i_coll_edge] + scaling*orthogonal_approach_direction*E_cm
+                    # Also apply soft-scaling if required
+                    if coll_edge in soft_set:
+                        rescaled_momenta[coll_edge] *= scaling
+            
+            # Then the pure softs
+            for soft_edge in soft_set:
+                if soft_edge not in rescaled_momenta:
+                    rescaled_momenta[soft_edge] = scaling*args.approach_directions[len(rescaled_momenta)]*E_cm
+            
+            # Now find the LMB momenta, if not defined then pad with the next approach directions available..
+            rescaled_momenta_in_approach_lmb = []
+            i_padding = 0
+            for lmb_edge in ir_limit_info['approach_LMB']:
+                if lmb_edge in rescaled_momenta:
+                    rescaled_momenta_in_approach_lmb.append(rescaled_momenta[lmb_edge])
+                else:
+                    rescaled_momenta_in_approach_lmb.append(args.approach_directions[len(rescaled_momenta)+i_padding]*E_cm)
+                    i_padding += 1
+
+            # Now transform these input momenta in the defining LMB
+            transfo, parametric_shifts = LMBs_info['LMBs_to_defining_LMB_transfo'][ir_limit_info['approach_LMB']]
+            shifts = [ sum([external_momenta[i_shift]*shift 
+                        for i_shift, shift in enumerate(parametric_shift)]) for parametric_shift in parametric_shifts ]
+            rescaled_momenta_in_defining_lmb = transfo.dot(
+                [list(rm+shift) for rm, shift in zip(rescaled_momenta_in_approach_lmb,shifts)] )
+
+            local_results['defining_LMB_momenta'].append( (scaling, tuple(tuple(vi for vi in v) for v in rescaled_momenta_in_defining_lmb)) )
+
+            # Now map these momenta in the defining LMB into x variables in the unit hypercube
+            xs_in_defining_lmb = []
+            overall_jac = 1.0
+            for i_k, k in enumerate(rescaled_momenta_in_defining_lmb):
+                # This is cheap, always do in f128
+                if args.f128 or True:
+                    x1, x2, x3, jac = local_rust_worker.inv_parameterize_f128( list(k), i_k, E_cm**2)
+                else:
+                    x1, x2, x3, jac = local_rust_worker.inv_parameterize( list(k), i_k, E_cm**2)
+                xs_in_defining_lmb.extend([x1, x2, x3])
+                overall_jac *= jac
+
+            # We are now ready to sample!
+            for i_cut in ([None,]+list(range(len(SG['cutkosky_cuts'])))):
+
+                if i_cut is None:
+
+                    with utils.suppress_output(active=(not args.show_rust_warnings)):
+                        if args.f128:
+                            res_re, res_im = local_rust_worker_f128.evaluate_integrand(xs_in_defining_lmb)
+                        else:
+                            res_re, res_im = local_rust_worker.evaluate_integrand(xs_in_defining_lmb)
+                    local_results['complete_integrand']['evaluations'].append( (scaling, complex(res_re, res_im)*overall_jac ) )
+
+                else:
+                    # Now obtain the rescaling for these momenta
+                    LU_scaling_solutions = local_rust_worker.get_scaling(rescaled_momenta_in_defining_lmb,i_cut)
+                    if LU_scaling_solutions is None or len(LU_scaling_solutions)==0 or all(LU_scaling[0]<0. for LU_scaling in LU_scaling_solutions):
+                        if args.show_warnings:
+                            logger.warning("Could not find t-rescaling solution for SG '%s' with cut ID #%d for IR limit %s: %s\nInput LMB momenta: %s"%(
+                                SG['name'], i_cut, SuperGraph.format_ir_limit_str(ir_limit), str(LU_scaling_solutions), str(rescaled_momenta_in_defining_lmb) ))
+                        continue
+                    LU_scaling_solutions = list(LU_scaling_solutions)
+                    LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
+                    if LU_scaling>0.0 and args.show_warnings:
+                        logger.warning("Found unexpected t-rescaling solution for SG '%s' with cut ID #%d for IR limit %s: %s\nInput LMB momenta: %s"%(
+                                SG['name'], i_cut, SuperGraph.format_ir_limit_str(ir_limit), str(LU_scaling_solutions), str(rescaled_momenta_in_defining_lmb) ))
+
+                    while LU_scaling < 0.0:
+                        if len(LU_scaling_solutions)==0:
+                            break
+                        LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
+                    local_results['per_cut'][i_cut]['LU_scalings'].append((scaling, LU_scaling, LU_scaling_jacobian))
+
+                    if args.f128:
+                        res_re, res_im = local_rust_worker.evaluate_cut_f128(rescaled_momenta_in_defining_lmb,i_cut,LU_scaling,LU_scaling_jacobian)                            
+                    else:
+                        res_re, res_im = local_rust_worker.evaluate_cut(rescaled_momenta_in_defining_lmb,i_cut,LU_scaling,LU_scaling_jacobian)
+                    local_results['per_cut'][i_cut]['evaluations'].append( (scaling, complex(res_re, res_im) ) )
+                    if len(local_results['cuts_sum']['evaluations'])>0 and local_results['cuts_sum']['evaluations'][-1][0] == scaling:
+                        local_results['cuts_sum']['evaluations'][-1] = (scaling, local_results['cuts_sum']['evaluations'][-1][1]+complex(res_re, res_im))
+                    else:
+                        local_results['cuts_sum']['evaluations'].append( (scaling, complex(res_re, res_im)) )
+
+                    if args.analyze_deformation:
+                        energies = [0.]*SG['n_loops']
+                        # We do not support frozen momenta for now anyway
+                        #if frozen_momenta is not None:
+                        #    energies[-len(frozen_momenta['out']):] =[ v[0] for v  in frozen_momenta['out'] ]
+                        with utils.suppress_output(active=(not args.show_rust_warnings)):
+                            if args.f128:
+                                cmb_deformation = local_rust_worker_f128.get_cut_deformation([ [energy,]+list(v) for energy, v in zip(energies,rescaled_momenta_in_defining_lmb) ],i_cut)
+                            else:
+                                cmb_deformation = local_rust_worker.get_cut_deformation([ [energy,]+list(v) for energy, v in zip(energies,rescaled_momenta_in_defining_lmb) ],i_cut)
+                        local_results['per_cut'][i_cut]['deformations'].append( (scaling, tuple(tuple(vi for vi in v[1:]) for v in cmb_deformation) ) )
+
+            if pbar is not None: pbar.update(pbar.value+1)
+
+        return run_id, local_results
+
+    @staticmethod
+    def evaluate_scalings_parallel(args):
+        return alphaLoopRunInterface.evaluate_scalings(*args)
+
+    def perform_IR_analysis(self, bar, SG, ir_limit, ir_limit_info, LMBs_info, external_momenta, rust_worker, rust_worker_f128, args, 
                             command_to_reproduce=None, for_plots=False):
         """
             Performs the IR analysis for the selected SG objectand using the rust_workers provided.
@@ -3970,136 +4109,54 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         n_scalings = SuperGraph.compute_ir_limit_perturbative_order(ir_limit)
         scalings = [scaling**((1./n_scalings)**args.softening_approach_power) for scaling in scalings]
 
-        results = {
-            'defining_LMB_momenta': [],
-            'complete_integrand' : {
-                'evaluations'  : [],
-            },
-            'cuts_sum' : {
-                'evaluations'  : [],
-            },
-            'per_cut': {
-                i_cut: {
-                    'LU_scalings'  : [],
+        def get_empty_results():
+            return {
+                'defining_LMB_momenta': [],
+                'complete_integrand' : {
                     'evaluations'  : [],
-                    'deformations' : [] if args.analyze_deformation else None,
-                } for i_cut in range(len(SG['cutkosky_cuts']))
+                },
+                'cuts_sum' : {
+                    'evaluations'  : [],
+                },
+                'per_cut': {
+                    i_cut: {
+                        'LU_scalings'  : [],
+                        'evaluations'  : [],
+                        'deformations' : [] if args.analyze_deformation else None,
+                    } for i_cut in range(len(SG['cutkosky_cuts']))
+                }
             }
-        }
+        results = get_empty_results()
 
-        # We are now ready to perform the scan
-        for scaling in scalings:
+        if args.cores == 1:
+            run_id, results = alphaLoopRunInterface.evaluate_scalings(0, get_empty_results(), scalings, bar, rust_worker, rust_worker_f128, 
+                pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder),
+                final_collinear_momenta, coll_sets, soft_set, external_momenta, LMBs_info, ir_limit_info, SG, E_cm, args)
+        else:
+            chunked_scalings = list()
+            with multiprocessing.Pool(processes=args.cores) as pool:
+                chunks_res = {}
+                n_scalings_done = 0
+                bar.update(i_scaling=n_scalings_done+1)
+                all_chunks = list(ltd_utils.chunks(scalings, (len(scalings)//args.cores)+1 ))
+                for run_id, chunk_res in pool.imap_unordered(alphaLoopRunInterface.evaluate_scalings_parallel, [ 
+                        ( i_chunk, get_empty_results(), scaling_chunk, None, rust_worker, rust_worker_f128, 
+                          pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder),
+                          final_collinear_momenta, coll_sets, soft_set, external_momenta, LMBs_info, ir_limit_info, SG, E_cm, args ) for i_chunk, scaling_chunk in enumerate(all_chunks) ] ):
+                    chunks_res[run_id] = chunk_res
+                    n_scalings_done += len(all_chunks[run_id])
+                    bar.update(i_scaling=(n_scalings_done+1))
+                    bar.update(bar.value+len(all_chunks[run_id]))
+                # Now combine all results
+                results['defining_LMB_momenta'] = sum([chunks_res[run_id]['defining_LMB_momenta'] for run_id in range(len(all_chunks))],[])
+                results['complete_integrand']['evaluations'] = sum([chunks_res[run_id]['complete_integrand']['evaluations'] for run_id in range(len(all_chunks))],[])
+                results['cuts_sum']['evaluations'] = sum([chunks_res[run_id]['cuts_sum']['evaluations'] for run_id in range(len(all_chunks))],[])
+                for i_cut in results['per_cut']:
+                    results['per_cut'][i_cut]['LU_scalings'] = sum([chunks_res[run_id]['per_cut'][i_cut]['LU_scalings'] for run_id in range(len(all_chunks))],[])
+                    results['per_cut'][i_cut]['evaluations'] = sum([chunks_res[run_id]['per_cut'][i_cut]['evaluations'] for run_id in range(len(all_chunks))],[])
+                    if results['per_cut'][i_cut]['deformations'] is not None:
+                        results['per_cut'][i_cut]['deformations'] = sum([chunks_res[run_id]['per_cut'][i_cut]['deformations'] for run_id in range(len(all_chunks))],[])
 
-            # Derive momenta for this scaling
-            rescaled_momenta = {}
-            
-            # First the collinears
-            for i_coll_set, coll_set in enumerate(coll_sets):
-                for i_coll_edge, (coll_ege_sign, coll_edge) in enumerate(coll_set):
-                    
-                    # Use orthogonal approach directions so that different approach directions are comparable
-                    orthogonal_approach_direction = args.approach_directions[len(rescaled_momenta)]-args.approach_directions[len(rescaled_momenta)].dot(final_collinear_momenta[i_coll_set][i_coll_edge])
-                    try:
-                        orthogonal_approach_direction /= abs(orthogonal_approach_direction)
-                    except ZeroDivisionError as e:
-                        raise InvalidCmd("For ir limit '%s', the specified approach direction happens to be collinear to the specified collinear direction."%(SuperGraph.format_ir_limit_str(ir_limit)))
-
-                    rescaled_momenta[coll_edge] = final_collinear_momenta[i_coll_set][i_coll_edge] + scaling*orthogonal_approach_direction*E_cm
-                    # Also apply soft-scaling if required
-                    if coll_edge in soft_set:
-                        rescaled_momenta[coll_edge] *= scaling
-            
-            # Then the pure softs
-            for soft_edge in soft_set:
-                if soft_edge not in rescaled_momenta:
-                    rescaled_momenta[soft_edge] = scaling*args.approach_directions[len(rescaled_momenta)]*E_cm
-            
-            # Now find the LMB momenta, if not defined then pad with the next approach directions available..
-            rescaled_momenta_in_approach_lmb = []
-            i_padding = 0
-            for lmb_edge in ir_limit_info['approach_LMB']:
-                if lmb_edge in rescaled_momenta:
-                    rescaled_momenta_in_approach_lmb.append(rescaled_momenta[lmb_edge])
-                else:
-                    rescaled_momenta_in_approach_lmb.append(args.approach_directions[len(rescaled_momenta)+i_padding]*E_cm)
-                    i_padding += 1
-
-            # Now transform these input momenta in the defining LMB
-            transfo, parametric_shifts = LMBs_info['LMBs_to_defining_LMB_transfo'][ir_limit_info['approach_LMB']]
-            shifts = [ sum([external_momenta[i_shift]*shift 
-                        for i_shift, shift in enumerate(parametric_shift)]) for parametric_shift in parametric_shifts ]
-            rescaled_momenta_in_defining_lmb = transfo.dot(
-                [list(rm+shift) for rm, shift in zip(rescaled_momenta_in_approach_lmb,shifts)] )
-
-            results['defining_LMB_momenta'].append( (scaling, tuple(tuple(vi for vi in v) for v in rescaled_momenta_in_defining_lmb)) )
-
-            # Now map these momenta in the defining LMB into x variables in the unit hypercube
-            xs_in_defining_lmb = []
-            overall_jac = 1.0
-            for i_k, k in enumerate(rescaled_momenta_in_defining_lmb):
-                # This is cheap, always do in f128
-                if args.f128 or True:
-                    x1, x2, x3, jac = rust_worker.inv_parameterize_f128( list(k), i_k, E_cm**2)
-                else:
-                    x1, x2, x3, jac = rust_worker.inv_parameterize( list(k), i_k, E_cm**2)
-                xs_in_defining_lmb.extend([x1, x2, x3])
-                overall_jac *= jac
-
-            # We are now ready to sample!
-            for i_cut in ([None,]+list(range(len(SG['cutkosky_cuts'])))):
-
-                if i_cut is None:
-
-                    with utils.suppress_output(active=(not args.show_rust_warnings)):
-                        if args.f128:
-                            res_re, res_im = rust_worker_f128.evaluate_integrand(xs_in_defining_lmb)
-                        else:
-                            res_re, res_im = rust_worker.evaluate_integrand(xs_in_defining_lmb)
-                    results['complete_integrand']['evaluations'].append( (scaling, complex(res_re, res_im)*overall_jac ) )
-
-                else:
-                    # Now obtain the rescaling for these momenta
-                    LU_scaling_solutions = rust_worker.get_scaling(rescaled_momenta_in_defining_lmb,i_cut)
-                    if LU_scaling_solutions is None or len(LU_scaling_solutions)==0 or all(LU_scaling[0]<0. for LU_scaling in LU_scaling_solutions):
-                        if args.show_warnings:
-                            logger.warning("Could not find t-rescaling solution for SG '%s' with cut ID #%d for IR limit %s: %s\nInput LMB momenta: %s"%(
-                                SG['name'], i_cut, SuperGraph.format_ir_limit_str(ir_limit), str(LU_scaling_solutions), str(rescaled_momenta_in_defining_lmb) ))
-                        continue
-                    LU_scaling_solutions = list(LU_scaling_solutions)
-                    LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
-                    if LU_scaling>0.0 and args.show_warnings:
-                        logger.warning("Found unexpected t-rescaling solution for SG '%s' with cut ID #%d for IR limit %s: %s\nInput LMB momenta: %s"%(
-                                SG['name'], i_cut, SuperGraph.format_ir_limit_str(ir_limit), str(LU_scaling_solutions), str(rescaled_momenta_in_defining_lmb) ))
-
-                    while LU_scaling < 0.0:
-                        if len(LU_scaling_solutions)==0:
-                            break
-                        LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
-                    results['per_cut'][i_cut]['LU_scalings'].append((scaling, LU_scaling, LU_scaling_jacobian))
-
-                    if args.f128:
-                        res_re, res_im = rust_worker.evaluate_cut_f128(rescaled_momenta_in_defining_lmb,i_cut,LU_scaling,LU_scaling_jacobian)                            
-                    else:
-                        res_re, res_im = rust_worker.evaluate_cut(rescaled_momenta_in_defining_lmb,i_cut,LU_scaling,LU_scaling_jacobian)
-                    results['per_cut'][i_cut]['evaluations'].append( (scaling, complex(res_re, res_im) ) )
-                    if len(results['cuts_sum']['evaluations'])>0 and results['cuts_sum']['evaluations'][-1][0] == scaling:
-                        results['cuts_sum']['evaluations'][-1] = (scaling, results['cuts_sum']['evaluations'][-1][1]+complex(res_re, res_im))
-                    else:
-                        results['cuts_sum']['evaluations'].append( (scaling, complex(res_re, res_im)) )
-
-                    if args.analyze_deformation:
-                        energies = [0.]*SG['n_loops']
-                        # We do not support frozen momenta for now anyway
-                        #if frozen_momenta is not None:
-                        #    energies[-len(frozen_momenta['out']):] =[ v[0] for v  in frozen_momenta['out'] ]
-                        with utils.suppress_output(active=(not args.show_rust_warnings)):
-                            if args.f128:
-                                cmb_deformation = rust_worker_f128.get_cut_deformation([ [energy,]+list(v) for energy, v in zip(energies,rescaled_momenta_in_defining_lmb) ],i_cut)
-                            else:
-                                cmb_deformation = rust_worker.get_cut_deformation([ [energy,]+list(v) for energy, v in zip(energies,rescaled_momenta_in_defining_lmb) ],i_cut)
-                        results['per_cut'][i_cut]['deformations'].append( (scaling, tuple(tuple(vi for vi in v[1:]) for v in cmb_deformation) ) )
-
-        
         # Now compute some basic derived quantities, like dod
         for container in ( [ results['complete_integrand'], results['cuts_sum'], ]+[ results['per_cut'][i_cut] for i_cut in range(len(SG['cutkosky_cuts'])) ] ):
 
@@ -4467,12 +4524,12 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                          len(UV_info_per_SG_and_cut[SG_name]['UV_edges_to_probe_for_cuts']) for SG_name in selected_SGs )
 
         # WARNING it is important that the rust workers instantiated only go out of scope when this function terminates
-        rust_workers = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+        rust_workers = {SG_name: alphaLoopRunInterface.get_rust_worker( SG_name, self.hyperparameters, pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder), thread_safe=False ) for SG_name in selected_SGs}
         if args.f128 or not args.no_f128:
             hyperparameters_backup=copy.deepcopy(self.hyperparameters)
             for entry in self.hyperparameters['General']['stability_checks']:
                 entry['prec'] = 32
-            rust_workers_f128 = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+            rust_workers_f128 = {SG_name: alphaLoopRunInterface.get_rust_worker( SG_name, self.hyperparameters, pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder), thread_safe=False ) for SG_name in selected_SGs}
             self.hyperparameters = hyperparameters_backup
         rust_workers_no_f128 = {SG_name: None for SG_name in selected_SGs}
         if args.plots is not None:
@@ -4481,7 +4538,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             self.hyperparameters['General']['stability_checks'][-1]['relative_precision']=1.0e-99
             self.hyperparameters['General']['stability_checks'][-1]['prec']=16
             self.hyperparameters['General']['stability_checks'][-1]['n_samples']=0
-            rust_workers_no_f128 = {SG_name: self.get_rust_worker(SG_name) for SG_name in selected_SGs}
+            rust_workers_no_f128 = {SG_name: alphaLoopRunInterface.get_rust_worker( SG_name, self.hyperparameters, pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder), thread_safe=False ) for SG_name in selected_SGs}
             self.hyperparameters = hyperparameters_backup
 
         plots_repl_dict = {
@@ -4524,7 +4581,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 bar.update(i_test=0)
                 bar.update(uv_edge_names='N/A')
 
-                #rust_worker = self.get_rust_worker(SG_name)
+                #rust_worker = alphaLoopRunInterface.get_rust_worker( SG_name, self.hyperparameters, pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder), thread_safe=False )
                 rust_worker = rust_workers[SG_name]
                 if args.f128 or not args.no_f128:
                     rust_worker_f128 = rust_workers_f128[SG_name]
@@ -5725,7 +5782,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             if args.sampling in ['xs',]:
 
                 self.hyperparameters.set_parameter('General.multi_channeling',args.multichanneling)
-                rust_worker = self.get_rust_worker(SG_name)
+                rust_worker = alphaLoopRunInterface.get_rust_worker( SG_name, self.hyperparameters, pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder), thread_safe=False )
                 
                 n_integration_dimensions = SG_info['topo']['n_loops']*3
                 if frozen_momenta is not None:
@@ -5757,7 +5814,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 self.hyperparameters.set_parameter('Parameterization.b',1.0)
                 self.hyperparameters.set_parameter('Parameterization.mode','spherical')
 
-                rust_worker = self.get_rust_worker(SG_name)
+                rust_worker = alphaLoopRunInterface.get_rust_worker( SG_name, self.hyperparameters, pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder), thread_safe=False )
 
                 # Specify particular channels options
                 if args.multichanneling:
@@ -6000,7 +6057,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         SG = self.all_supergraphs[args.SG_name]
         E_cm = SG.get_E_cm(self.hyperparameters)
-        rust_worker = self.get_rust_worker(args.SG_name)
+        rust_worker = alphaLoopRunInterface.get_rust_worker(args.SG_name, self.hyperparameters, pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder), thread_safe=False )
         pass
 
 
