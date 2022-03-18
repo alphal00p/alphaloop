@@ -3308,7 +3308,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             raise alphaLoopInvalidRunCmd("Collinear directions should have a non-zero norm This is not the case for: %s."%(str(args.collinear_directions)))
 
         # Remember that approach_directions are also used to pad the LMB if the ir_limits does not specify it all
-        max_n_approach_directions = max(2*max_n_collinears, self.all_supergraphs[selected_SGs[0]]['topo']['n_loops'])
+        max_n_approach_directions = max(2*max_n_collinears, self.all_supergraphs[selected_SGs[0]]['topo']['n_loops']+1)
         if args.approach_directions is not None:
             try:
                 args.approach_directions = eval(args.approach_directions)
@@ -3849,6 +3849,11 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     SG['ir_limits_analysis'][ir_limit].update(analysis_results)
 
                     if not analysis_results['status'][0]:
+                        if args.show_fails:
+                            logger.info("\nThe following limit %sfailed%s: %s, with status %s%s%s and dod=%.4g +/- %.2g.\n"%(
+                                Colours.RED, Colours.END, SuperGraph.format_ir_limit_str(ir_limit), Colours.RED, analysis_results['status'][1], Colours.END,
+                                analysis_results['complete_integrand']['dod']['central'], analysis_results['complete_integrand']['dod']['std_err']
+                            ))
                         n_failed +=1
                         this_SG_failed = True
                         bar.update(failed=n_failed)
