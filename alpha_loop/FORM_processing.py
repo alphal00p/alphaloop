@@ -3076,6 +3076,9 @@ class FORMSuperGraphList(list):
 #include "dual.h"
 #include "dualt2.h"
 #include "dualkt2.h"
+#include "dualt3.h"
+#include "dualkt3.h"
+#include "dualklt3.h"
 #include <mp++/complex128.hpp>
 
 using namespace std;
@@ -3084,6 +3087,9 @@ using namespace duals;
 using namespace duals::literals;
 using namespace dualst2;
 using namespace dualskt2;
+using namespace dualst3;
+using namespace dualskt3;
+using namespace dualsklt3;
 using namespace mppp;
 using namespace mppp::literals;
 
@@ -3221,6 +3227,12 @@ const complex<double> I{ 0.0, 1.0 };
                                 dual_num_type = "dualt2"
                             elif conf_part[1] == "*tder(2,2)":
                                 dual_num_type = "dualkt2"
+                            elif conf_part[1] == "*tder(4)":
+                                dual_num_type = "dualt3"
+                            elif conf_part[1] == "*tder(2,3)":
+                                dual_num_type = "dualkt3"
+                            elif conf_part[1] == "*tder(2,2,2)":
+                                dual_num_type = "dualklt3"
                             elif not dual_num_mode:
                                 dual_num_type = ""
                                 pass
@@ -4607,11 +4619,9 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
             shutil.copy(pjoin('Templates','makefile_user_opts.inc'), pjoin(TMP_FORM, 'makefile_user_opts.inc'))
         else:
             shutil.copy(pjoin('Templates','makefile_user_opts_default.inc'), pjoin(TMP_FORM, 'makefile_user_opts.inc'))
-        shutil.copy('mpreal.h', pjoin(TMP_FORM, 'mpreal.h'))
-        shutil.copy('mpcomplex.h', pjoin(TMP_FORM, 'mpcomplex.h'))
-        shutil.copy('dual.h', pjoin(TMP_FORM, 'dual.h'))
-        shutil.copy('dualt2.h', pjoin(TMP_FORM, 'dualt2.h'))
-        shutil.copy('dualkt2.h', pjoin(TMP_FORM, 'dualkt2.h'))
+
+        for n in ('mpcomplex.h', 'mpreal.h', 'dual.h', 'dualt2.h', 'dualkt2.h', 'dualt3.h', 'dualkt3.h', 'dualklt3.h'):
+            shutil.copy(n, pjoin(TMP_FORM, n))
         Path(pjoin(TMP_OUTPUT, 'lib')).mkdir(parents=True, exist_ok=True)
         FORMProcessor.compile(TMP_FORM)
 

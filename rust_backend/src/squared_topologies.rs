@@ -1,6 +1,9 @@
 use crate::dashboard::{StatusUpdate, StatusUpdateSender};
+use crate::dualklt3::Dualklt3;
 use crate::dualkt2::Dualkt2;
+use crate::dualkt3::Dualkt3;
 use crate::dualt2::Dualt2;
+use crate::dualt3::Dualt3;
 use crate::integrand::{IntegrandImplementation, IntegrandSample};
 use crate::observables::EventManager;
 use crate::topologies::{FixedDeformationLimit, LTDCache, LTDNumerator, SOCPProblem, Topology};
@@ -1384,13 +1387,10 @@ impl SquaredTopologySet {
 
 pub trait DualWrapper<T> {
     fn from_real(real: T) -> Self;
-    fn get_depth(&self, i: usize) -> usize;
     fn get_size(&self) -> usize;
     fn get_real(&self) -> T;
-    fn get_der(&self, i: usize) -> T;
-    fn get_der_mut(&mut self, i: usize) -> &mut T;
-    fn get_der2(&self, i: usize, j: usize) -> T;
-    fn get_der2_mut(&mut self, i: usize, j: usize) -> &mut T;
+    fn get_der(&self, i: &[usize]) -> T;
+    fn get_der_mut(&mut self, i: &[usize]) -> &mut T;
     fn set_t(&mut self, val: T) -> &mut Self;
     fn zip_flatten(&self, other: &Self, buffer: &mut Vec<T>);
     fn from_zipped_slice(slice: &[T]) -> (Self, Self)
@@ -1401,15 +1401,11 @@ pub trait DualWrapper<T> {
 impl<T: Scalar + Zero + Copy> DualWrapper<T> for Hyperdual<T, 2> {
     #[inline]
     fn from_real(real: T) -> Self {
-        Hyperdual::from_real(real)
+        Self::from_real(real)
     }
 
-    #[inline]
-    fn get_depth(&self, i: usize) -> usize {
-        match i {
-            0 => 1,
-            _ => panic!("Bad index for dual"),
-        }
+    fn get_size(&self) -> usize {
+        2
     }
 
     #[inline]
@@ -1418,29 +1414,19 @@ impl<T: Scalar + Zero + Copy> DualWrapper<T> for Hyperdual<T, 2> {
     }
 
     #[inline]
-    fn get_der(&self, i: usize) -> T {
+    fn get_der(&self, i: &[usize]) -> T {
         match i {
-            0 => self[1],
+            [0] => self[1],
             _ => panic!("Bad index for dual"),
         }
     }
 
     #[inline]
-    fn get_der_mut(&mut self, i: usize) -> &mut T {
+    fn get_der_mut(&mut self, i: &[usize]) -> &mut T {
         match i {
-            0 => &mut self[1],
+            [0] => &mut self[1],
             _ => panic!("Bad index for dual"),
         }
-    }
-
-    #[inline]
-    fn get_der2(&self, _i: usize, _j: usize) -> T {
-        panic!("Bad index for dual");
-    }
-
-    #[inline]
-    fn get_der2_mut(&mut self, _i: usize, _j: usize) -> &mut T {
-        panic!("Bad index for dual");
     }
 
     #[inline]
@@ -1450,37 +1436,26 @@ impl<T: Scalar + Zero + Copy> DualWrapper<T> for Hyperdual<T, 2> {
     }
 
     #[inline]
-    fn zip_flatten(&self, other: &Hyperdual<T, 2>, buffer: &mut Vec<T>) {
+    fn zip_flatten(&self, other: &Self, buffer: &mut Vec<T>) {
         buffer.push(self[0]);
         buffer.push(other[0]);
         buffer.push(self[1]);
         buffer.push(other[1]);
     }
 
-    fn get_size(&self) -> usize {
-        2
-    }
-
-    fn from_zipped_slice(slice: &[T]) -> (Hyperdual<T, 2>, Hyperdual<T, 2>) {
-        (
-            Hyperdual::new(slice[0], slice[2]),
-            Hyperdual::new(slice[1], slice[3]),
-        )
+    fn from_zipped_slice(slice: &[T]) -> (Self, Self) {
+        (Self::new(slice[0], slice[2]), Self::new(slice[1], slice[3]))
     }
 }
 
 impl<T: Zero + Copy> DualWrapper<T> for Dualt2<T> {
     #[inline]
     fn from_real(real: T) -> Self {
-        Dualt2::from_real(real)
+        Self::from_real(real)
     }
 
-    #[inline]
-    fn get_depth(&self, i: usize) -> usize {
-        match i {
-            0 => 2,
-            _ => panic!("Bad index for dual"),
-        }
+    fn get_size(&self) -> usize {
+        3
     }
 
     #[inline]
@@ -1489,33 +1464,19 @@ impl<T: Zero + Copy> DualWrapper<T> for Dualt2<T> {
     }
 
     #[inline]
-    fn get_der(&self, i: usize) -> T {
+    fn get_der(&self, i: &[usize]) -> T {
         match i {
-            0 => self.ep_t,
+            [0] => self.ep_t,
+            [0, 0] => self.ep_t2,
             _ => panic!("Bad index for dual"),
         }
     }
 
     #[inline]
-    fn get_der_mut(&mut self, i: usize) -> &mut T {
+    fn get_der_mut(&mut self, i: &[usize]) -> &mut T {
         match i {
-            0 => &mut self.ep_t,
-            _ => panic!("Bad index for dual"),
-        }
-    }
-
-    #[inline]
-    fn get_der2(&self, i: usize, j: usize) -> T {
-        match (i, j) {
-            (0, 0) => self.ep_t2,
-            _ => panic!("Bad index for dual"),
-        }
-    }
-
-    #[inline]
-    fn get_der2_mut(&mut self, i: usize, j: usize) -> &mut T {
-        match (i, j) {
-            (0, 0) => &mut self.ep_t2,
+            [0] => &mut self.ep_t,
+            [0, 0] => &mut self.ep_t2,
             _ => panic!("Bad index for dual"),
         }
     }
@@ -1527,7 +1488,7 @@ impl<T: Zero + Copy> DualWrapper<T> for Dualt2<T> {
     }
 
     #[inline]
-    fn zip_flatten(&self, other: &Dualt2<T>, buffer: &mut Vec<T>) {
+    fn zip_flatten(&self, other: &Self, buffer: &mut Vec<T>) {
         buffer.push(self.real);
         buffer.push(other.real);
         buffer.push(self.ep_t);
@@ -1536,11 +1497,7 @@ impl<T: Zero + Copy> DualWrapper<T> for Dualt2<T> {
         buffer.push(other.ep_t2);
     }
 
-    fn get_size(&self) -> usize {
-        3
-    }
-
-    fn from_zipped_slice(slice: &[T]) -> (Dualt2<T>, Dualt2<T>) {
+    fn from_zipped_slice(slice: &[T]) -> (Self, Self) {
         (
             Dualt2::new(slice[0], slice[2], slice[4]),
             Dualt2::new(slice[1], slice[3], slice[5]),
@@ -1551,16 +1508,11 @@ impl<T: Zero + Copy> DualWrapper<T> for Dualt2<T> {
 impl<T: Zero + Copy> DualWrapper<T> for Dualkt2<T> {
     #[inline]
     fn from_real(real: T) -> Self {
-        Dualkt2::from_real(real)
+        Self::from_real(real)
     }
 
-    #[inline]
-    fn get_depth(&self, i: usize) -> usize {
-        match i {
-            0 => 1,
-            1 => 2,
-            _ => panic!("Bad index for dual"),
-        }
+    fn get_size(&self) -> usize {
+        5
     }
 
     #[inline]
@@ -1569,37 +1521,23 @@ impl<T: Zero + Copy> DualWrapper<T> for Dualkt2<T> {
     }
 
     #[inline]
-    fn get_der(&self, i: usize) -> T {
+    fn get_der(&self, i: &[usize]) -> T {
         match i {
-            0 => self.ep_k0,
-            1 => self.ep_t,
+            [0] => self.ep_k0,
+            [1] => self.ep_t,
+            [0, 1] => self.ep_k0_t,
+            [1, 1] => self.ep_t2,
             _ => panic!("Bad index for dual"),
         }
     }
 
     #[inline]
-    fn get_der_mut(&mut self, i: usize) -> &mut T {
+    fn get_der_mut(&mut self, i: &[usize]) -> &mut T {
         match i {
-            0 => &mut self.ep_k0,
-            1 => &mut self.ep_t,
-            _ => panic!("Bad index for dual"),
-        }
-    }
-
-    #[inline]
-    fn get_der2(&self, i: usize, j: usize) -> T {
-        match (i, j) {
-            (0, 1) => self.ep_k0_t,
-            (1, 1) => self.ep_t2,
-            _ => panic!("Bad index for dual"),
-        }
-    }
-
-    #[inline]
-    fn get_der2_mut(&mut self, i: usize, j: usize) -> &mut T {
-        match (i, j) {
-            (0, 1) => &mut self.ep_k0_t,
-            (1, 1) => &mut self.ep_t2,
+            [0] => &mut self.ep_k0,
+            [1] => &mut self.ep_t,
+            [0, 1] => &mut self.ep_k0_t,
+            [1, 1] => &mut self.ep_t2,
             _ => panic!("Bad index for dual"),
         }
     }
@@ -1611,7 +1549,7 @@ impl<T: Zero + Copy> DualWrapper<T> for Dualkt2<T> {
     }
 
     #[inline]
-    fn zip_flatten(&self, other: &Dualkt2<T>, buffer: &mut Vec<T>) {
+    fn zip_flatten(&self, other: &Self, buffer: &mut Vec<T>) {
         buffer.push(self.real);
         buffer.push(other.real);
         buffer.push(self.ep_k0);
@@ -1624,14 +1562,247 @@ impl<T: Zero + Copy> DualWrapper<T> for Dualkt2<T> {
         buffer.push(other.ep_t2);
     }
 
-    fn get_size(&self) -> usize {
-        5
+    fn from_zipped_slice(slice: &[T]) -> (Self, Self) {
+        (
+            Self::new(slice[0], slice[2], slice[4], slice[6], slice[8]),
+            Self::new(slice[1], slice[3], slice[5], slice[7], slice[9]),
+        )
+    }
+}
+
+impl<T: Zero + Copy> DualWrapper<T> for Dualt3<T> {
+    #[inline]
+    fn from_real(real: T) -> Self {
+        Self::from_real(real)
     }
 
-    fn from_zipped_slice(slice: &[T]) -> (Dualkt2<T>, Dualkt2<T>) {
+    fn get_size(&self) -> usize {
+        4
+    }
+
+    #[inline]
+    fn get_real(&self) -> T {
+        self.real
+    }
+
+    #[inline]
+    fn get_der(&self, i: &[usize]) -> T {
+        match i {
+            [0] => self.ep_t,
+            [0, 0] => self.ep_t2,
+            [0, 0, 0] => self.ep_t3,
+            _ => panic!("Bad index for dual"),
+        }
+    }
+
+    #[inline]
+    fn get_der_mut(&mut self, i: &[usize]) -> &mut T {
+        match i {
+            [0] => &mut self.ep_t,
+            [0, 0] => &mut self.ep_t2,
+            [0, 0, 0] => &mut self.ep_t3,
+            _ => panic!("Bad index for dual"),
+        }
+    }
+
+    #[inline]
+    fn set_t(&mut self, val: T) -> &mut Self {
+        self.ep_t = val;
+        self
+    }
+
+    #[inline]
+    fn zip_flatten(&self, other: &Self, buffer: &mut Vec<T>) {
+        buffer.push(self.real);
+        buffer.push(other.real);
+        buffer.push(self.ep_t);
+        buffer.push(other.ep_t);
+        buffer.push(self.ep_t2);
+        buffer.push(other.ep_t2);
+        buffer.push(self.ep_t3);
+        buffer.push(other.ep_t3);
+    }
+
+    fn from_zipped_slice(slice: &[T]) -> (Self, Self) {
         (
-            Dualkt2::new(slice[0], slice[2], slice[4], slice[6], slice[8]),
-            Dualkt2::new(slice[1], slice[3], slice[5], slice[7], slice[9]),
+            Self::new(slice[0], slice[2], slice[4], slice[6]),
+            Self::new(slice[1], slice[3], slice[5], slice[7]),
+        )
+    }
+}
+
+impl<T: Zero + Copy> DualWrapper<T> for Dualkt3<T> {
+    #[inline]
+    fn from_real(real: T) -> Self {
+        Self::from_real(real)
+    }
+
+    fn get_size(&self) -> usize {
+        7
+    }
+
+    #[inline]
+    fn get_real(&self) -> T {
+        self.real
+    }
+
+    #[inline]
+    fn get_der(&self, i: &[usize]) -> T {
+        match i {
+            [0] => self.ep_k0,
+            [1] => self.ep_t,
+            [0, 1] => self.ep_k0_t,
+            [1, 1] => self.ep_t2,
+            [0, 1, 1] => self.ep_k0_t2,
+            [1, 1, 1] => self.ep_t3,
+            _ => panic!("Bad index for dual"),
+        }
+    }
+
+    #[inline]
+    fn get_der_mut(&mut self, i: &[usize]) -> &mut T {
+        match i {
+            [0] => &mut self.ep_k0,
+            [1] => &mut self.ep_t,
+            [0, 1] => &mut self.ep_k0_t,
+            [1, 1] => &mut self.ep_t2,
+            [0, 1, 1] => &mut self.ep_k0_t2,
+            [1, 1, 1] => &mut self.ep_t3,
+            _ => panic!("Bad index for dual"),
+        }
+    }
+
+    #[inline]
+    fn set_t(&mut self, val: T) -> &mut Self {
+        self.ep_t = val;
+        self
+    }
+
+    #[inline]
+    fn zip_flatten(&self, other: &Self, buffer: &mut Vec<T>) {
+        buffer.push(self.real);
+        buffer.push(other.real);
+        buffer.push(self.ep_k0);
+        buffer.push(other.ep_k0);
+        buffer.push(self.ep_t);
+        buffer.push(other.ep_t);
+        buffer.push(self.ep_k0_t);
+        buffer.push(other.ep_k0_t);
+        buffer.push(self.ep_t2);
+        buffer.push(other.ep_t2);
+        buffer.push(self.ep_k0_t2);
+        buffer.push(other.ep_k0_t2);
+        buffer.push(self.ep_t3);
+        buffer.push(other.ep_t3);
+    }
+
+    fn from_zipped_slice(slice: &[T]) -> (Self, Self) {
+        (
+            Self::new(
+                slice[0], slice[2], slice[4], slice[6], slice[8], slice[10], slice[12],
+            ),
+            Self::new(
+                slice[1], slice[3], slice[5], slice[7], slice[9], slice[11], slice[13],
+            ),
+        )
+    }
+}
+
+impl<T: Zero + Copy> DualWrapper<T> for Dualklt3<T> {
+    #[inline]
+    fn from_real(real: T) -> Self {
+        Self::from_real(real)
+    }
+
+    fn get_size(&self) -> usize {
+        12
+    }
+
+    #[inline]
+    fn get_real(&self) -> T {
+        self.real
+    }
+
+    #[inline]
+    fn get_der(&self, i: &[usize]) -> T {
+        match i {
+            [0] => self.ep_k0,
+            [1] => self.ep_l0,
+            [2] => self.ep_t,
+            [0, 1] => self.ep_k0_l0,
+            [0, 2] => self.ep_k0_t,
+            [1, 2] => self.ep_l0_t,
+            [2, 2] => self.ep_t2,
+            [0, 1, 2] => self.ep_k0_l0_t,
+            [0, 2, 2] => self.ep_k0_t2,
+            [1, 2, 2] => self.ep_l0_t2,
+            [2, 2, 2] => self.ep_t3,
+            _ => panic!("Bad index for dual"),
+        }
+    }
+
+    #[inline]
+    fn get_der_mut(&mut self, i: &[usize]) -> &mut T {
+        match i {
+            [0] => &mut self.ep_k0,
+            [1] => &mut self.ep_l0,
+            [2] => &mut self.ep_t,
+            [0, 1] => &mut self.ep_k0_l0,
+            [0, 2] => &mut self.ep_k0_t,
+            [1, 2] => &mut self.ep_l0_t,
+            [2, 2] => &mut self.ep_t2,
+            [0, 1, 2] => &mut self.ep_k0_l0_t,
+            [0, 2, 2] => &mut self.ep_k0_t2,
+            [1, 2, 2] => &mut self.ep_l0_t2,
+            [2, 2, 2] => &mut self.ep_t3,
+            _ => panic!("Bad index for dual"),
+        }
+    }
+
+    #[inline]
+    fn set_t(&mut self, val: T) -> &mut Self {
+        self.ep_t = val;
+        self
+    }
+
+    #[inline]
+    fn zip_flatten(&self, other: &Self, buffer: &mut Vec<T>) {
+        buffer.push(self.real);
+        buffer.push(other.real);
+        buffer.push(self.ep_k0);
+        buffer.push(other.ep_k0);
+        buffer.push(self.ep_l0);
+        buffer.push(other.ep_l0);
+        buffer.push(self.ep_t);
+        buffer.push(other.ep_t);
+        buffer.push(self.ep_k0_l0);
+        buffer.push(other.ep_k0_l0);
+        buffer.push(self.ep_k0_t);
+        buffer.push(other.ep_k0_t);
+        buffer.push(self.ep_l0_t);
+        buffer.push(other.ep_l0_t);
+        buffer.push(self.ep_t2);
+        buffer.push(other.ep_t2);
+        buffer.push(self.ep_k0_l0_t);
+        buffer.push(other.ep_k0_l0_t);
+        buffer.push(self.ep_k0_t2);
+        buffer.push(other.ep_k0_t2);
+        buffer.push(self.ep_l0_t2);
+        buffer.push(other.ep_l0_t2);
+        buffer.push(self.ep_t3);
+        buffer.push(other.ep_t3);
+    }
+
+    fn from_zipped_slice(slice: &[T]) -> (Self, Self) {
+        (
+            Self::new(
+                slice[0], slice[2], slice[4], slice[6], slice[8], slice[10], slice[12], slice[14],
+                slice[16], slice[18], slice[20], slice[22],
+            ),
+            Self::new(
+                slice[1], slice[3], slice[5], slice[7], slice[9], slice[11], slice[13], slice[15],
+                slice[17], slice[19], slice[21], slice[23],
+            ),
         )
     }
 }
@@ -2054,15 +2225,19 @@ impl SquaredTopology {
 
         let mut cut_momenta = [LorentzVector::default(); MAX_SG_LOOP + 1];
         let mut rescaled_loop_momenta = [LorentzVector::default(); MAX_SG_LOOP];
+        let mut raised_cut_powers: ArrayVec<[usize; MAX_SG_LOOP + 1]>;
 
         let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_SG_LOOP];
         let mut k_def = [LorentzVector::default(); MAX_SG_LOOP];
         let mut result = Complex::zero();
         for cut_index in 0..self.cutkosky_cuts.len() {
             let cutkosky_cuts = &mut self.cutkosky_cuts[cut_index];
-            let has_raised_cc = cutkosky_cuts.cuts.iter().any(|cc| cc.power > 1);
-            let raised_cut_count = cutkosky_cuts.cuts.iter().filter(|cc| cc.power > 1).count();
-            let last_pow = cutkosky_cuts.cuts.last().unwrap().power;
+            raised_cut_powers = cutkosky_cuts
+                .cuts
+                .iter()
+                .filter(|cc| cc.power > 1)
+                .map(|cc| cc.power)
+                .collect();
 
             if self.settings.general.debug >= 1 {
                 println!(
@@ -2111,42 +2286,8 @@ impl SquaredTopology {
                     continue;
                 }
 
-                result += if has_raised_cc {
-                    if raised_cut_count == 1 && last_pow == 2 {
-                        self.evaluate_cut_derivative::<T, Hyperdual<T, 2>>(
-                            loop_momenta,
-                            &external_momenta,
-                            cache,
-                            event_manager,
-                            cut_index,
-                            scaling,
-                            None,
-                        )
-                    } else if raised_cut_count == 1 && last_pow == 3 {
-                        self.evaluate_cut_derivative::<T, Dualt2<T>>(
-                            loop_momenta,
-                            &external_momenta,
-                            cache,
-                            event_manager,
-                            cut_index,
-                            scaling,
-                            None,
-                        )
-                    } else if raised_cut_count == 2 && last_pow == 2 {
-                        self.evaluate_cut_derivative::<T, Dualkt2<T>>(
-                            loop_momenta,
-                            &external_momenta,
-                            cache,
-                            event_manager,
-                            cut_index,
-                            scaling,
-                            None,
-                        )
-                    } else {
-                        panic!("No supported dual for raised cut configuration")
-                    }
-                } else {
-                    self.evaluate_cut(
+                result += match &raised_cut_powers[..] {
+                    [] => self.evaluate_cut(
                         loop_momenta,
                         &mut cut_momenta,
                         &mut external_momenta,
@@ -2159,7 +2300,62 @@ impl SquaredTopology {
                         scaling,
                         scaling_jac,
                         None,
-                    )
+                    ),
+                    [2] => self.evaluate_cut_derivative::<T, Hyperdual<T, 2>>(
+                        loop_momenta,
+                        &external_momenta,
+                        cache,
+                        event_manager,
+                        cut_index,
+                        scaling,
+                        None,
+                    ),
+                    [3] => self.evaluate_cut_derivative::<T, Dualt2<T>>(
+                        loop_momenta,
+                        &external_momenta,
+                        cache,
+                        event_manager,
+                        cut_index,
+                        scaling,
+                        None,
+                    ),
+                    [2, 2] => self.evaluate_cut_derivative::<T, Dualkt2<T>>(
+                        loop_momenta,
+                        &external_momenta,
+                        cache,
+                        event_manager,
+                        cut_index,
+                        scaling,
+                        None,
+                    ),
+                    [4] => self.evaluate_cut_derivative::<T, Dualt3<T>>(
+                        loop_momenta,
+                        &external_momenta,
+                        cache,
+                        event_manager,
+                        cut_index,
+                        scaling,
+                        None,
+                    ),
+                    [2, 3] => self.evaluate_cut_derivative::<T, Dualkt3<T>>(
+                        loop_momenta,
+                        &external_momenta,
+                        cache,
+                        event_manager,
+                        cut_index,
+                        scaling,
+                        None,
+                    ),
+                    [2, 2, 2] => self.evaluate_cut_derivative::<T, Dualklt3<T>>(
+                        loop_momenta,
+                        &external_momenta,
+                        cache,
+                        event_manager,
+                        cut_index,
+                        scaling,
+                        None,
+                    ),
+                    _ => panic!("No supported dual for raised cut configuration"),
                 };
             }
         }
@@ -2800,7 +2996,7 @@ impl SquaredTopology {
         let mut result_buffer = vec![T::zero(); scaling.get_size() * 2];
 
         let t_prop_power = cutkosky_cuts.cuts.last().unwrap().power;
-        let max_extra_t_raisings = cutkosky_cuts.cuts[..cutkosky_cuts.cuts.len() - 1]
+        let max_extra_t_raisings: usize = cutkosky_cuts.cuts[..cutkosky_cuts.cuts.len() - 1]
             .iter()
             .map(|c| c.power - 1)
             .sum();
@@ -2833,29 +3029,40 @@ impl SquaredTopology {
             let k2 = k.spatial_squared();
             let kp = k.spatial_dot(&shift);
             let p2 = shift.spatial_squared();
+            let m2 = Into::<T>::into(cut.m_squared);
             let e_inv = energy.get_real().inv();
 
             // take the n-th order expansion in t around t* of the E-surface
-            e_surface_expansion += match t_prop_power + max_extra_t_raisings {
-                2 => {
-                    D::from_real((k2 * scaling.get_real() + kp) * e_inv)
-                        + (scaling - D::from_real(scaling.get_real())) / Into::<T>::into(2.)
-                            * (-kp * kp + k2 * (Into::<T>::into(cut.m_squared) + p2))
-                            * e_inv.powi(3)
-                }
-                3 => {
-                    D::from_real((k2 * scaling.get_real() + kp) * e_inv)
-                        + (scaling - D::from_real(scaling.get_real())) / Into::<T>::into(2.)
-                            * (-kp * kp + k2 * (Into::<T>::into(cut.m_squared) + p2))
-                            * e_inv.powi(3)
-                        + (scaling - D::from_real(scaling.get_real())).powi(2) / Into::<T>::into(6.)
-                            * Into::<T>::into(3.)
-                            * (kp * kp - k2 * (Into::<T>::into(cut.m_squared) + p2))
-                            * (kp + k2 * scaling.get_real())
-                            * e_inv.powi(5)
-                }
-                x => panic!("Unimplemented E-surface expansion for depth {}", x),
-            };
+            e_surface_expansion += D::from_real((k2 * scaling.get_real() + kp) * e_inv);
+            if t_prop_power + max_extra_t_raisings >= 2 {
+                e_surface_expansion += (scaling - D::from_real(scaling.get_real()))
+                    / Into::<T>::into(2.)
+                    * (-kp * kp + k2 * (m2 + p2))
+                    * e_inv.powi(3);
+            }
+            if t_prop_power + max_extra_t_raisings >= 3 {
+                e_surface_expansion += (scaling - D::from_real(scaling.get_real())).powi(2)
+                    / Into::<T>::into(2.)
+                    * (kp * kp - k2 * (m2 + p2))
+                    * (kp + k2 * scaling.get_real())
+                    * e_inv.powi(5)
+            }
+            if t_prop_power + max_extra_t_raisings >= 4 {
+                e_surface_expansion += (scaling - D::from_real(scaling.get_real())).powi(3)
+                    / Into::<T>::into(8.)
+                    * (kp * kp - k2 * (m2 + p2))
+                    * (-Into::<T>::into(5.) * kp * kp
+                        - Into::<T>::into(8.) * k2 * kp * scaling.get_real()
+                        + k2 * (m2 + p2
+                            - Into::<T>::into(4.) * k2 * scaling.get_real() * scaling.get_real()))
+                    * e_inv.powi(7)
+            }
+            if t_prop_power + max_extra_t_raisings >= 5 {
+                panic!(
+                    "Unimplemented E-surface expansion for depth {}",
+                    t_prop_power + max_extra_t_raisings
+                );
+            }
 
             if cut_index + 1 == cutkosky_cuts.cuts.len() {
                 cut_mom.t = (-cut_energies_summed + energy + cut_energies_summed.get_real())
@@ -2878,7 +3085,7 @@ impl SquaredTopology {
 
                 if cut.power > 1 {
                     // tag the k0 derivative
-                    *e1.get_der_mut(cut_index - first_cut_with_raising) = T::one();
+                    *e1.get_der_mut(&[cut_index - first_cut_with_raising]) = T::one();
                     cut_energies_summed += e1 - energy;
                 }
 
@@ -3394,39 +3601,96 @@ impl SquaredTopology {
         }
 
         diag_and_num_contributions *= scaling_result;
-        let cut_result: Complex<T> = match (
-            cutkosky_cuts.cuts.last().unwrap().power - 1,
-            max_extra_t_raisings,
-        ) {
-            (1, 0) => Complex::new(
-                diag_and_num_contributions.re.get_der(0),
-                diag_and_num_contributions.im.get_der(0),
+
+        let raised_cut_powers: ArrayVec<[usize; MAX_SG_LOOP + 1]> = cutkosky_cuts
+            .cuts
+            .iter()
+            .filter(|cc| cc.power > 1)
+            .map(|cc| cc.power)
+            .collect();
+
+        let cut_result: Complex<T> = match &raised_cut_powers[..] {
+            [2] => Complex::new(
+                diag_and_num_contributions.re.get_der(&[0]),
+                diag_and_num_contributions.im.get_der(&[0]),
             ),
-            (2, 0) => Complex::new(
-                diag_and_num_contributions.re.get_der2(0, 0),
-                diag_and_num_contributions.im.get_der2(0, 0),
+            [3] => Complex::new(
+                diag_and_num_contributions.re.get_der(&[0, 0]),
+                diag_and_num_contributions.im.get_der(&[0, 0]),
             ),
-            (1, 1) => {
-                let r = Complex::new(
-                    diag_and_num_contributions.re.get_der2(0, 1),
-                    diag_and_num_contributions.im.get_der2(0, 1),
+            [2, 2] => {
+                let r01 = Complex::new(
+                    diag_and_num_contributions.re.get_der(&[0, 1]),
+                    diag_and_num_contributions.im.get_der(&[0, 1]),
                 );
 
                 // compute the extra factor of the derivative of the t-propagator E-surface in a loop momentum energy
-                // note that for higher-order derivatives, the expansion depth in the dual number is lower since it doesn't take the
-                // derivative of the E-surface into account. Therefore, a 1/d correction factor may be needed
-                let one_extra_derivative_prefactor = e_surface_expansion
-                    .inv()
-                    .multiply_sign(-cutkosky_cuts.cuts.last().unwrap().sign)
-                    * -Into::<T>::into(2.);
+                let one_extra_derivative = diag_and_num_contributions
+                    * (e_surface_expansion
+                        .inv()
+                        .multiply_sign(-cutkosky_cuts.cuts.last().unwrap().sign)
+                        * -Into::<T>::into(2.));
 
-                // select all dual components of the form
-                // ep_t^(cut_t pow + extra_pow) * sum_x ep_k^(cut_k pow - x1)  * ep_l^(cut l pow - x2) * ... with x = partition of extra_pow
-                let extra_pow_1 = diag_and_num_contributions * one_extra_derivative_prefactor;
-                let sec_contrib =
-                    Complex::new(extra_pow_1.re.get_der2(1, 1), extra_pow_1.im.get_der2(1, 1));
+                let r11 = Complex::new(
+                    one_extra_derivative.re.get_der(&[1, 1]),
+                    one_extra_derivative.im.get_der(&[1, 1]),
+                );
 
-                r + sec_contrib
+                r01 + r11
+            }
+            [4] => Complex::new(
+                diag_and_num_contributions.re.get_der(&[0, 0, 0]),
+                diag_and_num_contributions.im.get_der(&[0, 0, 0]),
+            ),
+            [2, 3] => {
+                let r011 = Complex::new(
+                    diag_and_num_contributions.re.get_der(&[0, 1, 1]),
+                    diag_and_num_contributions.im.get_der(&[0, 1, 1]),
+                );
+
+                let one_extra_derivative = diag_and_num_contributions
+                    * (e_surface_expansion
+                        .inv()
+                        .multiply_sign(-cutkosky_cuts.cuts.last().unwrap().sign)
+                        * -Into::<T>::into(3.));
+
+                let r111 = Complex::new(
+                    one_extra_derivative.re.get_der(&[1, 1, 1]),
+                    one_extra_derivative.im.get_der(&[1, 1, 1]),
+                );
+
+                r011 + r111
+            }
+            [2, 2, 2] => {
+                let r012 = Complex::new(
+                    diag_and_num_contributions.re.get_der(&[0, 1, 2]),
+                    diag_and_num_contributions.im.get_der(&[0, 1, 2]),
+                );
+
+                let one_extra_derivative = diag_and_num_contributions
+                    * (e_surface_expansion
+                        .inv()
+                        .multiply_sign(-cutkosky_cuts.cuts.last().unwrap().sign)
+                        * -Into::<T>::into(2.));
+
+                let two_extra_derivatives = diag_and_num_contributions
+                    * (e_surface_expansion.inv().powi(2) * Into::<T>::into(6.));
+
+                let r022 = Complex::new(
+                    one_extra_derivative.re.get_der(&[0, 2, 2]),
+                    one_extra_derivative.im.get_der(&[0, 2, 2]),
+                );
+                let r122 = Complex::new(
+                    one_extra_derivative.re.get_der(&[1, 2, 2]),
+                    one_extra_derivative.im.get_der(&[1, 2, 2]),
+                );
+
+                let r222 = Complex::new(
+                    two_extra_derivatives.re.get_der(&[2, 2, 2]),
+                    two_extra_derivatives.im.get_der(&[2, 2, 2]),
+                );
+
+                r012 + r022 + r122 + r222
             }
             _ => unreachable!(),
         };

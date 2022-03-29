@@ -1,11 +1,17 @@
 #[macro_use]
 extern crate itertools;
 #[cfg(feature = "python_api")]
-use hyperdual::Hyperdual;
+use dualklt3::Dualklt3;
 #[cfg(feature = "python_api")]
 use dualkt2::Dualkt2;
 #[cfg(feature = "python_api")]
+use dualkt3::Dualkt3;
+#[cfg(feature = "python_api")]
 use dualt2::Dualt2;
+#[cfg(feature = "python_api")]
+use dualt3::Dualt3;
+#[cfg(feature = "python_api")]
+use hyperdual::Hyperdual;
 #[cfg(feature = "python_api")]
 use pyo3::prelude::*;
 #[cfg(feature = "python_api")]
@@ -56,8 +62,11 @@ impl FloatLike for f128::f128 {}
 pub mod amplitude;
 pub mod cts;
 pub mod dashboard;
+pub mod dualklt3;
 pub mod dualkt2;
+pub mod dualkt3;
 pub mod dualt2;
+pub mod dualt3;
 pub mod gamma_chain;
 pub mod integrand;
 pub mod ltd;
@@ -491,7 +500,7 @@ pub enum FilterQuantity {
     #[serde(rename = "CosThetaP")]
     CosThetaP,
     #[serde(rename = "pT")]
-    PT
+    PT,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -1074,60 +1083,16 @@ impl PythonCrossSection {
         let mut k_def = [LorentzVector::default(); MAX_LOOP + 4];
 
         let n_loops = self.squared_topology.n_loops;
-        let has_raised_cc = self.squared_topology.cutkosky_cuts[cut_index]
-            .cuts
-            .iter()
-            .any(|cc| cc.power > 1);
-        let raised_cut_count = self.squared_topology.cutkosky_cuts[cut_index]
-            .cuts
-            .iter()
-            .filter(|cc| cc.power > 1)
-            .count();
-        let last_pow = self.squared_topology.cutkosky_cuts[cut_index]
-            .cuts
-            .last()
-            .unwrap()
-            .power;
+        let raised_cut_powers: ArrayVec<[usize; MAX_LOOP + 4]> =
+            self.squared_topology.cutkosky_cuts[cut_index]
+                .cuts
+                .iter()
+                .filter(|cc| cc.power > 1)
+                .map(|cc| cc.power)
+                .collect();
 
-        let res = if has_raised_cc {
-            if raised_cut_count == 1 && last_pow == 2 {
-                self.squared_topology
-                    .evaluate_cut_derivative::<f64, Hyperdual<f64, 2>>(
-                        &loop_momenta,
-                        &external_momenta,
-                        &mut self.caches,
-                        &mut Some(&mut self.integrand.event_manager),
-                        cut_index,
-                        scaling,
-                        None,
-                    )
-            } else if raised_cut_count == 1 && last_pow == 3 {
-                self.squared_topology
-                    .evaluate_cut_derivative::<f64, Dualt2<f64>>(
-                        &loop_momenta,
-                        &external_momenta,
-                        &mut self.caches,
-                        &mut Some(&mut self.integrand.event_manager),
-                        cut_index,
-                        scaling,
-                        None,
-                    )
-            } else if raised_cut_count == 2 && last_pow == 2 {
-                self.squared_topology
-                    .evaluate_cut_derivative::<f64, Dualkt2<f64>>(
-                        &loop_momenta,
-                        &external_momenta,
-                        &mut self.caches,
-                        &mut Some(&mut self.integrand.event_manager),
-                        cut_index,
-                        scaling,
-                        None,
-                    )
-            } else {
-                panic!("No supported dual for raised cut configuration")
-            }
-        } else {
-            self.squared_topology.evaluate_cut::<f64>(
+        let res = match &raised_cut_powers[..] {
+            [] => self.squared_topology.evaluate_cut(
                 &loop_momenta,
                 &mut cut_momenta,
                 &mut external_momenta,
@@ -1140,7 +1105,78 @@ impl PythonCrossSection {
                 scaling,
                 scaling_jac,
                 diagram_set,
-            )
+            ),
+            [2] => self
+                .squared_topology
+                .evaluate_cut_derivative::<f64, Hyperdual<f64, 2>>(
+                    &loop_momenta,
+                    &external_momenta,
+                    &mut self.caches,
+                    &mut Some(&mut self.integrand.event_manager),
+                    cut_index,
+                    scaling,
+                    None,
+                ),
+            [3] => self
+                .squared_topology
+                .evaluate_cut_derivative::<f64, Dualt2<f64>>(
+                    &loop_momenta,
+                    &external_momenta,
+                    &mut self.caches,
+                    &mut Some(&mut self.integrand.event_manager),
+                    cut_index,
+                    scaling,
+                    None,
+                ),
+            [2, 2] => self
+                .squared_topology
+                .evaluate_cut_derivative::<f64, Dualkt2<f64>>(
+                    &loop_momenta,
+                    &external_momenta,
+                    &mut self.caches,
+                    &mut Some(&mut self.integrand.event_manager),
+                    cut_index,
+                    scaling,
+                    None,
+                ),
+            [4] => self
+                .squared_topology
+                .evaluate_cut_derivative::<f64, Dualt3<f64>>(
+                    &loop_momenta,
+                    &external_momenta,
+                    &mut self.caches,
+                    &mut Some(&mut self.integrand.event_manager),
+                    cut_index,
+                    scaling,
+                    None,
+                ),
+            [2, 3] => self
+                .squared_topology
+                .evaluate_cut_derivative::<f64, Dualkt3<f64>>(
+                    &loop_momenta,
+                    &external_momenta,
+                    &mut self.caches,
+                    &mut Some(&mut self.integrand.event_manager),
+                    cut_index,
+                    scaling,
+                    None,
+                ),
+            [2, 2, 2] => self
+                .squared_topology
+                .evaluate_cut_derivative::<f64, Dualklt3<f64>>(
+                    &loop_momenta,
+                    &external_momenta,
+                    &mut self.caches,
+                    &mut Some(&mut self.integrand.event_manager),
+                    cut_index,
+                    scaling,
+                    None,
+                ),
+            _ => {
+                return Err(pyo3::exceptions::PyValueError::new_err(
+                    "No scaling could be obtained",
+                ));
+            }
         };
 
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
@@ -1173,60 +1209,16 @@ impl PythonCrossSection {
         let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_LOOP];
         let mut k_def = [LorentzVector::default(); MAX_LOOP + 4];
         let n_loops = self.squared_topology.n_loops;
-        let has_raised_cc = self.squared_topology.cutkosky_cuts[cut_index]
-            .cuts
-            .iter()
-            .any(|cc| cc.power > 1);
-        let raised_cut_count = self.squared_topology.cutkosky_cuts[cut_index]
-            .cuts
-            .iter()
-            .filter(|cc| cc.power > 1)
-            .count();
-        let last_pow = self.squared_topology.cutkosky_cuts[cut_index]
-            .cuts
-            .last()
-            .unwrap()
-            .power;
+        let raised_cut_powers: ArrayVec<[usize; MAX_LOOP + 4]> =
+            self.squared_topology.cutkosky_cuts[cut_index]
+                .cuts
+                .iter()
+                .filter(|cc| cc.power > 1)
+                .map(|cc| cc.power)
+                .collect();
 
-        let res = if has_raised_cc {
-            if raised_cut_count == 1 && last_pow == 2 {
-                self.squared_topology
-                    .evaluate_cut_derivative::<f128::f128, Hyperdual<f128::f128, 2>>(
-                        &moms,
-                        &external_momenta,
-                        &mut self.caches_f128,
-                        &mut Some(&mut self.integrand.event_manager),
-                        cut_index,
-                        f128::f128::from_f64(scaling).unwrap(),
-                        None,
-                    )
-            } else if raised_cut_count == 1 && last_pow == 3 {
-                self.squared_topology
-                    .evaluate_cut_derivative::<f128::f128, Dualt2<f128::f128>>(
-                        &moms,
-                        &external_momenta,
-                        &mut self.caches_f128,
-                        &mut Some(&mut self.integrand.event_manager),
-                        cut_index,
-                        f128::f128::from_f64(scaling).unwrap(),
-                        None,
-                    )
-            } else if raised_cut_count == 2 && last_pow == 2 {
-                self.squared_topology
-                    .evaluate_cut_derivative::<f128::f128, Dualkt2<f128::f128>>(
-                        &moms,
-                        &external_momenta,
-                        &mut self.caches_f128,
-                        &mut Some(&mut self.integrand.event_manager),
-                        cut_index,
-                        f128::f128::from_f64(scaling).unwrap(),
-                        None,
-                    )
-            } else {
-                panic!("No supported dual for raised cut configuration")
-            }
-        } else {
-            self.squared_topology.evaluate_cut::<f128::f128>(
+        let res = match &raised_cut_powers[..] {
+            [] => self.squared_topology.evaluate_cut(
                 &moms,
                 &mut cut_momenta,
                 &mut external_momenta,
@@ -1239,7 +1231,78 @@ impl PythonCrossSection {
                 f128::f128::from_f64(scaling).unwrap(),
                 f128::f128::from_f64(scaling_jac).unwrap(),
                 diagram_set,
-            )
+            ),
+            [2] => self
+                .squared_topology
+                .evaluate_cut_derivative::<f128::f128, Hyperdual<f128::f128, 2>>(
+                    &moms,
+                    &external_momenta,
+                    &mut self.caches_f128,
+                    &mut Some(&mut self.integrand.event_manager),
+                    cut_index,
+                    f128::f128::from_f64(scaling).unwrap(),
+                    None,
+                ),
+            [3] => self
+                .squared_topology
+                .evaluate_cut_derivative::<f128::f128, Dualt2<f128::f128>>(
+                    &moms,
+                    &external_momenta,
+                    &mut self.caches_f128,
+                    &mut Some(&mut self.integrand.event_manager),
+                    cut_index,
+                    f128::f128::from_f64(scaling).unwrap(),
+                    None,
+                ),
+            [2, 2] => self
+                .squared_topology
+                .evaluate_cut_derivative::<f128::f128, Dualkt2<f128::f128>>(
+                    &moms,
+                    &external_momenta,
+                    &mut self.caches_f128,
+                    &mut Some(&mut self.integrand.event_manager),
+                    cut_index,
+                    f128::f128::from_f64(scaling).unwrap(),
+                    None,
+                ),
+            [4] => self
+                .squared_topology
+                .evaluate_cut_derivative::<f128::f128, Dualt3<f128::f128>>(
+                    &moms,
+                    &external_momenta,
+                    &mut self.caches_f128,
+                    &mut Some(&mut self.integrand.event_manager),
+                    cut_index,
+                    f128::f128::from_f64(scaling).unwrap(),
+                    None,
+                ),
+            [2, 3] => self
+                .squared_topology
+                .evaluate_cut_derivative::<f128::f128, Dualkt3<f128::f128>>(
+                    &moms,
+                    &external_momenta,
+                    &mut self.caches_f128,
+                    &mut Some(&mut self.integrand.event_manager),
+                    cut_index,
+                    f128::f128::from_f64(scaling).unwrap(),
+                    None,
+                ),
+            [2, 2, 2] => self
+                .squared_topology
+                .evaluate_cut_derivative::<f128::f128, Dualklt3<f128::f128>>(
+                    &moms,
+                    &external_momenta,
+                    &mut self.caches_f128,
+                    &mut Some(&mut self.integrand.event_manager),
+                    cut_index,
+                    f128::f128::from_f64(scaling).unwrap(),
+                    None,
+                ),
+            _ => {
+                return Err(pyo3::exceptions::PyValueError::new_err(
+                    "No scaling could be obtained",
+                ));
+            }
         };
 
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))

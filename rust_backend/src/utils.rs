@@ -1,8 +1,11 @@
+use crate::dualklt3::Dualklt3;
 use crate::dualkt2::Dualkt2;
+use crate::dualkt3::Dualkt3;
 use crate::dualt2::Dualt2;
+use crate::dualt3::Dualt3;
 use crate::{FloatLike, MAX_LOOP};
-use hyperdual::Hyperdual;
 use f128::f128;
+use hyperdual::Hyperdual;
 use itertools::Itertools;
 use lorentz_vector::RealNumberLike;
 use lorentz_vector::{Field, LorentzVector};
@@ -170,8 +173,7 @@ impl<T: Num + Neg<Output = T> + Copy> Signum for Complex<T> {
     }
 }
 
-impl<T: FloatLike, const U: usize> Signum for Hyperdual<T, U>
-{
+impl<T: FloatLike, const U: usize> Signum for Hyperdual<T, U> {
     #[inline]
     fn multiply_sign(&self, sign: i8) -> Hyperdual<T, U> {
         match sign {
@@ -201,6 +203,42 @@ impl<T: FloatLike> Signum for Dualkt2<T> {
         match sign {
             1 => *self,
             0 => Dualkt2::zero(),
+            -1 => -*self,
+            _ => unreachable!("Sign should be -1,0,1"),
+        }
+    }
+}
+
+impl<T: FloatLike> Signum for Dualt3<T> {
+    #[inline]
+    fn multiply_sign(&self, sign: i8) -> Self {
+        match sign {
+            1 => *self,
+            0 => Self::zero(),
+            -1 => -*self,
+            _ => unreachable!("Sign should be -1,0,1"),
+        }
+    }
+}
+
+impl<T: FloatLike> Signum for Dualkt3<T> {
+    #[inline]
+    fn multiply_sign(&self, sign: i8) -> Self {
+        match sign {
+            1 => *self,
+            0 => Self::zero(),
+            -1 => -*self,
+            _ => unreachable!("Sign should be -1,0,1"),
+        }
+    }
+}
+
+impl<T: FloatLike> Signum for Dualklt3<T> {
+    #[inline]
+    fn multiply_sign(&self, sign: i8) -> Self {
+        match sign {
+            1 => *self,
+            0 => Self::zero(),
             -1 => -*self,
             _ => unreachable!("Sign should be -1,0,1"),
         }

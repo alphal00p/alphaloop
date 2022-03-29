@@ -351,7 +351,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                     pjoin(FORM_output_path, 'Makefile'))
 
-            for n in ('mpcomplex.h', 'mpreal.h', 'dual.h', 'dualt2.h', 'dualkt2.h'):
+            for n in ('mpcomplex.h', 'mpreal.h', 'dual.h', 'dualt2.h', 'dualkt2.h', 'dualt3.h', 'dualkt3.h', 'dualklt3.h'):
                 shutil.copy(pjoin(plugin_path, n), pjoin(self.dir_path,'FORM', n))
             if os.path.isfile(pjoin(plugin_path,'Templates','makefile_user_opts.inc')):
                 shutil.copy(pjoin(plugin_path,'Templates','makefile_user_opts.inc'), pjoin(self.dir_path,'FORM', 'makefile_user_opts.inc'))
@@ -1365,7 +1365,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
             shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                     pjoin(self.dir_path,'FORM', 'Makefile'))
-            for n in ('mpcomplex.h', 'mpreal.h', 'dual.h', 'dualt2.h', 'dualkt2.h'):
+            for n in ('mpcomplex.h', 'mpreal.h', 'dual.h', 'dualt2.h', 'dualkt2.h', 'dualt3.h', 'dualkt3.h', 'dualklt3.h'):
                 shutil.copy(pjoin(plugin_path, n), pjoin(self.dir_path,'FORM', n))
             if os.path.isfile(pjoin(plugin_path,'Templates','makefile_user_opts.inc')):
                 shutil.copy(pjoin(plugin_path,'Templates','makefile_user_opts.inc'), pjoin(self.dir_path,'FORM', 'makefile_user_opts.inc'))
@@ -1688,7 +1688,7 @@ class LUScalarTopologyExporter(QGRAFExporter):
         self.topology = topology
         # Set all particles massless by default
         self.particle_ids = { edge_key[0]: 3370 for edge_key in self.topology }
-        self.unique_masses = [ 0., ]
+        self.unique_masses = [ 173.0, ]
         if edge_masses is not None:
             # collect the value of all identical masses
             self.unique_masses = sorted(list(set(edge_masses.values())))
@@ -1714,7 +1714,7 @@ class LUScalarTopologyExporter(QGRAFExporter):
                 'spin' : 1,
                 'color': 1,
                 # We can think of generalising the pipeline for massive scalars too.
-                'mass': 'ZERO' if i_scalar == 0 else FORM_processing.dummy_scalar_PDGs[337*10+i_scalar],
+                'mass': '173.0' if i_scalar == 0 else FORM_processing.dummy_scalar_PDGs[337*10+i_scalar],
                 'width': 'ZERO', 
                 'pdg_code': 337*10+i_scalar,
                 'line': 'dashed',
@@ -1825,7 +1825,7 @@ class LUScalarTopologyExporter(QGRAFExporter):
         # Compile
         shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                     pjoin(FORM_output_path, 'Makefile'))
-        for n in ('mpcomplex.h', 'mpreal.h', 'dual.h', 'dualt2.h', 'dualkt2.h'):
+        for n in ('mpcomplex.h', 'mpreal.h', 'dual.h', 'dualt2.h', 'dualkt2.h', 'dualt3.h', 'dualkt3.h', 'dualklt3.h'):
             shutil.copy(pjoin(plugin_path, n), pjoin(self.dir_path,'FORM', n))
         if os.path.isfile(pjoin(plugin_path,'Templates','makefile_user_opts.inc')):
             shutil.copy(pjoin(plugin_path,'Templates','makefile_user_opts.inc'), pjoin(self.dir_path,'FORM', 'makefile_user_opts.inc'))
