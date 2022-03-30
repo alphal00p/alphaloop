@@ -1394,7 +1394,8 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                     # Remove non-contributing graphs from the list stored in the form_processor
                     filter_non_contributing_graphs=True,
                     workspace=FORM_workspace, 
-                    integrand_type=self.alphaLoop_options['FORM_integrand_type']
+                    integrand_type=self.alphaLoop_options['FORM_integrand_type'],
+                    selected_cuts=self.alphaLoop_options['qgraf_cuts']
                 )
 
             # Draw all the graphs contributing to the process

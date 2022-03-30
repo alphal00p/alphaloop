@@ -114,6 +114,8 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'qgraf_cut_filter': False,
             # Specify qgraf model
             'qgraf_model' : 'SM',
+            # Specify particular cuts to consider
+            'qgraf_cuts' : None,
             # Loop induced processes will enforce the presence of at least two virtual corrections:
             'loop_induced': False,
             # Veto some field from the QGRAF generation
@@ -283,6 +285,13 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 raise alphaLoopInvalidCmd("Specified value for '%s' should be 'True' or 'False', not '%s'."%(key,value))
             bool_val = (value.upper()=='TRUE')
             self.alphaLoop_options[key] = bool_val
+        elif key == 'qgraf_cuts':
+            try:
+                value = eval(value)
+            except Exception as e:
+                raise alphaLoopInvalidCmd("alphaLoop option 'qgraf_cuts' should be a dictionary with SG name as keys and as value a list of tuple"+
+                                          " of strings indicating the name of the edges in the cut, not '%s'.Error: %s"%(value, str(e)))
+            self.alphaLoop_options[key] = value
         elif key == 'qgraf_template_model':
             if value not in aL_exporters.HardCodedQGRAFExporter.qgraf_templates.keys():
                 raise alphaLoopInvalidCmd("QGraf template model '{}' not supported.\nTry models (: example)\n{}"\

@@ -11,6 +11,7 @@ from itertools import combinations_with_replacement, product
 import vectors
 import numpy
 from sympy import Matrix, diag
+from pprint import pprint, pformat
 
 class SquaredTopologyGenerator:
     def __init__(self, edges, name, incoming_momentum_names, n_jets, external_momenta, final_state_particle_ids=(),
@@ -55,7 +56,13 @@ class SquaredTopologyGenerator:
                                     particle_ids, PDGs_in_jet=jet_ids, fuse_repeated_edges=True)
 
         if len(cut_filter) > 0:
-            self.cuts = [c for c in self.cuts if tuple(n['edge'] for n in c['cuts']) in cut_filter]
+            new_cutkosky_cuts = [ c for c in cutkosky_cuts if tuple(sorted([e_name for e_name, _ in c])) in [ tuple(sorted(cf)) for cf in cut_filter ] ]
+            if len(new_cutkosky_cuts)==0 and len(cutkosky_cuts)>0:
+                print("WARNING: could not find selected cuts for %s.\nExisting cuts: %s\nSelected cuts: %s"%(
+                    self.name, pformat( [ tuple(sorted([e_name for e_name, _ in c])) for c in cutkosky_cuts ] ),
+                    pformat( [ tuple(sorted(cf)) for cf in cut_filter ] )
+                ))
+            cutkosky_cuts = new_cutkosky_cuts
 
         self.masses = copy.deepcopy(masses)
         self.overall_numerator = overall_numerator

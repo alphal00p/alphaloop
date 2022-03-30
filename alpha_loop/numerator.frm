@@ -257,6 +257,7 @@ repeat id f?{vx,prop}(?a,p?) = f(?a);
 
 * do the spin sum external particles
 repeat id prop(`PHO', in, p?, idx1?)*prop(`PHO', out, p?, idx2?) = 1;
+repeat id prop(`GLU', in, p?, idx1?)*prop(`GLU', out, p?, idx2?) = d_(colA[idx1], colA[idx2]);
 repeat id prop(x?{`L'}, in, p?, idx1?)*prop(x?{`L',}, out, p?, idx2?) = 1;
 repeat id prop(x?{`Q'}, in, p?, idx1?)*prop(x?{`Q'}, out, p?, idx2?) = d_(colF[idx2], colF[idx1]);
 repeat id prop(x?{`LBAR'}, out, p?, idx1?)*prop(x?{`LBAR'}, in, p?, idx2?) = 1;
@@ -437,6 +438,7 @@ repeat id vx(?a, 0, ?b) = vx(?a, pzero, ?b);
 
 * do the spin sum external particles
 repeat id prop(`PHO', in, p?, idx1?)*prop(`PHO', out, p?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
+repeat id prop(`GLU', in, p?, idx1?)*prop(`GLU', out, p?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
 repeat id prop(x?{`L'}, in, p?, idx1?)*prop(x?{`L',}, out, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x)*gamma(dirac[idx1], dirac[idx2]);
 repeat id prop(x?{`Q'}, in, p?, idx1?)*prop(x?{`Q'}, out, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x)*gamma(dirac[idx1], dirac[idx2]);
 repeat id prop(x?{`Q'}, in, p?, idx1?)*prop(x?{`Q'}, out, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x)*gamma(dirac[idx1], dirac[idx2]);

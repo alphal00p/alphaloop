@@ -841,7 +841,7 @@ aGraph=%s;
         """ Depending on the FORM options 'number_of_lmbs' and 'reference_lmb', this function fills in the attribute 
         additional_lmbs of this class."""
 
-        if (FORM_processing_options['number_of_lmbs'] is None) and not FORM_processing_options['optimise_generation_lmb']:
+        if (FORM_processing_options['reference_lmb'] is None) and (FORM_processing_options['number_of_lmbs'] is None) and not FORM_processing_options['optimise_generation_lmb']:
             return
     
         topo_generator, edge_name_to_key, original_LMB = self.get_topo_generator()
@@ -853,7 +853,7 @@ aGraph=%s;
 
         all_lmbs = topo_generator.loop_momentum_bases()
         all_lmbs= [ tuple([edge_name_to_key[topo_generator.edge_map_lin[e][0]] for e in lmb]) for lmb in all_lmbs]
-        
+
         forced_LMB_index = None
         if FORM_processing_options['optimise_generation_lmb']:
             
@@ -884,22 +884,23 @@ aGraph=%s;
             lmb_metric.sort(key=lambda score:(score[0],score[1]), reverse=True)
             forced_LMB_index = lmb_metric[0][-1]
 
-        # You can hack in here your desired LMB when using the FORM processing options:
-        #   set_FORM_option number_of_lmbs 1
-        #   set_FORM_option reference_lmb 1
-        # and then specify below your pq<i> desired basis
-        #all_lmbs = [ tuple([edge_name_to_key[e] for e in ('pq7','pq9','pq10','pq13')]), ]
-        #all_lmbs = [ tuple([edge_name_to_key[e] for e in ('pq2', 'pq4', 'pq13', 'pq14','pq12') ]), ]
+        reference_lmb = None
+        if isinstance(FORM_processing_options['reference_lmb'], int):
+            reference_lmb = FORM_processing_options['reference_lmb']
+        elif isinstance(FORM_processing_options['reference_lmb'],dict) and self.name in FORM_processing_options['reference_lmb']:
+            reference_lmb = 1
+            all_lmbs = [ tuple([ edge_name_to_key[e] for e in FORM_processing_options['reference_lmb'][self.name] ]), ]
 
         # Then overwrite the reference LMB if the user requested it
-        if (FORM_processing_options['reference_lmb'] is not None) or (forced_LMB_index is not None):
-            if FORM_processing_options['reference_lmb'] is not None:
-                original_LMB = all_lmbs[(FORM_processing_options['reference_lmb']-1)%len(all_lmbs)]
+        if (reference_lmb is not None) or (forced_LMB_index is not None):
+            if reference_lmb is not None:
+                original_LMB = all_lmbs[(reference_lmb-1)%len(all_lmbs)]
             else:
                 original_LMB = all_lmbs[forced_LMB_index]
 
-            # Sort the LMB according to PDGs.
-            original_LMB=tuple(sorted(original_LMB,key=lambda e_key: abs(edge_name_to_pdg[edge_key_to_name[e_key]])))
+            # Sort the LMB according to PDGs. Only do it if the user did not specify the list of edges explicitly
+            if not (isinstance(FORM_processing_options['reference_lmb'],dict) and self.name in FORM_processing_options['reference_lmb']):
+                original_LMB=tuple(sorted(original_LMB,key=lambda e_key: abs(edge_name_to_pdg[edge_key_to_name[e_key]])))
 
             # Regenerate the topology with this new overwritten LMB
             topo_generator, _, _ = self.get_topo_generator(specified_LMB=[ edge_key_to_name[e_key] for e_key in original_LMB ])
@@ -1601,7 +1602,7 @@ CTable ltdmap(0:{},0:{});
             return 0
 
     def generate_squared_topology_files(self, root_output_path, model, process_definition, n_jets, numerator_call, final_state_particle_ids=(),jet_ids=None, write_yaml=True, bar=None,
-        integrand_type=None, workspace=None, include_integration_channel_info=True):
+        integrand_type=None, workspace=None, include_integration_channel_info=True, selected_cuts=None):
         if workspace is None:
             workspace = pjoin(root_output_path, os.pardir, 'workspace')
 
@@ -1653,6 +1654,9 @@ CTable ltdmap(0:{},0:{});
         cut_filter = []
         if self.effective_vertex_id is not None:
             cut_filter.append( tuple( edge_data['name' ] for edge_key, edge_data in self.edges.items() if self.effective_vertex_id in edge_data['vertices'] and edge_data['type']=='virtual' ) )
+        
+        if isinstance(selected_cuts,dict) and self.name in selected_cuts:
+            cut_filter = [ tuple(sorted(sc)) for sc in selected_cuts[self.name] ]
 
         topo = LTD.squared_topologies.SquaredTopologyGenerator(edge_map_lin,
             self.name, ['q1', 'q2'][:num_incoming], n_jets, external_momenta,
@@ -1688,7 +1692,7 @@ CTable ltdmap(0:{},0:{});
                     bar.update(i_lmb='%d'%(i_lmb+2))
                 other_lmb_supergraph.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call, 
                         final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, write_yaml=write_yaml,workspace=workspace,
-                        bar=bar, integrand_type=integrand_type, include_integration_channel_info=False)
+                        bar=bar, integrand_type=integrand_type, include_integration_channel_info=False, selected_cuts=selected_cuts)
 
         self.generate_integrand(topo, integrand_type, workspace, call_signature_ID, progress_bar = bar)
         self.generate_form_input(topo)
@@ -1697,7 +1701,7 @@ CTable ltdmap(0:{},0:{});
             if isinstance(self.additional_lmbs, int):
                 topo.export(pjoin(root_output_path, "%s_LMB%d.yaml"%(self.name,self.additional_lmbs)),
                     model=model,
-                    include_integration_channel_info=include_integration_channel_info, 
+                    include_integration_channel_info=include_integration_channel_info,
                     optimize_channels=FORM_processing_options['optimise_integration_channels']
                 )
             else:
@@ -2241,6 +2245,10 @@ class FORMSuperGraphIsomorphicList(list):
             return to_dump
     
     def multiplicity_factor(self, iso_id, workspace, form_source):
+        
+        #VH HACK bernard
+        #return (self, 1)
+
         output_match = re.compile(r'isoF=(.*?);')
         reference = self[0].generate_numerator_form_input('', only_algebra=True)
         FORM_vars = {}
@@ -2291,7 +2299,7 @@ class FORMSuperGraphIsomorphicList(list):
         return args[0].multiplicity_factor(*args[1:])
 
     def generate_squared_topology_files(self, root_output_path, model, process_definition, n_jets, numerator_call, final_state_particle_ids=(), jet_ids=None, workspace=None, bar=None,
-            integrand_type=None,include_integration_channel_info=True):
+            integrand_type=None,include_integration_channel_info=True, selected_cuts=None):
         for i, g in enumerate(self):
             # Now we generate the squared topology only for the first isomorphic graph
             # to obtain the replacement rules for the bubble.
@@ -2300,7 +2308,7 @@ class FORMSuperGraphIsomorphicList(list):
             if i==0:
                 r = g.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call, 
                                 final_state_particle_ids, jet_ids=jet_ids, write_yaml=i==0, workspace=workspace, bar=bar, integrand_type=integrand_type, 
-                                include_integration_channel_info=include_integration_channel_info)
+                                include_integration_channel_info=include_integration_channel_info, selected_cuts=selected_cuts)
         #print(r)
         return r
 
@@ -4006,7 +4014,7 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
         return files_written
 
     def generate_squared_topology_files(self, root_output_path, model, process_definition, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None,
-        integrand_type=None, include_integration_channel_info=True):
+        integrand_type=None, include_integration_channel_info=True, selected_cuts=None):
         if workspace is None:
             workspace = pjoin(root_output_path, os.pardir, 'workspace')
         topo_collection = {
@@ -4030,7 +4038,8 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
                 if g.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call=non_zero_graph, 
                                                             final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids, 
                                                             workspace=workspace, bar=bar, integrand_type=integrand_type,
-                                                            include_integration_channel_info=include_integration_channel_info):
+                                                            include_integration_channel_info=include_integration_channel_info, 
+                                                            selected_cuts=selected_cuts):
                     topo_collection['topologies'].append({
                         'name': g[0].name,
                         # Let us not put it there but in the topology itself
@@ -4072,7 +4081,8 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
                 if g.generate_squared_topology_files(root_output_path, model, process_definition, n_jets, numerator_call=non_zero_graph, 
                                                             final_state_particle_ids=final_state_particle_ids,jet_ids=jet_ids,
                                                             workspace=workspace, bar=bar, integrand_type=integrand_type,
-                                                            include_integration_channel_info=include_integration_channel_info):
+                                                            include_integration_channel_info=include_integration_channel_info,
+                                                            selected_cuts=selected_cuts):
                     topo_collection['topologies'].append({
                         'name': g.name,
                         'multiplicity': g.multiplicity,
@@ -4606,7 +4616,8 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
         form_processor.generate_squared_topology_files(TMP_OUTPUT, 0,
                     workspace=TMP_workspace,
                     integrand_type='PF',
-                    include_integration_channel_info=True)
+                    include_integration_channel_info=True,
+                    selected_cuts=None)
         form_processor.generate_numerator_functions(TMP_FORM, output_format='c',
                     workspace=TMP_workspace,
                     integrand_type='PF')
@@ -4689,6 +4700,7 @@ class FORMProcessor(object):
         params = {
             'masst': self.model['parameter_dict'][self.model.get_particle(6).get('mass')].real,
             'massb': self.model['parameter_dict'][self.model.get_particle(5).get('mass')].real,
+            'massh': self.model['parameter_dict'][self.model.get_particle(25).get('mass')].real,
             'gs': self.model['parameter_dict']['G'].real,
             'ge': math.sqrt(4. * math.pi / self.model['parameter_dict']['aEWM1'].real),
             'yukawat': self.model['parameter_dict']['mdl_yt'].real / math.sqrt(2.),
@@ -4760,14 +4772,15 @@ class FORMProcessor(object):
                            "You will thus need to compile numerators.c manually.%s")%(utils.bcolors.GREEN, utils.bcolors.ENDC))
 
     def generate_squared_topology_files(self, root_output_path, n_jets, final_state_particle_ids=(), jet_ids=None, filter_non_contributing_graphs=True, workspace=None,
-        integrand_type=None, include_integration_channel_info=None):
+        integrand_type=None, include_integration_channel_info=None, selected_cuts=None):
 
         if self.forced_options:
             FORM_processing_options=self.forced_options
 
         self.super_graphs_list.generate_squared_topology_files(
             root_output_path, self.model, self.process_definition, n_jets, final_state_particle_ids, jet_ids=jet_ids, filter_non_contributing_graphs=filter_non_contributing_graphs, workspace=workspace,
-            integrand_type=integrand_type, include_integration_channel_info=(FORM_processing_options['include_integration_channel_info'] if include_integration_channel_info is None else include_integration_channel_info)
+            integrand_type=integrand_type, include_integration_channel_info=(FORM_processing_options['include_integration_channel_info'] if include_integration_channel_info is None else include_integration_channel_info),
+            selected_cuts = selected_cuts
         )
 
 if __name__ == "__main__":
