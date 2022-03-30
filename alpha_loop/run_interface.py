@@ -818,6 +818,9 @@ class SuperGraph(dict):
         """ This function shrinks all loops within each left- and right- amplitude graph of each cutkosky cut and builds the corresponding
         tree topology associated with it."""
 
+        if any( node>=1000 for node in set(sum([ [e[1],e[2]] for e in self['topo_edges'] ],[])) ):
+            raise alphaLoopRunInterfaceError("When generating integration channel topology, make sure that none of the nodes of the graph has an ID >= 1000.")
+
         edge_powers = { e[0] : e[-1] for e in self['topo_edges'] }
         
         edges_PDG = { e[0] : e [1] for e in self['edge_PDGs'] }
@@ -915,7 +918,7 @@ class SuperGraph(dict):
                         raise alphaLoopRunInterfaceError("This is not necessarily wrong but the fact that this assert crashed (for %s)"%self['name']+
                             " indicates that there may be a problem that not all repeated propagators were merged into a single propagator with higher power in the yaml output.\n"+
                             "Alternatively we may have two propagators with the same loop momentum signature but different mass, this is not tested yet.")
-                    effective_node_id_offset += 100
+                    effective_node_id_offset += 1000
                     non_shrunk_edges_for_this_CC_cut, subgraph_info = self.shrink_edges(non_shrunk_edges_for_this_CC_cut, edges_to_shrink, effective_node_id_offset)
                     subgraph_info['side_of_cutkosky_cut'] = 'left' if i_side==0 else 'right'
                     effective_node_id = subgraph_info.pop('effective_node')
@@ -1840,7 +1843,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         t_start = time.time()
                         _res = rust_function(SG.get_random_x_input())
                         delta_t = time.time()-t_start
-                        n_points = int(args.time/delta_t)
+                        n_points = max(int(args.time/delta_t),5)
                     else:
                         n_points = args.n_points
                     
@@ -1868,7 +1871,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 scaling, scaling_jacobian = scaling_solutions.pop(0)
                             _res = cut_evaluate_function(random_momenta,cut_ID,scaling,scaling_jacobian)
                             delta_t = time.time()-t_start
-                            n_points = int(args.time/delta_t)
+                            n_points = max(int(args.time/delta_t),5)
                         else:
                             n_points = args.n_points
 
