@@ -1689,7 +1689,7 @@ class LUScalarTopologyExporter(QGRAFExporter):
         self.topology = topology
         # Set all particles massless by default
         self.particle_ids = { edge_key[0]: 3370 for edge_key in self.topology }
-        self.unique_masses = [ 173.0, ]
+        self.unique_masses = [ 0., ]
         if edge_masses is not None:
             # collect the value of all identical masses
             self.unique_masses = sorted(list(set(edge_masses.values())))
@@ -1715,7 +1715,7 @@ class LUScalarTopologyExporter(QGRAFExporter):
                 'spin' : 1,
                 'color': 1,
                 # We can think of generalising the pipeline for massive scalars too.
-                'mass': '173.0' if i_scalar == 0 else FORM_processing.dummy_scalar_PDGs[337*10+i_scalar],
+                'mass': 'ZERO' if i_scalar == 0 else FORM_processing.dummy_scalar_PDGs[337*10+i_scalar],
                 'width': 'ZERO', 
                 'pdg_code': 337*10+i_scalar,
                 'line': 'dashed',
