@@ -2199,7 +2199,7 @@ class FORMSuperGraphIsomorphicList(list):
                 [ FORM_source, ]
         )
 
-        if pjoin(selected_workspace,'FORM_run_cmd_%d.exe'%i_graph) and \
+        if os.path.isfile(pjoin(selected_workspace,'FORM_run_cmd_%d.exe'%i_graph)) and \
             ( (FORM_vars['INTEGRAND'] not in ['PF','both']) or os.path.isfile(pjoin(selected_workspace,'out_integrand_PF_%d.proto_c'%i_graph)) ) and \
             ( (FORM_vars['INTEGRAND'] not in ['LTD','both']) or os.path.isfile(pjoin(selected_workspace,'out_integrand_LTD_%d.proto_c'%i_graph)) ):
             logger.info("Recycling already existing FORM output for graph #%d. Remove file out_integrand_*_%d.proto_c to force a reprocessing."%(i_graph, i_graph))
