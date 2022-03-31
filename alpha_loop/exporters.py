@@ -414,7 +414,8 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             FORM_processor.generate_numerator_functions(FORM_output_path, 
                         output_format=self.alphaLoop_options['FORM_processing_output_format'],
                         workspace=FORM_workspace,
-                        integrand_type=self.alphaLoop_options['FORM_integrand_type']
+                        integrand_type=self.alphaLoop_options['FORM_integrand_type'],
+                        recycle=self.alphaLoop_options['checkpoint_lvl']>2
             )
 
         # And now finally generate the overall cross section yaml input file.
@@ -1417,7 +1418,8 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             form_processor.generate_numerator_functions(pjoin(self.dir_path,'FORM'), 
                 output_format=self.alphaLoop_options['FORM_processing_output_format'],
                 workspace=FORM_workspace,
-                integrand_type=self.alphaLoop_options['FORM_integrand_type']
+                integrand_type=self.alphaLoop_options['FORM_integrand_type'],
+                recycle=self.alphaLoop_options['checkpoint_lvl']>2
             )
 
         form_processor.compile(pjoin(self.dir_path,'FORM'))
@@ -1811,7 +1813,8 @@ class LUScalarTopologyExporter(QGRAFExporter):
         form_processor.generate_numerator_functions(
             FORM_output_path, output_format=self.alphaLoop_options['FORM_processing_output_format'],
             workspace=FORM_workspace, header="", integrand_type=self.alphaLoop_options['FORM_integrand_type'],
-            force_overall_factor=self.get_overall_factor(), additional_params = { 
+            force_overall_factor=self.get_overall_factor(), recycle=self.alphaLoop_options['checkpoint_lvl']>2,
+            additional_params = { 
                 FORM_processing.dummy_scalar_PDGs[337*10+i+1] : dummy_mass
                 for i, dummy_mass in enumerate(self.unique_masses[1:]) }
         )

@@ -2112,7 +2112,7 @@ class FORMSuperGraphIsomorphicList(list):
 
         return code_generation_statistics
 
-    def generate_numerator_functions(self, model, additional_overall_factor='', output_format='c', workspace=None, FORM_vars=None, active_graph=None,process_definition=None, forced_options=None):
+    def generate_numerator_functions(self, model, additional_overall_factor='', output_format='c', workspace=None, FORM_vars=None, active_graph=None,process_definition=None, recycle=False, forced_options=None):
         """ Use form to plugin Feynman Rules and process the numerator algebra so as
         to generate a low-level routine in file_path that encodes the numerator of this supergraph."""
 
@@ -2198,11 +2198,12 @@ class FORMSuperGraphIsomorphicList(list):
                 [ '-M', '-l', '-C', '%s_%s.log'%(FORM_source_to_run,i_graph)] +
                 [ FORM_source, ]
         )
-
-        if os.path.isfile(pjoin(selected_workspace,'FORM_run_cmd_%d.exe'%i_graph)) and \
+        if recycle and os.path.isfile(pjoin(selected_workspace,'FORM_run_cmd_%d.exe'%i_graph)) and \
+            os.path.isfile(pjoin(selected_workspace,'numerator_%d.log'%i_graph)) and \
             ( (FORM_vars['INTEGRAND'] not in ['PF','both']) or os.path.isfile(pjoin(selected_workspace,'out_integrand_PF_%d.proto_c'%i_graph)) ) and \
             ( (FORM_vars['INTEGRAND'] not in ['LTD','both']) or os.path.isfile(pjoin(selected_workspace,'out_integrand_LTD_%d.proto_c'%i_graph)) ):
             logger.info("Recycling already existing FORM output for graph #%d. Remove file out_integrand_*_%d.proto_c to force a reprocessing."%(i_graph, i_graph))
+            characteristic_super_graph.code_generation_statistics = self.analyze_FORM_output(open(pjoin(selected_workspace,'numerator_%d.log'%i_graph),'r').read(), FORM_vars)
             return True
 
         with open(pjoin(selected_workspace,'FORM_run_cmd_%d.exe'%i_graph), 'w') as f:
@@ -2318,7 +2319,7 @@ class FORMSuperGraphIsomorphicList(list):
         #print(r)
         return r
 
-    def generate_numerator_file(self, i_graph, model, root_output_path, additional_overall_factor, workspace, integrand_type,  process_definition, header_map, output_format, forced_options=None):
+    def generate_numerator_file(self, i_graph, model, root_output_path, additional_overall_factor, workspace, integrand_type,  process_definition, header_map, output_format, recycle, forced_options=None):
         timing = time.time()
         self.is_zero = True
 
@@ -2369,7 +2370,7 @@ class FORMSuperGraphIsomorphicList(list):
 
             num = self.generate_numerator_functions(model, additional_overall_factor,
                 workspace=workspace, FORM_vars=FORM_vars, active_graph=active_graph,
-                process_definition=process_definition, output_format=output_format, forced_options=forced_options)
+                process_definition=process_definition, output_format=output_format, recycle=recycle, forced_options=forced_options)
 
         return (i_graph, all_ids, max_buffer_size, not num, time.time() - timing, self[0].code_generation_statistics)
 
@@ -3547,7 +3548,7 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
         self.code_generation_statistics['integrand_C_source_size_in_kB'] = int(integrand_C_source_size/1000.0)
 
     def generate_numerator_functions(self, root_output_path, model=None, additional_overall_factor='', params={}, 
-                                    output_format='c', workspace=None, header="", integrand_type=None, process_definition=None):
+                                    output_format='c', workspace=None, header="", integrand_type=None, process_definition=None, recycle=False):
 
         start_time = time.time()
         header_map = {'header': header}
@@ -3581,12 +3582,12 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
 
             if FORM_processing_options["cores"] == 1:
                 graph_it = map(FORMSuperGraphIsomorphicList.generate_numerator_file_helper, 
-                    list((graph, i, model, root_output_path, additional_overall_factor, workspace, integrand_type, process_definition, header_map, output_format, FORM_processing_options)
+                    list((graph, i, model, root_output_path, additional_overall_factor, workspace, integrand_type, process_definition, header_map, output_format, recycle, FORM_processing_options)
                     for i, graph in enumerate(self)))
             else:
                 pool = multiprocessing.Pool(processes=FORM_processing_options["cores"])
                 graph_it = pool.imap_unordered(FORMSuperGraphIsomorphicList.generate_numerator_file_helper, 
-                    list((graph, i, model, root_output_path, additional_overall_factor, workspace, integrand_type, process_definition, header_map, output_format, FORM_processing_options)
+                    list((graph, i, model, root_output_path, additional_overall_factor, workspace, integrand_type, process_definition, header_map, output_format, recycle, FORM_processing_options)
                     for i, graph in enumerate(self)))
 
             for (graph_index, num_ids, max_buffer_graph, is_zero, timing, code_generation_statistics) in graph_it:
@@ -4697,7 +4698,7 @@ class FORMProcessor(object):
                 for i_lmb,_,_,sg in super_graphs[0].additional_lmbs:
                     sg.draw(self.model, output_dir, FORM_id=i_graph, lmb_id=i_lmb)
 
-    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None, header="", integrand_type=None, force_overall_factor=None, additional_params=None):
+    def generate_numerator_functions(self, root_output_path, output_format='c',workspace=None, header="", integrand_type=None, force_overall_factor=None, recycle=False, additional_params=None):
         assert(header in ['MG', 'QG', ''])
 
         if self.forced_options:
@@ -4738,7 +4739,8 @@ class FORMProcessor(object):
             additional_overall_factor=additional_overall_factor,
             params=params,workspace=workspace, header=header,
             integrand_type=integrand_type,
-            process_definition=self.process_definition
+            process_definition=self.process_definition,
+            recycle=recycle
         )
 
         self.super_graphs_list.aggregate_code_generation_statistics()
