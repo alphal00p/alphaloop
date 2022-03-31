@@ -16,6 +16,7 @@ import glob as glob_module
 import progressbar
 from itertools import chain, product
 import sys
+import functools
 import subprocess
 import argparse
 import shutil
@@ -837,6 +838,112 @@ aGraph=%s;
 
         return topo_generator, edge_name_to_key, original_LMB
 
+    def sampling_score_lmb(self, lmb, model, edge_key_to_name, edge_name_to_power, edge_name_to_pdg):
+        """ Returns a complexity (tuple)which is identical to that of the optimised sampling LMB. This however typically induces a significantly slower generation and runtime of the integrand."""
+
+        lmb_edge_names = [ edge_key_to_name[e_key] for e_key in lmb ]
+        lmb_pdg_score = 1
+        for edge_name in lmb_edge_names:
+            pdg = edge_name_to_pdg[edge_name]
+            if model is None:
+                if pdg in [21,22]:
+                    lmb_pdg_score +=1
+            else:
+                particle = model.get_particle(pdg)
+                if particle.get('spin') == 3 and particle.get('mass').upper()=='ZERO':
+                    lmb_pdg_score += 1
+
+        lmb_power_score = 0
+        for edge_name in lmb_edge_names:
+            lmb_power_score += (edge_name_to_power.get(edge_name,1)-1)
+
+        return (lmb_pdg_score, lmb_power_score)
+
+    def complexity_score_lmb(self, lmb, model, edge_key_to_name, edge_name_to_power, edge_name_to_pdg, weight_combination_rule='product'):
+        """ Returns a complexity (tuple) score for this generation lmb. The idea being to pick the generation lmb with highest score so as to improve on generation time."""
+
+        topo_generator, _, _ = self.get_topo_generator(specified_LMB=[ edge_key_to_name[e_key] for e_key in lmb ])
+        # And adjust all signatures (incl. the string momenta assignment accordingly)
+        signatures = topo_generator.get_signature_map()
+        signatures = { edge_name.replace('q','p') if edge_name.startswith('q') else edge_name[1:] : (tuple(sig[0]),
+                tuple([ i+o for i,o in zip(sig[1][:len(sig[1])//2],sig[1][len(sig[1])//2:]) ])
+         ) for edge_name, sig in signatures.items() }
+
+        # from pprint import pprint, pformat
+        # pprint(signatures)
+        # print("EDGES")
+        # for k, edge in self.edges.items():
+        #     print('key=%s, edge=%s'%(str(k),pformat(edge)))
+        #     print("New signature: %s"%pformat(signatures[edge['name']]))
+        # print("NODES")
+        # for k, node in self.nodes.items():
+        #     print('key=%s, node=%s'%(str(k),pformat(node)))
+        #     print("Edges connected names: %s"%pformat([ self.edges[e_id]['name'] for e_id in node['edge_ids']]))
+        #     print("Edges momenta: %s"%pformat([ signatures[self.edges[e_id]['name']] for e_id in node['edge_ids']]))
+        # stop
+
+        edge_weights = []
+        for edge_key in sorted(self.edges.keys()):
+            particle = model.get_particle(abs(self.edges[edge_key]['PDG']))
+            # ignore any edge that does not carry a loop momentum
+            if all(s==0 for s in signatures[self.edges[edge_key]['name']][0]):
+                edge_weights.append(1)
+                continue
+            sig = list(signatures[self.edges[edge_key]['name']][0])+list(signatures[self.edges[edge_key]['name']][1])
+            # Fermion propagators carry momentum and thus have an edge weight (~ number of terms) proportional to the number of
+            # terms in the linear decomposition of the momentum carried.            
+            if particle.get('spin') == 2:
+                edge_weights.append( sum([ 1 if abs(wgt)!=0 else 0 for wgt in sig ]) )
+            else:
+                edge_weights.append(1)
+
+        node_weights = []
+        for node_key in sorted(self.nodes.keys()):
+            # ignore Pure tree vertices that do not involve any loop momentum (like for example when considering EW decays in QCD computations)
+            found_a_loop_momentum = False
+            for edge_key in self.nodes[node_key]['edge_ids']:
+                if any(s!=0 for s in signatures[self.edges[edge_key]['name']][0]):
+                    found_a_loop_momentum = True
+                    break
+            if not found_a_loop_momentum:
+                node_weights.append(1)
+                continue
+            vertex_spins = tuple(sorted( [ model.get_particle(abs(pdg)).get('spin') for pdg in self.nodes[node_key]['PDGs'] ] ))
+            if vertex_spins in [(3,3,3), (1,3,3),(1,1,3)]:
+                # The Feynman rule of these vertices typically contain derivatives which can add as many terms as there are components
+                # in the momenta of the edges attached
+                node_weight = 0
+                for edge_key in self.nodes[node_key]['edge_ids']:
+                    sig = list(signatures[self.edges[edge_key]['name']][0])+list(signatures[self.edges[edge_key]['name']][1])
+                    node_weight += sum([ 1 if abs(wgt)!=0 else 0 for wgt in sig ])
+                node_weights.append(node_weight)
+            elif vertex_spins in [(3,3,3,3),(2,2,3),(2,2,1)]:
+                node_weights.append(1)
+            elif all(s==1 for s in vertex_spins):
+                node_weights.append(1)
+            else:
+                raise FormProcessingError("No rule for assigning complexity weight for vertex with spins %s when computing LMB complexitiy score."%(','.join('%d'%s for s in vertex_spins)))
+
+        product_score = functools.reduce(lambda a, b: a*b, edge_weights)*functools.reduce(lambda a, b: a*b, node_weights)
+        sum_squared_score = sum(wgt**2 for wgt in edge_weights) + sum(wgt**2 for wgt in node_weights)
+        final_score = None
+        # We use the negative value as we want to minimize the complexity, and entries beyond the first in the tuple are used for tie-breaker
+        if weight_combination_rule == 'product':
+            final_score = (-product_score, -sum_squared_score)
+        elif weight_combination_rule == 'sum_squared':
+            final_score = (-sum_squared_score, -product_score)
+        else:
+            raise FormProcessingError("Function complexity_score_lmb only supports the combination rules 'product' and 'sum_squared' in the options.")
+
+        return final_score
+
+    def score_lmb(self, *args):
+
+        # Choose which scoring algorithm to use
+        #return self.sampling_score_lmb(*args)
+        #return self.complexity_score_lmb(*args, weight_combination_rule='sum_squared')
+        return self.complexity_score_lmb(*args, weight_combination_rule='product')
+
     def adjust_LMBs(self, model):
         """ Depending on the FORM options 'number_of_lmbs' and 'reference_lmb', this function fills in the attribute 
         additional_lmbs of this class."""
@@ -854,34 +961,20 @@ aGraph=%s;
         all_lmbs = topo_generator.loop_momentum_bases()
         all_lmbs= [ tuple([edge_name_to_key[topo_generator.edge_map_lin[e][0]] for e in lmb]) for lmb in all_lmbs]
 
+        edge_name_to_pdg = {edge['name']:edge['PDG'] for edge in self.edges.values()}
+        # add the prefix p
+        edge_name_to_pdg= {'p%s'%k: v for k,v in edge_name_to_pdg.items() if not k.startswith('p') }
+
         forced_LMB_index = None
         if FORM_processing_options['optimise_generation_lmb']:
             
-            edge_name_to_pdg = {edge['name']:edge['PDG'] for edge in self.edges.values()}
-            # add the prefix p
-            edge_name_to_pdg= {'p%s'%k: v for k,v in edge_name_to_pdg.items() if not k.startswith('p') }
-
             lmb_metric = []
             for (lmb_index, lmb) in enumerate(all_lmbs):
-                lmb_edge_names = [ edge_key_to_name[e_key] for e_key in lmb ]
-                lmb_pdg_score = 1
-                for edge_name in lmb_edge_names:
-                    pdg = edge_name_to_pdg[edge_name]
-                    if model is None:
-                        if pdg in [21,22]:
-                            lmb_pdg_score +=1
-                    else:
-                        particle = model.get_particle(pdg)
-                        if particle.get('spin') == 3 and particle.get('mass').upper()=='ZERO':
-                            lmb_pdg_score += 1
+                score = self.score_lmb(lmb, model, edge_key_to_name, edge_name_to_power, edge_name_to_pdg)
+                lmb_metric.append(tuple(list(score)+[lmb_index,]))
 
-                lmb_power_score = 0
-                for edge_name in lmb_edge_names:
-                    lmb_power_score += (edge_name_to_power.get(edge_name,1)-1)
-
-                lmb_metric.append((lmb_pdg_score, lmb_power_score, lmb_index))
-
-            lmb_metric.sort(key=lambda score:(score[0],score[1]), reverse=True)
+            lmb_metric.sort(key=lambda score:tuple(score[:-1]), reverse=True)
+            #misc.sprint("ALL LMB SCORES= %s"%str(lmb_metric))
             forced_LMB_index = lmb_metric[0][-1]
 
         reference_lmb = None
