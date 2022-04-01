@@ -201,7 +201,7 @@ CF uvid;
     repeat id g(k1?,k5?)*map(kk1,k1?,nn1?)*map(kk5,k5?,nn5?)*uvid(3,1,n1?,n2?,n3?,n4?,n5?,n6?) = -1/2*nn1*nn5*map(kk1,k1,nn1)*map(kk5,k5,nn5)*(
         uvid(3,1,n1,n2,n3,n4-1,n5,n6) + uvid(3,1,n1,n2,n3-1,n4,n5,n6) - uvid(3,1,n1,n2-1,n3,n4,n5,n6) - uvid(3,1,n1,n2,n3,n4,n5,n6-1));
     repeat id g(k1?,k6?)*map(kk1,k1?,nn1?)*map(kk6,k6?,nn6?)*uvid(3,1,n1?,n2?,n3?,n4?,n5?,n6?) = -1/2*nn1*nn6*map(kk1,k1,nn1)*map(kk6,k6,nn6)*(
-        uvid(3,1,n1,n2,n3-1,n4,n5,n6) - uvid(3,1,n1,n2-1,n3,n4,n5,n6) - uvid(3,1,n1,n2,n3,n4,n5,n6-1) - mUV2^2 * uvid(3,1,n1,n2,n3,n4,n5,n6));
+        uvid(3,1,n1,n2,n3-1,n4,n5,n6) - uvid(3,1,n1-1,n2,n3,n4,n5,n6) - uvid(3,1,n1,n2,n3,n4,n5,n6-1) - mUV2^2 * uvid(3,1,n1,n2,n3,n4,n5,n6));
     repeat id g(k2?,k3?)*map(kk2,k2?,nn2?)*map(kk3,k3?,nn3?)*uvid(3,1,n1?,n2?,n3?,n4?,n5?,n6?) = -1/2*nn2*nn3*map(kk2,k2,nn2)*map(kk3,k3,nn3)*(
         uvid(3,1,n1,n2,n3,n4,n5-1,n6) - uvid(3,1,n1,n2-1,n3,n4,n5,n6) - uvid(3,1,n1,n2,n3-1,n4,n5,n6) - mUV2^2 * uvid(3,1,n1,n2,n3,n4,n5,n6));
     repeat id g(k2?,k4?)*map(kk2,k2?,nn2?)*map(kk4,k4?,nn4?)*uvid(3,1,n1?,n2?,n3?,n4?,n5?,n6?) = 1/2*nn2*nn4*map(kk2,k2,nn2)*map(kk4,k4,nn4)*(
@@ -402,8 +402,8 @@ CF uvid;
 * mercedes
     id uvid(3,1,1,1,1,1,1,1) = (2 * z3*rat(1,ep) + 1/55 * (-23459561604811217099/24730222849782180 + 330 * z3) + alarmt3m111111*rat(ep,1)); 
 * 5-edge
-    id uvid(3,1,0,1,1,1,1,1) = -mUV2^2*(-rat(1,ep^3) - rat(17/3,ep^2) + -62425469161433460/3513164752244341 * rat(1,ep)
-        -693238079765918839/11778746848918154 + alarmt3m011111*rat(ep,1));
+    id uvid(3,1,0,1,1,1,1,1) = mUV2^2*(rat(1,ep^3) + rat(17/3,ep^2) + 62425469161433460/3513164752244341 * rat(1,ep)
+        + 693238079765918839/11778746848918154 + alarmt3m011111*rat(ep,1));
 * banana
     id uvid(3,1,0,1,1,1,0,1) = mUV2^4*(rat(2,ep^3) + rat(23,3 * ep^2) + (35 + pi^2)*rat(1,2 * ep) + 1/12 * (275 + 23 * pi^2 - 24 * z3)
         + 531237557421164097/8442111747388969*rat(ep,1) + alarmt3m011101*rat(ep^2,1));
@@ -411,8 +411,8 @@ CF uvid;
     id uvid(3,1,0,0,1,1,1,1) = mUV2^4*(rat(3,2 * ep^3) + rat(6,ep^2) + 1287900757431154619/9648502930354515*rat(1,8 * ep)
         + 650828837758949887/14793500421610002 + alarmt3m001111*rat(ep,1));
 * triple-bubble
-    id uvid(3,1,0,0,1,0,1,1) = -mUV2^6*(-rat(1,ep^3) - rat(3,ep^2) + (-24 - pi^2)*rat(1,4 * ep) + 1/4 * (-40 - 3 * pi^2 + 4 * z3)
-        + 1/480*(-7200 - 720*pi^2 - 19*pi^4 + 1440*z3)*rat(ep,1) + alarmt3m001011*rat(ep^2,1));
+    id uvid(3,1,0,0,1,0,1,1) = mUV2^6*(rat(1,ep^3) + rat(3,ep^2) + (24 + pi^2)*rat(1,4 * ep) + 1/4 * (40 + 3 * pi^2 - 4 * z3)
+        + 1/480*(7200 + 720*pi^2 + 19*pi^4 - 1440*z3)*rat(ep,1) + alarmt3m001011*rat(ep^2,1));
 #endprocedure
 
 #procedure SubstituteMasters()
@@ -425,7 +425,12 @@ CF uvid;
     Keep brackets;
 
 * Normalize with alphaLoop convention
+#ifndef `PYSECDECCOMPARE'
     id uvid(n?,?a) = uvid(n,?a) * (-i_*16*pi^2)^-n;
+#else
+    id uvid(n?,?a) = uvid(n,?a) * (1 - eulergamma*rat(ep,1) + 1/2*eulergamma^2*rat(ep^2,1) - 1/6*eulergamma^3*rat(ep^3,1) + 1/24*eulergamma^4*rat(ep^4,1)-1/120*eulergamma^5*rat(ep^5,1))^n;
+    id eulergamma = 4509740178/7812920633;
+#endif
 
 * add log(mUV^2/mu^2)-dependence
     id uvid(n?,?a) = uvid(n,?a) * (1 - logmUVmu * rat(ep, 1) + 1/2 * logmUVmu^2 * rat(ep^2, 1) - 1/6 * logmUVmu^3 * rat(ep^3, 1))^n;

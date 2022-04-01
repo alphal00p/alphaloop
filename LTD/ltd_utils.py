@@ -462,8 +462,8 @@ class TopologyGenerator(object):
                         for c in combinations_with_replacement(range(len(loop_lines)), d):
                             gn = copy.deepcopy(uv_subgraph)
                             for loop_line in c:
-                                if len(loop_lines[loop_line]) > 1 and (particle_ids is None or len(set(particle_ids[m] for m in loop_lines[loop_line])) > 1):
-                                    print('WARNING: two or more propagators with shift in a loop line %s: %s. This could produce a bad soft CT if the masses are not the same:' % (str(loop_lines[loop_line]), str(uv_subgraph.edge_map_lin)))
+                                if d > 0 and dod > 1 and len(loop_lines[loop_line]) > 1 and (particle_ids is None or len(set(particle_ids[m] for m in loop_lines[loop_line])) > 1):
+                                    raise AssertionError('WARNING: two or more propagators with shift in a loop line %s: %s. This could produce a bad soft CT if the masses are not the same' % (str(loop_lines[loop_line]), str(uv_subgraph.edge_map_lin)))
                                 gn.powers[loop_lines[loop_line][0]] += 1
                             derived_graphs.append({'graph': gn, 'derivatives': d})
 
