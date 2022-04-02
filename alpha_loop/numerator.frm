@@ -1381,8 +1381,15 @@ endif;
     endif;
 
     .sort:pf-num-1;
-
     UnHide forest1,...,forest`forestcount';
+
+* Some PF expressions may have evaluated to 0, so remove the call
+    #do i = 1,`diagcount'
+        #if (termsin(diag`i') == 0)
+            id diag({`i'+`forestcount'}) = 0;
+        #endif
+    #enddo
+
     .sort:pf-num-2;
     Drop diag1,...,diag`diagcount',forest1,...,forest`forestcount',F;
 
@@ -1396,6 +1403,13 @@ endif;
     #endif
 
     id conf(x?)*conf(x1?{<0},?a) = conf(x,?a);
+
+* Some forests may be 0 due to a PF expression being 0 inside it, so remove the call
+    #do i = 1,`forestcount'
+        #if (termsin(forest`i') == 0)
+            id forestid({`i'}) = 0;
+        #endif
+    #enddo
 
     .sort:pf-integrand-collect;
     #if (`INTEGRAND' == "both")
