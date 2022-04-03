@@ -932,6 +932,8 @@ aGraph=%s;
             final_score = (-product_score, -sum_squared_score)
         elif weight_combination_rule == 'sum_squared':
             final_score = (-sum_squared_score, -product_score)
+        elif weight_combination_rule == 'combination':
+            final_score = (-product_score-sum_squared_score,-product_score, -sum_squared_score)
         else:
             raise FormProcessingError("Function complexity_score_lmb only supports the combination rules 'product' and 'sum_squared' in the options.")
 
@@ -942,7 +944,8 @@ aGraph=%s;
         # Choose which scoring algorithm to use
         #return self.sampling_score_lmb(*args)
         #return self.complexity_score_lmb(*args, weight_combination_rule='sum_squared')
-        return self.complexity_score_lmb(*args, weight_combination_rule='product')
+        #return self.complexity_score_lmb(*args, weight_combination_rule='product')
+        return self.complexity_score_lmb(*args, weight_combination_rule='combination')
 
     def adjust_LMBs(self, model):
         """ Depending on the FORM options 'number_of_lmbs' and 'reference_lmb', this function fills in the attribute 
@@ -974,7 +977,11 @@ aGraph=%s;
                 lmb_metric.append(tuple(list(score)+[lmb_index,]))
 
             lmb_metric.sort(key=lambda score:tuple(score[:-1]), reverse=True)
-            #misc.sprint("ALL LMB SCORES= %s"%str(lmb_metric))
+            # Convenient printout for debugging heuristics for choice of basis for particular supergraphs
+            #if self.name == 'SG_QG310':
+            #    misc.sprint("All lmb scores for %s:\n%s"%(self.name,'\n'.join(
+            #        '#%-2d: %s = %s'%(lmb_info[-1],','.join(edge_key_to_name[e] for e in all_lmbs[lmb_info[-1]]),','.join('%-5s'%s for s in lmb_info[:-1])) for lmb_info in lmb_metric
+            #    )))
             forced_LMB_index = lmb_metric[0][-1]
 
         reference_lmb = None
