@@ -437,13 +437,6 @@ class TopologyGenerator(object):
                         sig = tuple(uv_subgraph.edge_map_lin[k[0]][0] for k in uv_subgraph.propagators[uv_subgraph.edge_name_map[m]] 
                             if uv_subgraph.edge_map_lin[k[0]][0] in subgraph_loop_edges)
                         assert(len(sig) > 0)
-
-                        # propagators without shifts do not receive higher-order corrections using the soft CT
-                        # for tadpoles, the propagator may have a shift in the cmb, so always generate a derived version
-                        if any(edge_id in uv_subgraph.ext for e in uv_subgraph.propagators for (edge_id, _) in e):
-                            if not any(edge_id in uv_subgraph.ext for (edge_id, _) in uv_subgraph.propagators[uv_subgraph.edge_name_map[m]]):
-                                continue
-
                         loop_lines[sig].append(m)
                     loop_lines = [p for l, p in loop_lines.items()]
 

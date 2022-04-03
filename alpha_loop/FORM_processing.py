@@ -1522,6 +1522,9 @@ aGraph=%s;
                         signature_offset = 0 # offset in the forest basis
                         for uv_subgraph in uv_structure['uv_subgraphs']:
                             for dg in uv_subgraph['derived_graphs']:
+                                if dg['skip_pf']:
+                                    continue
+
                                 graphs.append((signature_offset, dg['id'], dg['loop_topo'], None))
                                 if 'soft_ct_id' in dg:
                                    massct = (False, uv_subgraph['onshell']) if uv_subgraph['onshell'] is not None else None

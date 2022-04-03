@@ -364,6 +364,14 @@ class SquaredTopologyGenerator:
                                 d['loop_topo_orig_mass'].uv_loop_lines = (uv_loop_lines, basis_shift_map)
                                 d['loop_topo'] = loop_topo
 
+                                # check if raised loop lines have a propagator with a shift, otherwise this configuration is impossible
+                                d['skip_pf'] = False
+                                for i, (ll_sig, propagators, raised_power) in enumerate(loop_topo.uv_loop_lines[0]):
+                                    if raised_power > 0 and all(all(s == 0 for s in param_shift[1]) for _, param_shift, _ in propagators):
+                                        if all(all(x == 0 for y in lm_shift for x in y) for s, lm_shift in zip(ll_sig, loop_topo.uv_loop_lines[1]) if s != 0):
+                                            d['skip_pf'] = True
+                                            break
+
                             #  construct the normalizing tadpole for the integrated UV counterterm
                             s = uv_subgraph['graph']
                             lm = [s.edge_map_lin[i][0] for i in uv_subgraph['graph'].loop_momenta]

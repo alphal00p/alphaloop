@@ -1381,7 +1381,7 @@ endif;
     endif;
 
     .sort:pf-num-1;
-    UnHide forest1,...,forest`forestcount';
+    UnHide forest1,...,forest`forestcount',F;
 
 * Some PF expressions may have evaluated to 0, so remove the call
     #do i = 1,`diagcount'
