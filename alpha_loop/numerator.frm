@@ -232,9 +232,13 @@ Hide CONF;
 #procedure FeynmanRulesGlobal()
 * extract the global factors from the Feynman rules, including colour
 
-* first, we split up the quartic gluon vertex into distinct colour factors
-* we also generate an extra dummy index
-Multiply counter(1);
+* construct a counter that yields new indices
+id vx(?a,p?,idx1?,?b) = tmp(idx1,?b)*vx(?a,p,idx1,?b);
+chainin tmp;
+repeat id tmp(idx1?,idx2?,?a) = tmp(max_(idx1,idx2),?a);
+id tmp(x?) = counter(x + 1);
+
+* split up the quartic gluon vertex into distinct colour factors
 repeat id vx(`GLU', `GLU', `GLU', `GLU', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?)*counter(idx5?) = counter(idx5 + 1) *(
     +vx(`GLU', `GLU', `GLU', `GLU', 1, p1, p2, p3, p4, idx1, idx2, idx3, idx4, idx5)
     +vx(`GLU', `GLU', `GLU', `GLU', 2, p1, p2, p3, p4, idx1, idx2, idx3, idx4, idx5)
@@ -245,6 +249,7 @@ repeat id vx(`H', `GLU', `GLU', `GLU', `GLU', p5?, p1?, p2?, p3?, p4?, idx5?, id
     +vx(`H', `GLU', `GLU', `GLU', `GLU', 2, p5, p1, p2, p3, p4, idx5, idx1, idx2, idx3, idx4, idx6)
     +vx(`H', `GLU', `GLU', `GLU', `GLU', 3, p5, p1, p2, p3, p4, idx5, idx1, idx2, idx3, idx4, idx6)
 );
+
 id counter(x?) = 1;
 
 * make a copy of the Feynman rules
