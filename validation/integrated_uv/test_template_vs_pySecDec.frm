@@ -45,7 +45,7 @@ id mUV2 = 1;
 id logmUVmu = 0;
 
 argument rat;
-    id ep = 0;
+    id ep^%d = 0;
 endargument;
 
 Print +s;

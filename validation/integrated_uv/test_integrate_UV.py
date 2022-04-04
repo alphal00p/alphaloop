@@ -41,7 +41,7 @@ regexp_dot = re.compile(r'DOT\_([\w|\d]+)\_([\w|\d]+)\_')
 def repl_dot(mach_obj):
     return 'g(%s,%s)'%(mach_obj.group(1),mach_obj.group(2))
 def repl_dot_to_raw(mach_obj):
-    return "(%s.%s)"%(mach_obj.group(1).replace('fmb','k'),mach_obj.group(2).replace('fmb','k'))
+    return "%s.%s"%(mach_obj.group(1).replace('fmb','k'),mach_obj.group(2).replace('fmb','k'))
 
 #a='fmb2*fm4+fm5*fmb2+fmb4**2'
 #a=re.sub(regexp_times,repl_times,a)
@@ -98,6 +98,49 @@ class IntegratedUVTester(object):
             all_topos.append(topo_generator)
 
         return all_topos
+
+    def get_two_loop_topo_generators(self):
+        
+        edges = [
+            ('q1',1,2),
+            ('q2',2,1),
+            ('q3',1,2)
+        ]
+        all_topos = []
+        tmp_topo = LTD.ltd_utils.TopologyGenerator(edges)
+        lmbs_to_consider = [ tuple(sorted([tmp_topo.edge_map_lin[e_lmb][0] for e_lmb in lmb])) for lmb in tmp_topo.loop_momentum_bases() ]
+        # Place the natural basis first
+        lmbs_to_consider.pop(lmbs_to_consider.index(('q1','q2')))
+        lmbs_to_consider = [('q1','q2'),]+lmbs_to_consider
+        #lmbs_to_consider = [('q1','q2','q5'),('q1','q2','q4'),('q1','q4','q5'),('q4','q5','q6')]
+        #print(lmbs_to_consider)
+        for lmb in lmbs_to_consider:
+            topo_generator = LTD.ltd_utils.TopologyGenerator(edges)
+            topo_generator.generate_momentum_flow( loop_momenta = lmb )
+            all_topos.append(topo_generator)
+
+        return all_topos
+
+    def get_one_loop_topo_generators(self):
+        
+        edges = [
+            ('q1',1,1),
+        ]
+
+        tmp_topo = LTD.ltd_utils.TopologyGenerator(edges)
+        tmp_topo.generate_momentum_flow( loop_momenta = ('q1',) )
+
+        return [tmp_topo,]
+
+    def get_topo(self, topology_identifier):
+        if topology_identifier=='3L':
+            return self.get_three_loop_topo_generators()[0]
+        elif topology_identifier=='2L':
+            return self.get_two_loop_topo_generators()[0]
+        elif topology_identifier=='1L':
+            return self.get_one_loop_topo_generators()[0]
+        else:
+            logger.critical("Cannot recognize topology identifier %s."%topology_identifier)
 
     @staticmethod
     def to_dot_products(sp_expr):
@@ -458,18 +501,18 @@ class IntegratedUVTester(object):
         output_numerator_path = pjoin(output_dir,'numerator_{}.txt'.format(graph_id))
 
         lorentx_indices_count = {'count': 0}
-        regexp_lorentz = re.compile(r'([p|k]\d+\.[p|k]\d+)')
-        def repl_lorentz(matchobj):
+        local_regexp_lorentz = re.compile(r'([p|k]\d+\.[p|k]\d+)')
+        def local_repl_lorentz(matchobj):
             lorentx_indices_count['count'] += 1
             dot_args = matchobj.group(0).split('.')
             return '(%s(mu%d)*%s(mu%d))'%(dot_args[0],lorentx_indices_count['count'],dot_args[1],lorentx_indices_count['count'])
-        regexp_rat = re.compile(r'rat\(([-|+|\s|\d|\w|\*]+),([-|+|\s|\d|\w|\*]+)\)')
-        def repl_rat(mach_obj):
+        local_regexp_rat = re.compile(r'rat\(([-|+|\s|\d|\w|\*]+),([-|+|\s|\d|\w|\*]+)\)')
+        def local_repl_rat(mach_obj):
             if mach_obj.group(2)!='1':
                 raise FormProcessingError("The numerator to feed pySecDec with has a rational coefficient whose denominator is not 1.")
             return '(%s)'%(mach_obj.group(1).replace(' ',''))
-        regexp_power = re.compile(r'([\w|\d]+)\.([\w|\d]+)\^([\d]+)')
-        def repl_power(mach_obj):
+        local_regexp_power = re.compile(r'([\w|\d]+)\.([\w|\d]+)\^([\d]+)')
+        def local_repl_power(mach_obj):
             return '*'.join(['(%s.%s)'%(mach_obj.group(1),mach_obj.group(2)),]*int(mach_obj.group(3)))
         with open(output_numerator_path,'w') as num_out:
             numerator = []
@@ -481,10 +524,10 @@ class IntegratedUVTester(object):
             for line in [''.join(numerator_lines),]:#num_in.readlines():
                 orig_line = line
                 line = line.strip().replace('ep','eps').replace(' ','')
-                line = re.sub(regexp_power,repl_power,line)
+                line = re.sub(local_regexp_power,local_repl_power,line)
                 line = line.replace('^','**')
-                line = re.sub(regexp_lorentz,repl_lorentz,line)
-                line = re.sub(regexp_rat,repl_rat,line)
+                line = re.sub(local_regexp_lorentz,local_repl_lorentz,line)
+                line = re.sub(local_regexp_rat,local_repl_rat,line)
                 if 'rat' in line:
                     raise FormProcessingError("Bug when doing rat substitution in the following FORM expression: Original line:\n%s\nProcessed line:\n%s"%(orig_line,line))
                 numerator.append(line)
@@ -648,12 +691,12 @@ class IntegratedUVTester(object):
     @staticmethod
     def compare_vs_pySecDec(args):
         
-        topo, topo_identifier, uvdenoms_placeholder, base_num_rank, test_template, pySecDecTemplate, target_acc, n_sigma_threshold, verbosity, pc = args
+        topo, topo_identifier, uvdenoms_placeholder, base_num_rank, test_template, pySecDecTemplate, target_acc, n_sigma_threshold, verbosity, max_epsilon_order_for_3L, pc = args
 
         n_loops = topo.n_loops
 
         #comp_dir_name = pjoin(root_path,'comparison_vs_pySecDec','comparison_%s'%str(uuid.uuid4()))
-        comp_dir_name = pjoin(root_path,'comparison_vs_pySecDec','comparison_%s'%('_'.join('%d'%p for p in pc)))
+        comp_dir_name = pjoin(root_path,'comparison_vs_pySecDec','comparison_%s'%('_'.join(('%d'%p).replace('-','m') for p in pc)))
         if not os.path.isdir(comp_dir_name):
             os.mkdir(comp_dir_name)
         
@@ -673,7 +716,7 @@ class IntegratedUVTester(object):
 
         form_test_path = pjoin(comp_dir_name,'run.frm')
         with open(form_test_path,'w') as f:
-            f.write(test_template%F)
+            f.write(test_template%(F,max(3-n_loops,0)+max_epsilon_order_for_3L+1))
 
         if verbosity>1:
             logger.info("Running form with 'form %s' in '%s'..."%(form_test_path, comp_dir_name))
@@ -682,6 +725,11 @@ class IntegratedUVTester(object):
         FORM_result = IntegratedUVTester.read_FORM_output(res)
         if verbosity>1:
             logger.info("%sFORM result for power combination (%s):%s\n%s%s%s"%(Colour.BLUE,','.join('%d'%p for p in pc),Colour.END, Colour.GREEN,pformat(FORM_result),Colour.END))
+
+        if len(FORM_result)==0:
+            # Skip integrals yielding no contribution at all
+            test_passed, msg = IntegratedUVTester.compare_FORM_vs_pySecDec(FORM_result, {}, n_sigma_threshold)
+            return (test_passed, comp_dir_name, msg, pc)
 
         # If mUV_value set to float it will be kept parameteric, but if hardcoded to 1 it will directly be written as such
         #mUV_value = 1.0
@@ -697,8 +745,8 @@ class IntegratedUVTester(object):
         with open(pjoin(comp_dir_name,'raw_numerator.txt'),'w') as f:
             f.write(raw_numerator)
         
-        IntegratedUVTester.write_pySecDec_run(comp_dir_name, pjoin(comp_dir_name,'raw_numerator.txt'), topo, pc, 'test_integrated_UV_%s'%('_'.join('%d'%p for p in pc)), 
-                            graph_id=0, couplings_prefactor_str='1', additional_overall_factor=1.0, params={}, mUV=mUV_value, template_run=pySecDecTemplate)
+        IntegratedUVTester.write_pySecDec_run(comp_dir_name, pjoin(comp_dir_name,'raw_numerator.txt'), topo, pc, 'test_integrated_UV_%s'%('_'.join(('%d'%p).replace('-','m') for p in pc)), 
+            graph_id=0, couplings_prefactor_str='1', additional_overall_factor=1.0, params={}, mUV=mUV_value, template_run=pySecDecTemplate, max_epsilon_order_for_3L=max_epsilon_order_for_3L)
 
         if os.path.isfile(pjoin(comp_dir_name,'pySecDec_res.txt')):
             os.remove(pjoin(comp_dir_name,'pySecDec_res.txt'))
@@ -732,13 +780,14 @@ class IntegratedUVTester(object):
         return (test_passed, comp_dir_name, msg, pc)
 
     def test_vs_pySecDec(self, max_total_denom_powers = 8, max_power_per_edge = 2, min_power_per_edge = 1, base_num_rank=6, 
-                            power_combs=None, n_cores = None, target_acc=1.0e-06, n_sigma_threshold=3, verbosity=0):
+                            power_combs=None, n_cores = None, target_acc=1.0e-06, n_sigma_threshold=3, verbosity=0, topo_identifier='3L',max_epsilon_order_for_3L=0):
 
 
         test_template = open(pjoin(root_path,'test_template_vs_pySecDec.frm'),'r').read()
         pySecDecTemplate = open(pjoin(template_dir,'run_pySecDec_template.py'),'r').read()
 
-        topo = self.get_three_loop_topo_generators()[0]
+        topo = self.get_topo(topo_identifier)
+
         logger.info("The topology with LMB edges (%s) will be considered for comparisons against pySecDec."%(','.join(topo.edge_map_lin[l][0] for l in topo.loop_momenta)))
 
         # Build a list of edges
@@ -748,38 +797,46 @@ class IntegratedUVTester(object):
         
         # Build a list of nodes
         nodes = {}
-        for edge_name, start_node, end_node in topo.edge_map_lin:
-            if start_node==end_node:
-                logger.critical("ERROR : tadpoles not supported")
-                sys.exit(1)
-            if end_node in nodes:
-                nodes[end_node].append((edge_name,+1))
-            else:
-                nodes[end_node] = [(edge_name,+1),]
-            if start_node in nodes:
-                nodes[start_node].append((edge_name,-1))
-            else:
-                nodes[start_node] = [(edge_name,-1),]
+        if topo_identifier!='1L':
+            for edge_name, start_node, end_node in topo.edge_map_lin:
+                if start_node==end_node:
+                    logger.critical("ERROR : tadpoles not supported")
+                    sys.exit(1)
+                if end_node in nodes:
+                    nodes[end_node].append((edge_name,+1))
+                else:
+                    nodes[end_node] = [(edge_name,+1),]
+                if start_node in nodes:
+                    nodes[start_node].append((edge_name,-1))
+                else:
+                    nodes[start_node] = [(edge_name,-1),]
+        else:
+            nodes = {topo.edge_map_lin[0][1]: [(topo.edge_map_lin[0][0],+1),]}
 
-        topo_identifier = '*'.join(
-            'vxs(%s)'%(
-                ','.join(
-                    ''.join(
-                        '%sfmb%d'%('+' if sgn*wgt>0 else '-', i_mom+1) for i_mom, wgt in enumerate(sig_map[e][0]) if wgt != 0
-                    ) for e, sgn in es
-                )
-            ) for n, es in nodes.items()
-        )
+        if topo_identifier!='1L':
+
+            topo_identifier = '*'.join(
+                'vxs(%s)'%(
+                    ','.join(
+                        ''.join(
+                            '%sfmb%d'%('+' if sgn*wgt>0 else '-', i_mom+1) for i_mom, wgt in enumerate(sig_map[e][0]) if wgt != 0
+                        ) for e, sgn in es
+                    )
+                ) for n, es in nodes.items()
+            )
+        else:
+            topo_identifier = "vxs(+fmb1,-fmb1)"
+        
         uvdenoms_placeholder = '*'.join( 'uvprop(%s,%s)'%(
-                ''.join('%sfmb%d'%('+' if wgt>0 else '-', i_mom+1) for i_mom, wgt in enumerate(sig_map[e][0]) if wgt != 0),
-                '%d'
-            ) for e in edges )
-
+            ''.join('%sfmb%d'%('+' if wgt>0 else '-', i_mom+1) for i_mom, wgt in enumerate(sig_map[e][0]) if wgt != 0),
+            '%d'
+        ) for e in edges )
+ 
         # Build a list of edge powers and momenta combinations
         if power_combs is None:
             power_combinations = list(
                 el for el in itertools.product(*([list(range(max_total_denom_powers+1)),]*len(edges))) if 
-                all(e<=max_power_per_edge for e in el) and all(e>=min_power_per_edge for e in el) and sum(el)<=max_total_denom_powers and any(e>min_power_per_edge for e in el)
+                all(e<=max_power_per_edge for e in el) and all(e>=min_power_per_edge for e in el) and sum(el)<=max_total_denom_powers and any(e!=0 for e in el)
             )
         else:
             power_combinations = power_combs
@@ -797,7 +854,8 @@ class IntegratedUVTester(object):
                 max_value=len(tests_combination)) as bar:
             pool = multiprocessing.Pool(processes=n_cores if n_cores is not None else multiprocessing.cpu_count())
             tests_it = pool.imap(IntegratedUVTester.compare_vs_pySecDec, [
-                (topo, topo_identifier, uvdenoms_placeholder, base_num_rank, test_template, pySecDecTemplate, target_acc, n_sigma_threshold, verbosity, tc) for tc in tests_combination
+                (topo, topo_identifier, uvdenoms_placeholder, base_num_rank, test_template, pySecDecTemplate, 
+                    target_acc, n_sigma_threshold, verbosity, max_epsilon_order_for_3L, tc) for tc in tests_combination
             ])
             n_tests_done = 0
             bar.update(n_tests_done)
@@ -824,12 +882,38 @@ if __name__ == '__main__':
 
     parser.add_argument('--verbosity', '-v', dest='verbosity', type=int, default=0,
                         help='Specify test verbosity (default: %(default)s).')
+    parser.add_argument('--n_cores', '-c', dest='n_cores', type=int, default=multiprocessing.cpu_count(),
+                        help='Specify number of cores for the parallelisation (default: %(default)s).')
+    parser.add_argument('--topo_identifier', '-topo', dest='topo_identifier', type=str, default='3L', 
+        choices=('1L','2L','3L'), help='Specify the topo identifier (default: %(default)s)')
+    parser.add_argument('--powers', '-p', dest='powers', type=str, default=None, 
+        help='Specify propagator powers to consider (default: as specified in script)')
+    parser.add_argument('--numerator', '-n', dest='numerator', type=str, default="0", 
+        help='Specify the numerator rank or a string identifying it (e.g. "(DOT_fmb3_fmb3_-mUV2**2)**3") (default: %(default)s)')
     parser.add_argument('--threshold', '-t', dest='threshold', type=float, default=3.0,
                         help='Threshold in number of standard deviation to classify as a fail (default: %(default)s).')
     parser.add_argument('--required_accuracy', '-r', dest='required_accuracy', type=float, default=1.0e-6,
                         help='Required accuracy for the comparison (default: %(default)s).')
 
+    parser.add_argument('--max_total_denom_powers', '-mtdp', dest='max_total_denom_powers', type=int, default=7,
+                        help='Specify the maximal total powers in denominators (default: %(default)s).')
+    parser.add_argument('--max_power_per_edge', '-maxppe', dest='max_power_per_edge', type=int, default=2,
+                        help='Specify the maximal power that can appear in edges (default: %(default)s).')
+    parser.add_argument('--min_power_per_edge', '-minppe', dest='min_power_per_edge', type=int, default=0,
+                        help='Specify the min power per edge (default: %(default)s).')
+
     args = parser.parse_args()
+
+    if args.powers is not None:
+        try:
+            args.powers = eval(args.powers)
+        except Exception as e:
+            logger.critical("Could not parse the option --powers specified as '%s'. Error: %s"%(args.powers, str(e)))
+
+    try:
+        args.numerator = int(args.numerator)
+    except Exception as e:
+        pass
 
     tester = IntegratedUVTester()
     #tester.test_num_cancel_denom(max_total_denom_powers = 8, max_power_per_edge = 2, min_power_per_edge = 1, base_num_rank=2, power_combs=None, lmbs=None, n_cores=None)
@@ -852,6 +936,6 @@ if __name__ == '__main__':
     #     base_num_rank=0, power_combs=[(1,1,0,1,2,1),(1,1,1,1,1,1),(1,0,0,1,0,1),], n_cores = 3, 
     #     target_acc=args.required_accuracy, n_sigma_threshold=args.threshold, verbosity=args.verbosity)
     
-    tester.test_vs_pySecDec(max_total_denom_powers = 7, max_power_per_edge = 2, min_power_per_edge = 1, 
-        base_num_rank=2, power_combs=None, n_cores = 8, 
-        target_acc=args.required_accuracy, n_sigma_threshold=args.threshold, verbosity=args.verbosity)
+    tester.test_vs_pySecDec(max_total_denom_powers = args.max_total_denom_powers, max_power_per_edge = args.max_power_per_edge, min_power_per_edge = args.min_power_per_edge, 
+        base_num_rank=args.numerator, power_combs=args.powers, n_cores = args.n_cores, 
+        target_acc=args.required_accuracy, n_sigma_threshold=args.threshold, verbosity=args.verbosity, topo_identifier=args.topo_identifier)
