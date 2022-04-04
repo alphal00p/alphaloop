@@ -14,6 +14,7 @@ import sys
 import shutil
 import sympy as sp
 import math
+from pprint import pprint, pformat
 
 root_path = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
 
@@ -36,6 +37,25 @@ logger.addHandler(console)
 
 formatter = MyFormatter(fmt='%(asctime)s %(message)s',datefmt='%Y-%m-%d,%H:%M:%S.%f')
 console.setFormatter(formatter)
+
+class Silence:
+    
+    def __init__(self,active=True):
+        self.active = active
+
+    def __enter__(self):
+        if not self.active: return
+        self._original_stdout = sys.stdout
+        self._original_stderr = sys.stderr
+        sys.stdout = open(os.devnull, 'w')
+        sys.stderr = open(os.devnull, 'w')
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if not self.active: return
+        sys.stdout.close()
+        sys.stdout = self._original_stdout
+        sys.stderr.close()
+        sys.stderr = self._original_stderr
 
 def generate(graph_name, quiet=False):
     
@@ -74,20 +94,21 @@ def generate(graph_name, quiet=False):
     numerator = ' '.join(numerator)
 
     replacement_rules = {replacement_rules:s}
-    loop_integral = LoopIntegralFromPropagators(
-        propagators, loop_momenta,
-        external_momenta = external_momenta,   
-        Lorentz_indices = Lorentz_indices,
-        numerator = numerator,
-        metric_tensor = 'g',
-        dimensionality='4-2*eps',
-        powerlist=powerlist,
-        replacement_rules=replacement_rules
-    )
+    with Silence(active=quiet):
+        loop_integral = LoopIntegralFromPropagators(
+            propagators, loop_momenta,
+            external_momenta = external_momenta,   
+            Lorentz_indices = Lorentz_indices,
+            numerator = numerator,
+            metric_tensor = 'g',
+            dimensionality='4-2*eps',
+            powerlist=powerlist,
+            replacement_rules=replacement_rules
+        )
 
     real_parameters = {real_parameters:s}
     n_loops = {n_loops:s}
-    loop_additional_prefactor = '( I*(4*pi)**(-2+eps) )**(%d)'%n_loops
+    loop_additional_prefactor = {loop_additional_prefactor:s}
     # Note that the factor above is essentially the conversion from pySecDec normalisation conventions to those of alphaLoop, i.e.
     #loop_additional_prefactor = '( (I*(pi**((4-2*eps)/2)))/((2*pi)**(4-2*eps)) )**(%d)'%n_loops
     # Add the correcting MSbar prefactor without the renormalisation scale dependence. 
@@ -96,28 +117,30 @@ def generate(graph_name, quiet=False):
     #loop_additional_prefactor = '((%s)*%s)'%(MSbar_factor,loop_additional_prefactor)
 
     logger.info("%s: Generating pySecDec package..."%graph_name)
-    loop_package(
-        name = graph_name,
-        loop_integral = loop_integral,
-        real_parameters = real_parameters,
-        complex_parameters = [],
-        # the highest order of the final epsilon expansion --> change this value to whatever you think is appropriate
-        requested_orders = [0],
-        # the optimization level to use in FORM (can be 0, 1, 2, 3, 4)
-        form_optimization_level = 2,
-        form_threads = 2,
-        processes = 16, # parallelisation
-        # the WorkSpace parameter for FORM
-        form_work_space = '100M',
-        # the method to be used for the sector decomposition
-        # valid values are ``iterative`` or ``geometric`` or ``geometric_ku``
-        decomposition_method = 'iterative',
-        # if you choose ``geometric[_ku]`` and 'normaliz' is not in your
-        # $PATH, you can set the path to the 'normaliz' command-line
-        # executable here
-        #normaliz_executable='/path/to/normaliz',
-        additional_prefactor = loop_additional_prefactor
-    )
+    with Silence(active=quiet):
+        loop_package(
+            name = graph_name,
+            loop_integral = loop_integral,
+            real_parameters = real_parameters,
+            complex_parameters = [],
+            # the highest order of the final epsilon expansion --> change this value to whatever you think is appropriate
+            requested_orders = [{max_epsilon_order:d}],
+            contour_deformation = {contour_deformation:s},
+            # the optimization level to use in FORM (can be 0, 1, 2, 3, 4)
+            form_optimization_level = 2,
+            form_threads = 2,
+            processes = 16, # parallelisation
+            # the WorkSpace parameter for FORM
+            form_work_space = '100M',
+            # the method to be used for the sector decomposition
+            # valid values are ``iterative`` or ``geometric`` or ``geometric_ku``
+            decomposition_method = 'iterative',
+            # if you choose ``geometric[_ku]`` and 'normaliz' is not in your
+            # $PATH, you can set the path to the 'normaliz' command-line
+            # executable here
+            #normaliz_executable='/path/to/normaliz',
+            additional_prefactor = loop_additional_prefactor
+        )
 
     logger.info("%s: Drawing graph..."%graph_name)
     draw_graph()
@@ -126,7 +149,11 @@ def generate(graph_name, quiet=False):
 
     start_time = time.time()
     logger.info("%s: Compiling package..."%graph_name)
-    subprocess.call(['make', '-j', '%d'%multiprocessing.cpu_count()], cwd=pjoin(root_path,graph_name), shell=True)
+    cmd = ['make', '-j', '%d'%multiprocessing.cpu_count()]
+    if quiet:
+        subprocess.run(cmd, cwd=pjoin(root_path,graph_name), shell=True, capture_output=False)
+    else:
+        subprocess.call(cmd, cwd=pjoin(root_path,graph_name), shell=True)
 
     if os.path.isfile(pjoin(root_path,graph_name,'%s_pylink.so'%graph_name)):
         logger.info("%s: Compilation successfully completed in %.2f h."%(graph_name, (time.time()-start_time)/3600. ))
@@ -194,13 +221,14 @@ def run(graph_name, p_externals, quiet=True, eps_rel = 0.01, max_eval=1000000, m
     additional_overall_factor = {additional_overall_factor:s}
     ptot = [sum(p[i] for p in p_externals) for i in range(4)]
     Ecm = math.sqrt(dot(ptot,ptot))
-    couplings_prefactor_eval *= (1j)*(2 / Ecm)**len(p_externals)
+    if len(p_externals)>1:
+        couplings_prefactor_eval *= (1j)*(2 / Ecm)**len(p_externals)
 
     str_res = []
     complex_res = dict([])
     def cmplx_str(c):
         return '%s%.16e %s %.16e*I'%('+' if c.real>=0 else '-', abs(c.real), '+' if c.imag>=0 else '-', abs(c.imag))
-    for pole in range(-10,1,1):
+    for pole in range(-10,{max_epsilon_order:d}+1,1):
         if integral_with_prefactor.coeff('eps',pole).coeff('value')==0:
             continue
         # Remove additional_overall_factor as it contains helicity averaging factors that are not relevant for the raw answer
@@ -229,7 +257,6 @@ def run(graph_name, p_externals, quiet=True, eps_rel = 0.01, max_eval=1000000, m
 
 if __name__ == '__main__':
 
-    logger.info("You are running the pySecDec loop generation and integrations script.")
     parser = argparse.ArgumentParser(description="""pySecDec loop generation and integrations script""")
     requiredNamed = parser.add_argument_group('required named arguments')
     # Required options
@@ -237,6 +264,9 @@ if __name__ == '__main__':
     # Optional options
     parser.add_argument('--mode', '-m', dest='mode', type=str, default=None, 
         choices=('generate','run','generate_and_run'), help='Specify the run mode of this script (default: %(default)s)')
+
+    parser.add_argument('--dump', '-d', dest='dump', type=str, default=None,
+                        help='Dump Python-formatted result into a file named after this option. (default: no dump).')
 
     parser.add_argument('--integrator', '-i', dest='integrator', type=str, default='vegas', 
         choices=('vegas','qmc'), help='Specify which integrator to pick (default: %(default)s)')
@@ -272,6 +302,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    if not args.quiet:
+        logger.info("You are running the pySecDec loop generation and integrations script.")
+
     try:
         parsed_externals = eval(args.externals)
         args.externals = parsed_externals
@@ -289,10 +322,17 @@ if __name__ == '__main__':
         else:
             args.mode = 'run'
 
+    final_res = None
+    
     if args.mode in ['generate','generate_and_run']:
 
         generate(graph_name, quiet=args.quiet)
     
     if args.mode in ['run','generate_and_run']:
 
-        run(graph_name, args.externals, quiet=args.quiet, eps_rel=args.eps_rel, max_eval=int(args.max_eval), no_picobarns=args.no_picobarns, integrator=args.integrator)
+        final_res = run(graph_name, args.externals, quiet=args.quiet, eps_rel=args.eps_rel, max_eval=int(args.max_eval), no_picobarns=args.no_picobarns, integrator=args.integrator)
+
+    if args.dump is not None:
+        if not args.quiet: logger.info("Dumping final result into file '%s'."%args.dump)
+        with open(args.dump, 'w') as f:
+            f.write(pformat(final_res))

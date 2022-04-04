@@ -156,7 +156,7 @@ class SquaredTopologyGenerator:
                     ew = {e: edge_weights[e] if e in edge_weights else -2 for e, _, _ in diag_info['graph'].edge_map_lin}
                     
                     uv_limits = diag_info['graph'].construct_uv_limits(vw, ew, particle_ids=particle_ids,
-                                UV_min_dod_to_subtract=self.generation_options.get('UV_min_dod_to_subtract',0) )
+                                UV_min_dod_to_subtract=self.generation_options.get('UV_min_dod_to_subtract',0), sg_name=self.name )
 
                     for uv_limit in uv_limits:
                         uv_limit['bubble'] = []

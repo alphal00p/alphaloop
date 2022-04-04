@@ -366,7 +366,7 @@ class TopologyGenerator(object):
 
         return forest
 
-    def construct_uv_limits(self, vertex_weights, edge_weights, particle_ids=None, UV_min_dod_to_subtract=0):
+    def construct_uv_limits(self, vertex_weights, edge_weights, particle_ids=None, UV_min_dod_to_subtract=0, sg_name='N/A'):
         """Construct the uv limits by factorizing out all UV subgraphs from smallest to largest"""
         f = self.contruct_uv_forest(vertex_weights, edge_weights, UV_min_dod_to_subtract=UV_min_dod_to_subtract)
         #print('subgraph forest', f)
@@ -458,7 +458,7 @@ class TopologyGenerator(object):
                             gn = copy.deepcopy(uv_subgraph)
                             for loop_line in c:
                                 if d > 0 and dod > 1 and len(loop_lines[loop_line]) > 1 and (particle_ids is None or len(set(particle_ids[m] for m in loop_lines[loop_line])) > 1):
-                                    raise AssertionError('WARNING: two or more propagators with shift in a loop line %s: %s. This could produce a bad soft CT if the masses are not the same' % (str(loop_lines[loop_line]), str(uv_subgraph.edge_map_lin)))
+                                    raise AssertionError('WARNING: In supergraph %s, two or more propagators with shift in a loop line %s: %s. This could produce a bad soft CT if the masses are not the same' % (sg_name, str(loop_lines[loop_line]), str(uv_subgraph.edge_map_lin)))
                                 gn.powers[loop_lines[loop_line][0]] += 1
                             derived_graphs.append({'graph': gn, 'derivatives': d})
 
@@ -571,8 +571,17 @@ class TopologyGenerator(object):
                 cutkosky_particles = tuple(sorted(abs(particle_ids[e]) if e in particle_ids else 0 for (e, _, _) in cutkosky_cut))
                 cutkosky_jet_particles = tuple(p for p in cutkosky_particles if p in PDGs_in_jet)
                 cutkosky_non_jet_particles = tuple(sorted(p for p in cutkosky_particles if p not in PDGs_in_jet))
+                #print("===")
+                #print(cutkosky_jet_particles)
+                #print(final_state_particle_ids)
+                #print(cutkosky_non_jet_particles)
+                #print(n_jets)
+                #print("===")
+                # print(cutkosky_particles)
                 assert(len(set(final_state_particle_ids) & set(PDGs_in_jet)) == 0)
 
+                #VH HACK bernard
+                #if False and (len(cutkosky_jet_particles) < n_jets or tuple(sorted(final_state_particle_ids)) != cutkosky_non_jet_particles):
                 if len(cutkosky_jet_particles) < n_jets or tuple(sorted(final_state_particle_ids)) != cutkosky_non_jet_particles:
                     continue
 

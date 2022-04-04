@@ -862,7 +862,8 @@ aGraph=%s;
     def complexity_score_lmb(self, lmb, model, edge_key_to_name, edge_name_to_power, edge_name_to_pdg, weight_combination_rule='product'):
         """ Returns a complexity (tuple) score for this generation lmb. The idea being to pick the generation lmb with highest score so as to improve on generation time."""
 
-        topo_generator, _, _ = self.get_topo_generator(specified_LMB=[ edge_key_to_name[e_key] for e_key in lmb ])
+        lmb_edge_names = [ edge_key_to_name[e_key] for e_key in lmb ]
+        topo_generator, _, _ = self.get_topo_generator(specified_LMB=lmb_edge_names)
         # And adjust all signatures (incl. the string momenta assignment accordingly)
         signatures = topo_generator.get_signature_map()
         signatures = { edge_name.replace('q','p') if edge_name.startswith('q') else edge_name[1:] : (tuple(sig[0]),
@@ -882,6 +883,9 @@ aGraph=%s;
         #     print("Edges momenta: %s"%pformat([ signatures[self.edges[e_id]['name']] for e_id in node['edge_ids']]))
         # stop
 
+        # Count the powers beyond 1 inside the LMB
+        raised_powers_in_LMB = 0
+
         edge_weights = []
         for edge_key in sorted(self.edges.keys()):
             particle = model.get_particle(abs(self.edges[edge_key]['PDG']))
@@ -896,6 +900,9 @@ aGraph=%s;
                 edge_weights.append( sum([ 1 if abs(wgt)!=0 else 0 for wgt in sig ]) )
             else:
                 edge_weights.append(1)
+            
+            if self.edges[edge_key]['name'] in lmb_edge_names:
+                raised_powers_in_LMB += edge_name_to_power[self.edges[edge_key]['name']]-1
 
         node_weights = []
         for node_key in sorted(self.nodes.keys()):
@@ -928,12 +935,13 @@ aGraph=%s;
         sum_squared_score = sum(wgt**2 for wgt in edge_weights) + sum(wgt**2 for wgt in node_weights)
         final_score = None
         # We use the negative value as we want to minimize the complexity, and entries beyond the first in the tuple are used for tie-breaker
+        # We always place the "raised_powers_in_LMB" first because we always seek to maximise the number of raised propagator edges part of the generation LMB selected.
         if weight_combination_rule == 'product':
-            final_score = (-product_score, -sum_squared_score)
+            final_score = (raised_powers_in_LMB, -product_score, -sum_squared_score)
         elif weight_combination_rule == 'sum_squared':
-            final_score = (-sum_squared_score, -product_score)
+            final_score = (raised_powers_in_LMB, -sum_squared_score, -product_score)
         elif weight_combination_rule == 'combination':
-            final_score = (-product_score-sum_squared_score,-product_score, -sum_squared_score)
+            final_score = (raised_powers_in_LMB, -product_score-sum_squared_score,-product_score, -sum_squared_score)
         else:
             raise FormProcessingError("Function complexity_score_lmb only supports the combination rules 'product' and 'sum_squared' in the options.")
 
@@ -3120,8 +3128,9 @@ class FORMSuperGraphList(list):
                 if mass_param.upper()=='ZERO':
                     mass_str = ''
                 else:
-                    real_parameters.append(mass_param)
-                    real_parameters_input.append(model['parameter_dict'][mass_param].real)
+                    if mass_param not in real_parameters:
+                        real_parameters.append(mass_param)
+                        real_parameters_input.append(model['parameter_dict'][mass_param].real)
                     mass_str = '-%s**2'%mass_param
 
                 propagators.append('(%s)**2%s'%(loop_momentum, mass_str))
@@ -3157,6 +3166,9 @@ class FORMSuperGraphList(list):
         repl_dict['numerator_path'] = './%s'%(os.path.basename(output_numerator_path))
         repl_dict['replacement_rules'] = str(replacement_rules)
         repl_dict['real_parameters'] = str(real_parameters)
+        repl_dict['loop_additional_prefactor'] = '( I*(4*pi)**(-2+eps) )**(%d)'%n_loops
+        repl_dict['contour_deformation'] = 'True'
+        repl_dict['max_epsilon_order'] = 0
 
         # pySecDec integration replacement
         repl_dict['n_loops'] = str(g.n_loops)
