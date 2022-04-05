@@ -1,0 +1,2786 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Mathematica 8.0' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       157,          7]
+NotebookDataLength[    147094,       2778]
+NotebookOptionsPosition[    142911,       2704]
+NotebookOutlinePosition[    143383,       2721]
+CellTagsIndexPosition[    143340,       2718]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+
+Cell[CellGroupData[{
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"<<", "LiteRed`"}], ";"}], "\n", 
+ RowBox[{
+  RowBox[{"SetDirectory", "[", 
+   RowBox[{"NotebookDirectory", "[", "]"}], "]"}], 
+  ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{"SetDim", "[", "d", "]"}], ";"}], 
+  RowBox[{"(*", 
+   RowBox[{
+   "d", " ", "stands", " ", "for", " ", "the", " ", "dimensionality"}], 
+   "*)"}]}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"Declare", "[", 
+   RowBox[{
+    RowBox[{"{", 
+     RowBox[{"k1", ",", "k2", ",", "k3"}], "}"}], ",", "Vector"}], "]"}], 
+  ";"}], "\n", 
+ RowBox[{"Declare", "[", 
+  RowBox[{"mUV2", ",", "Number"}], "]"}], "\[IndentingNewLine]", 
+ RowBox[{"NewBasis", "[", 
+  RowBox[{"t3", ",", 
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{
+      RowBox[{"k1", "\[CenterDot]", "k1"}], "-", 
+      RowBox[{"mUV2", "^", "2"}]}], ",", 
+     RowBox[{
+      RowBox[{"k2", "\[CenterDot]", "k2"}], "-", 
+      RowBox[{"mUV2", "^", "2"}]}], ",", 
+     RowBox[{
+      RowBox[{"k3", "\[CenterDot]", "k3"}], "-", 
+      RowBox[{"mUV2", "^", "2"}]}], ",", 
+     RowBox[{
+      RowBox[{
+       RowBox[{"(", 
+        RowBox[{"k1", "-", "k2"}], ")"}], "\[CenterDot]", 
+       RowBox[{"(", 
+        RowBox[{"k1", "-", "k2"}], ")"}]}], "-", 
+      RowBox[{"mUV2", "^", "2"}]}], ",", 
+     RowBox[{
+      RowBox[{
+       RowBox[{"(", 
+        RowBox[{"k2", "-", "k3"}], ")"}], "\[CenterDot]", 
+       RowBox[{"(", 
+        RowBox[{"k2", "-", "k3"}], ")"}]}], "-", 
+      RowBox[{"mUV2", "^", "2"}]}], ",", 
+     RowBox[{
+      RowBox[{
+       RowBox[{"(", 
+        RowBox[{"k1", "-", "k3"}], ")"}], "\[CenterDot]", 
+       RowBox[{"(", 
+        RowBox[{"k1", "-", "k3"}], ")"}]}], "-", 
+      RowBox[{"mUV2", "^", "2"}]}]}], "}"}], ",", 
+   RowBox[{"{", 
+    RowBox[{"k1", ",", "k2", ",", "k3"}], "}"}], ",", 
+   RowBox[{"GenerateIBP", "\[Rule]", "True"}], ",", 
+   RowBox[{"AnalyzeSectors", "\[Rule]", "True"}], ",", 
+   RowBox[{"FindSymmetries", "\[Rule]", "True"}], ",", 
+   RowBox[{"Directory", "\[Rule]", "\"\<t3 dir\>\""}]}], "]"}], "\n", 
+ RowBox[{
+  RowBox[{
+   RowBox[{"SolvejSector", "[", 
+    RowBox[{"#", ",", 
+     RowBox[{"Depth", "\[Rule]", "2"}], ",", 
+     RowBox[{"SR", "\[Rule]", "True"}]}], "]"}], "&"}], "/@", 
+  RowBox[{"Join", "[", 
+   RowBox[{"UniqueSectors", "[", "t3", "]"}], "]"}]}], "\n", 
+ RowBox[{"allRules", "=", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"Join", "[", 
+     RowBox[{
+      RowBox[{"UniqueSectors", "[", "t3", "]"}], ",", 
+      RowBox[{"MappedSectors", "[", "t3", "]"}]}], "]"}], "/.", " ", 
+    RowBox[{
+     RowBox[{"js", "[", "x___", "]"}], "\[RuleDelayed]", 
+     RowBox[{"jRules", "[", "x", "]"}]}]}], "//", "Flatten"}]}]}], "Input",
+ CellChangeTimes->{{3.8479587632821627`*^9, 3.84795887402411*^9}, {
+   3.84795978852205*^9, 3.847959789752934*^9}, 3.847959856405201*^9, 
+   3.847971591328013*^9, {3.848024120924343*^9, 3.848024138259651*^9}},
+ CellLabel->"In[1]:=",ExpressionUUID->"ad3b92bf-0365-4af8-8849-40771e5a54c8"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"**************** \"\>", "\[InvisibleSpace]", 
+   StyleBox["\<\"LiteRed v1.83\"\>",
+    StripOnInput->False,
+    LineColor->RGBColor[1, 
+      Rational[1, 3], 
+      Rational[1, 3]],
+    FrontFaceColor->RGBColor[1, 
+      Rational[1, 3], 
+      Rational[1, 3]],
+    BackFaceColor->RGBColor[1, 
+      Rational[1, 3], 
+      Rational[1, 3]],
+    GraphicsColor->RGBColor[1, 
+      Rational[1, 3], 
+      Rational[1, 3]],
+    FontWeight->Bold,
+    FontColor->RGBColor[1, 
+      Rational[1, 3], 
+      Rational[1, 3]]], 
+   "\[InvisibleSpace]", "\<\" ********************\\nAuthor: Roman N. Lee, \
+Budker Institute of Nuclear Physics, Novosibirsk.\\nRelease Date: \
+11.01.2020\\nLiteRed stands for Loop InTEgrals REDuction.\\nThe package is \
+designed for the search and application of the Integration-By-Part reduction \
+rules. It also contains some other useful tools.\\nInput file timestamp: Mon \
+11 Jan 2021 11:19:15\\nSee ?LiteRed`* for a list of functions. \"\>"}],
+  SequenceForm["**************** ", 
+   Style["LiteRed v1.83", {Bold, 
+     RGBColor[1, 
+      Rational[1, 3], 
+      Rational[1, 3]]}], 
+   " ********************\nAuthor: Roman N. Lee, Budker Institute of Nuclear \
+Physics, Novosibirsk.\nRelease Date: 11.01.2020\nLiteRed stands for Loop \
+InTEgrals REDuction.\nThe package is designed for the search and application \
+of the Integration-By-Part reduction rules. It also contains some other \
+useful tools.\nInput file timestamp: Mon 11 Jan 2021 11:19:15\nSee ?LiteRed`* \
+for a list of functions. "],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8479587957701197`*^9, 3.847958809760488*^9}, 
+   3.8479588674279623`*^9, 3.847959790559786*^9, 3.8479598570735283`*^9, 
+   3.847971592485697*^9, 3.848024141638102*^9, 3.848036139757523*^9, 
+   3.85790792413486*^9, 3.858051650099577*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"a2fb01bb-40fb-4d5e-8ed2-1b595a1c7426"],
+
+Cell[BoxData["\<\"Valid basis.\\n    Ds[t3] \[LongDash] denominators,\\n    \
+SPs[t3] \[LongDash] scalar products involving loop momenta,\\n    LMs[t3] \
+\[LongDash] loop momenta,\\n    EMs[t3] \[LongDash] external momenta,\\n    \
+Toj[t3] \[LongDash] rules to transform scalar products to denominators.\\nThe \
+definitions of the basis will be saved in t3 dir\"\>"], "Print",
+ CellChangeTimes->{{3.8479587957701197`*^9, 3.847958809760488*^9}, 
+   3.8479588674279623`*^9, 3.847959790559786*^9, 3.8479598570735283`*^9, 
+   3.847971592485697*^9, 3.848024141638102*^9, 3.848036139757523*^9, 
+   3.85790792413486*^9, 3.85805165029618*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"1d0c6425-d022-4c26-8096-3bc66237f6cf"]
+}, Open  ]],
+
+Cell[BoxData[
+ TemplateBox[{
+  "DiskSave", "overwrite", 
+   "\"The file \\!\\(\\*RowBox[{\\\"\\\\\\\"t3 dir/t3\\\\\\\"\\\"}]\\) has \
+been overwritten.\"", 2, 6, 1, 31830262623807466614, "Local", 
+   "LiteRed`DiskSave"},
+  "MessageTemplate2"]], "Message", "MSG",
+ CellChangeTimes->{{3.847958796794196*^9, 3.847958810795673*^9}, 
+   3.847958867539489*^9, 3.8479597905796423`*^9, 3.84795985714775*^9, 
+   3.84797159263655*^9, 3.848024141753316*^9, 3.848036139901698*^9, 
+   3.857907924311707*^9, 3.8580516503203583`*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"8ae2ace4-0e82-47b8-8efb-bb2be4b5c2e0"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData["\<\"Integration-By-Part&Lorentz-Invariance identities are \
+generated.\\n    IBP[t3] \[LongDash] integration-by-part identities,\\n    \
+LI[t3] \[LongDash] Lorentz invariance identities.\"\>"], "Print",
+ CellChangeTimes->{{3.8479587957701197`*^9, 3.847958809760488*^9}, 
+   3.8479588674279623`*^9, 3.847959790559786*^9, 3.8479598570735283`*^9, 
+   3.847971592485697*^9, 3.848024141638102*^9, 3.848036139757523*^9, 
+   3.85790792413486*^9, 3.858051650351527*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"ce01dd22-acb1-4b16-848e-559dde5bba90"],
+
+Cell[BoxData["\<\"Found 26 zero sectors out of 64.\\n    ZeroSectors[t3] \
+\[LongDash] zero sectors,\\n    NonZeroSectors[t3] \[LongDash] nonzero \
+sectors,\\n    SimpleSectors[t3] \[LongDash] simple sectors (no nonzero \
+subsectors),\\n    BasisSectors[t3] \[LongDash] basis sectors (at least one \
+immediate subsector is zero),\\n    ZerojRule[t3] \[LongDash] a rule to \
+nullify all zero j[t3\[Ellipsis]],\\n    CutDs[t3] \[LongDash] a flag list of \
+cut denominatorsj (1=cut).\"\>"], "Print",
+ CellChangeTimes->{{3.8479587957701197`*^9, 3.847958809760488*^9}, 
+   3.8479588674279623`*^9, 3.847959790559786*^9, 3.8479598570735283`*^9, 
+   3.847971592485697*^9, 3.848024141638102*^9, 3.848036139757523*^9, 
+   3.85790792413486*^9, 3.858051650538349*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"3c504db6-2007-492d-9eec-418141d83cae"],
+
+Cell[BoxData["\<\"Found 33 mapped sectors and 5 unique sectors.\\n    \
+UniqueSectors[t3] \[LongDash] unique sectors.\\n    MappedSectors[t3] \
+\[LongDash] mapped sectors.\\n    SR[t3][\[Ellipsis]] \[LongDash] symmetry \
+relations for j[t3,\[Ellipsis]] from UniqueSectors[t3].\\n    jSymmetries[t3,\
+\[Ellipsis]] \[LongDash] symmetry rules for the sector js[t3,\[Ellipsis]] in \
+UniqueSectors[t3].\\n    jRules[t3,\[Ellipsis]] \[LongDash] reduction rules \
+for j[t3,\[Ellipsis]] from MappedSectors[t3].\"\>"], "Print",
+ CellChangeTimes->{{3.8479587957701197`*^9, 3.847958809760488*^9}, 
+   3.8479588674279623`*^9, 3.847959790559786*^9, 3.8479598570735283`*^9, 
+   3.847971592485697*^9, 3.848024141638102*^9, 3.848036139757523*^9, 
+   3.85790792413486*^9, 3.858051651236141*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"11849fca-f554-4adb-8c08-767a1877c09f"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Sector \"\>", "\[InvisibleSpace]", 
+   RowBox[{"js", "[", 
+    RowBox[{
+    "t3", ",", "0", ",", "0", ",", "1", ",", "0", ",", "1", ",", "1"}], 
+    "]"}]}],
+  SequenceForm["Sector ", 
+   LiteRed`js[$CellContext`t3, 0, 0, 1, 0, 1, 1]],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8479587957701197`*^9, 3.847958809760488*^9}, 
+   3.8479588674279623`*^9, 3.847959790559786*^9, 3.8479598570735283`*^9, 
+   3.847971592485697*^9, 3.848024141638102*^9, 3.848036139757523*^9, 
+   3.85790792413486*^9, 3.858051651237178*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"ea0e2429-eaeb-4ebd-aa7c-0d3e846905f3"]
+}, Open  ]],
+
+Cell[BoxData[
+ TemplateBox[{
+  "DiskSave", "overwrite", 
+   "\"The file \\!\\(\\*RowBox[{\\\"\\\\\\\"t3 dir/jRules[t3, 0, 0, 1, 0, 1, \
+1]\\\\\\\"\\\"}]\\) has been overwritten.\"", 2, 7, 2, 31830262623807466614, 
+   "Local", "LiteRed`DiskSave"},
+  "MessageTemplate2"]], "Message", "MSG",
+ CellChangeTimes->{{3.847958796794196*^9, 3.847958810795673*^9}, 
+   3.847958867539489*^9, 3.8479597905796423`*^9, 3.84795985714775*^9, 
+   3.84797159263655*^9, 3.848024141753316*^9, 3.848036139901698*^9, 
+   3.857907924311707*^9, 3.858051652440487*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"cd779234-6b0e-4489-861a-1ceb54e63841"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData["\<\"    1 master integrals found:\\nj[t3, 0, 0, 1, 0, 1, 1].\\n \
+   jRules[t3, 0, 0, 1, 0, 1, 1] \[LongDash] reduction rules for the \
+sector.\\n    MIs[t3] \[LongDash] updated list of the masters.\"\>"], "Print",
+ CellChangeTimes->{{3.8479587957701197`*^9, 3.847958809760488*^9}, 
+   3.8479588674279623`*^9, 3.847959790559786*^9, 3.8479598570735283`*^9, 
+   3.847971592485697*^9, 3.848024141638102*^9, 3.848036139757523*^9, 
+   3.85790792413486*^9, 3.858051652444521*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"5ed6094e-3c7e-4551-9e58-37f8e3739938"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Sector \"\>", "\[InvisibleSpace]", 
+   RowBox[{"js", "[", 
+    RowBox[{
+    "t3", ",", "0", ",", "0", ",", "1", ",", "1", ",", "1", ",", "1"}], 
+    "]"}]}],
+  SequenceForm["Sector ", 
+   LiteRed`js[$CellContext`t3, 0, 0, 1, 1, 1, 1]],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8479587957701197`*^9, 3.847958809760488*^9}, 
+   3.8479588674279623`*^9, 3.847959790559786*^9, 3.8479598570735283`*^9, 
+   3.847971592485697*^9, 3.848024141638102*^9, 3.848036139757523*^9, 
+   3.85790792413486*^9, 3.8580516524594316`*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"65e2b324-fc6c-442b-ba87-47bd604917b4"]
+}, Open  ]],
+
+Cell[BoxData[
+ TemplateBox[{
+  "DiskSave", "overwrite", 
+   "\"The file \\!\\(\\*RowBox[{\\\"\\\\\\\"t3 dir/jRules[t3, 0, 0, 1, 1, 1, \
+1]\\\\\\\"\\\"}]\\) has been overwritten.\"", 2, 7, 3, 31830262623807466614, 
+   "Local", "LiteRed`DiskSave"},
+  "MessageTemplate2"]], "Message", "MSG",
+ CellChangeTimes->{{3.847958796794196*^9, 3.847958810795673*^9}, 
+   3.847958867539489*^9, 3.8479597905796423`*^9, 3.84795985714775*^9, 
+   3.84797159263655*^9, 3.848024141753316*^9, 3.848036139901698*^9, 
+   3.857907924311707*^9, 3.8580516543541594`*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"c978506b-d6d9-4216-a4af-adf59b4038af"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData["\<\"    1 master integrals found:\\nj[t3, 0, 0, 1, 1, 1, 1].\\n \
+   jRules[t3, 0, 0, 1, 1, 1, 1] \[LongDash] reduction rules for the \
+sector.\\n    MIs[t3] \[LongDash] updated list of the masters.\"\>"], "Print",
+ CellChangeTimes->{{3.8479587957701197`*^9, 3.847958809760488*^9}, 
+   3.8479588674279623`*^9, 3.847959790559786*^9, 3.8479598570735283`*^9, 
+   3.847971592485697*^9, 3.848024141638102*^9, 3.848036139757523*^9, 
+   3.85790792413486*^9, 3.858051654396368*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"b8b3236f-fd72-40dd-9236-b36c62894cc5"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Sector \"\>", "\[InvisibleSpace]", 
+   RowBox[{"js", "[", 
+    RowBox[{
+    "t3", ",", "0", ",", "1", ",", "1", ",", "1", ",", "0", ",", "1"}], 
+    "]"}]}],
+  SequenceForm["Sector ", 
+   LiteRed`js[$CellContext`t3, 0, 1, 1, 1, 0, 1]],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8479587957701197`*^9, 3.847958809760488*^9}, 
+   3.8479588674279623`*^9, 3.847959790559786*^9, 3.8479598570735283`*^9, 
+   3.847971592485697*^9, 3.848024141638102*^9, 3.848036139757523*^9, 
+   3.85790792413486*^9, 3.858051654445381*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"97f30435-fc79-46bd-9eca-cb8911adbf55"]
+}, Open  ]],
+
+Cell[BoxData[
+ TemplateBox[{
+  "DiskSave", "overwrite", 
+   "\"The file \\!\\(\\*RowBox[{\\\"\\\\\\\"t3 dir/jRules[t3, 0, 1, 1, 1, 0, \
+1]\\\\\\\"\\\"}]\\) has been overwritten.\"", 2, 7, 4, 31830262623807466614, 
+   "Local", "LiteRed`DiskSave"},
+  "MessageTemplate2"]], "Message", "MSG",
+ CellChangeTimes->{{3.847958796794196*^9, 3.847958810795673*^9}, 
+   3.847958867539489*^9, 3.8479597905796423`*^9, 3.84795985714775*^9, 
+   3.84797159263655*^9, 3.848024141753316*^9, 3.848036139901698*^9, 
+   3.857907924311707*^9, 3.858051657191361*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"03f92118-80f8-4700-9174-441f3ed85c92"],
+
+Cell[BoxData[
+ TemplateBox[{
+  "General", "stop", 
+   "\"Further output of \\!\\(\\*StyleBox[RowBox[{\\\"DiskSave\\\", \
+\\\"::\\\", \\\"overwrite\\\"}], \\\"MessageName\\\"]\\) will be suppressed \
+during this calculation.\"", 2, 7, 5, 31830262623807466614, "Local"},
+  "MessageTemplate"]], "Message", "MSG",
+ CellChangeTimes->{{3.847958796794196*^9, 3.847958810795673*^9}, 
+   3.847958867539489*^9, 3.8479597905796423`*^9, 3.84795985714775*^9, 
+   3.84797159263655*^9, 3.848024141753316*^9, 3.848036139901698*^9, 
+   3.857907924311707*^9, 3.858051657231551*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"a4bdce6a-a935-4da5-930a-cbc7088a52ec"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData["\<\"    1 master integrals found:\\nj[t3, 0, 1, 1, 1, 0, 1].\\n \
+   jRules[t3, 0, 1, 1, 1, 0, 1] \[LongDash] reduction rules for the \
+sector.\\n    MIs[t3] \[LongDash] updated list of the masters.\"\>"], "Print",
+ CellChangeTimes->{{3.8479587957701197`*^9, 3.847958809760488*^9}, 
+   3.8479588674279623`*^9, 3.847959790559786*^9, 3.8479598570735283`*^9, 
+   3.847971592485697*^9, 3.848024141638102*^9, 3.848036139757523*^9, 
+   3.85790792413486*^9, 3.858051657281661*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"74c81e3c-a88f-424a-b02c-0d00a473a09e"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Sector \"\>", "\[InvisibleSpace]", 
+   RowBox[{"js", "[", 
+    RowBox[{
+    "t3", ",", "0", ",", "1", ",", "1", ",", "1", ",", "1", ",", "1"}], 
+    "]"}]}],
+  SequenceForm["Sector ", 
+   LiteRed`js[$CellContext`t3, 0, 1, 1, 1, 1, 1]],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8479587957701197`*^9, 3.847958809760488*^9}, 
+   3.8479588674279623`*^9, 3.847959790559786*^9, 3.8479598570735283`*^9, 
+   3.847971592485697*^9, 3.848024141638102*^9, 3.848036139757523*^9, 
+   3.85790792413486*^9, 3.858051657312168*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"6fe25322-333d-4db9-ade7-1bdbd816fda2"],
+
+Cell[BoxData["\<\"    1 master integrals found:\\nj[t3, 0, 1, 1, 1, 1, 1].\\n \
+   jRules[t3, 0, 1, 1, 1, 1, 1] \[LongDash] reduction rules for the \
+sector.\\n    MIs[t3] \[LongDash] updated list of the masters.\"\>"], "Print",
+ CellChangeTimes->{{3.8479587957701197`*^9, 3.847958809760488*^9}, 
+   3.8479588674279623`*^9, 3.847959790559786*^9, 3.8479598570735283`*^9, 
+   3.847971592485697*^9, 3.848024141638102*^9, 3.848036139757523*^9, 
+   3.85790792413486*^9, 3.8580516595900517`*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"5d1e6864-5b19-4e53-a4c5-660fc657fea4"],
+
+Cell[BoxData[
+ InterpretationBox[
+  RowBox[{"\<\"Sector \"\>", "\[InvisibleSpace]", 
+   RowBox[{"js", "[", 
+    RowBox[{
+    "t3", ",", "1", ",", "1", ",", "1", ",", "1", ",", "1", ",", "1"}], 
+    "]"}]}],
+  SequenceForm["Sector ", 
+   LiteRed`js[$CellContext`t3, 1, 1, 1, 1, 1, 1]],
+  Editable->False]], "Print",
+ CellChangeTimes->{{3.8479587957701197`*^9, 3.847958809760488*^9}, 
+   3.8479588674279623`*^9, 3.847959790559786*^9, 3.8479598570735283`*^9, 
+   3.847971592485697*^9, 3.848024141638102*^9, 3.848036139757523*^9, 
+   3.85790792413486*^9, 3.85805165961565*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"f7b56ab7-3837-494a-a15e-77eeb6e7d0b2"],
+
+Cell[BoxData["\<\"    1 master integrals found:\\nj[t3, 1, 1, 1, 1, 1, 1].\\n \
+   jRules[t3, 1, 1, 1, 1, 1, 1] \[LongDash] reduction rules for the \
+sector.\\n    MIs[t3] \[LongDash] updated list of the masters.\"\>"], "Print",
+ CellChangeTimes->{{3.8479587957701197`*^9, 3.847958809760488*^9}, 
+   3.8479588674279623`*^9, 3.847959790559786*^9, 3.8479598570735283`*^9, 
+   3.847971592485697*^9, 3.848024141638102*^9, 3.848036139757523*^9, 
+   3.85790792413486*^9, 3.858051669721418*^9},
+ CellLabel->
+  "During evaluation of \
+In[1]:=",ExpressionUUID->"8ed3866e-3d85-4c79-9ece-a36122eb36d7"]
+}, Open  ]],
+
+Cell[BoxData[
+ RowBox[{"{", 
+  RowBox[{"1", ",", "1", ",", "1", ",", "1", ",", "1"}], "}"}]], "Output",
+ CellChangeTimes->{{3.847958795768361*^9, 3.847958809758563*^9}, {
+   3.847959786857232*^9, 3.847959810201548*^9}, 3.847960030952956*^9, 
+   3.84797161240324*^9, 3.848024160628305*^9, 3.848036159867449*^9, 
+   3.8579079439734163`*^9, 3.8580516697559958`*^9},
+ CellLabel->"Out[7]=",ExpressionUUID->"7a5955ef-8bb1-4a99-b2ed-de15f612a472"],
+
+Cell[BoxData[
+ InterpretationBox[
+  TagBox[
+   FrameBox[GridBox[{
+      {
+       ItemBox[
+        TagBox[
+         RowBox[{"{", 
+          RowBox[{
+           RowBox[{
+            RowBox[{
+             RowBox[{"j", "[", 
+              RowBox[{"t3", ",", 
+               RowBox[{"n1_", "?", "NonPositive"}], ",", 
+               RowBox[{"n2_", "?", "NonPositive"}], ",", 
+               RowBox[{"n3_", "?", "Positive"}], ",", 
+               RowBox[{"n4_", "?", "NonPositive"}], ",", 
+               RowBox[{"n5_", "?", "Positive"}], ",", 
+               RowBox[{"n6_", "?", "Positive"}]}], "]"}], "/;", 
+             RowBox[{"!", 
+              RowBox[{"(", 
+               RowBox[{
+                RowBox[{"n4", "\[Equal]", "0"}], "||", 
+                RowBox[{"n6", "\[Equal]", "1"}]}], ")"}]}]}], "\[Rule]", 
+            RowBox[{
+             RowBox[{"j", "[", 
+              RowBox[{"t3", ",", "n1", ",", "n2", ",", "n3", ",", 
+               RowBox[{"1", "+", "n4"}], ",", 
+               RowBox[{
+                RowBox[{"-", "1"}], "+", "n5"}], ",", "n6"}], "]"}], "+", 
+             FractionBox[
+              RowBox[{
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{"-", "3"}], "+", "d", "-", "n1", "-", 
+                 RowBox[{"3", " ", "n4"}]}], ")"}], " ", 
+               RowBox[{"j", "[", 
+                RowBox[{"t3", ",", "n1", ",", "n2", ",", "n3", ",", 
+                 RowBox[{"1", "+", "n4"}], ",", "n5", ",", 
+                 RowBox[{
+                  RowBox[{"-", "1"}], "+", "n6"}]}], "]"}]}], 
+              RowBox[{"2", " ", 
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{"-", "1"}], "+", "n6"}], ")"}]}]], "+", 
+             FractionBox[
+              RowBox[{
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{"-", "1"}], "-", "n4"}], ")"}], " ", 
+               RowBox[{"j", "[", 
+                RowBox[{"t3", ",", "n1", ",", "n2", ",", "n3", ",", 
+                 RowBox[{"2", "+", "n4"}], ",", 
+                 RowBox[{
+                  RowBox[{"-", "1"}], "+", "n5"}], ",", 
+                 RowBox[{
+                  RowBox[{"-", "1"}], "+", "n6"}]}], "]"}]}], 
+              RowBox[{"2", " ", 
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{"-", "1"}], "+", "n6"}], ")"}]}]], "+", 
+             FractionBox[
+              RowBox[{
+               RowBox[{"(", 
+                RowBox[{"1", "+", "n4"}], ")"}], " ", 
+               RowBox[{"j", "[", 
+                RowBox[{"t3", ",", "n1", ",", "n2", ",", "n3", ",", 
+                 RowBox[{"2", "+", "n4"}], ",", "n5", ",", 
+                 RowBox[{
+                  RowBox[{"-", "2"}], "+", "n6"}]}], "]"}]}], 
+              RowBox[{"2", " ", 
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{"-", "1"}], "+", "n6"}], ")"}]}]], "-", 
+             FractionBox[
+              RowBox[{"3", " ", 
+               SuperscriptBox["mUV2", "2"], " ", 
+               RowBox[{"(", 
+                RowBox[{"1", "+", "n4"}], ")"}], " ", 
+               RowBox[{"j", "[", 
+                RowBox[{"t3", ",", "n1", ",", "n2", ",", "n3", ",", 
+                 RowBox[{"2", "+", "n4"}], ",", "n5", ",", 
+                 RowBox[{
+                  RowBox[{"-", "1"}], "+", "n6"}]}], "]"}]}], 
+              RowBox[{"2", " ", 
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{"-", "1"}], "+", "n6"}], ")"}]}]], "+", 
+             FractionBox[
+              RowBox[{"n1", " ", 
+               RowBox[{"j", "[", 
+                RowBox[{"t3", ",", 
+                 RowBox[{"1", "+", "n1"}], ",", 
+                 RowBox[{
+                  RowBox[{"-", "1"}], "+", "n2"}], ",", "n3", ",", 
+                 RowBox[{"1", "+", "n4"}], ",", "n5", ",", 
+                 RowBox[{
+                  RowBox[{"-", "1"}], "+", "n6"}]}], "]"}]}], 
+              RowBox[{
+               RowBox[{"-", "1"}], "+", "n6"}]], "-", 
+             FractionBox[
+              RowBox[{"n1", " ", 
+               RowBox[{"j", "[", 
+                RowBox[{"t3", ",", 
+                 RowBox[{"1", "+", "n1"}], ",", "n2", ",", 
+                 RowBox[{
+                  RowBox[{"-", "1"}], "+", "n3"}], ",", 
+                 RowBox[{"1", "+", "n4"}], ",", "n5", ",", 
+                 RowBox[{
+                  RowBox[{"-", "1"}], "+", "n6"}]}], "]"}]}], 
+              RowBox[{"2", " ", 
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{"-", "1"}], "+", "n6"}], ")"}]}]], "-", 
+             FractionBox[
+              RowBox[{"n1", " ", 
+               RowBox[{"j", "[", 
+                RowBox[{"t3", ",", 
+                 RowBox[{"1", "+", "n1"}], ",", "n2", ",", "n3", ",", "n4", 
+                 ",", "n5", ",", 
+                 RowBox[{
+                  RowBox[{"-", "1"}], "+", "n6"}]}], "]"}]}], 
+              RowBox[{
+               RowBox[{"-", "1"}], "+", "n6"}]], "+", 
+             FractionBox[
+              RowBox[{"n1", " ", 
+               RowBox[{"j", "[", 
+                RowBox[{"t3", ",", 
+                 RowBox[{"1", "+", "n1"}], ",", "n2", ",", "n3", ",", 
+                 RowBox[{"1", "+", "n4"}], ",", "n5", ",", 
+                 RowBox[{
+                  RowBox[{"-", "2"}], "+", "n6"}]}], "]"}]}], 
+              RowBox[{"2", " ", 
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{"-", "1"}], "+", "n6"}], ")"}]}]], "-", 
+             FractionBox[
+              RowBox[{
+               SuperscriptBox["mUV2", "2"], " ", "n1", " ", 
+               RowBox[{"j", "[", 
+                RowBox[{"t3", ",", 
+                 RowBox[{"1", "+", "n1"}], ",", "n2", ",", "n3", ",", 
+                 RowBox[{"1", "+", "n4"}], ",", "n5", ",", 
+                 RowBox[{
+                  RowBox[{"-", "1"}], "+", "n6"}]}], "]"}]}], 
+              RowBox[{"2", " ", 
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{"-", "1"}], "+", "n6"}], ")"}]}]]}]}], ",", 
+           RowBox[{
+            RowBox[{
+             RowBox[{"j", "[", 
+              RowBox[{"t3", ",", 
+               RowBox[{"n1_", "?", "NonPositive"}], ",", 
+               RowBox[{"n2_", "?", "NonPositive"}], ",", 
+               RowBox[{"n3_", "?", "Positive"}], ",", 
+               RowBox[{"n4_", "?", "NonPositive"}], ",", 
+               RowBox[{"n5_", "?", "Positive"}], ",", 
+               RowBox[{"n6_", "?", "Positive"}]}], "]"}], "/;", 
+             RowBox[{"!", 
+              RowBox[{"(", 
+               RowBox[{
+                RowBox[{"n1", "\[Equal]", "0"}], "||", 
+                RowBox[{"n6", "\[Equal]", "1"}]}], ")"}]}]}], "\[Rule]", 
+            RowBox[{
+             RowBox[{"-", 
+              FractionBox[
+               RowBox[{"n4", " ", 
+                RowBox[{"j", "[", 
+                 RowBox[{"t3", ",", "n1", ",", "n2", ",", "n3", ",", 
+                  RowBox[{"1", "+", "n4"}], ",", "n5", ",", 
+                  RowBox[{
+                   RowBox[{"-", "1"}], "+", "n6"}]}], "]"}]}], 
+               RowBox[{
+                RowBox[{"-", "1"}], "+", "n6"}]]}], "+", 
+             FractionBox[
+              RowBox[{"n4", " ", 
+               RowBox[{"j", "[", 
+                RowBox[{"t3", ",", 
+                 RowBox[{"1", "+", "n1"}], ",", 
+                 RowBox[{
+                  RowBox[{"-", "1"}], "+", "n2"}], ",", "n3", ",", 
+                 RowBox[{"1", "+", "n4"}], ",", "n5", ",", 
+                 RowBox[{
+                  RowBox[{"-", "1"}], "+", "n6"}]}], "]"}]}], 
+              RowBox[{
+               RowBox[{"-", "1"}], "+", "n6"}]], "+", 
+             RowBox[{"j", "[", 
+              RowBox[{"t3", ",", 
+               RowBox[{"1", "+", "n1"}], ",", "n2", ",", 
+               RowBox[{
+                RowBox[{"-", "1"}], "+", "n3"}], ",", "n4", ",", "n5", ",", 
+               "n6"}], "]"}], "+", 
+             FractionBox[
+              RowBox[{
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{"-", "3"}], "+", "d", "-", 
+                 RowBox[{"3", " ", "n1"}], "-", "n4"}], ")"}], " ", 
+               RowBox[{"j", "[", 
+                RowBox[{"t3", ",", 
+                 RowBox[{"1", "+", "n1"}], ",", "n2", ",", "n3", ",", "n4", 
+                 ",", "n5", ",", 
+                 RowBox[{
+                  RowBox[{"-", "1"}], "+", "n6"}]}], "]"}]}], 
+              RowBox[{"2", " ", 
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{"-", "1"}], "+", "n6"}], ")"}]}]], "-", 
+             FractionBox[
+              RowBox[{"n4", " ", 
+               RowBox[{"j", "[", 
+                RowBox[{"t3", ",", 
+                 RowBox[{"1", "+", "n1"}], ",", "n2", ",", "n3", ",", 
+                 RowBox[{"1", "+", "n4"}], ",", 
+                 RowBox[{
+                  RowBox[{"-", "1"}], "+", "n5"}], ",", 
+                 RowBox[{
+                  RowBox[{"-", "1"}], "+", "n6"}]}], "]"}]}], 
+              RowBox[{"2", " ", 
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{"-", "1"}], "+", "n6"}], ")"}]}]], "+", 
+             FractionBox[
+              RowBox[{"n4", " ", 
+               RowBox[{"j", "[", 
+                RowBox[{"t3", ",", 
+                 RowBox[{"1", "+", "n1"}], ",", "n2", ",", "n3", ",", 
+                 RowBox[{"1", "+", "n4"}], ",", "n5", ",", 
+                 RowBox[{
+                  RowBox[{"-", "2"}], "+", "n6"}]}], "]"}]}], 
+              RowBox[{"2", " ", 
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{"-", "1"}], "+", "n6"}], ")"}]}]], "-", 
+             FractionBox[
+              RowBox[{
+               SuperscriptBox["mUV2", "2"], " ", "n4", " ", 
+               RowBox[{"j", "[", 
+                RowBox[{"t3", ",", 
+                 RowBox[{"1", "+", "n1"}], ",", "n2", ",", "n3", ",", 
+                 RowBox[{"1", "+", "n4"}], ",", "n5", ",", 
+                 RowBox[{
+                  RowBox[{"-", "1"}], "+", "n6"}]}], "]"}]}], 
+              RowBox[{"2", " ", 
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{"-", "1"}], "+", "n6"}], ")"}]}]], "+", 
+             FractionBox[
+              RowBox[{
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{"-", "1"}], "-", "n1"}], ")"}], " ", 
+               RowBox[{"j", "[", 
+                RowBox[{"t3", ",", 
+                 RowBox[{"2", "+", "n1"}], ",", "n2", ",", 
+                 RowBox[{
+                  RowBox[{"-", "1"}], "+", "n3"}], ",", "n4", ",", "n5", ",", 
+                 RowBox[{
+                  RowBox[{"-", "1"}], "+", "n6"}]}], "]"}]}], 
+              RowBox[{"2", " ", 
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{"-", "1"}], "+", "n6"}], ")"}]}]], "+", 
+             FractionBox[
+              RowBox[{
+               RowBox[{"(", 
+                RowBox[{"1", "+", "n1"}], ")"}], " ", 
+               RowBox[{"j", "[", 
+                RowBox[{"t3", ",", 
+                 RowBox[{"2", "+", "n1"}], ",", "n2", ",", "n3", ",", "n4", 
+                 ",", "n5", ",", 
+                 RowBox[{
+                  RowBox[{"-", "2"}], "+", "n6"}]}], "]"}]}], 
+              RowBox[{"2", " ", 
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{"-", "1"}], "+", "n6"}], ")"}]}]], "-", 
+             FractionBox[
+              RowBox[{"3", " ", 
+               SuperscriptBox["mUV2", "2"], " ", 
+               RowBox[{"(", 
+                RowBox[{"1", "+", "n1"}], ")"}], " ", 
+               RowBox[{"j", "[", 
+                RowBox[{"t3", ",", 
+                 RowBox[{"2", "+", "n1"}], ",", "n2", ",", "n3", ",", "n4", 
+                 ",", "n5", ",", 
+                 RowBox[{
+                  RowBox[{"-", "1"}], "+", "n6"}]}], "]"}]}], 
+              RowBox[{"2", " ", 
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{"-", "1"}], "+", "n6"}], ")"}]}]]}]}], ",", 
+           TemplateBox[{"88"},
+            "OutputSizeLimit`Skeleton"], ",", 
+           RowBox[{
+            RowBox[{
+             RowBox[{"j", "[", 
+              RowBox[{"t3", ",", 
+               RowBox[{"n1_", "?", "Positive"}], ",", 
+               RowBox[{"n2_", "?", "Positive"}], ",", 
+               RowBox[{"n3_", "?", "Positive"}], ",", 
+               RowBox[{"n4_", "?", "Positive"}], ",", 
+               RowBox[{"n5_", "?", "NonPositive"}], ",", 
+               RowBox[{"n6_", "?", "Positive"}]}], "]"}], "/;", "True"}], 
+            "\[RuleDelayed]", 
+            RowBox[{"Expand", "[", 
+             RowBox[{"j", "[", 
+              RowBox[{
+              "t3", ",", "n5", ",", "n6", ",", "n3", ",", "n4", ",", "n1", 
+               ",", "n2"}], "]"}], "]"}]}], ",", 
+           RowBox[{
+            RowBox[{
+             RowBox[{"j", "[", 
+              RowBox[{"t3", ",", 
+               RowBox[{"n1_", "?", "Positive"}], ",", 
+               RowBox[{"n2_", "?", "Positive"}], ",", 
+               RowBox[{"n3_", "?", "Positive"}], ",", 
+               RowBox[{"n4_", "?", "Positive"}], ",", 
+               RowBox[{"n5_", "?", "Positive"}], ",", 
+               RowBox[{"n6_", "?", "NonPositive"}]}], "]"}], "/;", "True"}], 
+            "\[RuleDelayed]", 
+            RowBox[{"Expand", "[", 
+             RowBox[{"j", "[", 
+              RowBox[{
+              "t3", ",", "n6", ",", "n5", ",", "n3", ",", "n4", ",", "n2", 
+               ",", "n1"}], "]"}], "]"}]}]}], "}"}],
+         Short[#, 5]& ],
+        BaseStyle->{Deployed -> False},
+        StripOnInput->False]},
+      {GridBox[{
+         {
+          PaneBox[
+           TagBox[
+            TooltipBox[
+             StyleBox[
+              StyleBox[
+               DynamicBox[ToBoxes[
+                 FEPrivate`FrontEndResource[
+                 "FEStrings", "sizeBriefExplanation"], StandardForm],
+                ImageSizeCache->{55.44140625, {2., 7.}}],
+               StripOnInput->False,
+               DynamicUpdating->True,
+               LineSpacing->{1, 2},
+               LineIndent->0,
+               LinebreakAdjustments->{1., 100, 0, 0, 0}], "OSLText",
+              StripOnInput->False],
+             StyleBox[
+              DynamicBox[
+               ToBoxes[
+                FEPrivate`FrontEndResource["FEStrings", "sizeExplanation"], 
+                StandardForm]], DynamicUpdating -> True, LineIndent -> 0, 
+              LinebreakAdjustments -> {1., 100, 0, 0, 0}, 
+              LineSpacing -> {1, 2}, StripOnInput -> False]],
+            Annotation[#, 
+             Style[
+              Dynamic[
+               FEPrivate`FrontEndResource["FEStrings", "sizeExplanation"]], 
+              DynamicUpdating -> True, LineIndent -> 0, 
+              LinebreakAdjustments -> {1., 100, 0, 0, 0}, 
+              LineSpacing -> {1, 2}], "Tooltip"]& ],
+           Alignment->Center,
+           BaselinePosition->Baseline,
+           ImageSize->{Automatic, {25, Full}}], 
+          ButtonBox[
+           PaneSelectorBox[{False->
+            StyleBox[
+             StyleBox[
+              DynamicBox[ToBoxes[
+                FEPrivate`FrontEndResource["FEStrings", "sizeShowLess"], 
+                StandardForm],
+               ImageSizeCache->{49.25390625, {0., 7.}}],
+              StripOnInput->False,
+              DynamicUpdating->True,
+              LineSpacing->{1, 2},
+              LineIndent->0,
+              LinebreakAdjustments->{1., 100, 0, 0, 0}], "OSLControl",
+             StripOnInput->False], True->
+            StyleBox[
+             StyleBox[
+              DynamicBox[ToBoxes[
+                FEPrivate`FrontEndResource["FEStrings", "sizeShowLess"], 
+                StandardForm]],
+              StripOnInput->False,
+              DynamicUpdating->True,
+              LineSpacing->{1, 2},
+              LineIndent->0,
+              LinebreakAdjustments->{1., 100, 0, 0, 0}], "OSLControlActive",
+             StripOnInput->False]}, Dynamic[
+             CurrentValue["MouseOver"]],
+            Alignment->Center,
+            FrameMargins->0,
+            ImageSize->{Automatic, {25, Full}}],
+           Appearance->None,
+           BaselinePosition->Baseline,
+           
+           ButtonFunction:>OutputSizeLimit`ButtonFunction[
+            OutputSizeLimit`Defer, 8, 31830262623807466614, 5/2],
+           Enabled->True,
+           Evaluator->Automatic,
+           Method->"Queued"], 
+          ButtonBox[
+           PaneSelectorBox[{False->
+            StyleBox[
+             StyleBox[
+              DynamicBox[ToBoxes[
+                FEPrivate`FrontEndResource["FEStrings", "sizeShowMore"], 
+                StandardForm],
+               ImageSizeCache->{55.44140625, {0., 7.}}],
+              StripOnInput->False,
+              DynamicUpdating->True,
+              LineSpacing->{1, 2},
+              LineIndent->0,
+              LinebreakAdjustments->{1., 100, 0, 0, 0}], "OSLControl",
+             StripOnInput->False], True->
+            StyleBox[
+             StyleBox[
+              DynamicBox[ToBoxes[
+                FEPrivate`FrontEndResource["FEStrings", "sizeShowMore"], 
+                StandardForm]],
+              StripOnInput->False,
+              DynamicUpdating->True,
+              LineSpacing->{1, 2},
+              LineIndent->0,
+              LinebreakAdjustments->{1., 100, 0, 0, 0}], "OSLControlActive",
+             StripOnInput->False]}, Dynamic[
+             CurrentValue["MouseOver"]],
+            Alignment->Center,
+            FrameMargins->0,
+            ImageSize->{Automatic, {25, Full}}],
+           Appearance->None,
+           BaselinePosition->Baseline,
+           
+           ButtonFunction:>OutputSizeLimit`ButtonFunction[
+            OutputSizeLimit`Defer, 8, 31830262623807466614, 5 2],
+           Enabled->True,
+           Evaluator->Automatic,
+           Method->"Queued"], 
+          ButtonBox[
+           PaneSelectorBox[{False->
+            StyleBox[
+             StyleBox[
+              DynamicBox[ToBoxes[
+                FEPrivate`FrontEndResource["FEStrings", "sizeShowAll"], 
+                StandardForm],
+               ImageSizeCache->{41.6015625, {0., 7.}}],
+              StripOnInput->False,
+              DynamicUpdating->True,
+              LineSpacing->{1, 2},
+              LineIndent->0,
+              LinebreakAdjustments->{1., 100, 0, 0, 0}], "OSLControl",
+             StripOnInput->False], True->
+            StyleBox[
+             StyleBox[
+              DynamicBox[ToBoxes[
+                FEPrivate`FrontEndResource["FEStrings", "sizeShowAll"], 
+                StandardForm]],
+              StripOnInput->False,
+              DynamicUpdating->True,
+              LineSpacing->{1, 2},
+              LineIndent->0,
+              LinebreakAdjustments->{1., 100, 0, 0, 0}], "OSLControlActive",
+             StripOnInput->False]}, Dynamic[
+             CurrentValue["MouseOver"]],
+            Alignment->Center,
+            FrameMargins->0,
+            ImageSize->{Automatic, {25, Full}}],
+           Appearance->None,
+           BaselinePosition->Baseline,
+           
+           ButtonFunction:>OutputSizeLimit`ButtonFunction[
+            OutputSizeLimit`Defer, 8, 31830262623807466614, Infinity],
+           Enabled->True,
+           Evaluator->Automatic,
+           Method->"Queued"], 
+          ButtonBox[
+           PaneSelectorBox[{False->
+            StyleBox[
+             StyleBox[
+              DynamicBox[ToBoxes[
+                FEPrivate`FrontEndResource["FEStrings", "sizeChangeLimit"], 
+                StandardForm],
+               ImageSizeCache->{74.9296875, {0., 7.}}],
+              StripOnInput->False,
+              DynamicUpdating->True,
+              LineSpacing->{1, 2},
+              LineIndent->0,
+              LinebreakAdjustments->{1., 100, 0, 0, 0}], "OSLControl",
+             StripOnInput->False], True->
+            StyleBox[
+             StyleBox[
+              DynamicBox[ToBoxes[
+                FEPrivate`FrontEndResource["FEStrings", "sizeChangeLimit"], 
+                StandardForm]],
+              StripOnInput->False,
+              DynamicUpdating->True,
+              LineSpacing->{1, 2},
+              LineIndent->0,
+              LinebreakAdjustments->{1., 100, 0, 0, 0}], "OSLControlActive",
+             StripOnInput->False]}, Dynamic[
+             CurrentValue["MouseOver"]],
+            Alignment->Center,
+            FrameMargins->0,
+            ImageSize->{Automatic, {25, Full}}],
+           Appearance->None,
+           BaselinePosition->Baseline,
+           ButtonFunction:>FrontEndExecute[{
+              FrontEnd`SetOptions[
+              FrontEnd`$FrontEnd, 
+               FrontEnd`PreferencesSettings -> {"Page" -> "Advanced"}], 
+              FrontEnd`FrontEndToken["PreferencesDialog"]}],
+           Evaluator->None,
+           Method->"Preemptive"]}
+        },
+        AutoDelete->False,
+        FrameStyle->GrayLevel[0.85],
+        GridBoxDividers->{"Columns" -> {False, {True}}},
+        GridBoxItemSize->{"Columns" -> {{Automatic}}, "Rows" -> {{Automatic}}},
+        GridBoxSpacings->{"Columns" -> {{2}}}]}
+     },
+     DefaultBaseStyle->"Column",
+     GridBoxAlignment->{"Columns" -> {{Left}}, "Rows" -> {{Baseline}}},
+     GridBoxDividers->{"Columns" -> {{False}}, "Rows" -> {{False}}},
+     GridBoxItemSize->{"Columns" -> {{Automatic}}, "Rows" -> {{1.}}},
+     GridBoxSpacings->{"Columns" -> {
+         Offset[0.27999999999999997`], {
+          Offset[0.5599999999999999]}, 
+         Offset[0.27999999999999997`]}, "Rows" -> {
+         Offset[0.2], 
+         Offset[1.2], {
+          Offset[0.4]}, 
+         Offset[0.2]}}],
+    BaseStyle->"OutputSizeLimit",
+    FrameMargins->{{12, 12}, {0, 15}},
+    FrameStyle->GrayLevel[0.85],
+    RoundingRadius->5,
+    StripOnInput->False],
+   Deploy,
+   DefaultBaseStyle->"Deploy"],
+  If[31830262623807466614 === $SessionID, 
+   Out[8], Message[
+     MessageName[Syntax, "noinfoker"]]; Missing["NotAvailable"]; 
+   Null]]], "Output",
+ CellChangeTimes->{{3.847958795768361*^9, 3.847958809758563*^9}, {
+   3.847959786857232*^9, 3.847959810201548*^9}, 3.847960030952956*^9, 
+   3.84797161240324*^9, 3.848024160628305*^9, 3.848036159867449*^9, 
+   3.8579079439734163`*^9, 3.8580516697879543`*^9},
+ CellLabel->"Out[8]=",ExpressionUUID->"adad5136-b60f-4cd3-9b43-1bad0ce679e1"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{"IBPReduce", "[", 
+    RowBox[{"j", "[", 
+     RowBox[{"t3", ",", "0", ",", 
+      RowBox[{"-", "1"}], ",", "1", ",", "1", ",", "1", ",", "1"}], "]"}], 
+    "]"}], "/.", 
+   RowBox[{"{", 
+    RowBox[{"d", "->", 
+     RowBox[{"4", "-", 
+      RowBox[{"2", " ", "\[Epsilon]"}]}]}], "}"}]}], "//", 
+  "FullSimplify"}]], "Input",
+ CellChangeTimes->{3.857908138533753*^9},
+ CellLabel->"In[9]:=",ExpressionUUID->"ecc2548c-054f-4a8f-9b7c-e6b52ba17819"],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"j", "[", 
+   RowBox[{"t3", ",", "0", ",", "0", ",", "1", ",", "0", ",", "1", ",", "1"}],
+    "]"}], "+", 
+  RowBox[{
+   SuperscriptBox["mUV2", "2"], " ", 
+   RowBox[{"j", "[", 
+    RowBox[{
+    "t3", ",", "0", ",", "0", ",", "1", ",", "1", ",", "1", ",", "1"}], 
+    "]"}]}]}]], "Output",
+ CellChangeTimes->{3.857908139124126*^9, 3.8580516701124973`*^9},
+ CellLabel->"Out[9]=",ExpressionUUID->"c6f96b73-ae21-4468-99b3-ece54c299cec"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{"IBPReduce", "[", 
+    RowBox[{"j", "[", 
+     RowBox[{"t3", ",", 
+      RowBox[{"-", "2"}], ",", "0", ",", "1", ",", "1", ",", "1", ",", "1"}], 
+     "]"}], "]"}], "/.", 
+   RowBox[{"{", 
+    RowBox[{"d", "->", 
+     RowBox[{"4", "-", 
+      RowBox[{"2", " ", "\[Epsilon]"}]}]}], "}"}]}], "//", 
+  "FullSimplify"}]], "Input",
+ CellChangeTimes->{{3.857908030011745*^9, 3.857908030127578*^9}, {
+  3.857908065228458*^9, 3.857908074755682*^9}, {3.8579081671467133`*^9, 
+  3.857908171490616*^9}, {3.857908346485955*^9, 3.857908366248452*^9}},
+ CellLabel->"In[10]:=",ExpressionUUID->"3fefe9a5-8efb-4702-bb62-2c26cc1cdebd"],
+
+Cell[BoxData[
+ FractionBox[
+  RowBox[{
+   RowBox[{
+    SuperscriptBox["mUV2", "2"], " ", 
+    RowBox[{"(", 
+     RowBox[{
+      RowBox[{"-", "8"}], "+", 
+      RowBox[{"3", " ", "\[Epsilon]"}]}], ")"}], " ", 
+    RowBox[{"j", "[", 
+     RowBox[{
+     "t3", ",", "0", ",", "0", ",", "1", ",", "0", ",", "1", ",", "1"}], 
+     "]"}]}], "+", 
+   RowBox[{
+    SuperscriptBox["mUV2", "4"], " ", 
+    RowBox[{"(", 
+     RowBox[{
+      RowBox[{"-", "4"}], "+", "\[Epsilon]"}], ")"}], " ", 
+    RowBox[{"j", "[", 
+     RowBox[{
+     "t3", ",", "0", ",", "0", ",", "1", ",", "1", ",", "1", ",", "1"}], 
+     "]"}]}]}], 
+  RowBox[{
+   RowBox[{"-", "2"}], "+", "\[Epsilon]"}]]], "Output",
+ CellChangeTimes->{
+  3.857908030828444*^9, {3.8579080708314342`*^9, 3.857908075122938*^9}, {
+   3.857908141015061*^9, 3.857908171850116*^9}, {3.8579083487493477`*^9, 
+   3.8579083667658463`*^9}, 3.8580516703553867`*^9},
+ CellLabel->"Out[10]=",ExpressionUUID->"652eaa9e-3997-43ef-b87e-0a55eecc8fa0"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{"IBPReduce", "[", 
+    RowBox[{"j", "[", 
+     RowBox[{"t3", ",", "0", ",", 
+      RowBox[{"-", "3"}], ",", "1", ",", "1", ",", "1", ",", "1"}], "]"}], 
+    "]"}], "/.", 
+   RowBox[{"{", 
+    RowBox[{"d", "->", 
+     RowBox[{"4", "-", 
+      RowBox[{"2", " ", "\[Epsilon]"}]}]}], "}"}]}], "//", 
+  "FullSimplify"}]], "Input",
+ CellChangeTimes->{{3.857907975039011*^9, 3.857907982149519*^9}, 
+   3.8579081321155167`*^9},
+ CellLabel->"In[11]:=",ExpressionUUID->"5f4a7f55-5bbd-459e-99e8-42c80ea6a3b1"],
+
+Cell[BoxData[
+ FractionBox[
+  RowBox[{
+   RowBox[{
+    SuperscriptBox["mUV2", "4"], " ", 
+    RowBox[{"(", 
+     RowBox[{
+      RowBox[{"-", "34"}], "+", 
+      RowBox[{"7", " ", "\[Epsilon]"}]}], ")"}], " ", 
+    RowBox[{"j", "[", 
+     RowBox[{
+     "t3", ",", "0", ",", "0", ",", "1", ",", "0", ",", "1", ",", "1"}], 
+     "]"}]}], "+", 
+   RowBox[{
+    SuperscriptBox["mUV2", "6"], " ", 
+    RowBox[{"(", 
+     RowBox[{
+      RowBox[{"-", "8"}], "+", "\[Epsilon]"}], ")"}], " ", 
+    RowBox[{"j", "[", 
+     RowBox[{
+     "t3", ",", "0", ",", "0", ",", "1", ",", "1", ",", "1", ",", "1"}], 
+     "]"}]}]}], 
+  RowBox[{
+   RowBox[{"-", "2"}], "+", "\[Epsilon]"}]]], "Output",
+ CellChangeTimes->{3.857907983076055*^9, 3.858051670649987*^9},
+ CellLabel->"Out[11]=",ExpressionUUID->"befecc7e-4812-476c-86b5-55758657b402"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{"IBPReduce", "[", 
+    RowBox[{"j", "[", 
+     RowBox[{"t3", ",", 
+      RowBox[{"-", "3"}], ",", "0", ",", "1", ",", "1", ",", "1", ",", "1"}], 
+     "]"}], "]"}], "/.", 
+   RowBox[{"{", 
+    RowBox[{"d", "->", 
+     RowBox[{"4", "-", 
+      RowBox[{"2", " ", "\[Epsilon]"}]}]}], "}"}]}], "//", 
+  "FullSimplify"}]], "Input",
+ CellChangeTimes->{{3.8579080059211617`*^9, 3.8579080076861153`*^9}, 
+   3.857908132884654*^9},
+ CellLabel->"In[12]:=",ExpressionUUID->"ce59874f-48fe-4a9d-86c5-9c840f88aa06"],
+
+Cell[BoxData[
+ FractionBox[
+  RowBox[{
+   RowBox[{
+    SuperscriptBox["mUV2", "4"], " ", 
+    RowBox[{"(", 
+     RowBox[{
+      RowBox[{"-", "34"}], "+", 
+      RowBox[{"7", " ", "\[Epsilon]"}]}], ")"}], " ", 
+    RowBox[{"j", "[", 
+     RowBox[{
+     "t3", ",", "0", ",", "0", ",", "1", ",", "0", ",", "1", ",", "1"}], 
+     "]"}]}], "+", 
+   RowBox[{
+    SuperscriptBox["mUV2", "6"], " ", 
+    RowBox[{"(", 
+     RowBox[{
+      RowBox[{"-", "8"}], "+", "\[Epsilon]"}], ")"}], " ", 
+    RowBox[{"j", "[", 
+     RowBox[{
+     "t3", ",", "0", ",", "0", ",", "1", ",", "1", ",", "1", ",", "1"}], 
+     "]"}]}]}], 
+  RowBox[{
+   RowBox[{"-", "2"}], "+", "\[Epsilon]"}]]], "Output",
+ CellChangeTimes->{3.8579080081332073`*^9, 3.858051670914929*^9},
+ CellLabel->"Out[12]=",ExpressionUUID->"0443ec8f-288a-465d-8520-51e2502cfbaa"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"IBPReduce", "[", 
+  RowBox[{"j", "[", 
+   RowBox[{"t3", ",", "3", ",", "3", ",", "3", ",", "3", ",", "3", ",", "3"}],
+    "]"}], "]"}]], "Input",
+ CellChangeTimes->{
+  3.847971626733747*^9, {3.8479761677926617`*^9, 3.847976168457334*^9}, {
+   3.8479762318610764`*^9, 3.847976264489551*^9}, {3.847976660361415*^9, 
+   3.847976711844715*^9}, {3.8479770076218348`*^9, 3.847977011540392*^9}, 
+   3.8580516676776123`*^9, 
+   3.858051706964398*^9},ExpressionUUID->"bdcffd69-0fd3-4ce4-9bdc-\
+15985202acd3"],
+
+Cell[BoxData[
+ RowBox[{
+  FractionBox["1", 
+   RowBox[{"330225942528", " ", 
+    SuperscriptBox["mUV2", "30"], " ", "\[Epsilon]", " ", 
+    RowBox[{"(", 
+     RowBox[{"1", "+", "\[Epsilon]"}], ")"}], " ", 
+    RowBox[{"(", 
+     RowBox[{"2", "+", "\[Epsilon]"}], ")"}], " ", 
+    RowBox[{"(", 
+     RowBox[{"3", "+", "\[Epsilon]"}], ")"}]}]], 
+  RowBox[{"(", 
+   RowBox[{
+    RowBox[{
+     RowBox[{"-", "12"}], " ", 
+     SuperscriptBox[
+      RowBox[{"(", 
+       RowBox[{
+        RowBox[{"-", "1"}], "+", "\[Epsilon]"}], ")"}], "3"], " ", 
+     RowBox[{"(", 
+      RowBox[{
+       RowBox[{"-", "25036784862912"}], "+", 
+       RowBox[{"\[Epsilon]", " ", 
+        RowBox[{"(", 
+         RowBox[{
+          RowBox[{"-", "114331136697864"}], "+", 
+          RowBox[{"\[Epsilon]", " ", 
+           RowBox[{"(", 
+            RowBox[{
+             RowBox[{"-", "201660829956246"}], "+", 
+             RowBox[{"\[Epsilon]", " ", 
+              RowBox[{"(", 
+               RowBox[{
+                RowBox[{"-", "156380908861985"}], "+", 
+                RowBox[{"\[Epsilon]", " ", 
+                 RowBox[{"(", 
+                  RowBox[{
+                   RowBox[{"-", "22931130905433"}], "+", 
+                   RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{"51523248275771", "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{"43509763843875", "+", 
+                    RowBox[{"2", " ", "\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{"8343123760383", "+", 
+                    RowBox[{"2", " ", "\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{"877361688921", "+", 
+                    RowBox[{"2", " ", "\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{"46931796811", "+", 
+                    RowBox[{"64", " ", "\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{"18518445", "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{"-", "2960836"}], "+", 
+                    RowBox[{"6561", " ", "\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{"-", "15"}], "+", 
+                    RowBox[{"2", " ", "\[Epsilon]"}]}], ")"}]}]}], ")"}]}]}], 
+                    ")"}]}]}], ")"}]}]}], ")"}]}]}], ")"}]}]}], ")"}]}]}], 
+                    ")"}]}]}], ")"}]}]}], ")"}]}]}], ")"}]}]}], ")"}]}]}], 
+      ")"}], " ", 
+     RowBox[{"j", "[", 
+      RowBox[{
+      "t3", ",", "0", ",", "0", ",", "1", ",", "0", ",", "1", ",", "1"}], 
+      "]"}]}], "+", 
+    RowBox[{
+     SuperscriptBox["mUV2", "2"], " ", 
+     RowBox[{"(", 
+      RowBox[{
+       RowBox[{"256", " ", 
+        RowBox[{"(", 
+         RowBox[{
+          RowBox[{"-", "1"}], "+", "\[Epsilon]"}], ")"}], " ", "\[Epsilon]", 
+        " ", 
+        RowBox[{"(", 
+         RowBox[{"1", "+", "\[Epsilon]"}], ")"}], " ", 
+        RowBox[{"(", 
+         RowBox[{"2", "+", "\[Epsilon]"}], ")"}], " ", 
+        RowBox[{"(", 
+         RowBox[{"3", "+", "\[Epsilon]"}], ")"}], " ", 
+        RowBox[{"(", 
+         RowBox[{"522693662976", "+", 
+          RowBox[{"\[Epsilon]", " ", 
+           RowBox[{"(", 
+            RowBox[{
+             RowBox[{"-", "10259176224"}], "+", 
+             RowBox[{"\[Epsilon]", " ", 
+              RowBox[{"(", 
+               RowBox[{
+                RowBox[{"-", "2922875263240"}], "+", 
+                RowBox[{"\[Epsilon]", " ", 
+                 RowBox[{"(", 
+                  RowBox[{
+                   RowBox[{"-", "3934098080692"}], "+", 
+                   RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{"-", "2161505154942"}], "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{"-", "582441869661"}], "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{"-", "72940174656"}], "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{"-", "2155823775"}], "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{"210020746", "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{"-", "13891115"}], "+", 
+                    RowBox[{"177147", " ", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{"-", "12"}], "+", "\[Epsilon]"}], ")"}], " ", 
+                    "\[Epsilon]"}]}], ")"}]}]}], ")"}]}]}], ")"}]}]}], 
+                    ")"}]}]}], ")"}]}]}], ")"}]}]}], ")"}]}]}], ")"}]}]}], 
+            ")"}]}]}], ")"}], " ", 
+        RowBox[{"j", "[", 
+         RowBox[{
+         "t3", ",", "0", ",", "0", ",", "1", ",", "1", ",", "1", ",", "1"}], 
+         "]"}]}], "+", 
+       RowBox[{
+        RowBox[{"(", 
+         RowBox[{
+          RowBox[{"-", "2"}], "+", 
+          RowBox[{"3", " ", "\[Epsilon]"}]}], ")"}], " ", 
+        RowBox[{"(", 
+         RowBox[{
+          RowBox[{"-", "75110354588736"}], "+", 
+          RowBox[{"\[Epsilon]", " ", 
+           RowBox[{"(", 
+            RowBox[{
+             RowBox[{"-", "368450282635992"}], "+", 
+             RowBox[{"\[Epsilon]", " ", 
+              RowBox[{"(", 
+               RowBox[{
+                RowBox[{"-", "237554381037834"}], "+", 
+                RowBox[{"\[Epsilon]", " ", 
+                 RowBox[{"(", 
+                  RowBox[{"1581918077654055", "+", 
+                   RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{"4171399855360528", "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{"4915617041990734", "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{"3428202119019674", "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{"1541118671689931", "+", 
+                    RowBox[{"8", " ", "\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{"57540219937356", "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{"11393326609185", "+", 
+                    RowBox[{"2", " ", "\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{"718065359918", "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{"50649053027", "+", 
+                    RowBox[{"4", " ", "\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{"253878904", "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{"-", "22925612"}], "+", 
+                    RowBox[{"59049", " ", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{"-", "12"}], "+", "\[Epsilon]"}], ")"}], " ", 
+                    "\[Epsilon]"}]}], ")"}]}]}], ")"}]}]}], ")"}]}]}], 
+                    ")"}]}]}], ")"}]}]}], ")"}]}]}], ")"}]}]}], ")"}]}]}], 
+                    ")"}]}]}], ")"}]}]}], ")"}]}]}], ")"}]}]}], ")"}]}]}], 
+         ")"}], " ", 
+        RowBox[{"j", "[", 
+         RowBox[{
+         "t3", ",", "0", ",", "1", ",", "1", ",", "1", ",", "0", ",", "1"}], 
+         "]"}]}], "+", 
+       RowBox[{"64", " ", 
+        SuperscriptBox["mUV2", "2"], " ", "\[Epsilon]", " ", 
+        RowBox[{"(", 
+         RowBox[{"1", "+", "\[Epsilon]"}], ")"}], " ", 
+        RowBox[{"(", 
+         RowBox[{"2", "+", "\[Epsilon]"}], ")"}], " ", 
+        RowBox[{"(", 
+         RowBox[{"3", "+", "\[Epsilon]"}], ")"}], " ", 
+        RowBox[{"(", 
+         RowBox[{
+          RowBox[{
+           RowBox[{"-", "2"}], " ", 
+           RowBox[{"(", 
+            RowBox[{
+             RowBox[{"-", "1"}], "+", 
+             RowBox[{"2", " ", "\[Epsilon]"}]}], ")"}], " ", 
+           RowBox[{"(", 
+            RowBox[{"522693662976", "+", 
+             RowBox[{"\[Epsilon]", " ", 
+              RowBox[{"(", 
+               RowBox[{"935859807456", "+", 
+                RowBox[{"\[Epsilon]", " ", 
+                 RowBox[{"(", 
+                  RowBox[{"9120344312", "+", 
+                   RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{"-", "759654306100"}], "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{"-", "534285271590"}], "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{"-", "155846488629"}], "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{"-", "19953701238"}], "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{"-", "534999633"}], "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{"65401918", "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{"-", "4078031"}], "+", 
+                    RowBox[{"59049", " ", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{"-", "10"}], "+", "\[Epsilon]"}], ")"}], " ", 
+                    "\[Epsilon]"}]}], ")"}]}]}], ")"}]}]}], ")"}]}]}], 
+                    ")"}]}]}], ")"}]}]}], ")"}]}]}], ")"}]}]}], ")"}]}]}], 
+               ")"}]}]}], ")"}], " ", 
+           RowBox[{"j", "[", 
+            RowBox[{
+            "t3", ",", "0", ",", "1", ",", "1", ",", "1", ",", "1", ",", 
+             "1"}], "]"}]}], "+", 
+          RowBox[{"19683", " ", 
+           SuperscriptBox["mUV2", "2"], " ", "\[Epsilon]", " ", 
+           RowBox[{"(", 
+            RowBox[{"1", "+", "\[Epsilon]"}], ")"}], " ", 
+           RowBox[{"(", 
+            RowBox[{"2", "+", "\[Epsilon]"}], ")"}], " ", 
+           RowBox[{"(", 
+            RowBox[{"3", "+", "\[Epsilon]"}], ")"}], " ", 
+           RowBox[{"(", 
+            RowBox[{"13297536", "+", 
+             RowBox[{"\[Epsilon]", " ", 
+              RowBox[{"(", 
+               RowBox[{"7102800", "+", 
+                RowBox[{"\[Epsilon]", " ", 
+                 RowBox[{"(", 
+                  RowBox[{"1057148", "+", 
+                   RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{"-", "19700"}], "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{"-", "8119"}], "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{"944", "+", 
+                    RowBox[{"\[Epsilon]", " ", 
+                    RowBox[{"(", 
+                    RowBox[{"58", "+", 
+                    RowBox[{
+                    RowBox[{"(", 
+                    RowBox[{
+                    RowBox[{"-", "12"}], "+", "\[Epsilon]"}], ")"}], " ", 
+                    "\[Epsilon]"}]}], ")"}]}]}], ")"}]}]}], ")"}]}]}], 
+                    ")"}]}]}], ")"}]}]}], ")"}]}]}], ")"}], " ", 
+           RowBox[{"j", "[", 
+            RowBox[{
+            "t3", ",", "1", ",", "1", ",", "1", ",", "1", ",", "1", ",", 
+             "1"}], "]"}]}]}], ")"}]}]}], ")"}]}]}], ")"}]}]], "Output",
+ CellChangeTimes->{
+  3.847971628279994*^9, 3.847976169265603*^9, 3.8479762334477243`*^9, 
+   3.847976265204673*^9, {3.847976661244446*^9, 3.847976712829069*^9}, 
+   3.847977031378254*^9, 3.848024194471815*^9, 3.8480361835163918`*^9, 
+   3.858051693874511*^9},
+ CellLabel->"Out[13]=",ExpressionUUID->"fdfc1476-7680-458e-850c-454dee879512"]
+}, Open  ]],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"TableForm", "[", 
+   RowBox[{
+    RowBox[{
+     RowBox[{
+      RowBox[{
+       RowBox[{"Expand", "[", 
+        RowBox[{
+         RowBox[{"Collect", "[", 
+          RowBox[{"allRules", ",", "m"}], "]"}], "/.", 
+         RowBox[{"{", 
+          RowBox[{
+           RowBox[{"x_", "/", "y_"}], " ", "->", " ", 
+           RowBox[{"x", " ", 
+            RowBox[{"rat", "[", 
+             RowBox[{"1", ",", "y"}], "]"}]}]}], "}"}]}], "]"}], "/.", 
+       RowBox[{"{", 
+        RowBox[{
+         RowBox[{"x_", "/", "y_"}], " ", "->", " ", 
+         RowBox[{"x", " ", 
+          RowBox[{"rat", "[", 
+           RowBox[{"1", ",", "y"}], "]"}]}]}], "}"}]}], "/.", 
+      RowBox[{"{", 
+       RowBox[{
+        RowBox[{"x_", "/", "y_"}], " ", "->", " ", 
+        RowBox[{"x", " ", 
+         RowBox[{"rat", "[", 
+          RowBox[{"1", ",", "y"}], "]"}]}]}], "}"}]}], "/.", 
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{"x_", "/", "y_"}], " ", "->", " ", 
+       RowBox[{"x", " ", 
+        RowBox[{"rat", "[", 
+         RowBox[{"1", ",", "y"}], "]"}]}]}], "}"}]}], "/.", 
+    RowBox[{"{", 
+     RowBox[{
+      RowBox[{"rat", "[", 
+       RowBox[{"1", ",", "m"}], "]"}], "\[Rule]", 
+      RowBox[{"1", "/", "m"}]}], "}"}]}], "]"}], "//", "InputForm"}]], "Input",
+ CellChangeTimes->{{3.847960096021391*^9, 3.8479601136548853`*^9}, {
+   3.8479716549936953`*^9, 3.8479717352374487`*^9}, {3.847971801415139*^9, 
+   3.847971830111619*^9}, {3.847971878981517*^9, 3.847971880340928*^9}, {
+   3.847973490969342*^9, 3.847973532258037*^9}, {3.847973584828747*^9, 
+   3.8479735968720407`*^9}, {3.847973644946312*^9, 3.847973653500374*^9}, {
+   3.847973693251232*^9, 3.847973700151799*^9}, {3.847973749449662*^9, 
+   3.8479737506179657`*^9}, {3.847973843011832*^9, 3.847973843155456*^9}, {
+   3.847973928222287*^9, 3.847973930267323*^9}, {3.8479739884284153`*^9, 
+   3.847973988868989*^9}, 3.847974173839312*^9, 3.847975484310055*^9, {
+   3.8479755508685637`*^9, 3.8479755902352467`*^9}, {3.8479764438890142`*^9, 
+   3.847976446489485*^9}},
+ CellLabel->"In[14]:=",ExpressionUUID->"c37957ac-cc22-49ec-9a51-1a8fadec7036"],
+
+Cell["\<\
+TableForm[{j[t3, (n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, \
+(n4_)?NonPositive, (n5_)?Positive, (n6_)?Positive] /;  !(n4 == 0 || n6 == 1) \
+-> j[t3, n1, n2, n3, 1 + n4, -1 + n5, n6] - (3*j[t3, n1, n2, n3, 1 + n4, n5, \
+-1 + n6]*rat[1, -1 + n6])/2 + (d*j[t3, n1, n2, n3, 1 + n4, n5, -1 + \
+n6]*rat[1, -1 + n6])/2 - (n1*j[t3, n1, n2, n3, 1 + n4, n5, -1 + n6]*rat[1, -1 \
++ n6])/2 - (3*n4*j[t3, n1, n2, n3, 1 + n4, n5, -1 + n6]*rat[1, -1 + n6])/2 - 
+    (j[t3, n1, n2, n3, 2 + n4, -1 + n5, -1 + n6]*rat[1, -1 + n6])/2 - \
+(n4*j[t3, n1, n2, n3, 2 + n4, -1 + n5, -1 + n6]*rat[1, -1 + n6])/2 + (j[t3, \
+n1, n2, n3, 2 + n4, n5, -2 + n6]*rat[1, -1 + n6])/2 + (n4*j[t3, n1, n2, n3, 2 \
++ n4, n5, -2 + n6]*rat[1, -1 + n6])/2 - (3*mUV2^2*j[t3, n1, n2, n3, 2 + n4, \
+n5, -1 + n6]*rat[1, -1 + n6])/2 - (3*mUV2^2*n4*j[t3, n1, n2, n3, 2 + n4, n5, \
+-1 + n6]*rat[1, -1 + n6])/2 + n1*j[t3, 1 + n1, -1 + n2, n3, 1 + n4, n5, -1 + \
+n6]*rat[1, -1 + n6] - 
+    (n1*j[t3, 1 + n1, n2, -1 + n3, 1 + n4, n5, -1 + n6]*rat[1, -1 + n6])/2 - \
+n1*j[t3, 1 + n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6] + (n1*j[t3, 1 + n1, \
+n2, n3, 1 + n4, n5, -2 + n6]*rat[1, -1 + n6])/2 - (mUV2^2*n1*j[t3, 1 + n1, \
+n2, n3, 1 + n4, n5, -1 + n6]*rat[1, -1 + n6])/2, j[t3, (n1_)?NonPositive, \
+(n2_)?NonPositive, (n3_)?Positive, (n4_)?NonPositive, (n5_)?Positive, \
+(n6_)?Positive] /;  !(n1 == 0 || n6 == 1) -> 
+   j[t3, 1 + n1, n2, -1 + n3, n4, n5, n6] - n4*j[t3, n1, n2, n3, 1 + n4, n5, \
+-1 + n6]*rat[1, -1 + n6] + n4*j[t3, 1 + n1, -1 + n2, n3, 1 + n4, n5, -1 + \
+n6]*rat[1, -1 + n6] - (3*j[t3, 1 + n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + \
+n6])/2 + (d*j[t3, 1 + n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/2 - \
+(3*n1*j[t3, 1 + n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/2 - (n4*j[t3, 1 \
++ n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/2 - 
+    (n4*j[t3, 1 + n1, n2, n3, 1 + n4, -1 + n5, -1 + n6]*rat[1, -1 + n6])/2 + \
+(n4*j[t3, 1 + n1, n2, n3, 1 + n4, n5, -2 + n6]*rat[1, -1 + n6])/2 - \
+(mUV2^2*n4*j[t3, 1 + n1, n2, n3, 1 + n4, n5, -1 + n6]*rat[1, -1 + n6])/2 - \
+(j[t3, 2 + n1, n2, -1 + n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/2 - (n1*j[t3, 2 \
++ n1, n2, -1 + n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/2 + (j[t3, 2 + n1, n2, \
+n3, n4, n5, -2 + n6]*rat[1, -1 + n6])/2 + (n1*j[t3, 2 + n1, n2, n3, n4, n5, \
+-2 + n6]*rat[1, -1 + n6])/2 - 
+    (3*mUV2^2*j[t3, 2 + n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/2 - \
+(3*mUV2^2*n1*j[t3, 2 + n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/2, j[t3, \
+(n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, (n4_)?NonPositive, \
+(n5_)?Positive, (n6_)?Positive] /;  !(n4 == 0 || n5 == 1) -> j[t3, n1, n2, \
+n3, 1 + n4, n5, -1 + n6] + n2*j[t3, -1 + n1, 1 + n2, n3, 1 + n4, -1 + n5, \
+n6]*rat[1, -1 + n5] - (3*j[t3, n1, n2, n3, 1 + n4, -1 + n5, n6]*rat[1, -1 + \
+n5])/2 + 
+    (d*j[t3, n1, n2, n3, 1 + n4, -1 + n5, n6]*rat[1, -1 + n5])/2 - (n2*j[t3, \
+n1, n2, n3, 1 + n4, -1 + n5, n6]*rat[1, -1 + n5])/2 - (3*n4*j[t3, n1, n2, n3, \
+1 + n4, -1 + n5, n6]*rat[1, -1 + n5])/2 + (j[t3, n1, n2, n3, 2 + n4, -2 + n5, \
+n6]*rat[1, -1 + n5])/2 + (n4*j[t3, n1, n2, n3, 2 + n4, -2 + n5, n6]*rat[1, -1 \
++ n5])/2 - (j[t3, n1, n2, n3, 2 + n4, -1 + n5, -1 + n6]*rat[1, -1 + n5])/2 - \
+(n4*j[t3, n1, n2, n3, 2 + n4, -1 + n5, -1 + n6]*rat[1, -1 + n5])/2 - 
+    (3*mUV2^2*j[t3, n1, n2, n3, 2 + n4, -1 + n5, n6]*rat[1, -1 + n5])/2 - \
+(3*mUV2^2*n4*j[t3, n1, n2, n3, 2 + n4, -1 + n5, n6]*rat[1, -1 + n5])/2 - \
+(n2*j[t3, n1, 1 + n2, -1 + n3, 1 + n4, -1 + n5, n6]*rat[1, -1 + n5])/2 - \
+n2*j[t3, n1, 1 + n2, n3, n4, -1 + n5, n6]*rat[1, -1 + n5] + (n2*j[t3, n1, 1 + \
+n2, n3, 1 + n4, -2 + n5, n6]*rat[1, -1 + n5])/2 - (mUV2^2*n2*j[t3, n1, 1 + \
+n2, n3, 1 + n4, -1 + n5, n6]*rat[1, -1 + n5])/2, 
+  j[t3, (n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, \
+(n4_)?NonPositive, (n5_)?Positive, (n6_)?Positive] /;  !(n2 == 0 || n5 == 1) \
+-> j[t3, n1, 1 + n2, -1 + n3, n4, n5, n6] + n4*j[t3, -1 + n1, 1 + n2, n3, 1 + \
+n4, -1 + n5, n6]*rat[1, -1 + n5] - n4*j[t3, n1, n2, n3, 1 + n4, -1 + n5, \
+n6]*rat[1, -1 + n5] - (3*j[t3, n1, 1 + n2, n3, n4, -1 + n5, n6]*rat[1, -1 + \
+n5])/2 + (d*j[t3, n1, 1 + n2, n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/2 - 
+    (3*n2*j[t3, n1, 1 + n2, n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/2 - \
+(n4*j[t3, n1, 1 + n2, n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/2 + (n4*j[t3, n1, \
+1 + n2, n3, 1 + n4, -2 + n5, n6]*rat[1, -1 + n5])/2 - (n4*j[t3, n1, 1 + n2, \
+n3, 1 + n4, -1 + n5, -1 + n6]*rat[1, -1 + n5])/2 - (mUV2^2*n4*j[t3, n1, 1 + \
+n2, n3, 1 + n4, -1 + n5, n6]*rat[1, -1 + n5])/2 - (j[t3, n1, 2 + n2, -1 + n3, \
+n4, -1 + n5, n6]*rat[1, -1 + n5])/2 - (n2*j[t3, n1, 2 + n2, -1 + n3, n4, -1 + \
+n5, n6]*rat[1, -1 + n5])/2 + 
+    (j[t3, n1, 2 + n2, n3, n4, -2 + n5, n6]*rat[1, -1 + n5])/2 + (n2*j[t3, \
+n1, 2 + n2, n3, n4, -2 + n5, n6]*rat[1, -1 + n5])/2 - (3*mUV2^2*j[t3, n1, 2 + \
+n2, n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/2 - (3*mUV2^2*n2*j[t3, n1, 2 + n2, \
+n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/2, j[t3, (n1_)?NonPositive, \
+(n2_)?NonPositive, (n3_)?Positive, (n4_)?NonPositive, (n5_)?Positive, \
+(n6_)?Positive] /;  !(n2 == 0 || n3 == 1) -> 
+   j[t3, n1, 1 + n2, n3, n4, -1 + n5, n6] - (3*j[t3, n1, 1 + n2, -1 + n3, n4, \
+n5, n6]*rat[1, -1 + n3])/2 + (d*j[t3, n1, 1 + n2, -1 + n3, n4, n5, n6]*rat[1, \
+-1 + n3])/2 - (n1*j[t3, n1, 1 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 - \
+(3*n2*j[t3, n1, 1 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 + (j[t3, n1, \
+2 + n2, -2 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 + (n2*j[t3, n1, 2 + n2, -2 + \
+n3, n4, n5, n6]*rat[1, -1 + n3])/2 - 
+    (j[t3, n1, 2 + n2, -1 + n3, n4, -1 + n5, n6]*rat[1, -1 + n3])/2 - \
+(n2*j[t3, n1, 2 + n2, -1 + n3, n4, -1 + n5, n6]*rat[1, -1 + n3])/2 - \
+(3*mUV2^2*j[t3, n1, 2 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 - \
+(3*mUV2^2*n2*j[t3, n1, 2 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 - \
+n1*j[t3, 1 + n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3] + (n1*j[t3, 1 + n1, \
+1 + n2, -2 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 + n1*j[t3, 1 + n1, 1 + n2, -1 \
++ n3, -1 + n4, n5, n6]*rat[1, -1 + n3] - 
+    (n1*j[t3, 1 + n1, 1 + n2, -1 + n3, n4, n5, -1 + n6]*rat[1, -1 + n3])/2 - \
+(mUV2^2*n1*j[t3, 1 + n1, 1 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2, \
+j[t3, (n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, \
+(n4_)?NonPositive, (n5_)?Positive, (n6_)?Positive] /;  !(n1 == 0 || n3 == 1) \
+-> j[t3, 1 + n1, n2, n3, n4, n5, -1 + n6] - n2*j[t3, n1, 1 + n2, -1 + n3, n4, \
+n5, n6]*rat[1, -1 + n3] - (3*j[t3, 1 + n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 \
++ n3])/2 + 
+    (d*j[t3, 1 + n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 - \
+(3*n1*j[t3, 1 + n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 - (n2*j[t3, 1 \
++ n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 + (n2*j[t3, 1 + n1, 1 + n2, \
+-2 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 + n2*j[t3, 1 + n1, 1 + n2, -1 + n3, \
+-1 + n4, n5, n6]*rat[1, -1 + n3] - (n2*j[t3, 1 + n1, 1 + n2, -1 + n3, n4, -1 \
++ n5, n6]*rat[1, -1 + n3])/2 - (mUV2^2*n2*j[t3, 1 + n1, 1 + n2, -1 + n3, n4, \
+n5, n6]*rat[1, -1 + n3])/2 + 
+    (j[t3, 2 + n1, n2, -2 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 + (n1*j[t3, 2 \
++ n1, n2, -2 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 - (j[t3, 2 + n1, n2, -1 + \
+n3, n4, n5, -1 + n6]*rat[1, -1 + n3])/2 - (n1*j[t3, 2 + n1, n2, -1 + n3, n4, \
+n5, -1 + n6]*rat[1, -1 + n3])/2 - (3*mUV2^2*j[t3, 2 + n1, n2, -1 + n3, n4, \
+n5, n6]*rat[1, -1 + n3])/2 - (3*mUV2^2*n1*j[t3, 2 + n1, n2, -1 + n3, n4, n5, \
+n6]*rat[1, -1 + n3])/2, 
+  j[t3, (n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, \
+(n4_)?NonPositive, (n5_)?Positive, (n6_)?Positive] /; n6 != 1 -> (j[t3, n1, \
+n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/mUV2^2 + (d*j[t3, n1, n2, n3, n4, \
+n5, -1 + n6]*rat[1, -1 + n6])/(2*mUV2^2) - (n1*j[t3, n1, n2, n3, n4, n5, -1 + \
+n6]*rat[1, -1 + n6])/(2*mUV2^2) - (n4*j[t3, n1, n2, n3, n4, n5, -1 + \
+n6]*rat[1, -1 + n6])/(2*mUV2^2) - (n6*j[t3, n1, n2, n3, n4, n5, -1 + \
+n6]*rat[1, -1 + n6])/mUV2^2 + 
+    (n4*j[t3, n1, n2, n3, 1 + n4, -1 + n5, -1 + n6]*rat[1, -1 + \
+n6])/(2*mUV2^2) - (n4*j[t3, n1, n2, n3, 1 + n4, n5, -2 + n6]*rat[1, -1 + \
+n6])/(2*mUV2^2) - (n4*j[t3, n1, n2, n3, 1 + n4, n5, -1 + n6]*rat[1, -1 + \
+n6])/2 + (n1*j[t3, 1 + n1, n2, -1 + n3, n4, n5, -1 + n6]*rat[1, -1 + \
+n6])/(2*mUV2^2) - (n1*j[t3, 1 + n1, n2, n3, n4, n5, -2 + n6]*rat[1, -1 + \
+n6])/(2*mUV2^2) - (n1*j[t3, 1 + n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + \
+n6])/2, 
+  j[t3, (n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, \
+(n4_)?NonPositive, (n5_)?Positive, (n6_)?Positive] /; n5 != 1 -> (j[t3, n1, \
+n2, n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/mUV2^2 + (d*j[t3, n1, n2, n3, n4, \
+-1 + n5, n6]*rat[1, -1 + n5])/(2*mUV2^2) - (n2*j[t3, n1, n2, n3, n4, -1 + n5, \
+n6]*rat[1, -1 + n5])/(2*mUV2^2) - (n4*j[t3, n1, n2, n3, n4, -1 + n5, \
+n6]*rat[1, -1 + n5])/(2*mUV2^2) - (n5*j[t3, n1, n2, n3, n4, -1 + n5, \
+n6]*rat[1, -1 + n5])/mUV2^2 - 
+    (n4*j[t3, n1, n2, n3, 1 + n4, -2 + n5, n6]*rat[1, -1 + n5])/(2*mUV2^2) + \
+(n4*j[t3, n1, n2, n3, 1 + n4, -1 + n5, -1 + n6]*rat[1, -1 + n5])/(2*mUV2^2) - \
+(n4*j[t3, n1, n2, n3, 1 + n4, -1 + n5, n6]*rat[1, -1 + n5])/2 + (n2*j[t3, n1, \
+1 + n2, -1 + n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/(2*mUV2^2) - (n2*j[t3, n1, \
+1 + n2, n3, n4, -2 + n5, n6]*rat[1, -1 + n5])/(2*mUV2^2) - (n2*j[t3, n1, 1 + \
+n2, n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/2, 
+  j[t3, (n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, \
+(n4_)?NonPositive, (n5_)?Positive, (n6_)?Positive] /; n3 != 1 -> (j[t3, n1, \
+n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/mUV2^2 + (d*j[t3, n1, n2, -1 + n3, \
+n4, n5, n6]*rat[1, -1 + n3])/(2*mUV2^2) - (n1*j[t3, n1, n2, -1 + n3, n4, n5, \
+n6]*rat[1, -1 + n3])/(2*mUV2^2) - (n2*j[t3, n1, n2, -1 + n3, n4, n5, \
+n6]*rat[1, -1 + n3])/(2*mUV2^2) - (n3*j[t3, n1, n2, -1 + n3, n4, n5, \
+n6]*rat[1, -1 + n3])/mUV2^2 - 
+    (n2*j[t3, n1, 1 + n2, -2 + n3, n4, n5, n6]*rat[1, -1 + n3])/(2*mUV2^2) + \
+(n2*j[t3, n1, 1 + n2, -1 + n3, n4, -1 + n5, n6]*rat[1, -1 + n3])/(2*mUV2^2) - \
+(n2*j[t3, n1, 1 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 - (n1*j[t3, 1 + \
+n1, n2, -2 + n3, n4, n5, n6]*rat[1, -1 + n3])/(2*mUV2^2) + (n1*j[t3, 1 + n1, \
+n2, -1 + n3, n4, n5, -1 + n6]*rat[1, -1 + n3])/(2*mUV2^2) - (n1*j[t3, 1 + n1, \
+n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2, 
+  j[t3, (n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, \
+(n4_)?NonPositive, (n5_)?Positive, (n6_)?Positive] /; n3 == 1 && n5 == 1 && \
+n6 == 1 && n4 != 0 -> n4*j[t3, n1, n2, 1, 1 + n4, 0, 1]*rat[1, -2 + d - n2 - \
+n4] - n4*j[t3, n1, n2, 1, 1 + n4, 1, 0]*rat[1, -2 + d - n2 - n4] - \
+3*mUV2^2*j[t3, n1, n2, 1, 1 + n4, 1, 1]*rat[1, -2 + d - n2 - n4] + \
+d*mUV2^2*j[t3, n1, n2, 1, 1 + n4, 1, 1]*rat[1, -2 + d - n2 - n4] - \
+mUV2^2*n2*j[t3, n1, n2, 1, 1 + n4, 1, 1]*rat[1, -2 + d - n2 - n4] - 
+    2*mUV2^2*n4*j[t3, n1, n2, 1, 1 + n4, 1, 1]*rat[1, -2 + d - n2 - n4] + \
+2*mUV2^2*j[t3, n1, n2, 1, 1 + n4, 2, 0]*rat[1, -2 + d - n2 - n4] - \
+mUV2^2*j[t3, n1, n2, 1, 2 + n4, 1, 0]*rat[1, -2 + d - n2 - n4] - \
+mUV2^2*n4*j[t3, n1, n2, 1, 2 + n4, 1, 0]*rat[1, -2 + d - n2 - n4] - \
+3*mUV2^4*j[t3, n1, n2, 1, 2 + n4, 1, 1]*rat[1, -2 + d - n2 - n4] - \
+3*mUV2^4*n4*j[t3, n1, n2, 1, 2 + n4, 1, 1]*rat[1, -2 + d - n2 - n4] - 
+    2*mUV2^2*n2*j[t3, -1 + n1, 1 + n2, 1, 1 + n4, 1, 1]*rat[1, 2 - d + n2 + \
+n4] - mUV2^2*j[t3, n1, n2, 1, 2 + n4, 0, 1]*rat[1, 2 - d + n2 + n4] - \
+mUV2^2*n4*j[t3, n1, n2, 1, 2 + n4, 0, 1]*rat[1, 2 - d + n2 + n4] + n2*j[t3, \
+n1, 1 + n2, 0, n4, 1, 1]*rat[1, 2 - d + n2 + n4] + mUV2^2*n2*j[t3, n1, 1 + \
+n2, 0, 1 + n4, 1, 1]*rat[1, 2 - d + n2 + n4] - n2*j[t3, n1, 1 + n2, 1, n4, 0, \
+1]*rat[1, 2 - d + n2 + n4] + mUV2^2*n2*j[t3, n1, 1 + n2, 1, n4, 1, 1]*rat[1, \
+2 - d + n2 + n4] - 
+    mUV2^2*n2*j[t3, n1, 1 + n2, 1, 1 + n4, 0, 1]*rat[1, 2 - d + n2 + n4] + \
+mUV2^4*n2*j[t3, n1, 1 + n2, 1, 1 + n4, 1, 1]*rat[1, 2 - d + n2 + n4], j[t3, \
+(n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, (n4_)?NonPositive, \
+(n5_)?Positive, (n6_)?Positive] /; n3 == 1 && n4 == 0 && n5 == 1 && n6 == 1 \
+&& n2 != 0 -> 
+   n2*j[t3, n1, 1 + n2, 0, 0, 1, 1]*rat[1, -2 + d - n1 - n2] - n2*j[t3, n1, 1 \
++ n2, 1, 0, 0, 1]*rat[1, -2 + d - n1 - n2] - 3*mUV2^2*j[t3, n1, 1 + n2, 1, 0, \
+1, 1]*rat[1, -2 + d - n1 - n2] + d*mUV2^2*j[t3, n1, 1 + n2, 1, 0, 1, \
+1]*rat[1, -2 + d - n1 - n2] - mUV2^2*n1*j[t3, n1, 1 + n2, 1, 0, 1, 1]*rat[1, \
+-2 + d - n1 - n2] - 2*mUV2^2*n2*j[t3, n1, 1 + n2, 1, 0, 1, 1]*rat[1, -2 + d - \
+n1 - n2] + 2*mUV2^2*j[t3, n1, 1 + n2, 2, 0, 0, 1]*rat[1, -2 + d - n1 - n2] - 
+    mUV2^2*j[t3, n1, 2 + n2, 1, 0, 0, 1]*rat[1, -2 + d - n1 - n2] - \
+mUV2^2*n2*j[t3, n1, 2 + n2, 1, 0, 0, 1]*rat[1, -2 + d - n1 - n2] - \
+3*mUV2^4*j[t3, n1, 2 + n2, 1, 0, 1, 1]*rat[1, -2 + d - n1 - n2] - \
+3*mUV2^4*n2*j[t3, n1, 2 + n2, 1, 0, 1, 1]*rat[1, -2 + d - n1 - n2] - \
+mUV2^2*j[t3, n1, 2 + n2, 0, 0, 1, 1]*rat[1, 2 - d + n1 + n2] - \
+mUV2^2*n2*j[t3, n1, 2 + n2, 0, 0, 1, 1]*rat[1, 2 - d + n1 + n2] - n1*j[t3, 1 \
++ n1, n2, 0, 0, 1, 1]*rat[1, 2 - d + n1 + n2] + 
+    n1*j[t3, 1 + n1, n2, 1, 0, 1, 0]*rat[1, 2 - d + n1 + n2] + \
+mUV2^2*n1*j[t3, 1 + n1, n2, 1, 0, 1, 1]*rat[1, 2 - d + n1 + n2] - \
+mUV2^2*n1*j[t3, 1 + n1, 1 + n2, 0, 0, 1, 1]*rat[1, 2 - d + n1 + n2] - \
+2*mUV2^2*n1*j[t3, 1 + n1, 1 + n2, 1, -1, 1, 1]*rat[1, 2 - d + n1 + n2] + \
+mUV2^2*n1*j[t3, 1 + n1, 1 + n2, 1, 0, 1, 0]*rat[1, 2 - d + n1 + n2] + \
+mUV2^4*n1*j[t3, 1 + n1, 1 + n2, 1, 0, 1, 1]*rat[1, 2 - d + n1 + n2], 
+  j[t3, (n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, \
+(n4_)?NonPositive, (n5_)?Positive, (n6_)?Positive] /; n2 == 0 && n3 == 1 && \
+n4 == 0 && n5 == 1 && n6 == 1 && n1 != 0 -> n1*j[t3, 1 + n1, 0, 0, 0, 1, \
+1]*rat[1, -2 + d - n1] - n1*j[t3, 1 + n1, 0, 1, 0, 1, 0]*rat[1, -2 + d - n1] \
+- 3*mUV2^2*j[t3, 1 + n1, 0, 1, 0, 1, 1]*rat[1, -2 + d - n1] + d*mUV2^2*j[t3, \
+1 + n1, 0, 1, 0, 1, 1]*rat[1, -2 + d - n1] - 2*mUV2^2*n1*j[t3, 1 + n1, 0, 1, \
+0, 1, 1]*rat[1, -2 + d - n1] + 
+    2*mUV2^2*j[t3, 1 + n1, 0, 2, 0, 1, 0]*rat[1, -2 + d - n1] - mUV2^2*j[t3, \
+2 + n1, 0, 1, 0, 1, 0]*rat[1, -2 + d - n1] - mUV2^2*n1*j[t3, 2 + n1, 0, 1, 0, \
+1, 0]*rat[1, -2 + d - n1] - 3*mUV2^4*j[t3, 2 + n1, 0, 1, 0, 1, 1]*rat[1, -2 + \
+d - n1] - 3*mUV2^4*n1*j[t3, 2 + n1, 0, 1, 0, 1, 1]*rat[1, -2 + d - n1] - \
+mUV2^2*j[t3, 2 + n1, 0, 0, 0, 1, 1]*rat[1, 2 - d + n1] - mUV2^2*n1*j[t3, 2 + \
+n1, 0, 0, 0, 1, 1]*rat[1, 2 - d + n1], 
+  j[t3, (n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /;  !(n1 == 0 || n6 == 1) -> j[t3, 1 + n1, \
+n2, -1 + n3, n4, n5, n6] - n4*j[t3, n1, n2, n3, 1 + n4, n5, -1 + n6]*rat[1, \
+-1 + n6] - (n2*j[t3, n1, 1 + n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/3 + \
+n4*j[t3, 1 + n1, -1 + n2, n3, 1 + n4, n5, -1 + n6]*rat[1, -1 + n6] + \
+(n5*j[t3, 1 + n1, n2, n3, -1 + n4, 1 + n5, -1 + n6]*rat[1, -1 + n6])/3 - 
+    (3*j[t3, 1 + n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/2 + (d*j[t3, 1 \
++ n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/3 - (3*n1*j[t3, 1 + n1, n2, \
+n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/2 + (n2*j[t3, 1 + n1, n2, n3, n4, n5, \
+-1 + n6]*rat[1, -1 + n6])/6 - (n5*j[t3, 1 + n1, n2, n3, n4, 1 + n5, -2 + \
+n6]*rat[1, -1 + n6])/3 - (2*n4*j[t3, 1 + n1, n2, n3, 1 + n4, -1 + n5, -1 + \
+n6]*rat[1, -1 + n6])/3 + (2*n4*j[t3, 1 + n1, n2, n3, 1 + n4, n5, -2 + \
+n6]*rat[1, -1 + n6])/3 + 
+    (n2*j[t3, 1 + n1, 1 + n2, -1 + n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/6 + \
+(n2*j[t3, 1 + n1, 1 + n2, n3, -1 + n4, n5, -1 + n6]*rat[1, -1 + n6])/3 - \
+(n2*j[t3, 1 + n1, 1 + n2, n3, n4, -1 + n5, -1 + n6]*rat[1, -1 + n6])/6 + \
+(mUV2^2*n2*j[t3, 1 + n1, 1 + n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/6 - \
+(j[t3, 2 + n1, n2, -1 + n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/2 - (n1*j[t3, 2 \
++ n1, n2, -1 + n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/2 + 
+    (j[t3, 2 + n1, n2, n3, n4, n5, -2 + n6]*rat[1, -1 + n6])/2 + (n1*j[t3, 2 \
++ n1, n2, n3, n4, n5, -2 + n6]*rat[1, -1 + n6])/2 - (3*mUV2^2*j[t3, 2 + n1, \
+n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/2 - (3*mUV2^2*n1*j[t3, 2 + n1, n2, \
+n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/2, j[t3, (n1_)?NonPositive, \
+(n2_)?NonPositive, (n3_)?Positive, (n4_)?Positive, (n5_)?Positive, \
+(n6_)?Positive] /;  !(n2 == 0 || n5 == 1) -> 
+   j[t3, n1, 1 + n2, -1 + n3, n4, n5, n6] + j[t3, n1, 1 + n2, n3, -1 + n4, \
+n5, n6]/3 - j[t3, n1, 1 + n2, n3, n4, n5, -1 + n6]/3 + n4*j[t3, -1 + n1, 1 + \
+n2, n3, 1 + n4, -1 + n5, n6]*rat[1, -1 + n5] - (j[t3, -1 + n1, 2 + n2, n3, \
+n4, -1 + n5, n6]*rat[1, -1 + n5])/3 - (n2*j[t3, -1 + n1, 2 + n2, n3, n4, -1 + \
+n5, n6]*rat[1, -1 + n5])/3 - n4*j[t3, n1, n2, n3, 1 + n4, -1 + n5, n6]*rat[1, \
+-1 + n5] - (4*j[t3, n1, 1 + n2, n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/3 + 
+    (d*j[t3, n1, 1 + n2, n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/3 - \
+(4*n2*j[t3, n1, 1 + n2, n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/3 + (n4*j[t3, \
+n1, 1 + n2, n3, 1 + n4, -2 + n5, n6]*rat[1, -1 + n5])/3 - (n4*j[t3, n1, 1 + \
+n2, n3, 1 + n4, -1 + n5, -1 + n6]*rat[1, -1 + n5])/3 - (j[t3, n1, 2 + n2, -1 \
++ n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/3 - (n2*j[t3, n1, 2 + n2, -1 + n3, \
+n4, -1 + n5, n6]*rat[1, -1 + n5])/3 + (j[t3, n1, 2 + n2, n3, -1 + n4, -1 + \
+n5, n6]*rat[1, -1 + n5])/3 + 
+    (n2*j[t3, n1, 2 + n2, n3, -1 + n4, -1 + n5, n6]*rat[1, -1 + n5])/3 + \
+(j[t3, n1, 2 + n2, n3, n4, -2 + n5, n6]*rat[1, -1 + n5])/3 + (n2*j[t3, n1, 2 \
++ n2, n3, n4, -2 + n5, n6]*rat[1, -1 + n5])/3 - (4*mUV2^2*j[t3, n1, 2 + n2, \
+n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/3 - (4*mUV2^2*n2*j[t3, n1, 2 + n2, n3, \
+n4, -1 + n5, n6]*rat[1, -1 + n5])/3, 
+  j[t3, (n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /;  !(n2 == 0 || n3 == 1) -> j[t3, n1, 1 + \
+n2, n3, n4, -1 + n5, n6] - (3*j[t3, n1, 1 + n2, -1 + n3, n4, n5, n6]*rat[1, \
+-1 + n3])/2 + (d*j[t3, n1, 1 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 - \
+(n1*j[t3, n1, 1 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 - (3*n2*j[t3, \
+n1, 1 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 + 
+    (j[t3, n1, 2 + n2, -2 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 + (n2*j[t3, \
+n1, 2 + n2, -2 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 - (j[t3, n1, 2 + n2, -1 + \
+n3, n4, -1 + n5, n6]*rat[1, -1 + n3])/2 - (n2*j[t3, n1, 2 + n2, -1 + n3, n4, \
+-1 + n5, n6]*rat[1, -1 + n3])/2 - (3*mUV2^2*j[t3, n1, 2 + n2, -1 + n3, n4, \
+n5, n6]*rat[1, -1 + n3])/2 - (3*mUV2^2*n2*j[t3, n1, 2 + n2, -1 + n3, n4, n5, \
+n6]*rat[1, -1 + n3])/2 - n1*j[t3, 1 + n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 \
++ n3] + 
+    (n1*j[t3, 1 + n1, 1 + n2, -2 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 + \
+n1*j[t3, 1 + n1, 1 + n2, -1 + n3, -1 + n4, n5, n6]*rat[1, -1 + n3] - \
+(n1*j[t3, 1 + n1, 1 + n2, -1 + n3, n4, n5, -1 + n6]*rat[1, -1 + n3])/2 - \
+(mUV2^2*n1*j[t3, 1 + n1, 1 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2, \
+j[t3, (n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /;  !(n1 == 0 || n3 == 1) -> 
+   j[t3, 1 + n1, n2, n3, n4, n5, -1 + n6] - n2*j[t3, n1, 1 + n2, -1 + n3, n4, \
+n5, n6]*rat[1, -1 + n3] - (3*j[t3, 1 + n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 \
++ n3])/2 + (d*j[t3, 1 + n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 - \
+(3*n1*j[t3, 1 + n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 - (n2*j[t3, 1 \
++ n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 + (n2*j[t3, 1 + n1, 1 + n2, \
+-2 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 + 
+    n2*j[t3, 1 + n1, 1 + n2, -1 + n3, -1 + n4, n5, n6]*rat[1, -1 + n3] - \
+(n2*j[t3, 1 + n1, 1 + n2, -1 + n3, n4, -1 + n5, n6]*rat[1, -1 + n3])/2 - \
+(mUV2^2*n2*j[t3, 1 + n1, 1 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 + \
+(j[t3, 2 + n1, n2, -2 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 + (n1*j[t3, 2 + \
+n1, n2, -2 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 - (j[t3, 2 + n1, n2, -1 + n3, \
+n4, n5, -1 + n6]*rat[1, -1 + n3])/2 - (n1*j[t3, 2 + n1, n2, -1 + n3, n4, n5, \
+-1 + n6]*rat[1, -1 + n3])/2 - 
+    (3*mUV2^2*j[t3, 2 + n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 - \
+(3*mUV2^2*n1*j[t3, 2 + n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2, j[t3, \
+(n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /; n6 != 1 -> -1/3*(n2*j[t3, -1 + n1, 1 + n2, \
+n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/mUV2^2 + (n5*j[t3, n1, n2, n3, -1 + n4, \
+1 + n5, -1 + n6]*rat[1, -1 + n6])/(3*mUV2^2) + (j[t3, n1, n2, n3, n4, n5, -1 \
++ n6]*rat[1, -1 + n6])/mUV2^2 + 
+    (d*j[t3, n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/(3*mUV2^2) - \
+(n1*j[t3, n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/(2*mUV2^2) + \
+(n2*j[t3, n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/(6*mUV2^2) - \
+(n6*j[t3, n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/mUV2^2 - (n5*j[t3, \
+n1, n2, n3, n4, 1 + n5, -2 + n6]*rat[1, -1 + n6])/(3*mUV2^2) + (n4*j[t3, n1, \
+n2, n3, 1 + n4, -1 + n5, -1 + n6]*rat[1, -1 + n6])/(3*mUV2^2) - 
+    (n4*j[t3, n1, n2, n3, 1 + n4, n5, -2 + n6]*rat[1, -1 + n6])/(3*mUV2^2) + \
+(n2*j[t3, n1, 1 + n2, -1 + n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/(6*mUV2^2) + \
+(n2*j[t3, n1, 1 + n2, n3, -1 + n4, n5, -1 + n6]*rat[1, -1 + n6])/(3*mUV2^2) - \
+(n2*j[t3, n1, 1 + n2, n3, n4, -1 + n5, -1 + n6]*rat[1, -1 + n6])/(6*mUV2^2) + \
+(n2*j[t3, n1, 1 + n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/6 + (n1*j[t3, 1 + \
+n1, n2, -1 + n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/(2*mUV2^2) - 
+    (n1*j[t3, 1 + n1, n2, n3, n4, n5, -2 + n6]*rat[1, -1 + n6])/(2*mUV2^2) - \
+(n1*j[t3, 1 + n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/2, j[t3, \
+(n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /; n5 != 1 -> j[t3, n1, n2, n3, -1 + n4, n5, \
+n6]/(3*mUV2^2) - j[t3, n1, n2, n3, n4, n5, -1 + n6]/(3*mUV2^2) - (n2*j[t3, -1 \
++ n1, 1 + n2, n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/(3*mUV2^2) + 
+    (j[t3, n1, n2, n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/mUV2^2 + (d*j[t3, \
+n1, n2, n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/(3*mUV2^2) - (n2*j[t3, n1, n2, \
+n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/(3*mUV2^2) - (n5*j[t3, n1, n2, n3, n4, \
+-1 + n5, n6]*rat[1, -1 + n5])/mUV2^2 - (2*n4*j[t3, n1, n2, n3, 1 + n4, -2 + \
+n5, n6]*rat[1, -1 + n5])/(3*mUV2^2) + (2*n4*j[t3, n1, n2, n3, 1 + n4, -1 + \
+n5, -1 + n6]*rat[1, -1 + n5])/(3*mUV2^2) + 
+    (2*n2*j[t3, n1, 1 + n2, -1 + n3, n4, -1 + n5, n6]*rat[1, -1 + \
+n5])/(3*mUV2^2) + (n2*j[t3, n1, 1 + n2, n3, -1 + n4, -1 + n5, n6]*rat[1, -1 + \
+n5])/(3*mUV2^2) - (2*n2*j[t3, n1, 1 + n2, n3, n4, -2 + n5, n6]*rat[1, -1 + \
+n5])/(3*mUV2^2) - (n2*j[t3, n1, 1 + n2, n3, n4, -1 + n5, n6]*rat[1, -1 + \
+n5])/3, 
+  j[t3, (n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /; n4 != 1 -> j[t3, n1, n2, n3, n4, -1 + n5, \
+n6]/(3*mUV2^2) - j[t3, n1, n2, n3, n4, n5, -1 + n6]/(3*mUV2^2) + (2*n2*j[t3, \
+-1 + n1, 1 + n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/(3*mUV2^2) - \
+(2*n5*j[t3, n1, n2, n3, -2 + n4, 1 + n5, n6]*rat[1, -1 + n4])/(3*mUV2^2) + \
+(j[t3, n1, n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/mUV2^2 + 
+    (d*j[t3, n1, n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/(3*mUV2^2) - \
+(n2*j[t3, n1, n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/(3*mUV2^2) - \
+(n4*j[t3, n1, n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/mUV2^2 + (2*n5*j[t3, \
+n1, n2, n3, -1 + n4, 1 + n5, -1 + n6]*rat[1, -1 + n4])/(3*mUV2^2) - (n2*j[t3, \
+n1, 1 + n2, -1 + n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/(3*mUV2^2) - \
+(2*n2*j[t3, n1, 1 + n2, n3, -2 + n4, n5, n6]*rat[1, -1 + n4])/(3*mUV2^2) + 
+    (n2*j[t3, n1, 1 + n2, n3, -1 + n4, -1 + n5, n6]*rat[1, -1 + \
+n4])/(3*mUV2^2) - (n2*j[t3, n1, 1 + n2, n3, -1 + n4, n5, n6]*rat[1, -1 + \
+n4])/3, j[t3, (n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, \
+(n4_)?Positive, (n5_)?Positive, (n6_)?Positive] /; n3 != 1 -> (j[t3, n1, n2, \
+-1 + n3, n4, n5, n6]*rat[1, -1 + n3])/mUV2^2 + (d*j[t3, n1, n2, -1 + n3, n4, \
+n5, n6]*rat[1, -1 + n3])/(2*mUV2^2) - (n1*j[t3, n1, n2, -1 + n3, n4, n5, \
+n6]*rat[1, -1 + n3])/(2*mUV2^2) - 
+    (n2*j[t3, n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/(2*mUV2^2) - \
+(n3*j[t3, n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/mUV2^2 - (n2*j[t3, \
+n1, 1 + n2, -2 + n3, n4, n5, n6]*rat[1, -1 + n3])/(2*mUV2^2) + (n2*j[t3, n1, \
+1 + n2, -1 + n3, n4, -1 + n5, n6]*rat[1, -1 + n3])/(2*mUV2^2) - (n2*j[t3, n1, \
+1 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/2 - (n1*j[t3, 1 + n1, n2, -2 + \
+n3, n4, n5, n6]*rat[1, -1 + n3])/(2*mUV2^2) + 
+    (n1*j[t3, 1 + n1, n2, -1 + n3, n4, n5, -1 + n6]*rat[1, -1 + \
+n3])/(2*mUV2^2) - (n1*j[t3, 1 + n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + \
+n3])/2, j[t3, (n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, \
+(n4_)?Positive, (n5_)?Positive, (n6_)?Positive] /; n6 != 1 -> j[t3, n1, n2, \
+n3, 1 + n4, -1 + n5, n6] - n2*j[t3, -1 + n1, 1 + n2, n3, 1 + n4, n5, -1 + \
+n6]*rat[1, -1 + n6] + n5*j[t3, n1, n2, n3, n4, 1 + n5, -1 + n6]*rat[1, -1 + \
+n6] - 
+    (n1*j[t3, n1, n2, n3, 1 + n4, n5, -1 + n6]*rat[1, -1 + n6])/2 + (n2*j[t3, \
+n1, n2, n3, 1 + n4, n5, -1 + n6]*rat[1, -1 + n6])/2 - n5*j[t3, n1, n2, n3, 1 \
++ n4, 1 + n5, -2 + n6]*rat[1, -1 + n6] - j[t3, n1, n2, n3, 2 + n4, -1 + n5, \
+-1 + n6]*rat[1, -1 + n6] - n4*j[t3, n1, n2, n3, 2 + n4, -1 + n5, -1 + \
+n6]*rat[1, -1 + n6] + j[t3, n1, n2, n3, 2 + n4, n5, -2 + n6]*rat[1, -1 + n6] \
++ n4*j[t3, n1, n2, n3, 2 + n4, n5, -2 + n6]*rat[1, -1 + n6] + 
+    (n2*j[t3, n1, 1 + n2, -1 + n3, 1 + n4, n5, -1 + n6]*rat[1, -1 + n6])/2 + \
+n2*j[t3, n1, 1 + n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6] - (n2*j[t3, n1, 1 + \
+n2, n3, 1 + n4, -1 + n5, -1 + n6]*rat[1, -1 + n6])/2 + (mUV2^2*n2*j[t3, n1, 1 \
++ n2, n3, 1 + n4, n5, -1 + n6]*rat[1, -1 + n6])/2 + n1*j[t3, 1 + n1, -1 + n2, \
+n3, 1 + n4, n5, -1 + n6]*rat[1, -1 + n6] - (n1*j[t3, 1 + n1, n2, -1 + n3, 1 + \
+n4, n5, -1 + n6]*rat[1, -1 + n6])/2 - n1*j[t3, 1 + n1, n2, n3, n4, n5, -1 + \
+n6]*rat[1, -1 + n6] + 
+    (n1*j[t3, 1 + n1, n2, n3, 1 + n4, n5, -2 + n6]*rat[1, -1 + n6])/2 - \
+(mUV2^2*n1*j[t3, 1 + n1, n2, n3, 1 + n4, n5, -1 + n6]*rat[1, -1 + n6])/2, \
+j[t3, (n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /; n3 == 1 && n4 == 1 && n5 == 1 && n6 == 1 \
+&& n2 != 0 -> 
+   j[t3, n1, 1 + n2, 0, 1, 1, 1]/2 + j[t3, n1, 1 + n2, 1, 0, 1, 1] - j[t3, \
+n1, 1 + n2, 1, 1, 1, 0]/2 + (mUV2^2*j[t3, n1, 1 + n2, 1, 1, 1, 1])/2 + j[t3, \
+-1 + n1, 1 + n2, 1, 0, 2, 1]*rat[1, 1 - n1] + j[t3, -1 + n1, 1 + n2, 1, 1, 0, \
+2]*rat[1, 1 - n1] + j[t3, -1 + n1, 1 + n2, 1, 2, 1, 0]*rat[1, 1 - n1] + j[t3, \
+-2 + n1, 2 + n2, 1, 1, 1, 1]*rat[1, -1 + n1] + n2*j[t3, -2 + n1, 2 + n2, 1, \
+1, 1, 1]*rat[1, -1 + n1] + j[t3, -1 + n1, 1 + n2, 1, 0, 1, 2]*rat[1, -1 + n1] \
+- 
+    j[t3, -1 + n1, 1 + n2, 1, 1, 1, 1]*rat[1, -1 + n1] + (n1*j[t3, -1 + n1, 1 \
++ n2, 1, 1, 1, 1]*rat[1, -1 + n1])/2 - (n2*j[t3, -1 + n1, 1 + n2, 1, 1, 1, \
+1]*rat[1, -1 + n1])/2 + j[t3, -1 + n1, 1 + n2, 1, 1, 2, 0]*rat[1, -1 + n1] + \
+j[t3, -1 + n1, 1 + n2, 1, 2, 0, 1]*rat[1, -1 + n1] - (j[t3, -1 + n1, 2 + n2, \
+0, 1, 1, 1]*rat[1, -1 + n1])/2 - (n2*j[t3, -1 + n1, 2 + n2, 0, 1, 1, \
+1]*rat[1, -1 + n1])/2 - j[t3, -1 + n1, 2 + n2, 1, 0, 1, 1]*rat[1, -1 + n1] - 
+    n2*j[t3, -1 + n1, 2 + n2, 1, 0, 1, 1]*rat[1, -1 + n1] + (j[t3, -1 + n1, 2 \
++ n2, 1, 1, 0, 1]*rat[1, -1 + n1])/2 + (n2*j[t3, -1 + n1, 2 + n2, 1, 1, 0, \
+1]*rat[1, -1 + n1])/2 - (mUV2^2*j[t3, -1 + n1, 2 + n2, 1, 1, 1, 1]*rat[1, -1 \
++ n1])/2 - (mUV2^2*n2*j[t3, -1 + n1, 2 + n2, 1, 1, 1, 1]*rat[1, -1 + n1])/2, 
+  j[t3, (n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /; n2 == 0 && n3 == 1 && n4 == 1 && n5 == 1 \
+&& n6 == 1 && n1 != 0 -> -3*mUV2^2*j[t3, 1 + n1, 0, 1, 1, 1, 1]*rat[1, -2 + d \
+- n1] + d*mUV2^2*j[t3, 1 + n1, 0, 1, 1, 1, 1]*rat[1, -2 + d - n1] - \
+2*mUV2^2*n1*j[t3, 1 + n1, 0, 1, 1, 1, 1]*rat[1, -2 + d - n1] + 2*mUV2^2*j[t3, \
+1 + n1, 0, 2, 1, 1, 0]*rat[1, -2 + d - n1] - n1*j[t3, 1 + n1, 0, 0, 1, 1, \
+1]*rat[1, 2 - d + n1] + 
+    n1*j[t3, 1 + n1, 0, 1, 1, 1, 0]*rat[1, 2 - d + n1] - mUV2^2*j[t3, 2 + n1, \
+0, 0, 1, 1, 1]*rat[1, 2 - d + n1] - mUV2^2*n1*j[t3, 2 + n1, 0, 0, 1, 1, \
+1]*rat[1, 2 - d + n1] + mUV2^2*j[t3, 2 + n1, 0, 1, 1, 1, 0]*rat[1, 2 - d + \
+n1] + mUV2^2*n1*j[t3, 2 + n1, 0, 1, 1, 1, 0]*rat[1, 2 - d + n1] + \
+3*mUV2^4*j[t3, 2 + n1, 0, 1, 1, 1, 1]*rat[1, 2 - d + n1] + 3*mUV2^4*n1*j[t3, \
+2 + n1, 0, 1, 1, 1, 1]*rat[1, 2 - d + n1], 
+  j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?NonPositive, (n6_)?Positive] /;  !(n5 == 0 || n6 == 1) -> j[t3, n1, n2, \
+n3, -1 + n4, 1 + n5, n6] - j[t3, n1, n2, n3, n4, 1 + n5, -1 + n6]*rat[1, -1 + \
+n6] + (d*j[t3, n1, n2, n3, n4, 1 + n5, -1 + n6]*rat[1, -1 + n6])/2 - n2*j[t3, \
+n1, n2, n3, n4, 1 + n5, -1 + n6]*rat[1, -1 + n6] - n3*j[t3, n1, n2, n3, n4, 1 \
++ n5, -1 + n6]*rat[1, -1 + n6] + n4*j[t3, n1, n2, n3, n4, 1 + n5, -1 + \
+n6]*rat[1, -1 + n6] - 
+    n5*j[t3, n1, n2, n3, n4, 1 + n5, -1 + n6]*rat[1, -1 + n6] - mUV2^2*j[t3, \
+n1, n2, n3, n4, 2 + n5, -1 + n6]*rat[1, -1 + n6] - mUV2^2*n5*j[t3, n1, n2, \
+n3, n4, 2 + n5, -1 + n6]*rat[1, -1 + n6] + mUV2^2*n4*j[t3, n1, n2, n3, 1 + \
+n4, 1 + n5, -1 + n6]*rat[1, -1 + n6] - mUV2^2*n3*j[t3, n1, n2, 1 + n3, n4, 1 \
++ n5, -1 + n6]*rat[1, -1 + n6] - mUV2^2*n2*j[t3, n1, 1 + n2, n3, n4, 1 + n5, \
+-1 + n6]*rat[1, -1 + n6] - n1*j[t3, 1 + n1, -1 + n2, n3, n4, 1 + n5, -1 + \
+n6]*rat[1, -1 + n6] + 
+    n1*j[t3, 1 + n1, n2, n3, -1 + n4, 1 + n5, -1 + n6]*rat[1, -1 + n6], j[t3, \
+(n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?NonPositive, (n6_)?Positive] /;  !(n1 == 0 || n6 == 1) -> j[t3, 1 + n1, \
+n2, -1 + n3, n4, n5, n6] - n5*j[t3, 1 + n1, -1 + n2, n3, n4, 1 + n5, -1 + \
+n6]*rat[1, -1 + n6] + n5*j[t3, 1 + n1, n2, -1 + n3, n4, 1 + n5, -1 + \
+n6]*rat[1, -1 + n6] - j[t3, 1 + n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6] + 
+    (d*j[t3, 1 + n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/2 - n1*j[t3, 1 \
++ n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6] - n2*j[t3, 1 + n1, n2, n3, n4, \
+n5, -1 + n6]*rat[1, -1 + n6] + n3*j[t3, 1 + n1, n2, n3, n4, n5, -1 + \
+n6]*rat[1, -1 + n6] - n4*j[t3, 1 + n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + \
+n6] - mUV2^2*n4*j[t3, 1 + n1, n2, n3, 1 + n4, n5, -1 + n6]*rat[1, -1 + n6] + \
+mUV2^2*n3*j[t3, 1 + n1, n2, 1 + n3, n4, n5, -1 + n6]*rat[1, -1 + n6] - 
+    mUV2^2*n2*j[t3, 1 + n1, 1 + n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6] - \
+mUV2^2*j[t3, 2 + n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6] - \
+mUV2^2*n1*j[t3, 2 + n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6], j[t3, \
+(n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?NonPositive, (n6_)?Positive] /;  !(n4 == 1 || n5 == 0) -> 
+   j[t3, n1, n2, n3, n4, 1 + n5, -1 + n6] - mUV2^2*j[t3, n1, n2, n3, n4, 1 + \
+n5, n6] - j[t3, n1, n2, n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + n4] + 2*d*j[t3, \
+n1, n2, n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + n4] - n1*j[t3, n1, n2, n3, -1 + \
+n4, 1 + n5, n6]*rat[1, -1 + n4] - 2*n2*j[t3, n1, n2, n3, -1 + n4, 1 + n5, \
+n6]*rat[1, -1 + n4] - 2*n3*j[t3, n1, n2, n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + \
+n4] - n4*j[t3, n1, n2, n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + n4] - 
+    2*n5*j[t3, n1, n2, n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + n4] - \
+2*mUV2^2*j[t3, n1, n2, n3, -1 + n4, 2 + n5, n6]*rat[1, -1 + n4] - \
+2*mUV2^2*n5*j[t3, n1, n2, n3, -1 + n4, 2 + n5, n6]*rat[1, -1 + n4] - \
+2*mUV2^2*n3*j[t3, n1, n2, 1 + n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + n4] - \
+2*mUV2^2*n2*j[t3, n1, 1 + n2, n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + n4] - \
+n1*j[t3, 1 + n1, n2, -1 + n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + n4] + n1*j[t3, \
+1 + n1, n2, n3, -1 + n4, 1 + n5, -1 + n6]*rat[1, -1 + n4] - 
+    mUV2^2*n1*j[t3, 1 + n1, n2, n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + n4], \
+j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?NonPositive, (n6_)?Positive] /;  !(n1 == 0 || n4 == 1) -> j[t3, 1 + n1, \
+-1 + n2, n3, n4, n5, n6] + mUV2^2*j[t3, 1 + n1, n2, n3, n4, n5, n6] + \
+n5*j[t3, 1 + n1, -1 + n2, n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + n4] - n5*j[t3, \
+1 + n1, n2, -1 + n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + n4] - 
+    j[t3, 1 + n1, n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4] - d*j[t3, 1 + n1, \
+n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4] + 2*n2*j[t3, 1 + n1, n2, n3, -1 + \
+n4, n5, n6]*rat[1, -1 + n4] + n4*j[t3, 1 + n1, n2, n3, -1 + n4, n5, \
+n6]*rat[1, -1 + n4] + n5*j[t3, 1 + n1, n2, n3, -1 + n4, n5, n6]*rat[1, -1 + \
+n4] + mUV2^2*n5*j[t3, 1 + n1, n2, n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + n4] + \
+2*mUV2^2*n2*j[t3, 1 + n1, 1 + n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4], 
+  j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?NonPositive, (n6_)?Positive] /;  !(n3 == 1 || n5 == 0) -> j[t3, n1, -1 \
++ n2, n3, n4, 1 + n5, n6] + mUV2^2*j[t3, n1, n2, n3, n4, 1 + n5, n6] - j[t3, \
+n1, n2, -1 + n3, n4, 1 + n5, n6]*rat[1, -1 + n3] - d*j[t3, n1, n2, -1 + n3, \
+n4, 1 + n5, n6]*rat[1, -1 + n3] + n1*j[t3, n1, n2, -1 + n3, n4, 1 + n5, \
+n6]*rat[1, -1 + n3] + 2*n2*j[t3, n1, n2, -1 + n3, n4, 1 + n5, n6]*rat[1, -1 + \
+n3] + 
+    n3*j[t3, n1, n2, -1 + n3, n4, 1 + n5, n6]*rat[1, -1 + n3] + \
+2*mUV2^2*n2*j[t3, n1, 1 + n2, -1 + n3, n4, 1 + n5, n6]*rat[1, -1 + n3] + \
+n1*j[t3, 1 + n1, -1 + n2, -1 + n3, n4, 1 + n5, n6]*rat[1, -1 + n3] - n1*j[t3, \
+1 + n1, n2, -1 + n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + n3] + mUV2^2*n1*j[t3, 1 \
++ n1, n2, -1 + n3, n4, 1 + n5, n6]*rat[1, -1 + n3], 
+  j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?NonPositive, (n6_)?Positive] /;  !(n1 == 0 || n3 == 1) -> j[t3, 1 + n1, \
+n2, n3, n4, n5, -1 + n6] - mUV2^2*j[t3, 1 + n1, n2, n3, n4, n5, n6] - \
+n5*j[t3, 1 + n1, n2, -1 + n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + n3] - j[t3, 1 \
++ n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3] + 2*d*j[t3, 1 + n1, n2, -1 + \
+n3, n4, n5, n6]*rat[1, -1 + n3] - 2*n1*j[t3, 1 + n1, n2, -1 + n3, n4, n5, \
+n6]*rat[1, -1 + n3] - 
+    2*n2*j[t3, 1 + n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3] - n3*j[t3, 1 \
++ n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3] - 2*n4*j[t3, 1 + n1, n2, -1 + \
+n3, n4, n5, n6]*rat[1, -1 + n3] - n5*j[t3, 1 + n1, n2, -1 + n3, n4, n5, \
+n6]*rat[1, -1 + n3] + n5*j[t3, 1 + n1, n2, -1 + n3, n4, 1 + n5, -1 + \
+n6]*rat[1, -1 + n3] - mUV2^2*n5*j[t3, 1 + n1, n2, -1 + n3, n4, 1 + n5, \
+n6]*rat[1, -1 + n3] - 2*mUV2^2*n4*j[t3, 1 + n1, n2, -1 + n3, 1 + n4, n5, \
+n6]*rat[1, -1 + n3] - 
+    2*mUV2^2*n2*j[t3, 1 + n1, 1 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3] - \
+2*mUV2^2*j[t3, 2 + n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3] - \
+2*mUV2^2*n1*j[t3, 2 + n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3], j[t3, \
+(n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?NonPositive, (n6_)?Positive] /;  !(n2 == 1 || n5 == 0) -> 
+   j[t3, n1, n2, -1 + n3, n4, 1 + n5, n6] + mUV2^2*j[t3, n1, n2, n3, n4, 1 + \
+n5, n6] - j[t3, n1, -1 + n2, n3, n4, 1 + n5, n6]*rat[1, -1 + n2] - d*j[t3, \
+n1, -1 + n2, n3, n4, 1 + n5, n6]*rat[1, -1 + n2] + n1*j[t3, n1, -1 + n2, n3, \
+n4, 1 + n5, n6]*rat[1, -1 + n2] + n2*j[t3, n1, -1 + n2, n3, n4, 1 + n5, \
+n6]*rat[1, -1 + n2] + 2*n3*j[t3, n1, -1 + n2, n3, n4, 1 + n5, n6]*rat[1, -1 + \
+n2] + 2*mUV2^2*n3*j[t3, n1, -1 + n2, 1 + n3, n4, 1 + n5, n6]*rat[1, -1 + n2] + 
+    n1*j[t3, 1 + n1, -1 + n2, -1 + n3, n4, 1 + n5, n6]*rat[1, -1 + n2] - \
+n1*j[t3, 1 + n1, -1 + n2, n3, n4, 1 + n5, -1 + n6]*rat[1, -1 + n2] + \
+mUV2^2*n1*j[t3, 1 + n1, -1 + n2, n3, n4, 1 + n5, n6]*rat[1, -1 + n2], j[t3, \
+(n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?NonPositive, (n6_)?Positive] /;  !(n1 == 0 || n2 == 1) -> 
+   j[t3, 1 + n1, n2, n3, -1 + n4, n5, n6] + mUV2^2*j[t3, 1 + n1, n2, n3, n4, \
+n5, n6] + n5*j[t3, 1 + n1, -1 + n2, n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + n2] \
+- j[t3, 1 + n1, -1 + n2, n3, n4, n5, n6]*rat[1, -1 + n2] - d*j[t3, 1 + n1, -1 \
++ n2, n3, n4, n5, n6]*rat[1, -1 + n2] + n2*j[t3, 1 + n1, -1 + n2, n3, n4, n5, \
+n6]*rat[1, -1 + n2] + 2*n4*j[t3, 1 + n1, -1 + n2, n3, n4, n5, n6]*rat[1, -1 + \
+n2] + n5*j[t3, 1 + n1, -1 + n2, n3, n4, n5, n6]*rat[1, -1 + n2] - 
+    n5*j[t3, 1 + n1, -1 + n2, n3, n4, 1 + n5, -1 + n6]*rat[1, -1 + n2] + \
+mUV2^2*n5*j[t3, 1 + n1, -1 + n2, n3, n4, 1 + n5, n6]*rat[1, -1 + n2] + \
+2*mUV2^2*n4*j[t3, 1 + n1, -1 + n2, n3, 1 + n4, n5, n6]*rat[1, -1 + n2], j[t3, \
+(n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?NonPositive, (n6_)?Positive] /; n6 != 1 -> 
+   (j[t3, n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/mUV2^2 + (3*d*j[t3, \
+n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/(2*mUV2^2) - (n1*j[t3, n1, n2, \
+n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/mUV2^2 - (n2*j[t3, n1, n2, n3, n4, n5, \
+-1 + n6]*rat[1, -1 + n6])/mUV2^2 - (n3*j[t3, n1, n2, n3, n4, n5, -1 + \
+n6]*rat[1, -1 + n6])/mUV2^2 - (n4*j[t3, n1, n2, n3, n4, n5, -1 + n6]*rat[1, \
+-1 + n6])/mUV2^2 - (n5*j[t3, n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + \
+n6])/mUV2^2 - 
+    (n6*j[t3, n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/mUV2^2 - n5*j[t3, \
+n1, n2, n3, n4, 1 + n5, -1 + n6]*rat[1, -1 + n6] - n4*j[t3, n1, n2, n3, 1 + \
+n4, n5, -1 + n6]*rat[1, -1 + n6] - n3*j[t3, n1, n2, 1 + n3, n4, n5, -1 + \
+n6]*rat[1, -1 + n6] - n2*j[t3, n1, 1 + n2, n3, n4, n5, -1 + n6]*rat[1, -1 + \
+n6] - n1*j[t3, 1 + n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6], 
+  j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?NonPositive, (n6_)?Positive] /; n1 == 0 && n5 == 0 && n6 == 1 &&  !(n4 \
+== 2 || n4 == 1) -> -1/2*(n3*j[t3, 0, -1 + n2, 1 + n3, -1 + n4, 0, 1]*rat[1, \
+-1 + n4])/mUV2^2 + (j[t3, 0, n2, n3, -1 + n4, 0, 1]*rat[1, -1 + n4])/mUV2^2 + \
+(d*j[t3, 0, n2, n3, -1 + n4, 0, 1]*rat[1, -1 + n4])/mUV2^2 - (n2*j[t3, 0, n2, \
+n3, -1 + n4, 0, 1]*rat[1, -1 + n4])/mUV2^2 - 
+    (n3*j[t3, 0, n2, n3, -1 + n4, 0, 1]*rat[1, -1 + n4])/(2*mUV2^2) - \
+(n4*j[t3, 0, n2, n3, -1 + n4, 0, 1]*rat[1, -1 + n4])/mUV2^2 + (n3*j[t3, 0, \
+n2, 1 + n3, -1 + n4, 0, 0]*rat[1, -1 + n4])/(2*mUV2^2) - n3*j[t3, 0, n2, 1 + \
+n3, -1 + n4, 0, 1]*rat[1, -1 + n4] - n2*j[t3, 0, 1 + n2, n3, -1 + n4, 0, \
+1]*rat[1, -1 + n4] + (n3*j[t3, 0, n2, 1 + n3, -2 + n4, 0, 1]*rat[1, -2 + \
+n4]*rat[1, -1 + n4])/mUV2^2 + (d*n3*j[t3, 0, n2, 1 + n3, -2 + n4, 0, \
+1]*rat[1, -2 + n4]*rat[1, -1 + n4])/(2*mUV2^2) - 
+    (n2*n3*j[t3, 0, n2, 1 + n3, -2 + n4, 0, 1]*rat[1, -2 + n4]*rat[1, -1 + \
+n4])/mUV2^2 - (n3*n4*j[t3, 0, n2, 1 + n3, -2 + n4, 0, 1]*rat[1, -2 + \
+n4]*rat[1, -1 + n4])/(2*mUV2^2) - n2*n3*j[t3, 0, 1 + n2, 1 + n3, -2 + n4, 0, \
+1]*rat[1, -2 + n4]*rat[1, -1 + n4], j[t3, (n1_)?NonPositive, (n2_)?Positive, \
+(n3_)?Positive, (n4_)?Positive, (n5_)?NonPositive, (n6_)?Positive] /; n1 == 0 \
+&& n4 == 2 && n5 == 0 && n6 == 1 && n3 != 1 -> 
+   -1/2*j[t3, 0, -1 + n2, n3, 2, 0, 1]/mUV2^2 - j[t3, 0, n2, n3, 1, 0, \
+1]/(2*mUV2^2) + (d*j[t3, 0, n2, n3, 1, 0, 1])/mUV2^2 - (n2*j[t3, 0, n2, n3, \
+1, 0, 1])/mUV2^2 - (n3*j[t3, 0, n2, n3, 1, 0, 1])/mUV2^2 + j[t3, 0, n2, n3, \
+2, 0, 0]/(2*mUV2^2) - n3*j[t3, 0, n2, 1 + n3, 1, 0, 1] - n2*j[t3, 0, 1 + n2, \
+n3, 1, 0, 1] + (j[t3, 0, n2, -1 + n3, 2, 0, 1]*rat[1, -1 + n3])/(2*mUV2^2) + \
+(d*j[t3, 0, n2, -1 + n3, 2, 0, 1]*rat[1, -1 + n3])/(2*mUV2^2) - 
+    (n2*j[t3, 0, n2, -1 + n3, 2, 0, 1]*rat[1, -1 + n3])/mUV2^2 - (n3*j[t3, 0, \
+n2, -1 + n3, 2, 0, 1]*rat[1, -1 + n3])/(2*mUV2^2) - n2*j[t3, 0, 1 + n2, -1 + \
+n3, 2, 0, 1]*rat[1, -1 + n3], j[t3, (n1_)?NonPositive, (n2_)?Positive, \
+(n3_)?Positive, (n4_)?Positive, (n5_)?NonPositive, (n6_)?Positive] /; n1 == 0 \
+&& n4 == 1 && n5 == 0 && n6 == 1 &&  !(n3 == 2 || n3 == 1) -> 
+   (j[t3, 0, n2, -1 + n3, 1, 0, 1]*rat[1, -1 + n3])/mUV2^2 + (d*j[t3, 0, n2, \
+-1 + n3, 1, 0, 1]*rat[1, -1 + n3])/(2*mUV2^2) - (n3*j[t3, 0, n2, -1 + n3, 1, \
+0, 1]*rat[1, -1 + n3])/mUV2^2 + (n2*j[t3, 0, 1 + n2, -2 + n3, 1, 0, 1]*rat[1, \
+-2 + n3]*rat[1, -1 + n3])/mUV2^2 - (d*n2*j[t3, 0, 1 + n2, -2 + n3, 1, 0, \
+1]*rat[1, -2 + n3]*rat[1, -1 + n3])/(2*mUV2^2) + (n2^2*j[t3, 0, 1 + n2, -2 + \
+n3, 1, 0, 1]*rat[1, -2 + n3]*rat[1, -1 + n3])/mUV2^2 + 
+    n2*j[t3, 0, 2 + n2, -2 + n3, 1, 0, 1]*rat[1, -2 + n3]*rat[1, -1 + n3] + \
+n2^2*j[t3, 0, 2 + n2, -2 + n3, 1, 0, 1]*rat[1, -2 + n3]*rat[1, -1 + n3], \
+j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?NonPositive, (n6_)?Positive] /; n2 == 1 && n3 == 1 && n4 == 1 && n6 == \
+1 && n5 != 0 -> 
+   2*mUV2^2*j[t3, n1, 0, 2, 1, 1 + n5, 1]*rat[1, -8 + 3*d - 2*n1 - 2*n5] + \
+2*mUV2^2*j[t3, n1, 1, 1, 0, 1 + n5, 2]*rat[1, -8 + 3*d - 2*n1 - 2*n5] - \
+6*mUV2^2*j[t3, n1, 1, 1, 1, 1 + n5, 1]*rat[1, -8 + 3*d - 2*n1 - 2*n5] + \
+d*mUV2^2*j[t3, n1, 1, 1, 1, 1 + n5, 1]*rat[1, -8 + 3*d - 2*n1 - 2*n5] + \
+2*mUV2^2*n1*j[t3, n1, 1, 1, 1, 1 + n5, 1]*rat[1, -8 + 3*d - 2*n1 - 2*n5] - \
+4*mUV2^2*n5*j[t3, n1, 1, 1, 1, 1 + n5, 1]*rat[1, -8 + 3*d - 2*n1 - 2*n5] + 
+    2*mUV2^2*j[t3, n1, 1, 1, 2, 1 + n5, 0]*rat[1, -8 + 3*d - 2*n1 - 2*n5] + \
+2*mUV2^2*j[t3, n1, 2, 0, 1, 1 + n5, 1]*rat[1, -8 + 3*d - 2*n1 - 2*n5] + \
+6*mUV2^4*j[t3, n1, 1, 1, 1, 2 + n5, 1]*rat[1, 8 - 3*d + 2*n1 + 2*n5] + \
+6*mUV2^4*n5*j[t3, n1, 1, 1, 1, 2 + n5, 1]*rat[1, 8 - 3*d + 2*n1 + 2*n5] - \
+2*mUV2^2*n1*j[t3, 1 + n1, 1, 1, 1, n5, 1]*rat[1, 8 - 3*d + 2*n1 + 2*n5] - \
+2*mUV2^4*n1*j[t3, 1 + n1, 1, 1, 1, 1 + n5, 1]*rat[1, 8 - 3*d + 2*n1 + 2*n5], 
+  j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?NonPositive, (n6_)?Positive] /; n1 == 0 && n3 == 1 && n4 == 2 && n5 == \
+0 && n6 == 1 -> -3*n2*j[t3, 0, 1 + n2, 1, 1, 0, 1] + (j[t3, 0, -1 + n2, 1, 2, \
+0, 1]*rat[1, -2 + d - n2])/mUV2^2 - (d*j[t3, 0, -1 + n2, 1, 2, 0, 1]*rat[1, \
+-2 + d - n2])/mUV2^2 + (n2*j[t3, 0, -1 + n2, 1, 2, 0, 1]*rat[1, -2 + d - \
+n2])/mUV2^2 + j[t3, 0, n2, 0, 2, 0, 2]*rat[1, -2 + d - n2] + 
+    (3*j[t3, 0, n2, 1, 1, 0, 1]*rat[1, -2 + d - n2])/mUV2^2 - (4*d*j[t3, 0, \
+n2, 1, 1, 0, 1]*rat[1, -2 + d - n2])/mUV2^2 + (3*d^2*j[t3, 0, n2, 1, 1, 0, \
+1]*rat[1, -2 + d - n2])/(2*mUV2^2) + (6*n2*j[t3, 0, n2, 1, 1, 0, 1]*rat[1, -2 \
++ d - n2])/mUV2^2 - (9*d*n2*j[t3, 0, n2, 1, 1, 0, 1]*rat[1, -2 + d - \
+n2])/(2*mUV2^2) + (3*n2^2*j[t3, 0, n2, 1, 1, 0, 1]*rat[1, -2 + d - \
+n2])/mUV2^2 + j[t3, 0, n2, 2, 2, 0, 0]*rat[1, -2 + d - n2], 
+  j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?NonPositive, (n6_)?Positive] /; n1 == 0 && n3 == 2 && n4 == 1 && n5 == \
+0 && n6 == 1 -> -3*n2*j[t3, 0, 1 + n2, 1, 1, 0, 1] + (j[t3, 0, -1 + n2, 2, 1, \
+0, 1]*rat[1, -2 + d - n2])/mUV2^2 - (d*j[t3, 0, -1 + n2, 2, 1, 0, 1]*rat[1, \
+-2 + d - n2])/mUV2^2 + (n2*j[t3, 0, -1 + n2, 2, 1, 0, 1]*rat[1, -2 + d - \
+n2])/mUV2^2 + (3*j[t3, 0, n2, 1, 1, 0, 1]*rat[1, -2 + d - n2])/mUV2^2 - 
+    (4*d*j[t3, 0, n2, 1, 1, 0, 1]*rat[1, -2 + d - n2])/mUV2^2 + (3*d^2*j[t3, \
+0, n2, 1, 1, 0, 1]*rat[1, -2 + d - n2])/(2*mUV2^2) + (6*n2*j[t3, 0, n2, 1, 1, \
+0, 1]*rat[1, -2 + d - n2])/mUV2^2 - (9*d*n2*j[t3, 0, n2, 1, 1, 0, 1]*rat[1, \
+-2 + d - n2])/(2*mUV2^2) + (3*n2^2*j[t3, 0, n2, 1, 1, 0, 1]*rat[1, -2 + d - \
+n2])/mUV2^2 + j[t3, 0, n2, 2, 0, 0, 2]*rat[1, -2 + d - n2] + j[t3, 0, n2, 2, \
+2, 0, 0]*rat[1, -2 + d - n2], 
+  j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?NonPositive, (n6_)?Positive] /; n1 == 0 && n3 == 1 && n4 == 1 && n5 == \
+0 && n6 == 1 && n2 != 1 -> (j[t3, 0, n2, 0, 1, 0, 2]*rat[1, -1 + d - n2])/4 - \
+(j[t3, 0, n2, 1, 0, 0, 2]*rat[1, -1 + d - n2])/4 + (j[t3, 0, n2, 2, 0, 0, \
+1]*rat[1, -1 + d - n2])/2 - (j[t3, 0, n2, 2, 1, 0, 0]*rat[1, -1 + d - n2])/2 \
+- (j[t3, 0, -1 + n2, 1, 1, 0, 1]*rat[1, -1 + d - n2]*rat[1, -1 + \
+n2])/(4*mUV2^2) + 
+    (5*d*j[t3, 0, -1 + n2, 1, 1, 0, 1]*rat[1, -1 + d - n2]*rat[1, -1 + \
+n2])/(8*mUV2^2) + (3*d^2*j[t3, 0, -1 + n2, 1, 1, 0, 1]*rat[1, -1 + d - \
+n2]*rat[1, -1 + n2])/(8*mUV2^2) - (3*n2*j[t3, 0, -1 + n2, 1, 1, 0, 1]*rat[1, \
+-1 + d - n2]*rat[1, -1 + n2])/(8*mUV2^2) - (11*d*n2*j[t3, 0, -1 + n2, 1, 1, \
+0, 1]*rat[1, -1 + d - n2]*rat[1, -1 + n2])/(8*mUV2^2) + (n2^2*j[t3, 0, -1 + \
+n2, 1, 1, 0, 1]*rat[1, -1 + d - n2]*rat[1, -1 + n2])/mUV2^2 + 
+    (3*d*j[t3, 0, -2 + n2, 2, 1, 0, 1]*rat[1, -1 + n2]*rat[1, 1 - d + \
+n2])/(8*mUV2^2) - (3*n2*j[t3, 0, -2 + n2, 2, 1, 0, 1]*rat[1, -1 + n2]*rat[1, \
+1 - d + n2])/(8*mUV2^2) + (3*j[t3, 0, -1 + n2, 2, 0, 0, 1]*rat[1, -1 + \
+n2]*rat[1, 1 - d + n2])/(4*mUV2^2) - (3*n2*j[t3, 0, -1 + n2, 2, 0, 0, \
+1]*rat[1, -1 + n2]*rat[1, 1 - d + n2])/(8*mUV2^2) - (3*j[t3, 0, -1 + n2, 2, \
+1, 0, 0]*rat[1, -1 + n2]*rat[1, 1 - d + n2])/(4*mUV2^2) + 
+    (3*n2*j[t3, 0, -1 + n2, 2, 1, 0, 0]*rat[1, -1 + n2]*rat[1, 1 - d + \
+n2])/(8*mUV2^2) - (3*j[t3, 0, -1 + n2, 2, 2, 0, 0]*rat[1, -1 + n2]*rat[1, 1 - \
+d + n2])/4, j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, \
+(n4_)?Positive, (n5_)?NonPositive, (n6_)?Positive] /; n2 == 1 && n3 == 1 && \
+n4 == 1 && n5 == 0 && n6 == 1 && n1 != 0 -> 
+   2*mUV2^2*j[t3, 1 + n1, 0, 1, 2, 0, 1]*rat[1, -8 + 3*d - 2*n1] + \
+2*mUV2^2*j[t3, 1 + n1, 1, 0, 1, 0, 2]*rat[1, -8 + 3*d - 2*n1] - \
+6*mUV2^2*j[t3, 1 + n1, 1, 1, 1, 0, 1]*rat[1, -8 + 3*d - 2*n1] + \
+d*mUV2^2*j[t3, 1 + n1, 1, 1, 1, 0, 1]*rat[1, -8 + 3*d - 2*n1] - \
+4*mUV2^2*n1*j[t3, 1 + n1, 1, 1, 1, 0, 1]*rat[1, -8 + 3*d - 2*n1] + \
+2*mUV2^2*j[t3, 1 + n1, 1, 2, 1, 0, 0]*rat[1, -8 + 3*d - 2*n1] + \
+2*mUV2^2*j[t3, 1 + n1, 2, 1, 0, 0, 1]*rat[1, -8 + 3*d - 2*n1] - 
+    6*mUV2^4*j[t3, 2 + n1, 1, 1, 1, 0, 1]*rat[1, -8 + 3*d - 2*n1] - \
+6*mUV2^4*n1*j[t3, 2 + n1, 1, 1, 1, 0, 1]*rat[1, -8 + 3*d - 2*n1], j[t3, \
+(n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /;  !(n1 == 0 || n6 == 1) -> j[t3, 1 + n1, \
+n2, -1 + n3, n4, n5, n6] + (2*j[t3, 1 + n1, n2, n3, -1 + n4, n5, n6])/3 - \
+(2*j[t3, 1 + n1, n2, n3, n4, -1 + n5, n6])/3 - n5*j[t3, 1 + n1, -1 + n2, n3, \
+n4, 1 + n5, -1 + n6]*rat[1, -1 + n6] + 
+    n3*j[t3, 1 + n1, -1 + n2, 1 + n3, n4, n5, -1 + n6]*rat[1, -1 + n6] + \
+n5*j[t3, 1 + n1, n2, -1 + n3, n4, 1 + n5, -1 + n6]*rat[1, -1 + n6] - (2*j[t3, \
+1 + n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/3 + (d*j[t3, 1 + n1, n2, \
+n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/6 - (2*n1*j[t3, 1 + n1, n2, n3, n4, n5, \
+-1 + n6]*rat[1, -1 + n6])/3 + (n4*j[t3, 1 + n1, n2, n3, 1 + n4, -1 + n5, -1 + \
+n6]*rat[1, -1 + n6])/3 - (n4*j[t3, 1 + n1, n2, n3, 1 + n4, n5, -2 + \
+n6]*rat[1, -1 + n6])/3 - 
+    n3*j[t3, 1 + n1, n2, 1 + n3, n4, -1 + n5, -1 + n6]*rat[1, -1 + n6] - \
+n2*j[t3, 1 + n1, 1 + n2, -1 + n3, n4, n5, -1 + n6]*rat[1, -1 + n6] + n2*j[t3, \
+1 + n1, 1 + n2, n3, n4, -1 + n5, -1 + n6]*rat[1, -1 + n6] + (j[t3, 2 + n1, -1 \
++ n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/3 + (n1*j[t3, 2 + n1, -1 + n2, \
+n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/3 - (2*j[t3, 2 + n1, n2, -1 + n3, n4, \
+n5, -1 + n6]*rat[1, -1 + n6])/3 - (2*n1*j[t3, 2 + n1, n2, -1 + n3, n4, n5, -1 \
++ n6]*rat[1, -1 + n6])/3 - 
+    (j[t3, 2 + n1, n2, n3, -1 + n4, n5, -1 + n6]*rat[1, -1 + n6])/3 - \
+(n1*j[t3, 2 + n1, n2, n3, -1 + n4, n5, -1 + n6]*rat[1, -1 + n6])/3 + (2*j[t3, \
+2 + n1, n2, n3, n4, n5, -2 + n6]*rat[1, -1 + n6])/3 + (2*n1*j[t3, 2 + n1, n2, \
+n3, n4, n5, -2 + n6]*rat[1, -1 + n6])/3 - (2*mUV2^2*j[t3, 2 + n1, n2, n3, n4, \
+n5, -1 + n6]*rat[1, -1 + n6])/3 - (2*mUV2^2*n1*j[t3, 2 + n1, n2, n3, n4, n5, \
+-1 + n6]*rat[1, -1 + n6])/3, 
+  j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /;  !(n1 == 0 || n4 == 1) -> j[t3, 1 + n1, -1 \
++ n2, n3, n4, n5, n6] - (2*j[t3, 1 + n1, n2, n3, n4, -1 + n5, n6])/3 + \
+(2*j[t3, 1 + n1, n2, n3, n4, n5, -1 + n6])/3 + n5*j[t3, 1 + n1, -1 + n2, n3, \
+-1 + n4, 1 + n5, n6]*rat[1, -1 + n4] - n3*j[t3, 1 + n1, -1 + n2, 1 + n3, -1 + \
+n4, n5, n6]*rat[1, -1 + n4] - n5*j[t3, 1 + n1, n2, -1 + n3, -1 + n4, 1 + n5, \
+n6]*rat[1, -1 + n4] - 
+    (n6*j[t3, 1 + n1, n2, n3, -2 + n4, n5, 1 + n6]*rat[1, -1 + n4])/3 + \
+(n6*j[t3, 1 + n1, n2, n3, -1 + n4, -1 + n5, 1 + n6]*rat[1, -1 + n4])/3 - \
+(2*j[t3, 1 + n1, n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/3 + (d*j[t3, 1 + \
+n1, n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/6 - (2*n1*j[t3, 1 + n1, n2, n3, \
+-1 + n4, n5, n6]*rat[1, -1 + n4])/3 + n3*j[t3, 1 + n1, n2, 1 + n3, -1 + n4, \
+-1 + n5, n6]*rat[1, -1 + n4] + n2*j[t3, 1 + n1, 1 + n2, -1 + n3, -1 + n4, n5, \
+n6]*rat[1, -1 + n4] - 
+    n2*j[t3, 1 + n1, 1 + n2, n3, -1 + n4, -1 + n5, n6]*rat[1, -1 + n4] - \
+(2*j[t3, 2 + n1, -1 + n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/3 - \
+(2*n1*j[t3, 2 + n1, -1 + n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/3 + (j[t3, \
+2 + n1, n2, -1 + n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/3 + (n1*j[t3, 2 + n1, \
+n2, -1 + n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/3 + (2*j[t3, 2 + n1, n2, n3, \
+-2 + n4, n5, n6]*rat[1, -1 + n4])/3 + (2*n1*j[t3, 2 + n1, n2, n3, -2 + n4, \
+n5, n6]*rat[1, -1 + n4])/3 - 
+    (j[t3, 2 + n1, n2, n3, -1 + n4, n5, -1 + n6]*rat[1, -1 + n4])/3 - \
+(n1*j[t3, 2 + n1, n2, n3, -1 + n4, n5, -1 + n6]*rat[1, -1 + n4])/3 - \
+(2*mUV2^2*j[t3, 2 + n1, n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/3 - \
+(2*mUV2^2*n1*j[t3, 2 + n1, n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/3, j[t3, \
+(n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /;  !(n1 == 0 || n3 == 1) -> 
+   (2*j[t3, 1 + n1, -1 + n2, n3, n4, n5, n6])/3 - (2*j[t3, 1 + n1, n2, n3, \
+n4, -1 + n5, n6])/3 + j[t3, 1 + n1, n2, n3, n4, n5, -1 + n6] + n6*j[t3, 1 + \
+n1, n2, -1 + n3, -1 + n4, n5, 1 + n6]*rat[1, -1 + n3] - n5*j[t3, 1 + n1, n2, \
+-1 + n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + n3] - n6*j[t3, 1 + n1, n2, -1 + n3, \
+n4, -1 + n5, 1 + n6]*rat[1, -1 + n3] - (2*j[t3, 1 + n1, n2, -1 + n3, n4, n5, \
+n6]*rat[1, -1 + n3])/3 + (d*j[t3, 1 + n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 \
++ n3])/6 - 
+    (2*n1*j[t3, 1 + n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/3 + \
+n5*j[t3, 1 + n1, n2, -1 + n3, n4, 1 + n5, -1 + n6]*rat[1, -1 + n3] + n4*j[t3, \
+1 + n1, n2, -1 + n3, 1 + n4, -1 + n5, n6]*rat[1, -1 + n3] - n4*j[t3, 1 + n1, \
+n2, -1 + n3, 1 + n4, n5, -1 + n6]*rat[1, -1 + n3] - (n2*j[t3, 1 + n1, 1 + n2, \
+-2 + n3, n4, n5, n6]*rat[1, -1 + n3])/3 + (n2*j[t3, 1 + n1, 1 + n2, -1 + n3, \
+n4, -1 + n5, n6]*rat[1, -1 + n3])/3 - (j[t3, 2 + n1, -1 + n2, -1 + n3, n4, \
+n5, n6]*rat[1, -1 + n3])/3 - 
+    (n1*j[t3, 2 + n1, -1 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/3 + \
+(2*j[t3, 2 + n1, n2, -2 + n3, n4, n5, n6]*rat[1, -1 + n3])/3 + (2*n1*j[t3, 2 \
++ n1, n2, -2 + n3, n4, n5, n6]*rat[1, -1 + n3])/3 + (j[t3, 2 + n1, n2, -1 + \
+n3, -1 + n4, n5, n6]*rat[1, -1 + n3])/3 + (n1*j[t3, 2 + n1, n2, -1 + n3, -1 + \
+n4, n5, n6]*rat[1, -1 + n3])/3 - (2*j[t3, 2 + n1, n2, -1 + n3, n4, n5, -1 + \
+n6]*rat[1, -1 + n3])/3 - (2*n1*j[t3, 2 + n1, n2, -1 + n3, n4, n5, -1 + \
+n6]*rat[1, -1 + n3])/3 - 
+    (2*mUV2^2*j[t3, 2 + n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/3 - \
+(2*mUV2^2*n1*j[t3, 2 + n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/3, j[t3, \
+(n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /;  !(n1 == 0 || n2 == 1) -> (2*j[t3, 1 + n1, \
+n2, -1 + n3, n4, n5, n6])/3 + j[t3, 1 + n1, n2, n3, -1 + n4, n5, n6] - \
+(2*j[t3, 1 + n1, n2, n3, n4, -1 + n5, n6])/3 - (n3*j[t3, 1 + n1, -2 + n2, 1 + \
+n3, n4, n5, n6]*rat[1, -1 + n2])/3 - 
+    n6*j[t3, 1 + n1, -1 + n2, n3, -1 + n4, n5, 1 + n6]*rat[1, -1 + n2] + \
+n5*j[t3, 1 + n1, -1 + n2, n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + n2] + n6*j[t3, \
+1 + n1, -1 + n2, n3, n4, -1 + n5, 1 + n6]*rat[1, -1 + n2] - (2*j[t3, 1 + n1, \
+-1 + n2, n3, n4, n5, n6]*rat[1, -1 + n2])/3 + (d*j[t3, 1 + n1, -1 + n2, n3, \
+n4, n5, n6]*rat[1, -1 + n2])/6 - (2*n1*j[t3, 1 + n1, -1 + n2, n3, n4, n5, \
+n6]*rat[1, -1 + n2])/3 - n5*j[t3, 1 + n1, -1 + n2, n3, n4, 1 + n5, -1 + \
+n6]*rat[1, -1 + n2] - 
+    n4*j[t3, 1 + n1, -1 + n2, n3, 1 + n4, -1 + n5, n6]*rat[1, -1 + n2] + \
+n4*j[t3, 1 + n1, -1 + n2, n3, 1 + n4, n5, -1 + n6]*rat[1, -1 + n2] + \
+(n3*j[t3, 1 + n1, -1 + n2, 1 + n3, n4, -1 + n5, n6]*rat[1, -1 + n2])/3 + \
+(2*j[t3, 2 + n1, -2 + n2, n3, n4, n5, n6]*rat[1, -1 + n2])/3 + (2*n1*j[t3, 2 \
++ n1, -2 + n2, n3, n4, n5, n6]*rat[1, -1 + n2])/3 - (j[t3, 2 + n1, -1 + n2, \
+-1 + n3, n4, n5, n6]*rat[1, -1 + n2])/3 - (n1*j[t3, 2 + n1, -1 + n2, -1 + n3, \
+n4, n5, n6]*rat[1, -1 + n2])/3 - 
+    (2*j[t3, 2 + n1, -1 + n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n2])/3 - \
+(2*n1*j[t3, 2 + n1, -1 + n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n2])/3 + (j[t3, \
+2 + n1, -1 + n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n2])/3 + (n1*j[t3, 2 + n1, \
+-1 + n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n2])/3 - (2*mUV2^2*j[t3, 2 + n1, -1 \
++ n2, n3, n4, n5, n6]*rat[1, -1 + n2])/3 - (2*mUV2^2*n1*j[t3, 2 + n1, -1 + \
+n2, n3, n4, n5, n6]*rat[1, -1 + n2])/3, 
+  j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /; n6 != 1 -> j[t3, n1, n2, n3, -1 + n4, n5, \
+n6]/(3*mUV2^2) - j[t3, n1, n2, n3, n4, -1 + n5, n6]/(3*mUV2^2) + (j[t3, n1, \
+n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/mUV2^2 + (d*j[t3, n1, n2, n3, n4, \
+n5, -1 + n6]*rat[1, -1 + n6])/(3*mUV2^2) - (n1*j[t3, n1, n2, n3, n4, n5, -1 + \
+n6]*rat[1, -1 + n6])/(3*mUV2^2) - (n6*j[t3, n1, n2, n3, n4, n5, -1 + \
+n6]*rat[1, -1 + n6])/mUV2^2 + 
+    (2*n4*j[t3, n1, n2, n3, 1 + n4, -1 + n5, -1 + n6]*rat[1, -1 + \
+n6])/(3*mUV2^2) - (2*n4*j[t3, n1, n2, n3, 1 + n4, n5, -2 + n6]*rat[1, -1 + \
+n6])/(3*mUV2^2) - (n1*j[t3, 1 + n1, -1 + n2, n3, n4, n5, -1 + n6]*rat[1, -1 + \
+n6])/(3*mUV2^2) + (2*n1*j[t3, 1 + n1, n2, -1 + n3, n4, n5, -1 + n6]*rat[1, -1 \
++ n6])/(3*mUV2^2) + (n1*j[t3, 1 + n1, n2, n3, -1 + n4, n5, -1 + n6]*rat[1, -1 \
++ n6])/(3*mUV2^2) - (2*n1*j[t3, 1 + n1, n2, n3, n4, n5, -2 + n6]*rat[1, -1 + \
+n6])/(3*mUV2^2) - 
+    (n1*j[t3, 1 + n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/3, j[t3, \
+(n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /; n5 != 1 -> (n3*j[t3, n1, -1 + n2, 1 + n3, \
+n4, -1 + n5, n6]*rat[1, -1 + n5])/(3*mUV2^2) + (n6*j[t3, n1, n2, n3, -1 + n4, \
+-1 + n5, 1 + n6]*rat[1, -1 + n5])/(3*mUV2^2) - (n6*j[t3, n1, n2, n3, n4, -2 + \
+n5, 1 + n6]*rat[1, -1 + n5])/(3*mUV2^2) + (j[t3, n1, n2, n3, n4, -1 + n5, \
+n6]*rat[1, -1 + n5])/mUV2^2 + 
+    (d*j[t3, n1, n2, n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/(6*mUV2^2) + \
+(n1*j[t3, n1, n2, n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/(3*mUV2^2) - \
+(n5*j[t3, n1, n2, n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/mUV2^2 - (n4*j[t3, \
+n1, n2, n3, 1 + n4, -2 + n5, n6]*rat[1, -1 + n5])/(3*mUV2^2) + (n4*j[t3, n1, \
+n2, n3, 1 + n4, -1 + n5, -1 + n6]*rat[1, -1 + n5])/(3*mUV2^2) - (n3*j[t3, n1, \
+n2, 1 + n3, n4, -2 + n5, n6]*rat[1, -1 + n5])/(3*mUV2^2) + 
+    (n2*j[t3, n1, 1 + n2, -1 + n3, n4, -1 + n5, n6]*rat[1, -1 + \
+n5])/(3*mUV2^2) - (n2*j[t3, n1, 1 + n2, n3, n4, -2 + n5, n6]*rat[1, -1 + \
+n5])/(3*mUV2^2) + (n1*j[t3, 1 + n1, n2, n3, n4, -1 + n5, n6]*rat[1, -1 + \
+n5])/3, j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, \
+(n4_)?Positive, (n5_)?Positive, (n6_)?Positive] /; n4 != 1 -> 
+   -1/3*j[t3, n1, n2, n3, n4, -1 + n5, n6]/mUV2^2 + j[t3, n1, n2, n3, n4, n5, \
+-1 + n6]/(3*mUV2^2) - (2*n6*j[t3, n1, n2, n3, -2 + n4, n5, 1 + n6]*rat[1, -1 \
++ n4])/(3*mUV2^2) + (2*n6*j[t3, n1, n2, n3, -1 + n4, -1 + n5, 1 + n6]*rat[1, \
+-1 + n4])/(3*mUV2^2) + (j[t3, n1, n2, n3, -1 + n4, n5, n6]*rat[1, -1 + \
+n4])/mUV2^2 + (d*j[t3, n1, n2, n3, -1 + n4, n5, n6]*rat[1, -1 + \
+n4])/(3*mUV2^2) - (n1*j[t3, n1, n2, n3, -1 + n4, n5, n6]*rat[1, -1 + \
+n4])/(3*mUV2^2) - 
+    (n4*j[t3, n1, n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/mUV2^2 + \
+(2*n1*j[t3, 1 + n1, -1 + n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/(3*mUV2^2) \
+- (n1*j[t3, 1 + n1, n2, -1 + n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/(3*mUV2^2) \
+- (2*n1*j[t3, 1 + n1, n2, n3, -2 + n4, n5, n6]*rat[1, -1 + n4])/(3*mUV2^2) + \
+(n1*j[t3, 1 + n1, n2, n3, -1 + n4, n5, -1 + n6]*rat[1, -1 + n4])/(3*mUV2^2) - \
+(n1*j[t3, 1 + n1, n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/3, 
+  j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /; n3 != 1 -> j[t3, n1, -1 + n2, n3, n4, n5, \
+n6]/(3*mUV2^2) - j[t3, n1, n2, n3, n4, -1 + n5, n6]/(3*mUV2^2) + (j[t3, n1, \
+n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/mUV2^2 + (d*j[t3, n1, n2, -1 + n3, \
+n4, n5, n6]*rat[1, -1 + n3])/(3*mUV2^2) - (n1*j[t3, n1, n2, -1 + n3, n4, n5, \
+n6]*rat[1, -1 + n3])/(3*mUV2^2) - (n3*j[t3, n1, n2, -1 + n3, n4, n5, \
+n6]*rat[1, -1 + n3])/mUV2^2 - 
+    (2*n2*j[t3, n1, 1 + n2, -2 + n3, n4, n5, n6]*rat[1, -1 + n3])/(3*mUV2^2) \
++ (2*n2*j[t3, n1, 1 + n2, -1 + n3, n4, -1 + n5, n6]*rat[1, -1 + \
+n3])/(3*mUV2^2) + (n1*j[t3, 1 + n1, -1 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + \
+n3])/(3*mUV2^2) - (2*n1*j[t3, 1 + n1, n2, -2 + n3, n4, n5, n6]*rat[1, -1 + \
+n3])/(3*mUV2^2) - (n1*j[t3, 1 + n1, n2, -1 + n3, -1 + n4, n5, n6]*rat[1, -1 + \
+n3])/(3*mUV2^2) + (2*n1*j[t3, 1 + n1, n2, -1 + n3, n4, n5, -1 + n6]*rat[1, -1 \
++ n3])/(3*mUV2^2) - 
+    (n1*j[t3, 1 + n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/3, j[t3, \
+(n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /; n2 != 1 -> j[t3, n1, n2, -1 + n3, n4, n5, \
+n6]/(3*mUV2^2) - j[t3, n1, n2, n3, n4, -1 + n5, n6]/(3*mUV2^2) - (2*n3*j[t3, \
+n1, -2 + n2, 1 + n3, n4, n5, n6]*rat[1, -1 + n2])/(3*mUV2^2) + (j[t3, n1, -1 \
++ n2, n3, n4, n5, n6]*rat[1, -1 + n2])/mUV2^2 + (d*j[t3, n1, -1 + n2, n3, n4, \
+n5, n6]*rat[1, -1 + n2])/(3*mUV2^2) - 
+    (n1*j[t3, n1, -1 + n2, n3, n4, n5, n6]*rat[1, -1 + n2])/(3*mUV2^2) - \
+(n2*j[t3, n1, -1 + n2, n3, n4, n5, n6]*rat[1, -1 + n2])/mUV2^2 + (2*n3*j[t3, \
+n1, -1 + n2, 1 + n3, n4, -1 + n5, n6]*rat[1, -1 + n2])/(3*mUV2^2) - \
+(2*n1*j[t3, 1 + n1, -2 + n2, n3, n4, n5, n6]*rat[1, -1 + n2])/(3*mUV2^2) + \
+(n1*j[t3, 1 + n1, -1 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n2])/(3*mUV2^2) + \
+(2*n1*j[t3, 1 + n1, -1 + n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n2])/(3*mUV2^2) \
+- 
+    (n1*j[t3, 1 + n1, -1 + n2, n3, n4, n5, -1 + n6]*rat[1, -1 + \
+n2])/(3*mUV2^2) - (n1*j[t3, 1 + n1, -1 + n2, n3, n4, n5, n6]*rat[1, -1 + \
+n2])/3, j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, \
+(n4_)?Positive, (n5_)?Positive, (n6_)?Positive] /; n2 == 1 && n3 == 1 && n4 \
+== 1 && n5 == 1 && n6 == 1 && n1 != 0 -> 
+   2*j[t3, n1, 0, 2, 1, 1, 1]*rat[1, -3 + d - n1] - 2*j[t3, n1, 1, 2, 1, 0, \
+1]*rat[1, -3 + d - n1] + j[t3, n1, 2, 1, 1, 0, 1]*rat[1, -3 + d - n1] + \
+2*n1*j[t3, 1 + n1, 0, 1, 1, 1, 1]*rat[1, -3 + d - n1] - mUV2^2*j[t3, 1 + n1, \
+0, 2, 1, 1, 1]*rat[1, -3 + d - n1] - n1*j[t3, 1 + n1, 1, 0, 1, 1, 1]*rat[1, \
+-3 + d - n1] - 2*n1*j[t3, 1 + n1, 1, 1, 0, 1, 1]*rat[1, -3 + d - n1] - \
+3*mUV2^2*j[t3, 1 + n1, 1, 1, 0, 1, 2]*rat[1, -3 + d - n1] + 
+    3*mUV2^2*j[t3, 1 + n1, 1, 1, 0, 2, 1]*rat[1, -3 + d - n1] + \
+3*mUV2^2*j[t3, 1 + n1, 1, 1, 1, 0, 2]*rat[1, -3 + d - n1] + n1*j[t3, 1 + n1, \
+1, 1, 1, 1, 0]*rat[1, -3 + d - n1] - 2*mUV2^2*j[t3, 1 + n1, 1, 1, 1, 1, \
+1]*rat[1, -3 + d - n1] + (d*mUV2^2*j[t3, 1 + n1, 1, 1, 1, 1, 1]*rat[1, -3 + d \
+- n1])/2 - mUV2^2*n1*j[t3, 1 + n1, 1, 1, 1, 1, 1]*rat[1, -3 + d - n1] - \
+3*mUV2^2*j[t3, 1 + n1, 1, 1, 1, 2, 0]*rat[1, -3 + d - n1] - 3*mUV2^2*j[t3, 1 \
++ n1, 1, 1, 2, 0, 1]*rat[1, -3 + d - n1] + 
+    3*mUV2^2*j[t3, 1 + n1, 1, 1, 2, 1, 0]*rat[1, -3 + d - n1] + mUV2^2*j[t3, \
+1 + n1, 1, 2, 1, 0, 1]*rat[1, -3 + d - n1] + 2*mUV2^2*j[t3, 1 + n1, 2, 0, 1, \
+1, 1]*rat[1, -3 + d - n1] + 3*mUV2^2*j[t3, 1 + n1, 2, 1, 0, 1, 1]*rat[1, -3 + \
+d - n1] - 2*mUV2^2*j[t3, 1 + n1, 2, 1, 1, 0, 1]*rat[1, -3 + d - n1] + \
+2*mUV2^2*j[t3, 2 + n1, 0, 1, 1, 1, 1]*rat[1, -3 + d - n1] + 2*mUV2^2*n1*j[t3, \
+2 + n1, 0, 1, 1, 1, 1]*rat[1, -3 + d - n1] - mUV2^2*j[t3, 2 + n1, 1, 0, 1, 1, \
+1]*rat[1, -3 + d - n1] - 
+    mUV2^2*n1*j[t3, 2 + n1, 1, 0, 1, 1, 1]*rat[1, -3 + d - n1] - \
+2*mUV2^2*j[t3, 2 + n1, 1, 1, 0, 1, 1]*rat[1, -3 + d - n1] - 2*mUV2^2*n1*j[t3, \
+2 + n1, 1, 1, 0, 1, 1]*rat[1, -3 + d - n1] + mUV2^2*j[t3, 2 + n1, 1, 1, 1, 1, \
+0]*rat[1, -3 + d - n1] + mUV2^2*n1*j[t3, 2 + n1, 1, 1, 1, 1, 0]*rat[1, -3 + d \
+- n1] - 2*mUV2^4*j[t3, 2 + n1, 1, 1, 1, 1, 1]*rat[1, -3 + d - n1] - \
+2*mUV2^4*n1*j[t3, 2 + n1, 1, 1, 1, 1, 1]*rat[1, -3 + d - n1] + j[t3, n1, 2, \
+0, 1, 1, 1]*rat[1, 3 - d + n1], 
+  j[t3, (n1_)?Positive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /; n6 != 1 -> (5*j[t3, n1, n2, n3, -1 + n4, \
+n5, n6])/(6*mUV2^2) - (5*j[t3, n1, n2, n3, n4, -1 + n5, n6])/(6*mUV2^2) + \
+(n2*j[t3, -1 + n1, 1 + n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/(2*mUV2^2) + \
+(n3*j[t3, n1, -1 + n2, 1 + n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/(6*mUV2^2) - \
+(n5*j[t3, n1, n2, n3, -1 + n4, 1 + n5, -1 + n6]*rat[1, -1 + n6])/(2*mUV2^2) + 
+    (j[t3, n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/mUV2^2 + (d*j[t3, \
+n1, n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/(4*mUV2^2) - (n6*j[t3, n1, n2, \
+n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/mUV2^2 + (n5*j[t3, n1, n2, n3, n4, 1 + \
+n5, -2 + n6]*rat[1, -1 + n6])/(2*mUV2^2) + (7*n4*j[t3, n1, n2, n3, 1 + n4, -1 \
++ n5, -1 + n6]*rat[1, -1 + n6])/(6*mUV2^2) - (7*n4*j[t3, n1, n2, n3, 1 + n4, \
+n5, -2 + n6]*rat[1, -1 + n6])/(6*mUV2^2) - 
+    (n3*j[t3, n1, n2, 1 + n3, n4, -1 + n5, -1 + n6]*rat[1, -1 + \
+n6])/(6*mUV2^2) - (n2*j[t3, n1, 1 + n2, -1 + n3, n4, n5, -1 + n6]*rat[1, -1 + \
+n6])/(3*mUV2^2) - (n2*j[t3, n1, 1 + n2, n3, -1 + n4, n5, -1 + n6]*rat[1, -1 + \
+n6])/(2*mUV2^2) + (n2*j[t3, n1, 1 + n2, n3, n4, -1 + n5, -1 + n6]*rat[1, -1 + \
+n6])/(3*mUV2^2) - (2*n1*j[t3, 1 + n1, -1 + n2, n3, n4, n5, -1 + n6]*rat[1, -1 \
++ n6])/(3*mUV2^2) + (5*n1*j[t3, 1 + n1, n2, -1 + n3, n4, n5, -1 + n6]*rat[1, \
+-1 + n6])/(6*mUV2^2) + 
+    (2*n1*j[t3, 1 + n1, n2, n3, -1 + n4, n5, -1 + n6]*rat[1, -1 + \
+n6])/(3*mUV2^2) - (5*n1*j[t3, 1 + n1, n2, n3, n4, n5, -2 + n6]*rat[1, -1 + \
+n6])/(6*mUV2^2), j[t3, (n1_)?Positive, (n2_)?Positive, (n3_)?Positive, \
+(n4_)?Positive, (n5_)?Positive, (n6_)?Positive] /; n5 != 1 -> j[t3, n1, n2, \
+n3, -1 + n4, n5, n6]/(2*mUV2^2) - j[t3, n1, n2, n3, n4, n5, -1 + \
+n6]/(2*mUV2^2) - (n2*j[t3, -1 + n1, 1 + n2, n3, n4, -1 + n5, n6]*rat[1, -1 + \
+n5])/(2*mUV2^2) + 
+    (n3*j[t3, n1, -1 + n2, 1 + n3, n4, -1 + n5, n6]*rat[1, -1 + \
+n5])/(6*mUV2^2) - (n6*j[t3, n1, n2, n3, -1 + n4, -1 + n5, 1 + n6]*rat[1, -1 + \
+n5])/(6*mUV2^2) + (n6*j[t3, n1, n2, n3, n4, -2 + n5, 1 + n6]*rat[1, -1 + \
+n5])/(6*mUV2^2) + (j[t3, n1, n2, n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/mUV2^2 \
++ (d*j[t3, n1, n2, n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/(4*mUV2^2) - \
+(n5*j[t3, n1, n2, n3, n4, -1 + n5, n6]*rat[1, -1 + n5])/mUV2^2 - 
+    (5*n4*j[t3, n1, n2, n3, 1 + n4, -2 + n5, n6]*rat[1, -1 + n5])/(6*mUV2^2) \
++ (5*n4*j[t3, n1, n2, n3, 1 + n4, -1 + n5, -1 + n6]*rat[1, -1 + \
+n5])/(6*mUV2^2) - (n3*j[t3, n1, n2, 1 + n3, n4, -2 + n5, n6]*rat[1, -1 + \
+n5])/(6*mUV2^2) + (2*n2*j[t3, n1, 1 + n2, -1 + n3, n4, -1 + n5, n6]*rat[1, -1 \
++ n5])/(3*mUV2^2) + (n2*j[t3, n1, 1 + n2, n3, -1 + n4, -1 + n5, n6]*rat[1, -1 \
++ n5])/(2*mUV2^2) - (2*n2*j[t3, n1, 1 + n2, n3, n4, -2 + n5, n6]*rat[1, -1 + \
+n5])/(3*mUV2^2) + 
+    (n1*j[t3, 1 + n1, -1 + n2, n3, n4, -1 + n5, n6]*rat[1, -1 + \
+n5])/(3*mUV2^2) - (n1*j[t3, 1 + n1, n2, -1 + n3, n4, -1 + n5, n6]*rat[1, -1 + \
+n5])/(6*mUV2^2) - (n1*j[t3, 1 + n1, n2, n3, -1 + n4, -1 + n5, n6]*rat[1, -1 + \
+n5])/(3*mUV2^2) + (n1*j[t3, 1 + n1, n2, n3, n4, -1 + n5, -1 + n6]*rat[1, -1 + \
+n5])/(6*mUV2^2), 
+  j[t3, (n1_)?Positive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /; n4 != 1 -> j[t3, n1, n2, n3, n4, -1 + n5, \
+n6]/(6*mUV2^2) - j[t3, n1, n2, n3, n4, n5, -1 + n6]/(6*mUV2^2) + (n2*j[t3, -1 \
++ n1, 1 + n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/(2*mUV2^2) + (n3*j[t3, \
+n1, -1 + n2, 1 + n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/(6*mUV2^2) - (n6*j[t3, \
+n1, n2, n3, -2 + n4, n5, 1 + n6]*rat[1, -1 + n4])/(6*mUV2^2) - 
+    (n5*j[t3, n1, n2, n3, -2 + n4, 1 + n5, n6]*rat[1, -1 + n4])/(2*mUV2^2) + \
+(n6*j[t3, n1, n2, n3, -1 + n4, -1 + n5, 1 + n6]*rat[1, -1 + n4])/(6*mUV2^2) + \
+(j[t3, n1, n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/mUV2^2 + (d*j[t3, n1, \
+n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/(4*mUV2^2) - (n4*j[t3, n1, n2, n3, \
+-1 + n4, n5, n6]*rat[1, -1 + n4])/mUV2^2 + (n5*j[t3, n1, n2, n3, -1 + n4, 1 + \
+n5, -1 + n6]*rat[1, -1 + n4])/(2*mUV2^2) - 
+    (n3*j[t3, n1, n2, 1 + n3, -1 + n4, -1 + n5, n6]*rat[1, -1 + \
+n4])/(6*mUV2^2) - (n2*j[t3, n1, 1 + n2, -1 + n3, -1 + n4, n5, n6]*rat[1, -1 + \
+n4])/(3*mUV2^2) - (n2*j[t3, n1, 1 + n2, n3, -2 + n4, n5, n6]*rat[1, -1 + \
+n4])/(2*mUV2^2) + (n2*j[t3, n1, 1 + n2, n3, -1 + n4, -1 + n5, n6]*rat[1, -1 + \
+n4])/(3*mUV2^2) + (n1*j[t3, 1 + n1, -1 + n2, n3, -1 + n4, n5, n6]*rat[1, -1 + \
+n4])/(3*mUV2^2) - (n1*j[t3, 1 + n1, n2, -1 + n3, -1 + n4, n5, n6]*rat[1, -1 + \
+n4])/(6*mUV2^2) - 
+    (n1*j[t3, 1 + n1, n2, n3, -2 + n4, n5, n6]*rat[1, -1 + n4])/(3*mUV2^2) + \
+(n1*j[t3, 1 + n1, n2, n3, -1 + n4, n5, -1 + n6]*rat[1, -1 + n4])/(6*mUV2^2), \
+j[t3, (n1_)?Positive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /; n3 != 1 -> j[t3, n1, -1 + n2, n3, n4, n5, \
+n6]/(2*mUV2^2) - j[t3, n1, n2, n3, n4, -1 + n5, n6]/(2*mUV2^2) + (n2*j[t3, -1 \
++ n1, 1 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/(2*mUV2^2) + 
+    (n6*j[t3, n1, n2, -1 + n3, -1 + n4, n5, 1 + n6]*rat[1, -1 + \
+n3])/(2*mUV2^2) - (n5*j[t3, n1, n2, -1 + n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + \
+n3])/(2*mUV2^2) - (n6*j[t3, n1, n2, -1 + n3, n4, -1 + n5, 1 + n6]*rat[1, -1 + \
+n3])/(2*mUV2^2) + (j[t3, n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/mUV2^2 \
++ (d*j[t3, n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/(4*mUV2^2) - \
+(n3*j[t3, n1, n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3])/mUV2^2 + 
+    (n5*j[t3, n1, n2, -1 + n3, n4, 1 + n5, -1 + n6]*rat[1, -1 + \
+n3])/(2*mUV2^2) + (n4*j[t3, n1, n2, -1 + n3, 1 + n4, -1 + n5, n6]*rat[1, -1 + \
+n3])/(2*mUV2^2) - (n4*j[t3, n1, n2, -1 + n3, 1 + n4, n5, -1 + n6]*rat[1, -1 + \
+n3])/(2*mUV2^2) - (n2*j[t3, n1, 1 + n2, -2 + n3, n4, n5, n6]*rat[1, -1 + \
+n3])/mUV2^2 - (n2*j[t3, n1, 1 + n2, -1 + n3, -1 + n4, n5, n6]*rat[1, -1 + \
+n3])/(2*mUV2^2) + (n2*j[t3, n1, 1 + n2, -1 + n3, n4, -1 + n5, n6]*rat[1, -1 + \
+n3])/mUV2^2 - 
+    (n1*j[t3, 1 + n1, n2, -2 + n3, n4, n5, n6]*rat[1, -1 + n3])/(2*mUV2^2) + \
+(n1*j[t3, 1 + n1, n2, -1 + n3, n4, n5, -1 + n6]*rat[1, -1 + n3])/(2*mUV2^2), \
+j[t3, (n1_)?Positive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /; n2 != 1 -> j[t3, -1 + n1, n2, n3, n4, n5, \
+n6]/(2*mUV2^2) - j[t3, n1, n2, n3, -1 + n4, n5, n6]/(2*mUV2^2) - (n3*j[t3, \
+n1, -2 + n2, 1 + n3, n4, n5, n6]*rat[1, -1 + n2])/(2*mUV2^2) + 
+    (n6*j[t3, n1, -1 + n2, n3, -1 + n4, n5, 1 + n6]*rat[1, -1 + \
+n2])/(2*mUV2^2) - (n5*j[t3, n1, -1 + n2, n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + \
+n2])/(2*mUV2^2) - (n6*j[t3, n1, -1 + n2, n3, n4, -1 + n5, 1 + n6]*rat[1, -1 + \
+n2])/(2*mUV2^2) + (j[t3, n1, -1 + n2, n3, n4, n5, n6]*rat[1, -1 + n2])/mUV2^2 \
++ (d*j[t3, n1, -1 + n2, n3, n4, n5, n6]*rat[1, -1 + n2])/(4*mUV2^2) - \
+(n2*j[t3, n1, -1 + n2, n3, n4, n5, n6]*rat[1, -1 + n2])/mUV2^2 + 
+    (n5*j[t3, n1, -1 + n2, n3, n4, 1 + n5, -1 + n6]*rat[1, -1 + \
+n2])/(2*mUV2^2) + (n4*j[t3, n1, -1 + n2, n3, 1 + n4, -1 + n5, n6]*rat[1, -1 + \
+n2])/(2*mUV2^2) - (n4*j[t3, n1, -1 + n2, n3, 1 + n4, n5, -1 + n6]*rat[1, -1 + \
+n2])/(2*mUV2^2) + (n3*j[t3, n1, -1 + n2, 1 + n3, n4, -1 + n5, n6]*rat[1, -1 + \
+n2])/(2*mUV2^2) - (n1*j[t3, 1 + n1, -2 + n2, n3, n4, n5, n6]*rat[1, -1 + \
+n2])/mUV2^2 + (n1*j[t3, 1 + n1, -1 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + \
+n2])/(2*mUV2^2) + 
+    (n1*j[t3, 1 + n1, -1 + n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n2])/mUV2^2 - \
+(n1*j[t3, 1 + n1, -1 + n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n2])/(2*mUV2^2), \
+j[t3, (n1_)?Positive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /; n1 != 1 -> j[t3, n1, -1 + n2, n3, n4, n5, \
+n6]/mUV2^2 - j[t3, n1, n2, -1 + n3, n4, n5, n6]/(2*mUV2^2) - j[t3, n1, n2, \
+n3, -1 + n4, n5, n6]/mUV2^2 + j[t3, n1, n2, n3, n4, n5, -1 + n6]/(2*mUV2^2) - 
+    (3*n2*j[t3, -2 + n1, 1 + n2, n3, n4, n5, n6]*rat[1, -1 + n1])/(2*mUV2^2) \
+- (n3*j[t3, -1 + n1, -1 + n2, 1 + n3, n4, n5, n6]*rat[1, -1 + n1])/(2*mUV2^2) \
+- (3*n6*j[t3, -1 + n1, n2, n3, -1 + n4, n5, 1 + n6]*rat[1, -1 + \
+n1])/(2*mUV2^2) + (3*n5*j[t3, -1 + n1, n2, n3, -1 + n4, 1 + n5, n6]*rat[1, -1 \
++ n1])/(2*mUV2^2) + (3*n6*j[t3, -1 + n1, n2, n3, n4, -1 + n5, 1 + n6]*rat[1, \
+-1 + n1])/(2*mUV2^2) + (j[t3, -1 + n1, n2, n3, n4, n5, n6]*rat[1, -1 + \
+n1])/mUV2^2 + 
+    (d*j[t3, -1 + n1, n2, n3, n4, n5, n6]*rat[1, -1 + n1])/(4*mUV2^2) - \
+(n1*j[t3, -1 + n1, n2, n3, n4, n5, n6]*rat[1, -1 + n1])/mUV2^2 - (3*n5*j[t3, \
+-1 + n1, n2, n3, n4, 1 + n5, -1 + n6]*rat[1, -1 + n1])/(2*mUV2^2) - \
+(3*n4*j[t3, -1 + n1, n2, n3, 1 + n4, -1 + n5, n6]*rat[1, -1 + n1])/(2*mUV2^2) \
++ (3*n4*j[t3, -1 + n1, n2, n3, 1 + n4, n5, -1 + n6]*rat[1, -1 + \
+n1])/(2*mUV2^2) + (n3*j[t3, -1 + n1, n2, 1 + n3, n4, -1 + n5, n6]*rat[1, -1 + \
+n1])/(2*mUV2^2) + 
+    (n2*j[t3, -1 + n1, 1 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n1])/mUV2^2 + \
+(3*n2*j[t3, -1 + n1, 1 + n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n1])/(2*mUV2^2) \
+- (n2*j[t3, -1 + n1, 1 + n2, n3, n4, -1 + n5, n6]*rat[1, -1 + n1])/mUV2^2, \
+j[t3, (n1_)?Positive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /; n6 != 1 -> 
+   j[t3, 1 + n1, n2, -1 + n3, n4, n5, n6] + (5*j[t3, 1 + n1, n2, n3, -1 + n4, \
+n5, n6])/3 - (5*j[t3, 1 + n1, n2, n3, n4, -1 + n5, n6])/3 + n2*j[t3, n1, 1 + \
+n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6] - n5*j[t3, 1 + n1, -1 + n2, n3, n4, \
+1 + n5, -1 + n6]*rat[1, -1 + n6] + (4*n3*j[t3, 1 + n1, -1 + n2, 1 + n3, n4, \
+n5, -1 + n6]*rat[1, -1 + n6])/3 + n5*j[t3, 1 + n1, n2, -1 + n3, n4, 1 + n5, \
+-1 + n6]*rat[1, -1 + n6] - n5*j[t3, 1 + n1, n2, n3, -1 + n4, 1 + n5, -1 + \
+n6]*rat[1, -1 + n6] + 
+    n5*j[t3, 1 + n1, n2, n3, n4, 1 + n5, -2 + n6]*rat[1, -1 + n6] + \
+(4*n4*j[t3, 1 + n1, n2, n3, 1 + n4, -1 + n5, -1 + n6]*rat[1, -1 + n6])/3 - \
+(4*n4*j[t3, 1 + n1, n2, n3, 1 + n4, n5, -2 + n6]*rat[1, -1 + n6])/3 - \
+(4*n3*j[t3, 1 + n1, n2, 1 + n3, n4, -1 + n5, -1 + n6]*rat[1, -1 + n6])/3 - \
+(5*n2*j[t3, 1 + n1, 1 + n2, -1 + n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/3 - \
+n2*j[t3, 1 + n1, 1 + n2, n3, -1 + n4, n5, -1 + n6]*rat[1, -1 + n6] + 
+    (5*n2*j[t3, 1 + n1, 1 + n2, n3, n4, -1 + n5, -1 + n6]*rat[1, -1 + n6])/3 \
+- (j[t3, 2 + n1, -1 + n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/3 - (n1*j[t3, \
+2 + n1, -1 + n2, n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/3 - (j[t3, 2 + n1, n2, \
+-1 + n3, n4, n5, -1 + n6]*rat[1, -1 + n6])/3 - (n1*j[t3, 2 + n1, n2, -1 + n3, \
+n4, n5, -1 + n6]*rat[1, -1 + n6])/3 + (j[t3, 2 + n1, n2, n3, -1 + n4, n5, -1 \
++ n6]*rat[1, -1 + n6])/3 + (n1*j[t3, 2 + n1, n2, n3, -1 + n4, n5, -1 + \
+n6]*rat[1, -1 + n6])/3 + 
+    (j[t3, 2 + n1, n2, n3, n4, n5, -2 + n6]*rat[1, -1 + n6])/3 + (n1*j[t3, 2 \
++ n1, n2, n3, n4, n5, -2 + n6]*rat[1, -1 + n6])/3, j[t3, (n1_)?Positive, \
+(n2_)?Positive, (n3_)?Positive, (n4_)?Positive, (n5_)?Positive, \
+(n6_)?Positive] /; n4 != 1 -> j[t3, 1 + n1, -1 + n2, n3, n4, n5, n6] + j[t3, \
+1 + n1, n2, n3, n4, -1 + n5, n6]/3 - j[t3, 1 + n1, n2, n3, n4, n5, -1 + n6]/3 \
++ n2*j[t3, n1, 1 + n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4] + 
+    n5*j[t3, 1 + n1, -1 + n2, n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + n4] - \
+(2*n3*j[t3, 1 + n1, -1 + n2, 1 + n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/3 - \
+n5*j[t3, 1 + n1, n2, -1 + n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + n4] + \
+(2*n6*j[t3, 1 + n1, n2, n3, -2 + n4, n5, 1 + n6]*rat[1, -1 + n4])/3 - \
+n5*j[t3, 1 + n1, n2, n3, -2 + n4, 1 + n5, n6]*rat[1, -1 + n4] - (2*n6*j[t3, 1 \
++ n1, n2, n3, -1 + n4, -1 + n5, 1 + n6]*rat[1, -1 + n4])/3 + 
+    n5*j[t3, 1 + n1, n2, n3, -1 + n4, 1 + n5, -1 + n6]*rat[1, -1 + n4] + \
+(2*n3*j[t3, 1 + n1, n2, 1 + n3, -1 + n4, -1 + n5, n6]*rat[1, -1 + n4])/3 + \
+(n2*j[t3, 1 + n1, 1 + n2, -1 + n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/3 - \
+n2*j[t3, 1 + n1, 1 + n2, n3, -2 + n4, n5, n6]*rat[1, -1 + n4] - (n2*j[t3, 1 + \
+n1, 1 + n2, n3, -1 + n4, -1 + n5, n6]*rat[1, -1 + n4])/3 - (4*j[t3, 2 + n1, \
+-1 + n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/3 - 
+    (4*n1*j[t3, 2 + n1, -1 + n2, n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/3 + \
+(2*j[t3, 2 + n1, n2, -1 + n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/3 + \
+(2*n1*j[t3, 2 + n1, n2, -1 + n3, -1 + n4, n5, n6]*rat[1, -1 + n4])/3 + \
+(4*j[t3, 2 + n1, n2, n3, -2 + n4, n5, n6]*rat[1, -1 + n4])/3 + (4*n1*j[t3, 2 \
++ n1, n2, n3, -2 + n4, n5, n6]*rat[1, -1 + n4])/3 - (2*j[t3, 2 + n1, n2, n3, \
+-1 + n4, n5, -1 + n6]*rat[1, -1 + n4])/3 - (2*n1*j[t3, 2 + n1, n2, n3, -1 + \
+n4, n5, -1 + n6]*rat[1, -1 + n4])/3, 
+  j[t3, (n1_)?Positive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /; n3 != 1 -> j[t3, 1 + n1, -1 + n2, n3, n4, \
+n5, n6] - j[t3, 1 + n1, n2, n3, n4, -1 + n5, n6] + j[t3, 1 + n1, n2, n3, n4, \
+n5, -1 + n6] + n2*j[t3, n1, 1 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3] + \
+2*n6*j[t3, 1 + n1, n2, -1 + n3, -1 + n4, n5, 1 + n6]*rat[1, -1 + n3] - \
+2*n5*j[t3, 1 + n1, n2, -1 + n3, -1 + n4, 1 + n5, n6]*rat[1, -1 + n3] - 
+    2*n6*j[t3, 1 + n1, n2, -1 + n3, n4, -1 + n5, 1 + n6]*rat[1, -1 + n3] + \
+2*n5*j[t3, 1 + n1, n2, -1 + n3, n4, 1 + n5, -1 + n6]*rat[1, -1 + n3] + \
+2*n4*j[t3, 1 + n1, n2, -1 + n3, 1 + n4, -1 + n5, n6]*rat[1, -1 + n3] - \
+2*n4*j[t3, 1 + n1, n2, -1 + n3, 1 + n4, n5, -1 + n6]*rat[1, -1 + n3] - \
+n2*j[t3, 1 + n1, 1 + n2, -2 + n3, n4, n5, n6]*rat[1, -1 + n3] - n2*j[t3, 1 + \
+n1, 1 + n2, -1 + n3, -1 + n4, n5, n6]*rat[1, -1 + n3] + 
+    n2*j[t3, 1 + n1, 1 + n2, -1 + n3, n4, -1 + n5, n6]*rat[1, -1 + n3] - \
+j[t3, 2 + n1, -1 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3] - n1*j[t3, 2 + \
+n1, -1 + n2, -1 + n3, n4, n5, n6]*rat[1, -1 + n3] + j[t3, 2 + n1, n2, -2 + \
+n3, n4, n5, n6]*rat[1, -1 + n3] + n1*j[t3, 2 + n1, n2, -2 + n3, n4, n5, \
+n6]*rat[1, -1 + n3] + j[t3, 2 + n1, n2, -1 + n3, -1 + n4, n5, n6]*rat[1, -1 + \
+n3] + n1*j[t3, 2 + n1, n2, -1 + n3, -1 + n4, n5, n6]*rat[1, -1 + n3] - 
+    j[t3, 2 + n1, n2, -1 + n3, n4, n5, -1 + n6]*rat[1, -1 + n3] - n1*j[t3, 2 \
++ n1, n2, -1 + n3, n4, n5, -1 + n6]*rat[1, -1 + n3], j[t3, (n1_)?NonPositive, \
+(n2_)?NonPositive, (n3_)?Positive, (n4_)?Positive, (n5_)?NonPositive, \
+(n6_)?Positive] /; True :> 
+   Expand[j[t3, n5, 0, n4, n1, n3, n6]/(j[t3, -1, 0, 0, 0, 0, 0] - j[t3, 0, \
+-1, 0, 0, 0, 0] + j[t3, 0, 0, -1, 0, 0, 0] + j[t3, 0, 0, 0, -1, 0, 0] + j[t3, \
+0, 0, 0, 0, -1, 0] - j[t3, 0, 0, 0, 0, 0, -1] + mUV2^2*j[t3, 0, 0, 0, 0, 0, \
+0])^n2], j[t3, (n1_)?NonPositive, (n2_)?NonPositive, (n3_)?Positive, \
+(n4_)?Positive, (n5_)?Positive, (n6_)?NonPositive] /; True :> 
+   Expand[j[t3, 0, n6, n4, n2, n5, n3]/(-j[t3, -1, 0, 0, 0, 0, 0] + j[t3, 0, \
+-1, 0, 0, 0, 0] + j[t3, 0, 0, -1, 0, 0, 0] + j[t3, 0, 0, 0, -1, 0, 0] - j[t3, \
+0, 0, 0, 0, -1, 0] + j[t3, 0, 0, 0, 0, 0, -1] + mUV2^2*j[t3, 0, 0, 0, 0, 0, \
+0])^n1], j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?NonPositive, \
+(n4_)?NonPositive, (n5_)?Positive, (n6_)?Positive] /; True :> 
+   Expand[j[t3, 0, n4, n6, n3, n5, n2]/(-j[t3, -1, 0, 0, 0, 0, 0] + j[t3, 0, \
+-1, 0, 0, 0, 0] + j[t3, 0, 0, -1, 0, 0, 0] + j[t3, 0, 0, 0, -1, 0, 0] - j[t3, \
+0, 0, 0, 0, -1, 0] + j[t3, 0, 0, 0, 0, 0, -1] + mUV2^2*j[t3, 0, 0, 0, 0, 0, \
+0])^n1], j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?NonPositive, \
+(n4_)?Positive, (n5_)?NonPositive, (n6_)?Positive] /; True :> 
+   Expand[j[t3, n5, n1, n4, 0, n2, n6]/(j[t3, -1, 0, 0, 0, 0, 0] + j[t3, 0, \
+-1, 0, 0, 0, 0] - j[t3, 0, 0, -1, 0, 0, 0] - j[t3, 0, 0, 0, -1, 0, 0] + j[t3, \
+0, 0, 0, 0, -1, 0] + j[t3, 0, 0, 0, 0, 0, -1] + mUV2^2*j[t3, 0, 0, 0, 0, 0, \
+0])^n3], j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?NonPositive, \
+(n4_)?Positive, (n5_)?Positive, (n6_)?NonPositive] /; True :> Expand[j[t3, \
+n6, n3, n5, n1, n2, n4]], 
+  j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?NonPositive, \
+(n5_)?NonPositive, (n6_)?Positive] /; True :> Expand[j[t3, n5, n1, n3, 0, n6, \
+n2]/(j[t3, -1, 0, 0, 0, 0, 0] + j[t3, 0, -1, 0, 0, 0, 0] - j[t3, 0, 0, -1, 0, \
+0, 0] - j[t3, 0, 0, 0, -1, 0, 0] + j[t3, 0, 0, 0, 0, -1, 0] + j[t3, 0, 0, 0, \
+0, 0, -1] + mUV2^2*j[t3, 0, 0, 0, 0, 0, 0])^n4], 
+  j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?NonPositive, (n6_)?NonPositive] /; True :> Expand[j[t3, n5, 0, n3, n1, \
+n4, n2]/(j[t3, -1, 0, 0, 0, 0, 0] - j[t3, 0, -1, 0, 0, 0, 0] + j[t3, 0, 0, \
+-1, 0, 0, 0] + j[t3, 0, 0, 0, -1, 0, 0] + j[t3, 0, 0, 0, 0, -1, 0] - j[t3, 0, \
+0, 0, 0, 0, -1] + mUV2^2*j[t3, 0, 0, 0, 0, 0, 0])^n6], 
+  j[t3, (n1_)?Positive, (n2_)?NonPositive, (n3_)?NonPositive, \
+(n4_)?NonPositive, (n5_)?Positive, (n6_)?Positive] /; True :> Expand[j[t3, \
+n4, n3, n6, 0, n1, n5]/(j[t3, -1, 0, 0, 0, 0, 0] + j[t3, 0, -1, 0, 0, 0, 0] - \
+j[t3, 0, 0, -1, 0, 0, 0] - j[t3, 0, 0, 0, -1, 0, 0] + j[t3, 0, 0, 0, 0, -1, \
+0] + j[t3, 0, 0, 0, 0, 0, -1] + mUV2^2*j[t3, 0, 0, 0, 0, 0, 0])^n2], 
+  j[t3, (n1_)?Positive, (n2_)?NonPositive, (n3_)?NonPositive, (n4_)?Positive, \
+(n5_)?NonPositive, (n6_)?Positive] /; True :> Expand[j[t3, n5, n3, n6, n2, \
+n1, n4]], j[t3, (n1_)?Positive, (n2_)?NonPositive, (n3_)?NonPositive, \
+(n4_)?Positive, (n5_)?Positive, (n6_)?NonPositive] /; True :> 
+   Expand[j[t3, n6, n2, n4, 0, n1, n5]/(j[t3, -1, 0, 0, 0, 0, 0] + j[t3, 0, \
+-1, 0, 0, 0, 0] - j[t3, 0, 0, -1, 0, 0, 0] - j[t3, 0, 0, 0, -1, 0, 0] + j[t3, \
+0, 0, 0, 0, -1, 0] + j[t3, 0, 0, 0, 0, 0, -1] + mUV2^2*j[t3, 0, 0, 0, 0, 0, \
+0])^n3], j[t3, (n1_)?Positive, (n2_)?NonPositive, (n3_)?Positive, \
+(n4_)?NonPositive, (n5_)?Positive, (n6_)?NonPositive] /; True :> 
+   Expand[j[t3, n6, n2, n3, 0, n5, n1]/(j[t3, -1, 0, 0, 0, 0, 0] + j[t3, 0, \
+-1, 0, 0, 0, 0] - j[t3, 0, 0, -1, 0, 0, 0] - j[t3, 0, 0, 0, -1, 0, 0] + j[t3, \
+0, 0, 0, 0, -1, 0] + j[t3, 0, 0, 0, 0, 0, -1] + mUV2^2*j[t3, 0, 0, 0, 0, 0, \
+0])^n4], j[t3, (n1_)?Positive, (n2_)?NonPositive, (n3_)?Positive, \
+(n4_)?Positive, (n5_)?NonPositive, (n6_)?NonPositive] /; True :> 
+   Expand[j[t3, 0, n6, n3, n2, n1, n4]/(-j[t3, -1, 0, 0, 0, 0, 0] + j[t3, 0, \
+-1, 0, 0, 0, 0] + j[t3, 0, 0, -1, 0, 0, 0] + j[t3, 0, 0, 0, -1, 0, 0] - j[t3, \
+0, 0, 0, 0, -1, 0] + j[t3, 0, 0, 0, 0, 0, -1] + mUV2^2*j[t3, 0, 0, 0, 0, 0, \
+0])^n5], j[t3, (n1_)?Positive, (n2_)?Positive, (n3_)?NonPositive, \
+(n4_)?NonPositive, (n5_)?NonPositive, (n6_)?Positive] /; True :> 
+   Expand[j[t3, 0, n4, n2, n3, n1, n6]/(-j[t3, -1, 0, 0, 0, 0, 0] + j[t3, 0, \
+-1, 0, 0, 0, 0] + j[t3, 0, 0, -1, 0, 0, 0] + j[t3, 0, 0, 0, -1, 0, 0] - j[t3, \
+0, 0, 0, 0, -1, 0] + j[t3, 0, 0, 0, 0, 0, -1] + mUV2^2*j[t3, 0, 0, 0, 0, 0, \
+0])^n5], j[t3, (n1_)?Positive, (n2_)?Positive, (n3_)?NonPositive, \
+(n4_)?NonPositive, (n5_)?Positive, (n6_)?NonPositive] /; True :> 
+   Expand[j[t3, n4, n3, n2, 0, n5, n1]/(j[t3, -1, 0, 0, 0, 0, 0] + j[t3, 0, \
+-1, 0, 0, 0, 0] - j[t3, 0, 0, -1, 0, 0, 0] - j[t3, 0, 0, 0, -1, 0, 0] + j[t3, \
+0, 0, 0, 0, -1, 0] + j[t3, 0, 0, 0, 0, 0, -1] + mUV2^2*j[t3, 0, 0, 0, 0, 0, \
+0])^n6], j[t3, (n1_)?Positive, (n2_)?Positive, (n3_)?Positive, \
+(n4_)?NonPositive, (n5_)?NonPositive, (n6_)?NonPositive] /; True :> \
+Expand[j[t3, n6, n5, n3, n4, n2, n1]], 
+  j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?NonPositive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /; True :> Expand[j[t3, n3, n1, n2, n6, n4, \
+n5]], j[t3, (n1_)?NonPositive, (n2_)?Positive, (n3_)?Positive, \
+(n4_)?NonPositive, (n5_)?Positive, (n6_)?Positive] /; True :> Expand[j[t3, \
+n4, n1, n6, n2, n3, n5]], j[t3, (n1_)?NonPositive, (n2_)?Positive, \
+(n3_)?Positive, (n4_)?Positive, (n5_)?Positive, (n6_)?NonPositive] /; True :> \
+Expand[j[t3, n6, n1, n4, n3, n2, n5]], 
+  j[t3, (n1_)?Positive, (n2_)?NonPositive, (n3_)?NonPositive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?Positive] /; True :> Expand[j[t3, n3, n2, n1, n5, n4, \
+n6]], j[t3, (n1_)?Positive, (n2_)?NonPositive, (n3_)?Positive, \
+(n4_)?NonPositive, (n5_)?Positive, (n6_)?Positive] /; True :> Expand[j[t3, \
+n4, n2, n5, n1, n3, n6]], j[t3, (n1_)?Positive, (n2_)?NonPositive, \
+(n3_)?Positive, (n4_)?Positive, (n5_)?NonPositive, (n6_)?Positive] /; True :> \
+Expand[j[t3, n5, n2, n4, n3, n1, n6]], 
+  j[t3, (n1_)?Positive, (n2_)?NonPositive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?NonPositive] /; True :> Expand[j[t3, n6, n5, n3, n4, \
+n2, n1]], j[t3, (n1_)?Positive, (n2_)?Positive, (n3_)?NonPositive, \
+(n4_)?NonPositive, (n5_)?Positive, (n6_)?Positive] /; True :> Expand[j[t3, \
+n4, n6, n1, n5, n3, n2]], j[t3, (n1_)?Positive, (n2_)?Positive, \
+(n3_)?NonPositive, (n4_)?Positive, (n5_)?NonPositive, (n6_)?Positive] /; True \
+:> Expand[j[t3, n5, n3, n6, n2, n1, n4]], 
+  j[t3, (n1_)?Positive, (n2_)?Positive, (n3_)?NonPositive, (n4_)?Positive, \
+(n5_)?Positive, (n6_)?NonPositive] /; True :> Expand[j[t3, n6, n3, n5, n1, \
+n2, n4]], j[t3, (n1_)?Positive, (n2_)?Positive, (n3_)?Positive, \
+(n4_)?NonPositive, (n5_)?NonPositive, (n6_)?Positive] /; True :> Expand[j[t3, \
+n5, n4, n2, n6, n1, n3]], j[t3, (n1_)?Positive, (n2_)?Positive, \
+(n3_)?Positive, (n4_)?NonPositive, (n5_)?Positive, (n6_)?NonPositive] /; True \
+:> Expand[j[t3, n6, n4, n1, n5, n2, n3]], 
+  j[t3, (n1_)?Positive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?NonPositive, (n6_)?NonPositive] /; True :> Expand[j[t3, n6, n5, n3, n4, \
+n2, n1]], j[t3, (n1_)?Positive, (n2_)?NonPositive, (n3_)?Positive, \
+(n4_)?Positive, (n5_)?Positive, (n6_)?Positive] /; True :> Expand[j[t3, n2, \
+n5, n4, n3, n6, n1]], j[t3, (n1_)?Positive, (n2_)?Positive, \
+(n3_)?NonPositive, (n4_)?Positive, (n5_)?Positive, (n6_)?Positive] /; True :> \
+Expand[j[t3, n3, n6, n5, n1, n4, n2]], 
+  j[t3, (n1_)?Positive, (n2_)?Positive, (n3_)?Positive, (n4_)?NonPositive, \
+(n5_)?Positive, (n6_)?Positive] /; True :> Expand[j[t3, n4, n6, n1, n5, n3, \
+n2]], j[t3, (n1_)?Positive, (n2_)?Positive, (n3_)?Positive, (n4_)?Positive, \
+(n5_)?NonPositive, (n6_)?Positive] /; True :> Expand[j[t3, n5, n6, n3, n4, \
+n1, n2]], j[t3, (n1_)?Positive, (n2_)?Positive, (n3_)?Positive, \
+(n4_)?Positive, (n5_)?Positive, (n6_)?NonPositive] /; True :> Expand[j[t3, \
+n6, n5, n3, n4, n2, n1]]}]\
+\>", "Output",
+ CellChangeTimes->{
+  3.8479735332460957`*^9, {3.847973585477373*^9, 3.8479735971929893`*^9}, 
+   3.847973654178125*^9, 3.84797370117485*^9, 3.847973752376357*^9, 
+   3.8479738434844437`*^9, 3.847973930597577*^9, 3.847973989377301*^9, 
+   3.847974174118485*^9, 3.847975485041957*^9, {3.847975552040484*^9, 
+   3.84797559697501*^9}, 3.8479764468068733`*^9, 3.848024194605422*^9, 
+   3.8480362058252907`*^9, 3.858051693987977*^9},
+ CellLabel->
+  "Out[14]//InputForm=",ExpressionUUID->"7c7b16f4-26ab-448a-9798-\
+ce223fcf752d"]
+}, Open  ]],
+
+Cell[BoxData[""], "Input",
+ CellChangeTimes->{{3.847963490207676*^9, 3.8479635051910048`*^9}, 
+   3.8580514362208652`*^9},
+ CellLabel->"In[15]:=",ExpressionUUID->"60b1d929-399e-4e69-b05a-c73016a53f62"]
+},
+WindowSize->{3840., 1028.25},
+WindowMargins->{{0, Automatic}, {0, Automatic}},
+PrivateNotebookOptions->{"VersionedStylesheet"->{"Default.nb"[8.] -> False}},
+FrontEndVersion->"12.3 for Linux x86 (64-bit) (June 30, 2021)",
+StyleDefinitions->"Default.nb",
+ExpressionUUID->"f7f5c097-1614-4459-a1b3-04fbcda5b65a"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[CellGroupData[{
+Cell[579, 22, 2953, 83, 174, "Input",ExpressionUUID->"ad3b92bf-0365-4af8-8849-40771e5a54c8"],
+Cell[CellGroupData[{
+Cell[3557, 109, 1962, 45, 142, "Print",ExpressionUUID->"a2fb01bb-40fb-4d5e-8ed2-1b595a1c7426"],
+Cell[5522, 156, 738, 11, 142, "Print",ExpressionUUID->"1d0c6425-d022-4c26-8096-3bc66237f6cf"]
+}, Open  ]],
+Cell[6275, 170, 622, 13, 28, "Message",ExpressionUUID->"8ae2ace4-0e82-47b8-8efb-bb2be4b5c2e0"],
+Cell[CellGroupData[{
+Cell[6922, 187, 579, 9, 64, "Print",ExpressionUUID->"ce01dd22-acb1-4b16-848e-559dde5bba90"],
+Cell[7504, 198, 859, 13, 142, "Print",ExpressionUUID->"3c504db6-2007-492d-9eec-418141d83cae"],
+Cell[8366, 213, 881, 13, 123, "Print",ExpressionUUID->"11849fca-f554-4adb-8c08-767a1877c09f"],
+Cell[9250, 228, 677, 16, 23, "Print",ExpressionUUID->"ea0e2429-eaeb-4ebd-aa7c-0d3e846905f3"]
+}, Open  ]],
+Cell[9942, 247, 646, 13, 28, "Message",ExpressionUUID->"cd779234-6b0e-4489-861a-1ceb54e63841"],
+Cell[CellGroupData[{
+Cell[10613, 264, 591, 9, 83, "Print",ExpressionUUID->"5ed6094e-3c7e-4551-9e58-37f8e3739938"],
+Cell[11207, 275, 679, 16, 23, "Print",ExpressionUUID->"65e2b324-fc6c-442b-ba87-47bd604917b4"]
+}, Open  ]],
+Cell[11901, 294, 648, 13, 28, "Message",ExpressionUUID->"c978506b-d6d9-4216-a4af-adf59b4038af"],
+Cell[CellGroupData[{
+Cell[12574, 311, 591, 9, 83, "Print",ExpressionUUID->"b8b3236f-fd72-40dd-9236-b36c62894cc5"],
+Cell[13168, 322, 677, 16, 23, "Print",ExpressionUUID->"97f30435-fc79-46bd-9eca-cb8911adbf55"]
+}, Open  ]],
+Cell[13860, 341, 646, 13, 28, "Message",ExpressionUUID->"03f92118-80f8-4700-9174-441f3ed85c92"],
+Cell[14509, 356, 667, 13, 28, "Message",ExpressionUUID->"a4bdce6a-a935-4da5-930a-cbc7088a52ec"],
+Cell[CellGroupData[{
+Cell[15201, 373, 591, 9, 83, "Print",ExpressionUUID->"74c81e3c-a88f-424a-b02c-0d00a473a09e"],
+Cell[15795, 384, 677, 16, 23, "Print",ExpressionUUID->"6fe25322-333d-4db9-ade7-1bdbd816fda2"],
+Cell[16475, 402, 593, 9, 83, "Print",ExpressionUUID->"5d1e6864-5b19-4e53-a4c5-660fc657fea4"],
+Cell[17071, 413, 676, 16, 23, "Print",ExpressionUUID->"f7b56ab7-3837-494a-a15e-77eeb6e7d0b2"],
+Cell[17750, 431, 591, 9, 83, "Print",ExpressionUUID->"8ed3866e-3d85-4c79-9ece-a36122eb36d7"]
+}, Open  ]],
+Cell[18356, 443, 440, 7, 33, "Output",ExpressionUUID->"7a5955ef-8bb1-4a99-b2ed-de15f612a472"],
+Cell[18799, 452, 22263, 547, 162, "Output",ExpressionUUID->"adad5136-b60f-4cd3-9b43-1bad0ce679e1"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[41099, 1004, 491, 14, 29, "Input",ExpressionUUID->"ecc2548c-054f-4a8f-9b7c-e6b52ba17819"],
+Cell[41593, 1020, 467, 12, 33, "Output",ExpressionUUID->"c6f96b73-ae21-4468-99b3-ece54c299cec"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[42097, 1037, 663, 16, 29, "Input",ExpressionUUID->"3fefe9a5-8efb-4702-bb62-2c26cc1cdebd"],
+Cell[42763, 1055, 977, 28, 51, "Output",ExpressionUUID->"652eaa9e-3997-43ef-b87e-0a55eecc8fa0"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[43777, 1088, 544, 15, 29, "Input",ExpressionUUID->"5f4a7f55-5bbd-459e-99e8-42c80ea6a3b1"],
+Cell[44324, 1105, 821, 25, 51, "Output",ExpressionUUID->"befecc7e-4812-476c-86b5-55758657b402"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[45182, 1135, 547, 15, 29, "Input",ExpressionUUID->"ce59874f-48fe-4a9d-86c5-9c840f88aa06"],
+Cell[45732, 1152, 823, 25, 51, "Output",ExpressionUUID->"0443ec8f-288a-465d-8520-51e2502cfbaa"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[46592, 1182, 523, 11, 29, "Input",ExpressionUUID->"bdcffd69-0fd3-4ce4-9bdc-15985202acd3"],
+Cell[47118, 1195, 12393, 304, 118, "Output",ExpressionUUID->"fdfc1476-7680-458e-850c-454dee879512"]
+}, Open  ]],
+Cell[CellGroupData[{
+Cell[59548, 1504, 2132, 51, 29, "Input",ExpressionUUID->"c37957ac-cc22-49ec-9a51-1a8fadec7036"],
+Cell[61683, 1557, 81008, 1139, 3287, "Output",ExpressionUUID->"7c7b16f4-26ab-448a-9798-ce223fcf752d"]
+}, Open  ]],
+Cell[142706, 2699, 201, 3, 29, "Input",ExpressionUUID->"60b1d929-399e-4e69-b05a-c73016a53f62"]
+}
+]
+*)
+
