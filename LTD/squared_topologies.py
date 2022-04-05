@@ -263,12 +263,6 @@ class SquaredTopologyGenerator:
 
                 diag_set['cb_to_lmb'] = [int(x) for x in lmb_to_cb_matrix]
 
-                # we know that the loop momenta in the cmb are direcly one of the loop momenta in the lmb
-                used_loop_momenta = [i for i in range(self.topo.n_loops) if
-                    len([cc for cc in diag_set['cb_to_lmb'][i * self.topo.n_loops:(i+1) * self.topo.n_loops] if cc != 0]) == 1 and
-                    any(cc != 0 for cc in diag_set['cb_to_lmb'][i * self.topo.n_loops + len(c) - 1:(i+1) * self.topo.n_loops])]
-                assert(len(used_loop_momenta) == self.topo.n_loops - len(c) + 1)
-
                 # construct the forest matrix that maps the amplitude momenta in the cmb
                 # to ones suitable for the spinney
                 for i, diag_info in enumerate(diag_set['diagram_info']):
@@ -279,11 +273,20 @@ class SquaredTopologyGenerator:
                             for di, d in enumerate(uv_subgraph['derived_graphs']):
                                 (loop_mom_map, shift_map) = self.topo.build_proto_topology(d['graph'], c, skip_shift=True)
 
-                                # Construct a loop momentum map for the loop momenta that remain after removing
-                                # all dependence on external momenta in the cmb.
-                                # ie for fmb defining edge c3-c4+c1+p1+p2, where c1 is cut we construct
-                                # f1 = c3 - c4, f1_shift = c1+p1+p2
+                                # Construct a loop momentum map using the loop momenta that are in the full subgraph only (needed for UV and soft CT).
+                                # ie for fmb defining edge c3-c4+c1+p1+p2, where c1 is cut and c4 belongs to the remaining graph, we construct
+                                # f1 = c3, f1_shift = c1+p1+p2-c4
                                 # The shift should be added later to the parametric shifts of each propagator containing f1.
+
+                                # get the loop momenta of the UV graph and its subgraphs in the lmb
+                                rem_edge_sigs = [edge_map[e] for e in uv_subgraph['full_subgraph_momenta']]
+                                rem_edge_loop_sigs = [s[0] for s in rem_edge_sigs if all(ss == 0 for ss in s[1]) and sum(abs(ss) for ss in s[0]) == 1]
+                                # now filter these loop momenta and filter cut momenta
+                                # we use that the loop momenta in the cmb are direcly one of the loop momenta in the lmb
+                                used_loop_momenta = [i for i in range(self.topo.n_loops) if any(s[i] != 0 for s in rem_edge_loop_sigs) and
+                                 len([cc for cc in diag_set['cb_to_lmb'][i * self.topo.n_loops:(i+1) * self.topo.n_loops] if cc != 0]) == 1 and
+                                 any(cc != 0 for cc in diag_set['cb_to_lmb'][i * self.topo.n_loops + len(c) - 1:(i+1) * self.topo.n_loops])]
+
                                 basis_shift_map = []
                                 new_lm_map = []
                                 for lmp, shp in loop_mom_map:

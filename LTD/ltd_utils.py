@@ -470,6 +470,7 @@ class TopologyGenerator(object):
                         'external_edges': subgraph_external_edges,
                         'loop_edges': subgraph_loop_edges,
                         'graph': copy.deepcopy(uv_subgraph),
+                        'full_subgraph_momenta': subgraph_momenta_full,
                     }
 
                     new_gs.append( {
