@@ -41,7 +41,7 @@ id pi^n? = (30246273033735921/9627687726852338)^n;
 *id logmUVmu = 18947212500888319/13667524756850476;
 
 * for mUV=1
-id mUV2 = 1;
+id mUV2^n? = 1;
 id logmUVmu = 0;
 
 argument rat;

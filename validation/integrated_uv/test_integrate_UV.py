@@ -780,7 +780,7 @@ class IntegratedUVTester(object):
         return (test_passed, comp_dir_name, msg, pc)
 
     def test_vs_pySecDec(self, max_total_denom_powers = 8, max_power_per_edge = 2, min_power_per_edge = 1, base_num_rank=6, 
-                            power_combs=None, n_cores = None, target_acc=1.0e-06, n_sigma_threshold=3, verbosity=0, topo_identifier='3L',max_epsilon_order_for_3L=0):
+                            power_combs=None, n_cores = None, target_acc=1.0e-06, n_sigma_threshold=3, verbosity=0, topo_identifier='3L',max_epsilon_order_for_3L=0, clean=False):
 
 
         test_template = open(pjoin(root_path,'test_template_vs_pySecDec.frm'),'r').read()
@@ -835,7 +835,7 @@ class IntegratedUVTester(object):
         # Build a list of edge powers and momenta combinations
         if power_combs is None:
             power_combinations = list(
-                el for el in itertools.product(*([list(range(max_total_denom_powers+1)),]*len(edges))) if 
+                el for el in itertools.product(*([list(range(min_power_per_edge,max_total_denom_powers+1)),]*len(edges))) if 
                 all(e<=max_power_per_edge for e in el) and all(e>=min_power_per_edge for e in el) and sum(el)<=max_total_denom_powers and any(e!=0 for e in el)
             )
         else:
@@ -867,10 +867,13 @@ class IntegratedUVTester(object):
                         Colour.RED, pjoin('.','comparison_vs_pySecDec',os.path.dirname(comp_dir_name)), ','.join('%d'%p for p in pc), Colour.END, msg
                     ))
                     #sys.exit(1)
-                elif verbosity>0:
-                    logger.info("\n%sComparison with pySecDec in '%s' passed for power combination (%s):%s\n%s"%(
-                        Colour.GREEN, pjoin('.','comparison_vs_pySecDec',os.path.dirname(comp_dir_name)), ','.join('%d'%p for p in pc), Colour.END, msg
-                    ))
+                else:
+                    if verbosity>0:
+                        logger.info("\n%sComparison with pySecDec in '%s' passed for power combination (%s):%s\n%s"%(
+                            Colour.GREEN, pjoin('.','comparison_vs_pySecDec',os.path.dirname(comp_dir_name)), ','.join('%d'%p for p in pc), Colour.END, msg
+                        ))
+                    if clean:
+                        shutil.rmtree(comp_dir_name)
 
 if __name__ == '__main__':
 
@@ -901,6 +904,10 @@ if __name__ == '__main__':
                         help='Specify the maximal power that can appear in edges (default: %(default)s).')
     parser.add_argument('--min_power_per_edge', '-minppe', dest='min_power_per_edge', type=int, default=0,
                         help='Specify the min power per edge (default: %(default)s).')
+
+    parser.add_argument(
+        "--clean", "-clean", action="store_true", dest="clean", default=False,
+        help="Remove existing output.")
 
     args = parser.parse_args()
 
@@ -938,4 +945,4 @@ if __name__ == '__main__':
     
     tester.test_vs_pySecDec(max_total_denom_powers = args.max_total_denom_powers, max_power_per_edge = args.max_power_per_edge, min_power_per_edge = args.min_power_per_edge, 
         base_num_rank=args.numerator, power_combs=args.powers, n_cores = args.n_cores, 
-        target_acc=args.required_accuracy, n_sigma_threshold=args.threshold, verbosity=args.verbosity, topo_identifier=args.topo_identifier)
+        target_acc=args.required_accuracy, n_sigma_threshold=args.threshold, verbosity=args.verbosity, topo_identifier=args.topo_identifier, clean=args.clean)
