@@ -864,11 +864,14 @@ aGraph=%s;
 
         lmb_edge_names = [ edge_key_to_name[e_key] for e_key in lmb ]
         topo_generator, _, _ = self.get_topo_generator(specified_LMB=lmb_edge_names)
+
         # And adjust all signatures (incl. the string momenta assignment accordingly)
+        lmb_edge_names = [ edge_name.replace('q','p') if edge_name.startswith('q') else edge_name[1:] for edge_name in lmb_edge_names]
         signatures = topo_generator.get_signature_map()
         signatures = { edge_name.replace('q','p') if edge_name.startswith('q') else edge_name[1:] : (tuple(sig[0]),
                 tuple([ i+o for i,o in zip(sig[1][:len(sig[1])//2],sig[1][len(sig[1])//2:]) ])
          ) for edge_name, sig in signatures.items() }
+        edge_name_to_power = { edge_name.replace('q','p') if edge_name.startswith('q') else edge_name[1:] : v for edge_name,v in edge_name_to_power.items() }
 
         # from pprint import pprint, pformat
         # pprint(signatures)
@@ -965,9 +968,18 @@ aGraph=%s;
         topo_generator, edge_name_to_key, original_LMB = self.get_topo_generator()
         edge_key_to_name = {v:k for k,v in edge_name_to_key.items()}
         
-        # Set propagator powers
+        # Get propagator powers
         sig_map=topo_generator.get_signature_map()
-        edge_name_to_power = { e_name: list(sig_map.values()).count(sig_map[e_name]) for e_name in edge_name_to_key } 
+        sig_powers = {}
+        for edge_name, sig in sig_map.items():
+            a = (tuple(sig[0]),tuple(sig[1]))
+            b =  (tuple([-s for s in sig[0]]),tuple([-s for s in sig[1]]))
+            for s in [a,b]:
+                if s in sig_powers:
+                    sig_powers[s] += 1
+                else:
+                    sig_powers[s] = 1
+        edge_name_to_power = { e_name: sig_powers[(tuple(sig_map[e_name][0]),tuple(sig_map[e_name][1]))] for e_name in edge_name_to_key } 
 
         all_lmbs = topo_generator.loop_momentum_bases()
         all_lmbs= [ tuple([edge_name_to_key[topo_generator.edge_map_lin[e][0]] for e in lmb]) for lmb in all_lmbs]
@@ -986,10 +998,11 @@ aGraph=%s;
 
             lmb_metric.sort(key=lambda score:tuple(score[:-1]), reverse=True)
             # Convenient printout for debugging heuristics for choice of basis for particular supergraphs
-            #if self.name == 'SG_QG310':
-            #    misc.sprint("All lmb scores for %s:\n%s"%(self.name,'\n'.join(
-            #        '#%-2d: %s = %s'%(lmb_info[-1],','.join(edge_key_to_name[e] for e in all_lmbs[lmb_info[-1]]),','.join('%-5s'%s for s in lmb_info[:-1])) for lmb_info in lmb_metric
-            #    )))
+            # if self.name == 'SG_QG0':
+            #     print("All lmb scores for %s:\n%s"%(self.name,'\n'.join(
+            #         '#%-2d: %s = %s'%(lmb_info[-1],','.join(edge_key_to_name[e] for e in all_lmbs[lmb_info[-1]]),','.join('%-5s'%s for s in lmb_info[:-1])) for lmb_info in lmb_metric
+            #     )))
+            # stop
             forced_LMB_index = lmb_metric[0][-1]
 
         reference_lmb = None

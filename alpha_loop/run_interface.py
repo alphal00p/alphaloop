@@ -1678,6 +1678,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
         super(alphaLoopRunInterface, self).__init__(*args, **opts)
 
+    def do_save_supergraphs(self, line):
+        logger.info("Writing out processed yaml supergaphs on disk in pickle format...")
+        self.all_supergraphs.export(pjoin(self.dir_path, self._rust_inputs_folder))
+
     def get_particle_mass(self, pdg):
         
         if pdg in dummy_scalar_PDGs:
