@@ -727,7 +727,9 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                     if wgt_for_this_channel is None or wgt_for_this_channel == 0.:
                         # Unstable point for this test, skip this attempt and pick another seed:
                         unstable_point_found =True
-                        logger.info("An unstable point was found when trying to dynamically optimise integration channel, a different point will be picked now.")
+                        logger.info("An unstable point was found when trying to dynamically optimise integration channel #%d; a different point will be picked now. Channel info:\n%s"%(
+                            i_channel, pformat(channel_info)
+                        ))
                         break
                     truncated_res = '%.12e'%wgt_for_this_channel
                     if truncated_res in channel_evaluations:
@@ -781,7 +783,6 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             raise SamplerError("Some of the particle masses used in that supergraph are not defined in the model. Make sure you loaded the proper model and with the proper restrict card.")
 
         for i_channel, SG_channel_info in enumerate(self.SG['SG_multichannel_info']):
-
             tree_topology_info = self.SG['cutkosky_cuts'][
                     SG_channel_info['cutkosky_cut_id']
                 ]['multichannel_info']['tree_topologies'][
@@ -798,8 +799,11 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
 
             if self.n_initial==1:
                 # For 1>N topologies we fake a 2>N massless one:
-                generator_initial_state_masses = [0., 0.]
-                generator_beam_Es = (initial_state_masses[0]/2.,initial_state_masses[0]/2.)
+                generator_initial_state_masses = [0., 0.]                
+                if initial_state_masses[0]==0.:
+                    generator_beam_Es = (self.E_cm/2.,self.E_cm/2.)
+                else:
+                    generator_beam_Es = (initial_state_masses[0]/2.,initial_state_masses[0]/2.)
             else:
                 generator_initial_state_masses = initial_state_masses
                 generator_beam_Es = (self.E_cm/2.,self.E_cm/2.)
@@ -829,14 +833,17 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
                 #generator_beam_Es = tuple([125.0,])
                 if self.n_initial==1:
                     # For emulating a 2>1 in the SingleChannelPhasespace class, we must move the existing "closing t-channel" into an s-channel 
-                    # and add a fake "closing" t-channel from 2 photons for instance going into the one particle decaying 
+                    # and add a fake "closing" t-channel from 2 photons for instance going into the one particle decaying
                     selected_topology = list(copy.deepcopy(tree_topology_info['s_and_t_propagators']))
                     initial_state_leg = None
-                    for leg in tree_topology_info['s_and_t_propagators'][1][0].get('legs'):
+                    for leg in selected_topology[1][0].get('legs'):
                         if leg.get('state') == INITIAL:
                             initial_state_leg = leg
                             initial_state_leg.set('state',FINAL)
                             break
+                    if initial_state_leg is None:
+                        raise SamplerError("Could not identify an initial-state leg in the following topology of channel #%d:\n%s"%(i_channel,pformat(tree_topology_info)))
+
                     selected_topology[0].append(tree_topology_info['s_and_t_propagators'][1][0])
                     selected_topology[1] = base_objects.VertexList([base_objects.Vertex({
                         'id': DUMMY, # Irrelevant
