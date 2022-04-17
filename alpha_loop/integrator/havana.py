@@ -100,7 +100,7 @@ class AL_cluster(object):
     def __init__(self, architecture, n_workers, n_cores_per_worker, run_workspace, process_results_callback, run_id, 
                 monitor_callback=None, cluster_options=None, keep=False, debug=False, trashcan=None, 
                 use_redis=False, redis_port=8786, redis_hostname=None, redis_max_job_time=None, external_redis=False,
-                redis_queue_name = None, worker_resources_path = None
+                redis_queue_name = None, worker_resources_path = None, standalone_workers = None
                 ):
 
         self.n_workers = n_workers
@@ -113,6 +113,7 @@ class AL_cluster(object):
         self.all_worker_hooks = []
         self.active = True
         self.worker_resources_path = worker_resources_path
+        self.standalone_workers = standalone_workers
 
         self.process_results_callback = process_results_callback
         self.monitor_callback = monitor_callback
@@ -1388,7 +1389,8 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
             self.cluster_type, self.n_workers, self.n_cores_per_worker, self.run_workspace, self.process_job_result, self.run_id,
             monitor_callback=self.process_al_cluster_status_update, cluster_options=cluster_options, keep=self.keep, debug=self._DEBUG, 
             trashcan=self.trashcan, use_redis=self.use_redis, redis_max_job_time = self.redis_max_job_time, external_redis = self.external_redis,
-            redis_hostname=self.redis_hostname, redis_port=self.redis_port, redis_queue_name = self.redis_queue, worker_resources_path = self.worker_resources_path
+            redis_hostname=self.redis_hostname, redis_port=self.redis_port, redis_queue_name = self.redis_queue, worker_resources_path = self.worker_resources_path,
+            standalone_workers = self.standalone_workers
         )
 
         try:
