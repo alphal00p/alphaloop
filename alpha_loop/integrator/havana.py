@@ -659,7 +659,7 @@ class AL_cluster(object):
                 'requested_memory_in_MB' : self.cluster_options['RAM_required'],
                 'redis_server' : 'redis://%s:%d'%(self.redis_submitter_hostname, self.redis_port),
                 'rq_path' : self.rq_path,
-                'transfer_input_files' : ( "" if self.worker_resources_path is None else pjoin(self.standalone_workers,os.path.basename(self.worker_resources_path)) )
+                'transfer_input_files' : ( "" if self.worker_resources_path is None else self.standalone_workers )
             }
             if self.use_redis:
                 format_dict['worker_script'] = pjoin(alphaloop_basedir,'alpha_loop','integrator','redis_worker.py')
