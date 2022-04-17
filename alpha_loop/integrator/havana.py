@@ -666,7 +666,7 @@ class AL_cluster(object):
                 format_dict['redis_queue_name'] = self.redis_queue.name
                 f.write(
     """executable         = %(python)s
-    arguments             = %(worker_script)s --run_id %(run_id)d --worker_id_min $(worker_id_min) --worker_id_max $(worker_id_max) --workspace_path %(worker_run_workspace_dir)s --redis_server %(redis_server)s --rq_path %(rq_path)s --work_monitoring_path none --redis_queue_name %(redis_queue_name)s
+    arguments             = %(worker_script)s --run_id %(run_id)d --worker_id_min $(worker_id_min) --worker_id_max $(worker_id_max) --workspace_path %(worker_run_workspace)s --redis_server %(redis_server)s --rq_path %(rq_path)s --work_monitoring_path none --redis_queue_name %(redis_queue_name)s
     environment           = "LD_PRELOAD=%(libscsdir_path)s"
     output                = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).out
     error                 = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).err
@@ -685,7 +685,7 @@ class AL_cluster(object):
                 format_dict['worker_script'] = pjoin(alphaloop_basedir,'alpha_loop','integrator','worker.py')
                 f.write(
     """executable         = %(python)s
-    arguments             = %(worker_script)s --run_id %(run_id)d --worker_id_min $(worker_id_min) --worker_id_max $(worker_id_max) --workspace_path %(worker_run_workspace_dir)s --timeout %(timeout)s
+    arguments             = %(worker_script)s --run_id %(run_id)d --worker_id_min $(worker_id_min) --worker_id_max $(worker_id_max) --workspace_path %(worker_run_workspace)s --timeout %(timeout)s
     environment           = "LD_PRELOAD=%(libscsdir_path)s"
     output                = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).out
     error                 = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).err
