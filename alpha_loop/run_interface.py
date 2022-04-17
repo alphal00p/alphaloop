@@ -5346,6 +5346,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         '--no_write_common_grid_inputs_to_disk', action="store_false", dest="write_common_grid_inputs_to_disk", default=True,
         help="Do not use the filesystem for communicating the sampling grid inputs common to all jobs, even though it is typically more efficient.")
     integrate_parser.add_argument(
+        '--standalone_workers', dest="standalone_workers", type=str, default=None,
+        help="Submit all resources necessary for workers to the worker node so that shared file systems are not used at all. The option supplied is the directory where to write the common resources, typically /tmp. When using this option, we recommend you enable --no_write_common_grid_inputs_to_disk too.")
+    integrate_parser.add_argument(
         '--use_redis', action="store_true", dest="use_redis", default=False,
         help="Enable Redis for node communication, and not the filesystem.")
     integrate_parser.add_argument(
@@ -5640,7 +5643,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                  'redis_hostname' : args.redis_hostname,
                  'redis_queue' : args.redis_queue,
                  'bulk_redis_enqueuing' : args.bulk_redis_enqueuing,
-                 'write_common_grid_inputs_to_disk' : args.write_common_grid_inputs_to_disk
+                 'write_common_grid_inputs_to_disk' : args.write_common_grid_inputs_to_disk,
+                 'standalone_workers' : args.standalone_workers
             }
 
         elif args.integrator == 'inspect':

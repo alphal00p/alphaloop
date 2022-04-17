@@ -16,6 +16,7 @@ import subprocess
 import glob
 import re
 import socket
+import uuid
 import tempfile
 from pprint import pprint, pformat
 
@@ -99,7 +100,7 @@ class AL_cluster(object):
     def __init__(self, architecture, n_workers, n_cores_per_worker, run_workspace, process_results_callback, run_id, 
                 monitor_callback=None, cluster_options=None, keep=False, debug=False, trashcan=None, 
                 use_redis=False, redis_port=8786, redis_hostname=None, redis_max_job_time=None, external_redis=False,
-                redis_queue_name = None
+                redis_queue_name = None, worker_resources_path = None
                 ):
 
         self.n_workers = n_workers
@@ -111,6 +112,7 @@ class AL_cluster(object):
         self.workers = { }
         self.all_worker_hooks = []
         self.active = True
+        self.worker_resources_path = worker_resources_path
 
         self.process_results_callback = process_results_callback
         self.monitor_callback = monitor_callback
@@ -558,7 +560,10 @@ class AL_cluster(object):
                             '--workspace_path', str(self.run_workspace), '--timeout', '%.2f'%self._JOB_CHECK_FREQUENCY]
 
                 worker_env = os.environ.copy()
-                worker_env['LD_PRELOAD'] = pjoin(alphaloop_basedir,'libraries','scs','out','libscsdir.so')
+                if self.worker_resources_path:
+                    worker_env['LD_PRELOAD'] = pjoin(self.worker_resources_path,'libs','libscsdir.so')
+                else:
+                    worker_env['LD_PRELOAD'] = pjoin(alphaloop_basedir,'libraries','scs','out','libscsdir.so')
                 #worker_env['LD_PRELOAD'] = ' '.join([
                 #    pjoin(alphaloop_basedir,'libraries','scs','out','libscsdir.so'),
                 #    '/usr/lib/gcc/x86_64-linux-gnu/9/libstdc++.so',
@@ -627,9 +632,17 @@ class AL_cluster(object):
                 '%d, %d'%(i_worker*self.n_cores_per_worker, (i_worker+1)*self.n_cores_per_worker-1) for i_worker in range(self.n_workers)
             ))
         
-        libscsdir_path = pjoin(alphaloop_basedir,'libraries','scs','out','libscsdir.so')
-        if not os.path.exists(libscsdir_path):
-            raise HavanaIntegratorError("Could not find libscsdir.so at '%s'. Make sure it is present and compiled."%libscsdir_path)
+        if self.worker_resources_path:
+            libscsdir_path = pjoin(self.worker_resources_path,'libs','libscsdir.so')
+        else:
+            libscsdir_path = pjoin(alphaloop_basedir,'libraries','scs','out','libscsdir.so')
+            if not os.path.exists(libscsdir_path):
+                raise HavanaIntegratorError("Could not find libscsdir.so at '%s'. Make sure it is present and compiled."%libscsdir_path)
+
+        if self.worker_resources_path:
+            worker_run_workspace_dir = pjoin(self.worker_resources_path,'ProcessOutput','run_workspace')
+        else:
+            worker_run_workspace_dir = self.run_workspace
 
         with open(pjoin(self.run_workspace,'run_%d_condor_submission.sub'%self.run_id),'w') as f:
             
@@ -638,19 +651,21 @@ class AL_cluster(object):
                 'libscsdir_path' : libscsdir_path,
                 'run_id' : self.run_id,
                 'workspace' : self.run_workspace,
+                'worker_run_workspace' : worker_run_workspace_dir,
                 'timeout' : '%.2f'%(self._JOB_CHECK_FREQUENCY*15.),
                 'job_flavour' : self.cluster_options['job_flavour'],
                 'n_cpus_per_worker' : self.n_cores_per_worker,
                 'requested_memory_in_MB' : self.cluster_options['RAM_required'],
                 'redis_server' : 'redis://%s:%d'%(self.redis_submitter_hostname, self.redis_port),
-                'rq_path' : self.rq_path
+                'rq_path' : self.rq_path,
+                'transfer_input_files' : ( "" if self.worker_resources_path is None else pjoin(self.standalone_workers,os.path.basename(self.worker_resources_path)) )
             }
             if self.use_redis:
                 format_dict['worker_script'] = pjoin(alphaloop_basedir,'alpha_loop','integrator','redis_worker.py')
                 format_dict['redis_queue_name'] = self.redis_queue.name
                 f.write(
     """executable         = %(python)s
-    arguments             = %(worker_script)s --run_id %(run_id)d --worker_id_min $(worker_id_min) --worker_id_max $(worker_id_max) --workspace_path %(workspace)s --redis_server %(redis_server)s --rq_path %(rq_path)s --work_monitoring_path none --redis_queue_name %(redis_queue_name)s
+    arguments             = %(worker_script)s --run_id %(run_id)d --worker_id_min $(worker_id_min) --worker_id_max $(worker_id_max) --workspace_path %(worker_run_workspace_dir)s --redis_server %(redis_server)s --rq_path %(rq_path)s --work_monitoring_path none --redis_queue_name %(redis_queue_name)s
     environment           = "LD_PRELOAD=%(libscsdir_path)s"
     output                = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).out
     error                 = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).err
@@ -659,6 +674,8 @@ class AL_cluster(object):
     RequestMemory         = %(requested_memory_in_MB)d
     RequestDisk           = DiskUsage
     should_transfer_files = Yes
+    transfer_input_files  = %(transfer_input_files)s
+    transfer_output_files = ""
     when_to_transfer_output = ON_EXIT
     +JobFlavour           = "%(job_flavour)s"
     queue worker_id_min,worker_id_max from %(workspace)s/run_%(run_id)d_condor_worker_arguments.txt
@@ -667,7 +684,7 @@ class AL_cluster(object):
                 format_dict['worker_script'] = pjoin(alphaloop_basedir,'alpha_loop','integrator','worker.py')
                 f.write(
     """executable         = %(python)s
-    arguments             = %(worker_script)s --run_id %(run_id)d --worker_id_min $(worker_id_min) --worker_id_max $(worker_id_max) --workspace_path %(workspace)s --timeout %(timeout)s
+    arguments             = %(worker_script)s --run_id %(run_id)d --worker_id_min $(worker_id_min) --worker_id_max $(worker_id_max) --workspace_path %(worker_run_workspace_dir)s --timeout %(timeout)s
     environment           = "LD_PRELOAD=%(libscsdir_path)s"
     output                = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).out
     error                 = %(workspace)s/run_%(run_id)d_condor_logs/worker_$(worker_id_min)_$(worker_id_max).err
@@ -676,6 +693,8 @@ class AL_cluster(object):
     RequestMemory         = %(requested_memory_in_MB)d
     RequestDisk           = DiskUsage
     should_transfer_files = Yes
+    transfer_input_files  = %(transfer_input_files)s
+    transfer_output_files = ""
     when_to_transfer_output = ON_EXIT
     +JobFlavour           = "%(job_flavour)s"
     queue worker_id_min,worker_id_max from %(workspace)s/run_%(run_id)d_condor_worker_arguments.txt
@@ -866,6 +885,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                  bulk_redis_enqueuing=0,
                  redis_queue = None,
                  write_common_grid_inputs_to_disk=True,
+                 standalone_workers = False,
                  **opts):
 
         """ Initialize the simplest MC integrator."""
@@ -928,6 +948,8 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         self.redis_queue = redis_queue
         self.bulk_redis_enqueuing = bulk_redis_enqueuing
         self.write_common_grid_inputs_to_disk = write_common_grid_inputs_to_disk
+        self.standalone_workers = standalone_workers
+        self.worker_resources_path = None
 
         self.havana_starting_n_bins = havana_starting_n_bins
         self.havana_n_points_min = havana_n_points_min
@@ -1121,6 +1143,83 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         else:
             os.remove(rm_target)
 
+    def prepare_standalone_directory(self):
+        """ Prepare a standalone directory with all necessary resources for running workers so that he can be submitted and copy onto the worker nodes."""
+        
+        itg_args = self.integrands[0].get_constructor_arguments()
+        
+        if os.path.isdir(self.standalone_workers) and os.path.isdir(pjoin(self.standalone_workers,'ProcessOutput','run_workspace')):
+            logger.info("Recycling existing resources directory '%s'"%self.standalone_workers)
+            run_workspace = pjoin(self.standalone_workers,'ProcessOutput','run_workspace')
+            if not os.path.isdir(pjoin(run_workspace,itg_args['run_dir'])):
+                os.mkdir(pjoin(run_workspace,itg_args['run_dir']))
+            for itg in self.integrands:
+                yaml_hyperparams = itg.get_constructor_arguments()['run_hyperparameters_filename']
+                shutil.copy(
+                    pjoin(itg_args['run_workspace'], itg_args['run_dir'], yaml_hyperparams),
+                    pjoin(run_workspace, itg_args['run_dir'], yaml_hyperparams)
+                )
+            return self.standalone_workers
+
+        elif (not os.path.isdir(self.standalone_workers)) and os.path.isdir(os.path.abspath(pjoin(self.standalone_workers, os.path.pardir))):
+            os.mkdir(self.standalone_workers)
+            standalone_dir = self.standalone_workers
+        elif os.path.isdir(self.standalone_workers) and not any(os.scandir(self.standalone_workers)):
+            standalone_dir = self.standalone_workers
+        else:
+            standalone_dir = pjoin(self.standalone_workers,'alphaLoop_%s'%str(uuid.uuid4()))
+            os.mkdir(standalone_dir)
+
+        # Copy all Python resources
+        #python_path = os.path.abspath(pjoin(sys.executable,os.path.pardir,os.path.pardir))
+        #logger.info("Copying Python resources...")
+        #shutil.copytree(python_path,pjoin(standalone_dir,'Python'))
+
+        # Copy relevant process output resources
+        logger.info("Copying relevant process output resources into '%s'..."%standalone_dir)
+        process_output_path = pjoin(standalone_dir,'ProcessOutput')
+        os.mkdir(process_output_path)
+        shutil.copytree(itg_args['rust_input_folder'], pjoin(process_output_path,'Rust_inputs') )
+        shutil.copy(
+            itg_args['cross_section_set_file_path'], 
+            pjoin(process_output_path,'Rust_inputs',os.path.basename(itg_args['cross_section_set_file_path'])) 
+        )
+        shutil.copytree(os.path.join(itg_args['rust_input_folder'], os.path.pardir,'lib'), pjoin(process_output_path,'lib') )
+
+        # Copy relevant alphaLoop resources
+        logger.info("Copying relevant alphaLoop resources...")
+        alphaLoop_path = pjoin(standalone_dir,'alpha_loop')
+        os.mkdir(alphaLoop_path)
+        shutil.copy(pjoin(itg_args['alpha_loop_path'],'ltd.so'),pjoin(alphaLoop_path,'ltd.so'))
+
+        # Copy relevant run_workspace resources
+        logger.info("Copying relevant run workspace resources...")
+        run_workspace = pjoin(process_output_path,'run_workspace')
+        os.mkdir(run_workspace)
+        os.mkdir(pjoin(run_workspace,itg_args['run_dir']))
+        for itg in self.integrands:
+            yaml_hyperparams = itg.get_constructor_arguments()['run_hyperparameters_filename']
+            shutil.copy(
+                pjoin(itg_args['run_workspace'], itg_args['run_dir'], yaml_hyperparams),
+                pjoin(run_workspace, itg_args['run_dir'], yaml_hyperparams)
+            )
+
+        # Copy relevant libraries
+        logger.info("Copying relevant library resources...")
+        libs_path = pjoin(standalone_dir,'libs')
+        os.mkdir(libs_path)
+        found_it = False
+        for ext in ['so', 'dylib']:
+            libscsdir_path = pjoin(itg_args['alpha_loop_path'],'libraries','scs','out','libscsdir.%s'%ext)
+            if os.path.exists(libscsdir_path):
+                shutil.copy(libscsdir_path,pjoin(libs_path,'libscsdir.%s'%ext))
+                found_it = True
+                break
+        if not found_it:
+            raise HavanaIntegratorError("Could not find libscsdir.so at '%s'. Make sure it is present and compiled."%(pjoin(itg_args['alpha_loop_path'],'libraries','scs','out','libscsdir.[so|dylib]')))
+
+        return standalone_dir
+
     async def async_integrate(self):
 
         global trash_counter
@@ -1234,8 +1333,26 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
             ))
             return
 
+        integrands_constructor_args = [
+            integrand.get_constructor_arguments() for integrand in self.integrands
+        ]
+
         # Now perform the integration
-        
+        if self.standalone_workers:
+            resources_dir_name = self.prepare_standalone_directory()
+            if self.cluster_type == 'condor':
+                # On condor, resources will be copied to the local directory
+                self.worker_resources_path = pjoin('.',os.path.basename(resources_dir_name))
+            else:
+                # Locally, we keep resources at the original location
+                self.worker_resources_path = os.path.abspath(resources_dir_name)
+            # Now overwrite the integrands_constructor_args so as to specify local resources instead.
+            for a in integrands_constructor_args:
+                a['alpha_loop_path'] = pjoin(self.worker_resources_path,'alpha_loop')
+                a['run_workspace'] = pjoin(self.worker_resources_path,'ProcessOutput','run_workspace')
+                a['cross_section_set_file_path'] = pjoin(self.worker_resources_path,'ProcessOutput','Rust_inputs',os.path.basename(a['cross_section_set_file_path']))
+                a['rust_input_folder'] = pjoin(self.worker_resources_path,'ProcessOutput','Rust_inputs')
+
         logger.info("Staring alphaLoop integration with Havana and cluster '%s' as run #%d"%(self.cluster_type, self.run_id))
         logger.info("Number of SG considered: %s (%s)"%(
             len(self.cross_section_set['topologies']) if SG_ids is None else len(SG_ids), "Monte-Carlo'ed over" if self.MC_over_SGs else 'explicitly summed per sample'
@@ -1249,10 +1366,6 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         current_n_points = self.n_start
         current_step = self.n_increase
         self.n_tot_points = 0
-
-        integrands_constructor_args = [
-            integrand.get_constructor_arguments() for integrand in self.integrands
-        ]
 
         job_ID = 0
 
@@ -1275,7 +1388,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
             self.cluster_type, self.n_workers, self.n_cores_per_worker, self.run_workspace, self.process_job_result, self.run_id,
             monitor_callback=self.process_al_cluster_status_update, cluster_options=cluster_options, keep=self.keep, debug=self._DEBUG, 
             trashcan=self.trashcan, use_redis=self.use_redis, redis_max_job_time = self.redis_max_job_time, external_redis = self.external_redis,
-            redis_hostname=self.redis_hostname, redis_port=self.redis_port, redis_queue_name = self.redis_queue
+            redis_hostname=self.redis_hostname, redis_port=self.redis_port, redis_queue_name = self.redis_queue, worker_resources_path = self.worker_resources_path
         )
 
         try:
