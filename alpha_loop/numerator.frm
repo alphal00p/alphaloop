@@ -177,7 +177,7 @@ Set dirac: s1,...,s40;
 Set lorentz: mu1,...,mu40;
 Set lorentzdummy: mud1,...,mud40;
 
-CF gamma, gammatrace(c), GGstring, NN, vector,g(s),delta(s),tmps(s),T, counter,color, prop, replace;
+CF gamma, gammatrace(c), GGstring, NN, vector,g(s),delta(s),tmps(s), counter,color, prop, replace;
 CF f, vx, vxs(s), uvx, vec, vec1;
 CF subs, configurations, conf, tder, cmb, cbtofmb, fmbtocb, diag, forestid, nloops, der, energy, spatial(s), onshell;
 CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, irtopo, intuv, integrateduv;
@@ -205,9 +205,10 @@ Symbol ca,cf,nf,[dabc^2],[d4RR],[d4RA],[d4AA];
 
 S  i, m, n, ALARM;
 
-#include- diacolor.h
-Set colF: cOli1,...,cOli40;
-Set colA: cOlj1,...,cOlj40;
+CT colf,T,colTr;
+Auto I coli=3,colj=8;
+Set colF: coli1,...,coli40;
+Set colA: colj1,...,colj40;
 
 Polyratfun rat;
 
@@ -324,7 +325,7 @@ id vx(x1?{`QBARMASSIVEPRIME'}, `PHO', x2?{`QMASSIVE'}, `SDUMMY', p1?, p2?, p3?, 
 
 * vertices
 id vx(x1?{`QBAR'}, `GLU', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gs * T(colF[idx1], colA[idx2], colF[idx3]);
-id vx(`GHOBAR', `GLU', `GHO', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gs * i_ * cOlf(colA[idx3], colA[idx2], colA[idx1]) * (1/2);
+id vx(`GHOBAR', `GLU', `GHO', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gs * i_ * colf(colA[idx3], colA[idx2], colA[idx1]) * (1/2);
 id vx(x1?{`QBAR'}, `PHO', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = charges(x2) * ge * i_ * d_(colF[idx1], colF[idx3]);
 id vx(x1?{`LBAR'}, `PHO', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = charges(x2) * ge * i_;
 id vx(x1?{`QBAR'}, `H', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gyq(x1) * i_ * d_(colF[idx1], colF[idx3]);
@@ -332,7 +333,7 @@ id vx(x1?{`LBAR'}, `H', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gyq(x1)
 id vx(`H', `H', `H', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ghhh * i_;
 
 id vx(`H', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = - i_ * d_(colA[idx2], colA[idx3]) * ( -gs^2/12/vev/pi^2 );
-id vx(`H', `GLU', `GLU', `GLU', p4?, p1?, p2?, p3?, idx4?, idx1?, idx2?, idx3?) = i_ * gs * cOlf(colA[idx1], colA[idx2], colA[idx3]) * ( -gs^2/12/vev/pi^2 );
+id vx(`H', `GLU', `GLU', `GLU', p4?, p1?, p2?, p3?, idx4?, idx1?, idx2?, idx3?) = i_ * gs * colf(colA[idx1], colA[idx2], colA[idx3]) * ( -gs^2/12/vev/pi^2 );
 
 #do i=3,6
     id vx(<x1?{`PSI',}>,...,<x`i'?{`PSI',}>, p1?, ...,p`i'?, idx1?, ..., idx`i'?) = (-1*i_)^(`i'-2);
@@ -354,21 +355,21 @@ id vx(x1?{`QBARMASSIVE'}, x2?{`QMASSIVE'}, p1?, p2?, idx1?, idx2?) = (1/1) * (-1
 * The version below is for contributions to the gluon wavefunction from g, gh and down quark only, so it is good for e+ e- > j j j / u c s b t
 id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (1/3) * (-1) * i_ * d_(colA[idx1], colA[idx2]) * (gs^2/16/pi^2);
 
-id vx(`GLU', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = i_ * gs * cOlf(colA[idx1], colA[idx2], colA[idx3]);
+id vx(`GLU', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = i_ * gs * colf(colA[idx1], colA[idx2], colA[idx3]);
 
 id vx(`GLU', `GLU', `GLU', `GLU', 1, p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?, idx5?) = -gs^2 * i_ *
-    cOlf(colA[idx5], colA[idx1], colA[idx2]) * cOlf(colA[idx3], colA[idx4], colA[idx5]);
+    colf(colA[idx5], colA[idx1], colA[idx2]) * colf(colA[idx3], colA[idx4], colA[idx5]);
 id vx(`GLU', `GLU', `GLU', `GLU', 2, p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?, idx5?) = -gs^2 * i_ *
-    cOlf(colA[idx5], colA[idx1], colA[idx3]) * cOlf(colA[idx2], colA[idx4], colA[idx5]);
+    colf(colA[idx5], colA[idx1], colA[idx3]) * colf(colA[idx2], colA[idx4], colA[idx5]);
 id vx(`GLU', `GLU', `GLU', `GLU', 3, p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?, idx5?) = -gs^2 * i_ *
-    cOlf(colA[idx5], colA[idx1], colA[idx4]) * cOlf(colA[idx2], colA[idx3], colA[idx5]);
+    colf(colA[idx5], colA[idx1], colA[idx4]) * colf(colA[idx2], colA[idx3], colA[idx5]);
 
 id vx(`H', `GLU', `GLU', `GLU', `GLU', 1, p5?, p1?, p2?, p3?, p4?, idx5?, idx1?, idx2?, idx3?, idx4?, idx6?) = -gs^2 * i_ * ( -gs^2/12/vev/pi^2 ) *
-    cOlf(colA[idx6], colA[idx1], colA[idx2]) * cOlf(colA[idx3], colA[idx4], colA[idx6]);
+    colf(colA[idx6], colA[idx1], colA[idx2]) * colf(colA[idx3], colA[idx4], colA[idx6]);
 id vx(`H', `GLU', `GLU', `GLU', `GLU', 2, p5?, p1?, p2?, p3?, p4?, idx5?, idx1?, idx2?, idx3?, idx4?, idx6?) = -gs^2 * i_ * ( -gs^2/12/vev/pi^2 ) *
-    cOlf(colA[idx6], colA[idx1], colA[idx3]) * cOlf(colA[idx2], colA[idx4], colA[idx6]);
+    colf(colA[idx6], colA[idx1], colA[idx3]) * colf(colA[idx2], colA[idx4], colA[idx6]);
 id vx(`H', `GLU', `GLU', `GLU', `GLU', 3, p5?, p1?, p2?, p3?, p4?, idx5?, idx1?, idx2?, idx3?, idx4?, idx6?) = -gs^2 * i_ * ( -gs^2/12/vev/pi^2 ) *
-    cOlf(colA[idx6], colA[idx1], colA[idx4]) * cOlf(colA[idx2], colA[idx3], colA[idx6]);
+    colf(colA[idx6], colA[idx1], colA[idx4]) * colf(colA[idx2], colA[idx3], colA[idx6]);
 
 if (count(vx, 1));
     Print "Unsubstituted vertex: %t";
@@ -376,57 +377,24 @@ if (count(vx, 1));
 endif;
 
 id tmp(x?) = x;
+
+B+ T, colf;
 .sort:feynman-rules-global;
+Keep brackets;
 
 ******************
 * Color evaluation
 ******************
-repeat id T(cOli1?,?a,cOli2?)*T(cOli2?,?b,cOli3?) = T(cOli1,?a,?b,cOli3); * collect the colour string
-id  T(cOli1?, ?a, cOli1?) = cOlTr(?a);
-id  cOlTr(cOli1?) = 0;
-id  cOlTr = cOlNR;
-Multiply color(1);
-repeat id cOlTr(?a)*color(x?) = color(x * cOlTr(?a));
-repeat id cOlf(cOlj1?,cOlj2?,cOlj3?)*color(x?) = color(x * cOlf(cOlj1,cOlj2,cOlj3));
-repeat id cOlNA*color(x?) = color(x * cOlNA);
-repeat id cOlNR*color(x?) = color(x * cOlNR);
-
-B+ color;
-.sort:color-prep;
-Keep brackets;
-
-* Only evaluate this part per unique color by bracketing
-Argument color;
-    #call color
-    #call simpli
-    id  cOlI2R = cOlcR*cOlNR/cOlNA;
-    id  cOlNR/cOlNA*cOlcR = cOlI2R;
-    id  cOld33(cOlpR1,cOlpR2) = [dabc^2];
-    id  cOlNR/cOlNA = nf/cf/2;
-    id  cOlcR = cf;
-    id  cOlcA = ca;
-    id  cOlI2R = nf/2;
-	id	cOld44(cOlpA1,cOlpA2) = [d4AA];
-	id	cOld44(cOlpR1,cOlpR2) = [d4RR];
-	id	cOld44(cOlpR1,cOlpA1) = [d4RA];
-
-* set the SU(3) values
-    id [dabc^2] = 15/18;
-    id [d4AA] = 135;
-    id [d4RR] = 5/12;
-    id [d4RA] = 15/2;
-    id cOlNR = 3;
-    id cOlNA = 8;
-    id cf = 4 / 3;
-    id ca = 3;
-    id nf = 1;
-EndArgument;
+repeat id T(coli1?,?a,coli2?)*T(coli2?,?b,coli3?) = T(coli1,?a,?b,coli3); * collect the colour string
+id T(coli1?, ?a, coli1?) = colTr(?a);
+repeat;
+    id colTr = 3;
+    id colTr(coli1?) = 0;
+    id colTr(?a,coli1?,?b,coli1?,?c) = 1/2*colTr(?a,?c)*colTr(?b) - 1/6*colTr(?a,?b,?c);
+    id colf(colj1?,colj2?,colj3?) = -2*i_*colTr(colj1,colj2,colj3) + 2*i_*colTr(colj3,colj2,colj1);
+    id colTr(?a,colj1?,?b)*colTr(?c,colj1?,?d) = 1/2*colTr(?a,?d,?c,?b) - 1/6*colTr(?a,?b)*colTr(?c,?d);
+endrepeat;
 .sort:color;
-
-* set the SU(3) values
-id cOlNR = 3;
-
-id color(x?) = x;
 
 #endprocedure
 

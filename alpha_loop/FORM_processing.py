@@ -134,7 +134,7 @@ forced_node_scalings = {}
 # Can switch to tmpdir() if necessary at some point
 FORM_workspace = pjoin(plugin_path,'FORM_workspace')
 Path(FORM_workspace).mkdir(parents=True, exist_ok=True)
-resources_to_link = ['diacolor.h']
+resources_to_link = []
 for resource in resources_to_link:
     if not os.path.exists(pjoin(FORM_workspace,resource)):
         utils.ln(pjoin(plugin_path,resource),starting_dir=FORM_workspace)
@@ -2930,7 +2930,6 @@ class FORMSuperGraphList(list):
             shutil.copy(pjoin(plugin_path,"tensorreduce.frm"),pjoin(selected_workspace,'tensorreduce.frm'))
             shutil.copy(pjoin(plugin_path,"Gstring.prc"),pjoin(selected_workspace,'Gstring.prc'))
             shutil.copy(pjoin(plugin_path,"integrateduv.frm"),pjoin(selected_workspace,'integrateduv.frm'))
-            shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(selected_workspace,'diacolor.h'))
             FORM_source = pjoin(selected_workspace,'multiplicity.frm')
 
             if FORM_processing_options["cores"] == 1:
@@ -3693,7 +3692,6 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
             shutil.copy(pjoin(plugin_path,"tensorreduce.frm"),pjoin(workspace,'tensorreduce.frm'))
             shutil.copy(pjoin(plugin_path,"Gstring.prc"),pjoin(workspace,'Gstring.prc'))
             shutil.copy(pjoin(plugin_path,"integrateduv.frm"),pjoin(workspace,'integrateduv.frm'))
-            shutil.copy(pjoin(plugin_path,"diacolor.h"),pjoin(workspace,'diacolor.h'))
 
         max_buffer_size = 0
         all_numerator_ids = []
