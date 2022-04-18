@@ -457,8 +457,7 @@ class TopologyGenerator(object):
                         for c in combinations_with_replacement(range(len(loop_lines)), d):
                             gn = copy.deepcopy(uv_subgraph)
                             for loop_line in c:
-                                if d > 0 and dod > 1 and len(loop_lines[loop_line]) > 1 and (particle_ids is None or len(set(particle_ids[m] for m in loop_lines[loop_line])) > 1):
-                                    raise AssertionError('WARNING: In supergraph %s, two or more propagators with shift in a loop line %s: %s. This could produce a bad soft CT if the masses are not the same' % (sg_name, str(loop_lines[loop_line]), str(uv_subgraph.edge_map_lin)))
+                                # this is only ok when the masses are the same on the loop line!
                                 gn.powers[loop_lines[loop_line][0]] += 1
                             derived_graphs.append({'graph': gn, 'derivatives': d})
 
@@ -470,6 +469,7 @@ class TopologyGenerator(object):
                         'external_edges': subgraph_external_edges,
                         'loop_edges': subgraph_loop_edges,
                         'graph': copy.deepcopy(uv_subgraph),
+                        'subgraph_momenta': subgraph_momenta,
                         'full_subgraph_momenta': subgraph_momenta_full,
                     }
 

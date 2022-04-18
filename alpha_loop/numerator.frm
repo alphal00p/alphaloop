@@ -208,7 +208,6 @@ S  i, m, n, ALARM;
 #include- diacolor.h
 Set colF: cOli1,...,cOli40;
 Set colA: cOlj1,...,cOlj40;
-Set colAdum: cOljj1,...,cOljj40;
 
 Polyratfun rat;
 
@@ -358,18 +357,18 @@ id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (1/3) * (-1) * i_ * d_(colA[idx1],
 id vx(`GLU', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = i_ * gs * cOlf(colA[idx1], colA[idx2], colA[idx3]);
 
 id vx(`GLU', `GLU', `GLU', `GLU', 1, p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?, idx5?) = -gs^2 * i_ *
-    cOlf(colAdum[idx5], colA[idx1], colA[idx2]) * cOlf(colA[idx3], colA[idx4], colAdum[idx5]);
+    cOlf(colA[idx5], colA[idx1], colA[idx2]) * cOlf(colA[idx3], colA[idx4], colA[idx5]);
 id vx(`GLU', `GLU', `GLU', `GLU', 2, p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?, idx5?) = -gs^2 * i_ *
-    cOlf(colAdum[idx5], colA[idx1], colA[idx3]) * cOlf(colA[idx2], colA[idx4], colAdum[idx5]);
+    cOlf(colA[idx5], colA[idx1], colA[idx3]) * cOlf(colA[idx2], colA[idx4], colA[idx5]);
 id vx(`GLU', `GLU', `GLU', `GLU', 3, p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?, idx5?) = -gs^2 * i_ *
-    cOlf(colAdum[idx5], colA[idx1], colA[idx4]) * cOlf(colA[idx2], colA[idx3], colAdum[idx5]);
+    cOlf(colA[idx5], colA[idx1], colA[idx4]) * cOlf(colA[idx2], colA[idx3], colA[idx5]);
 
 id vx(`H', `GLU', `GLU', `GLU', `GLU', 1, p5?, p1?, p2?, p3?, p4?, idx5?, idx1?, idx2?, idx3?, idx4?, idx6?) = -gs^2 * i_ * ( -gs^2/12/vev/pi^2 ) *
-    cOlf(colAdum[idx6], colA[idx1], colA[idx2]) * cOlf(colA[idx3], colA[idx4], colAdum[idx6]);
+    cOlf(colA[idx6], colA[idx1], colA[idx2]) * cOlf(colA[idx3], colA[idx4], colA[idx6]);
 id vx(`H', `GLU', `GLU', `GLU', `GLU', 2, p5?, p1?, p2?, p3?, p4?, idx5?, idx1?, idx2?, idx3?, idx4?, idx6?) = -gs^2 * i_ * ( -gs^2/12/vev/pi^2 ) *
-    cOlf(colAdum[idx6], colA[idx1], colA[idx3]) * cOlf(colA[idx2], colA[idx4], colAdum[idx6]);
+    cOlf(colA[idx6], colA[idx1], colA[idx3]) * cOlf(colA[idx2], colA[idx4], colA[idx6]);
 id vx(`H', `GLU', `GLU', `GLU', `GLU', 3, p5?, p1?, p2?, p3?, p4?, idx5?, idx1?, idx2?, idx3?, idx4?, idx6?) = -gs^2 * i_ * ( -gs^2/12/vev/pi^2 ) *
-    cOlf(colAdum[idx6], colA[idx1], colA[idx4]) * cOlf(colA[idx2], colA[idx3], colAdum[idx6]);
+    cOlf(colA[idx6], colA[idx1], colA[idx4]) * cOlf(colA[idx2], colA[idx3], colA[idx6]);
 
 if (count(vx, 1));
     Print "Unsubstituted vertex: %t";
@@ -887,6 +886,7 @@ repeat id subgraph(?a,p?) = subgraph(?a);
 
 * match the denominator structure to a diagram
     id uvprop(?a,m?) = uvprop(?a);
+    id uvtopo?{uvtopo,irtopo}(x?,?a) = uvtopo(x,1,?a);
     repeat id t1?ts^n2? = tmp(t1,n2);
     repeat id uvprop(k?,t1?,n1?)*uvprop(k?,t1?,n2?) = uvprop(k,t1,n1+n2); 
     repeat id uvprop(k?,t1?,n1?)*uvtopo?{uvtopo,irtopo}(x?,x1?,?a)*tmp(t1?,n2?) = uvprop(k,n1 + n2)*uvtopo(x,x1*t1^n2,?a);
@@ -1325,10 +1325,6 @@ endif;
     #include- pftable_`SGID'.h
     .sort:load-pf;
 
-* map all diagrams to their unique representative
-    id diag(x1?,x2?,?a) = diag(x1,pfmap(x1,x2),?a);
-    id diag(x1?,diag(?a),?b) = diag(x1,?a,?b);
-
 * TODO: here we create a unique diagram per cut as we include the cmb (and conf) into the key
 * it is possible that diagrams are the same after the cmb is applied, for example for UV topologies
     repeat id cmb(?a)*tder(?c)*diag(?b) = f(diag(?b,cmb(?a)*tder(?c)))*cmb(?a)*tder(?c);
@@ -1345,9 +1341,12 @@ endif;
     #define diagcount "{`diagend'-`diagstart'}"
 
     id diag(x?) = diag(x-`diagstart'+`forestcount');
-    id diag(xcut?,x1?,x2?,?a,x3?) = diag(?a)*pftopo(x1,x2)*x3*conf(-1,xcut,-1);
+    .sort:pf-splitoff-1;
+
+    id diag(xcut?,x2?,?a,x3?) = diag(?a)*pftopo(x2)*x3*conf(-1,xcut,-1);
     id cmb(?a) = replace_(?a);
-    .sort:pf-splitoff;
+
+    .sort:pf-splitoff-2;
     Hide forest1,...,forest`forestcount',F;
 
 * apply the numerator procedure

@@ -1520,19 +1520,16 @@ aGraph=%s;
 
     def generate_integrand(self, topo, integrand_type, workspace, numerator_call, progress_bar=None):
         """Construct a table of integrand descriptors"""
-        max_diag_set_id = 0
-        max_diag_id = 0
-
         unique_pf = {}
-        topo_map = ''
         integrand_body = ''
+        topo_map = {}
 
         unique_ltd = {}
         ltd_topo_map = ''
         ltd_integrand_body = ''
+        den_library = []
 
         for cut in topo.cuts:
-            den_library = []
             unique_energies = {}
             unique_propagators = {}
             for diag_set in cut['diagram_sets']:
@@ -1542,6 +1539,10 @@ aGraph=%s;
                     for uv_structure in diag_info['uv']:
                         signature_offset = 0 # offset in the forest basis
                         for uv_subgraph in uv_structure['uv_subgraphs']:
+                            if uv_subgraph['first_occurrence_id'] != uv_subgraph['id']:
+                                signature_offset += uv_subgraph['derived_graphs'][0]['loop_topo'].n_loops
+                                continue
+
                             for dg in uv_subgraph['derived_graphs']:
                                 if dg['skip_pf']:
                                     continue
@@ -1630,10 +1631,6 @@ aGraph=%s;
                                 for _ in range(p.power):
                                     constants.append(energy_instr)
 
-                    max_diag_set_id = max(max_diag_set_id, diag_set['id'])
-                    max_diag_id = max(max_diag_id, graph_id)
-                    global_diag_id = (diag_set['id'], graph_id)
-
                     if integrand_type == "both" or integrand_type == "PF":
                         pf_prefactor = '*'.join(pf_prefactor)
 
@@ -1655,19 +1652,20 @@ aGraph=%s;
                             ','.join(energies), resden, res)
 
                         if pf_instr not in unique_pf:
-                            unique_pf[pf_instr] = global_diag_id
-                            integrand_body += 'Fill pftopo({},{}) = {};\n'.format(*global_diag_id, pf_instr)
+                            integrand_body += 'Fill pftopo({}) = {};\n'.format(len(unique_pf), pf_instr)
+                            unique_pf[pf_instr] = len(unique_pf)
 
-                        topo_map += 'Fill pfmap({},{}) = diag({},{});\n'.format(*global_diag_id, *unique_pf[pf_instr])
+                        topo_map[graph_id] = unique_pf[pf_instr]
 
                     if integrand_type == "both" or integrand_type == "LTD":
-                        (body_addition, topo_addition) = self.generate_ltd_integrand(g, global_diag_id, signature_offset, unique_ltd, constants, unique_propagators, prop_id, prop_mom_in_lmb,
+                        (body_addition, topo_addition) = self.generate_ltd_integrand(g, graph_id, signature_offset, unique_ltd, constants, unique_propagators, prop_id, prop_mom_in_lmb,
                                 energies, on_shell_condition)
                         ltd_integrand_body += body_addition
                         ltd_topo_map += topo_addition
 
             # the on-shell energy needs to be accessible to construct the input file
             diag_set['energies'] = unique_energies
+        topo.topo_map = topo_map
 
         if integrand_body != 0:
             with open(pjoin(workspace, 'pftable_{}.h'.format(numerator_call)), 'w') as f:
@@ -1676,13 +1674,10 @@ Auto S invd, E, shift, ltd;
 S r, s;
 CF a, num, ncmd, conf1, ellipsoids, allenergies, replace, constants;
 NF energies;
-CTable pftopo(0:{},0:{});
-CTable pfmap(0:{},0:{});
+CTable pftopo(0:{});
 
 {}
-
-{}
-""".format(max_diag_set_id, max_diag_id, max_diag_set_id, max_diag_id, topo_map, integrand_body))
+""".format(len(unique_pf), integrand_body))
 
         if ltd_integrand_body != 0:
             with open(pjoin(workspace, 'ltdtable_{}.h'.format(numerator_call)), 'w') as f:
@@ -1697,7 +1692,7 @@ CTable ltdmap(0:{},0:{});
 {}
 
 {}
-""".format(max_diag_set_id, max_diag_id, max_diag_set_id, max_diag_id, ltd_topo_map, ltd_integrand_body))
+""".format(0, 0, 0, 0, ltd_topo_map, ltd_integrand_body))
 
 
     def get_edge_scaling(self, pdg, edge_name=None):
@@ -1962,17 +1957,17 @@ CTable ltdmap(0:{},0:{});
                                     trans.append('-2*{}der({},0)'.format('1*' if signs[0] == 1 else '-1*', der_mom))
 
                                 if diag_moms != '':
-                                    trans.append('diag({},{},{})'.format(diag_set['id'], bubble['id'], diag_moms))
+                                    trans.append('diag({},{},{})'.format(diag_set['id'], topo.topo_map[bubble['id']], diag_moms))
                                 else:
-                                    trans.append('diag({},{})'.format(diag_set['id'], bubble['id']))
+                                    trans.append('diag({},{})'.format(diag_set['id'], topo.topo_map[bubble['id']]))
                                 bubbles.append('*'.join(trans))
 
                             forest_element.append('({})'.format('+'.join(bubbles)))
                         else:
                             if diag_moms != '':
-                                forest_element.append('{}diag({},{},{})'.format(bubble_uv_derivative, diag_set['id'], uv_structure['remaining_graph_id'], diag_moms))
+                                forest_element.append('{}diag({},{},{})'.format(bubble_uv_derivative, diag_set['id'], topo.topo_map[uv_structure['remaining_graph_id']], diag_moms))
                             else:
-                                forest_element.append('{}diag({},{})'.format(bubble_uv_derivative, diag_set['id'], uv_structure['remaining_graph_id']))
+                                forest_element.append('{}diag({},{})'.format(bubble_uv_derivative, diag_set['id'], topo.topo_map[uv_structure['remaining_graph_id']]))
 
                         if uv_index == 0:
                             if diag_moms != '':
@@ -1981,22 +1976,24 @@ CTable ltdmap(0:{},0:{});
                                 diag_set_uv_conf.append('forestid({})'.format(len(uv_forest)))
 
                         for uv_subgraph in uv_structure['uv_subgraphs']:
-                            for dg in uv_subgraph['derived_graphs']:
-                                rp = '*'.join('t{}'.format(i) if raised_power == 1 else 't{}^{}'.format(i, raised_power)
-                                        for i, (_,_,raised_power) in enumerate(dg['loop_topo'].uv_loop_lines[0]) if raised_power != 0)
-                                # TODO: recycle uvtopo
-                                topo_map += '\tid uvtopo({},{},k1?,...,k{}?) = diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
-                                    '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], dg['id'], dg['graph'].n_loops)
+                            if uv_subgraph['first_occurrence_id'] == uv_subgraph['id']:
+                                for dg in uv_subgraph['derived_graphs']:
+                                    if dg['skip_pf']:
+                                        continue
+                                    rp = '*'.join('t{}'.format(i) if raised_power == 1 else 't{}^{}'.format(i, raised_power)
+                                            for i, (_,_,raised_power) in enumerate(dg['loop_topo'].uv_loop_lines[0]) if raised_power != 0)
+                                    topo_map += '\tid uvtopo({},{},k1?,...,k{}?) = diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
+                                        '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], topo.topo_map[dg['id']], dg['graph'].n_loops)
 
-                                if 'soft_ct_id' in dg:
-                                    if 'onshell_ct_id' in dg:
-                                        topo_map += '\tid irtopo({},{},k1?,...,k{}?) = (1+gamma0)/2*diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
-                                            '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], dg['soft_ct_id'], dg['graph'].n_loops)
-                                        topo_map += '\tid irtopo({},{},xneg,k1?,...,k{}?) = (1-gamma0)/2*diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
-                                            '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], dg['onshell_ct_id'], dg['graph'].n_loops)
-                                    else:
-                                        topo_map += '\tid irtopo({},{},k1?,...,k{}?) = diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
-                                        '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], dg['soft_ct_id'], dg['graph'].n_loops)
+                                    if 'soft_ct_id' in dg:
+                                        if 'onshell_ct_id' in dg:
+                                            topo_map += '\tid irtopo({},{},k1?,...,k{}?) = (1+gamma0)/2*diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
+                                                '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], topo.topo_map[dg['soft_ct_id']], dg['graph'].n_loops)
+                                            topo_map += '\tid irtopo({},{},xneg,k1?,...,k{}?) = (1-gamma0)/2*diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
+                                                '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], topo.topo_map[dg['onshell_ct_id']], dg['graph'].n_loops)
+                                        else:
+                                            topo_map += '\tid irtopo({},{},k1?,...,k{}?) = diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
+                                            '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], topo.topo_map[dg['soft_ct_id']], dg['graph'].n_loops)
 
                             # construct the vertex structure of the UV subgraph
                             # TODO: are the LTD vertices reliable?
@@ -2058,9 +2055,9 @@ CTable ltdmap(0:{},0:{});
                             if uv_diag_moms == '':
                                 # should never happen!
                                 logger.warn("No diag moms in UV graph")
-                                uv_diag = 'uvtopo({},1)'.format(uv_subgraph['id'])
+                                uv_diag = 'uvtopo({})'.format(uv_subgraph['first_occurrence_id'])
                             else:
-                                uv_diag = 'uvtopo({},1,{})'.format(uv_subgraph['id'], uv_diag_moms)
+                                uv_diag = 'uvtopo({},{})'.format(uv_subgraph['first_occurrence_id'], uv_diag_moms)
 
                             if uv_subgraph['onshell'] is not None and FORM_processing_options['on_shell_renormalisation']:
                                 ext_edge_sig = next(ee for ee in self.edges.values() if ee['name'] == uv_subgraph['onshell'][0])
@@ -2068,7 +2065,7 @@ CTable ltdmap(0:{},0:{});
                                 uv_diag += '*onshell({},masses({}))'.format(totalmom, ext_edge_sig['PDG'])
 
                             if FORM_processing_options['generate_integrated_UV_CTs']:
-                                uv_diag += '*intuv(1 - {}*diag({},{},{}))'.format('*'.join(vertex_structure), diag_set['id'], uv_subgraph['integrated_ct_id'], uv_diag_moms)
+                                uv_diag += '*intuv(1 - {}*diag({},{},{}))'.format('*'.join(vertex_structure), diag_set['id'], topo.topo_map[uv_subgraph['first_occurrence_id'] + 1], uv_diag_moms)
 
                             uv_conf_diag = '-tmax^{}*{}*{}'.format(uv_subgraph['taylor_order'],'*'.join(uv_props),uv_diag)
                             if uv_conf_diag not in uv_diagrams:
@@ -2422,7 +2419,7 @@ class FORMSuperGraphIsomorphicList(list):
 
         multiplicity = 1 + eval(factor)
 
-        #logger.info("{} = {} * {}".format(self[0].name, factor, g.name ))
+        #logger.info("{} = {} * {} (id {})".format(self[0].name, factor, g.name, iso_id))
         return (self, multiplicity)
 
     @staticmethod

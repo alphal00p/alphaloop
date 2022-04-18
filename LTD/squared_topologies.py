@@ -156,8 +156,9 @@ class SquaredTopologyGenerator:
                     ew = {e: edge_weights[e] if e in edge_weights else -2 for e, _, _ in diag_info['graph'].edge_map_lin}
                     
                     uv_limits = diag_info['graph'].construct_uv_limits(vw, ew, particle_ids=particle_ids,
-                                UV_min_dod_to_subtract=self.generation_options.get('UV_min_dod_to_subtract',0), sg_name=self.name )
+                                UV_min_dod_to_subtract=self.generation_options.get('UV_min_dod_to_subtract',0), sg_name=self.name)
 
+                    subgraph_counter = {}
                     for uv_limit in uv_limits:
                         uv_limit['bubble'] = []
 
@@ -170,10 +171,19 @@ class SquaredTopologyGenerator:
                                 if masses[ext_edge] > 0.:
                                     uv_sg['onshell'] = [uv_sg['graph'].edge_map_lin[i][0] for i in uv_sg['graph'].ext]
 
-                    # give every subdiagram a globally unique id
-                    for uv_limit in uv_limits:
+                        # give every subdiagram a globally unique id
                         for uv_sg in uv_limit['uv_subgraphs']:
+                            r = tuple(uv_sg['subgraph_momenta'])
+                            if r in subgraph_counter:
+                                uv_sg['first_occurrence_id'] = subgraph_counter[r]
+                            else:
+                                uv_sg['first_occurrence_id'] = graph_counter
+                                subgraph_counter[r] = graph_counter
+
                             uv_sg['id'] = graph_counter
+                            graph_counter += 1
+
+                            uv_sg['integrated_ct_id'] = graph_counter
                             graph_counter += 1
 
                             for dgi, dg in enumerate(uv_sg['derived_graphs']):
@@ -187,8 +197,6 @@ class SquaredTopologyGenerator:
                                     if uv_sg['onshell']:
                                         dg['onshell_ct_id'] = graph_counter
                                         graph_counter += 1
-                            uv_sg['integrated_ct_id'] = graph_counter
-                            graph_counter += 1
                         uv_limit['remaining_graph_id'] = graph_counter
                         graph_counter += 1
 
@@ -320,9 +328,12 @@ class SquaredTopologyGenerator:
                                     analytic_result=0)
                                 loop_topo.external_kinematics = []
 
-                                # when soft derivatives have to be taken we use that quadratic graphs are self-energies
-                                # this means that only one propagator in the loop line has a shift
-                                # if this is not the case (for example in some EFT), a warning will have been given
+                                # when soft derivatives have to be taken we require that the propagators of every loop line have the
+                                # same mass, such that raising a power in the loop line yields a unique topology
+                                if d['derivatives'] > 0 and d['derivatives'] < uv_sg['taylor_order']:
+                                    if any(len(set(masses[p.name] for p in ll.propagators)) > 1 for ll in loop_topo.loop_lines):
+                                        raise AssertionError('WARNING: In supergraph %s not all propagators have the same mass in a loop line for the derivative soft CT graph %s' % (sg_name, str(uv_sg['graph'].edge_map_lin)))
+
                                 d['loop_topo_orig_mass'] = copy.deepcopy(loop_topo)
                                 # do not drop the shift for the 0th order of the on-shell expansion
                                 if not uv_subgraph['onshell'] or d['derivatives'] > 0:
