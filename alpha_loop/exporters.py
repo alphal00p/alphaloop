@@ -1154,8 +1154,8 @@ class QGRAFExporter(object):
     qgraf_template_SE = pjoin(plugin_src_path,'Templates','qgraf','qgraf_SE.dat')
 
     qgraf_templates = {
-        'epem':{'path': qgraf_template_epem, 'example': 'e+ e- > a > ...'},
-        'no_s':{'paht': qgraf_template_no_s, 'example': 'a a > h'},
+        'epem':{'path': qgraf_template_epem, 'example': 'e+ e- > a/z > ...'},
+        'no_s':{'path': qgraf_template_no_s, 'example': 'a a > h'},
         'SE':{'path': qgraf_template_SE, 'example': 'a > aprime sdummy'}
     }
     
@@ -1170,6 +1170,7 @@ class QGRAFExporter(object):
     qgraf_field_replace['e+'] = 'eplus'
     qgraf_field_replace['a'] = 'photon'
     qgraf_field_replace['g'] = 'gluon'
+    qgraf_field_replace['z'] = 'z'
  
     qgraf_field_replace['sdummy'] = 'sdummy'    
     for k, v in list(qgraf_field_replace.items()):
@@ -1434,9 +1435,9 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         return cuts
 
     def build_qgraf_epem(self, representative_process):
-        # Check if e+ e- > a > ...
+        # Check if e+ e- > a/z > ...
         check_initial_states = [leg.get('id') for leg in representative_process.get('legs') if leg.get('state')==False]==[-11,11]
-        check_s_channel = representative_process.get('required_s_channels') == [[22]]
+        check_s_channel = True; #representative_process.get('required_s_channels') == [[22]]
         if not (check_initial_states and check_s_channel):
             raise alphaLoopExporterError("The command 'qgraf_generate' with model 'epem' does not support this process.\nAvailable models (: example)\n{}"\
                 .format("\n".join(["\t%s: %s"%(k,v['example']) for k,v in self.qgraf_templates.items()]))

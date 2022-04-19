@@ -4831,6 +4831,7 @@ class FORMProcessor(object):
             'masst': self.model['parameter_dict'][self.model.get_particle(6).get('mass')].real,
             'massb': self.model['parameter_dict'][self.model.get_particle(5).get('mass')].real,
             'massh': self.model['parameter_dict'][self.model.get_particle(25).get('mass')].real,
+            'massz': self.model['parameter_dict'][self.model.get_particle(23).get('mass')].real,
             'gs': self.model['parameter_dict']['G'].real,
             'ge': math.sqrt(4. * math.pi / self.model['parameter_dict']['aEWM1'].real),
             'yukawat': self.model['parameter_dict']['mdl_yt'].real / math.sqrt(2.),
@@ -4838,6 +4839,10 @@ class FORMProcessor(object):
             'ghhh': 6. * self.model['parameter_dict']['mdl_lam'].real,
             'vev': self.model['parameter_dict']['mdl_vev'].real,
             'pi': 'M_PI',
+            'cw': self.model['parameter_dict']['mdl_cw'].real,
+            'sw': self.model['parameter_dict']['mdl_sw'].real,
+            'sw2': self.model['parameter_dict']['mdl_sw2'].real,
+            'gw': self.model['parameter_dict']['mdl_gw'].real,
         }
         if additional_params is not None:
             params.update(additional_params)

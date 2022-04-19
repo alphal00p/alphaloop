@@ -159,6 +159,17 @@ impl EventManager {
                         status_update_sender.clone(),
                     )));
                 }
+                ObservableMode::AFB => {
+                    if track_events {
+                        observables.push(Observables::AFB(AFBObservable::new(
+                            settings.observables.AFB.x_min,
+                            settings.observables.AFB.x_max,
+                            settings.observables.AFB.n_bins,
+                            settings.observables.AFB.write_to_file,
+                            settings.observables.AFB.filename.clone()
+                        )));
+                    }
+                }
             }
         }
 
@@ -628,6 +639,7 @@ impl EventSelector for JetSelector {
 pub enum Observables {
     CrossSection(CrossSectionObservable),
     Jet1PT(Jet1PTObservable),
+    AFB(AFBObservable)
 }
 
 impl Observables {
@@ -637,6 +649,7 @@ impl Observables {
         match self {
             CrossSection(o) => o.process_event_group(event, integrator_weight),
             Jet1PT(o) => o.process_event_group(event, integrator_weight),
+            AFB(o) => o.process_event_group(event, integrator_weight)
         }
     }
 
@@ -646,6 +659,7 @@ impl Observables {
         match (self, other) {
             (CrossSection(o1), CrossSection(o2)) => o1.merge_samples(o2),
             (Jet1PT(o1), Jet1PT(o2)) => o1.merge_samples(o2),
+            (AFB(o1), AFB(o2)) => o1.merge_samples(o2),
             (o1, o2) => panic!(
                 "Cannot merge observables of different types: {:?} vs {:?}",
                 o1, o2
@@ -660,6 +674,7 @@ impl Observables {
         match self {
             CrossSection(o) => o.update_result(total_events),
             Jet1PT(o) => o.update_result(total_events),
+            AFB(o) => o.update_result(total_events)
         }
     }
 }
@@ -873,6 +888,198 @@ impl Observable for Jet1PTObservable {
             for (i, b) in self.bins.iter().enumerate() {
                 let c1 = (self.x_max - self.x_min) * i as f64 / self.bins.len() as f64 + self.x_min;
                 let c2 = (self.x_max - self.x_min) * (i + 1) as f64 / self.bins.len() as f64;
+                println!("{}={}: {} +/ {}", c1, c2, b.avg, b.err,);
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct AFBObservable {
+    x_min: f64,
+    x_max: f64,
+    index_event_accumulator: Vec<(isize, f64)>,
+    fb_index_event_accumulator: Vec<(isize, f64)>,
+    bins: Vec<AverageAndErrorAccumulator>,
+    fb_bins: Vec<AverageAndErrorAccumulator>,
+    write_to_file: bool,
+    filename: String,
+    num_events: usize,
+}
+
+impl AFBObservable {
+    pub fn new(
+        x_min: f64,
+        x_max: f64,
+        num_bins: usize,
+        write_to_file: bool,
+        filename: String
+    ) -> AFBObservable {
+        AFBObservable {
+            x_min,
+            x_max,
+            index_event_accumulator: Vec::with_capacity(20),
+            fb_index_event_accumulator: Vec::with_capacity(20),
+            bins: vec![AverageAndErrorAccumulator::default(); num_bins],
+            fb_bins: vec![AverageAndErrorAccumulator::default(); 2],
+            write_to_file,
+            filename,
+            num_events: 0,
+        }
+    }
+}
+
+impl Observable for AFBObservable {
+    fn process_event_group(&mut self, events: &[Event], integrator_weight: f64) {
+        // add events in a correlated manner such that cancellations are realized in the error
+        self.index_event_accumulator.clear();
+        self.fb_index_event_accumulator.clear();
+        for e in events {
+            let pin = e.kinematic_configuration.0[0];
+            let pout = e.kinematic_configuration.1[1];
+            let costheta = pin.spatial_dot(&pout)/(pin.spatial_distance() * pout.spatial_distance());
+            
+            let index = ((costheta- self.x_min) / (self.x_max - self.x_min) * self.bins.len() as f64) as isize;
+            let fb_index = ((costheta- self.x_min) / (self.x_max - self.x_min) * 2 as f64) as isize;
+
+            if index >= 0 && index < self.bins.len() as isize {
+                let mut new = true;
+                for i in self.index_event_accumulator.iter_mut() {
+                    if i.0 == index {
+                        *i = (index, i.1 + e.integrand.re * integrator_weight);
+                        new = false;
+                        break;
+                    }
+                }
+                if new {
+                    self.index_event_accumulator
+                        .push((index, e.integrand.re * integrator_weight));
+                }
+            }
+
+            if fb_index >= 0 && fb_index < 2 as isize {
+                let mut new = true;
+                for i in self.fb_index_event_accumulator.iter_mut() {
+                    if i.0 == fb_index {
+                        *i = (fb_index, i.1 + e.integrand.re * integrator_weight);
+                        new = false;
+                        break;
+                    }
+                }
+                if new {
+                    self.fb_index_event_accumulator
+                        .push((fb_index, e.integrand.re * integrator_weight));
+                }
+            }
+        }
+
+        for i in &self.index_event_accumulator {
+            self.bins[i.0 as usize].add_sample(i.1);
+        }
+
+        for i in &self.fb_index_event_accumulator {
+            self.fb_bins[i.0 as usize].add_sample(i.1);
+        }
+    }
+
+    fn merge_samples(&mut self, other: &mut AFBObservable) {
+        // TODO: check if bins are compatible?
+        for (b, bo) in self.bins.iter_mut().zip_eq(&mut other.bins) {
+            b.merge_samples(bo);
+        }
+        for (b, bo) in self.fb_bins.iter_mut().zip_eq(&mut other.fb_bins) {
+            b.merge_samples(bo);
+        }
+    }
+
+    fn update_result(&mut self, total_events: usize) {
+        let diff = total_events - self.num_events;
+        self.num_events = total_events;
+
+        // rescale the entries in each bin by the number of samples
+        // per bin over the complete number of events (including rejected) ones
+        // this is not the same as recaling the average after recombining
+        // with previous iterations
+        for b in &mut self.bins {
+            let scaling = b.num_samples as f64 / diff as f64;
+            b.sum *= scaling;
+            b.sum_sq *= scaling * scaling;
+            b.update_iter();
+        }
+
+        for b in &mut self.fb_bins {
+            let scaling = b.num_samples as f64 / diff as f64;
+            b.sum *= scaling;
+            b.sum_sq *= scaling * scaling;
+            b.update_iter();
+        }
+
+        if self.write_to_file {
+            let mut f =
+                BufWriter::new(File::create(&self.filename).expect("Could not create .HwU file"));
+            let mut fo =
+                BufWriter::new(File::create("AFB_result.txt").expect("Could not create AFB_result.txt"));
+
+            writeln!(f, "##& xmin & xmax & central value & dy &\n").unwrap();
+            writeln!(
+                f,
+                "<histogram> {} \"Angular distribution |X_AXIS@LIN |Y_AXIS@LOG |TYPE@LOALPHALOOP\"",
+                self.bins.len()
+            )
+            .unwrap();
+
+            for (i, b) in self.bins.iter().enumerate() {
+                let c1 = (self.x_max - self.x_min) * i as f64 / self.bins.len() as f64 + self.x_min;
+                let c2 = (self.x_max - self.x_min) * (i + 1) as f64 / self.bins.len() as f64
+                    + self.x_min;
+
+                writeln!(
+                    f,
+                    "  {:.8e}   {:.8e}   {:.8e}   {:.8e}",
+                    c1, c2, b.avg, b.err,
+                )
+                .unwrap();
+            }
+
+            writeln!(f, "<\\histogram>").unwrap();
+
+            writeln!(
+                f,
+                "<histogram> 2 \"Forward-backward asymmetry |X_AXIS@LIN |Y_AXIS@LOG |TYPE@LOALPHALOOP\""
+            )
+            .unwrap();
+
+
+            for (i, b) in self.fb_bins.iter().enumerate() {
+                let c1 = (self.x_max - self.x_min) * i as f64 / 2 as f64 + self.x_min;
+                let c2 = (self.x_max - self.x_min) * (i + 1) as f64 / 2 as f64 + self.x_min;
+
+                writeln!(
+                    f,
+                    "  {:.8e}   {:.8e}   {:.8e}   {:.8e}",
+                    c1, c2, b.avg, b.err,
+                )
+                .unwrap();
+            }
+
+            writeln!(f, "<\\histogram>").unwrap();
+
+            // let Fwd = self.fb_bins[1].avg;
+            // let dFwd = self.fb_bins[1].err;
+            // let Bwd = self.fb_bins[0].avg;
+            // let dBwd = self.fb_bins[0].err;
+            // let tot = Fwd + Bwd;
+            // let AFB = (Fwd - Bwd) / tot;
+            // let dAFB = 2f64 * (Bwd * Bwd * dFwd * dFwd + Fwd * Fwd * dBwd * dBwd).sqrt() / (tot * tot);
+
+            // writeln!(fo, "Forward: {:.5e} +- {:.5e} pb", Fwd, dFwd);
+            // writeln!(fo, "Backward: {:.5e} +- {:.5e} pb", Bwd, dBwd);
+            // writeln!(fo, "AFB: {:.5e} +- {:.5e}", AFB, dAFB);
+
+        } else {
+            for (i, b) in self.fb_bins.iter().enumerate() {
+                let c1 = (self.x_max - self.x_min) * i as f64 / 2 as f64 + self.x_min;
+                let c2 = (self.x_max - self.x_min) * (i + 1) as f64 / 2 as f64;
                 println!("{}={}: {} +/ {}", c1, c2, b.avg, b.err,);
             }
         }

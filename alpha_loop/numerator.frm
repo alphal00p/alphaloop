@@ -22,6 +22,7 @@ On nospacesinnumbers;
 #define QBARMASSIVE "-6,"
 #define L "11,12,13"
 #define LBAR "-11,-12,-13"
+#define Z "23"
 
 **************************************************
 * START SE PDGs
@@ -34,7 +35,7 @@ On nospacesinnumbers;
 * END SE PDGs
 **************************************************
 
-S vev, pi;
+S vev, pi, cw, sw ,sw2 , gw;
 
 Auto S mass, mUV;
 Auto S yukawa;
@@ -42,6 +43,8 @@ CTable masses(-10000:10000);
 CTable gyq(-10000:10000);
 CTable logmasses(-10000:10000);
 CTable charges(-10000:10000);
+CTable zVcoupling(-10000:10000);
+CTable zAcoupling(-10000:10000);
 
 #ifndef `OPTIMLVL'
     #define OPTIMLVL "4"
@@ -127,6 +130,36 @@ Fill masses(3378) = massdummyh;
 Fill masses(3379) = massdummyi;
 
 **************************************************
+* START EW parameters
+**************************************************
+
+Fill masses(23) = massz;
+
+Fill zVcoupling(1) = -1/2+2/3*sw2; * d
+Fill zVcoupling(2) = 1/2-4/3*sw2; * u
+Fill zVcoupling(3) = -1/2+2/3*sw2; * s
+Fill zVcoupling(4) = 1/2-4/3*sw2; * c
+Fill zVcoupling(5) = -1/2+2/3*sw2; * b
+Fill zVcoupling(6) = 1/2-4/3*sw2; * t
+Fill zVcoupling(11) = -1/2+2*sw2; * e-
+Fill zVcoupling(12) = -1/2+2*sw2; * mu-
+Fill zVcoupling(13) = -1/2+2*sw2; * ta-
+
+Fill zAcoupling(1) = -1/2; * d
+Fill zAcoupling(2) = 1/2; * u
+Fill zAcoupling(3) = -1/2; * s
+Fill zAcoupling(4) = 1/2; * c
+Fill zAcoupling(5) = -1/2; * b
+Fill zAcoupling(6) = 1/2; * t
+Fill zAcoupling(11) = -1/2; * e-
+Fill zAcoupling(12) = -1/2; * mu-
+Fill zAcoupling(13) = -1/2; * ta-
+
+**************************************************
+* END EW parameters
+**************************************************
+
+**************************************************
 * START SE parameters
 **************************************************
 Fill masses(-1006) = masst;
@@ -177,7 +210,7 @@ Set dirac: s1,...,s40;
 Set lorentz: mu1,...,mu40;
 Set lorentzdummy: mud1,...,mud40;
 
-CF gamma, gammatrace(c), GGstring, NN, vector,g(s),delta(s),tmps(s), counter,color, prop, replace;
+CF gamma, gamma5, gammatrace(c), levicivita, GGstring, NN, vector,g(s),delta(s),tmps(s), counter,color, prop, replace;
 CF f, vx, vxs(s), uvx, vec, vec1;
 CF subs, configurations, conf, tder, cmb, cbtofmb, fmbtocb, diag, forestid, nloops, der, energy, spatial(s), onshell;
 CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, irtopo, intuv, integrateduv;
@@ -250,6 +283,9 @@ repeat id vx(`H', `GLU', `GLU', `GLU', `GLU', p5?, p1?, p2?, p3?, p4?, idx5?, id
     +vx(`H', `GLU', `GLU', `GLU', `GLU', 3, p5, p1, p2, p3, p4, idx5, idx1, idx2, idx3, idx4, idx6)
 );
 
+repeat id vx(x1?, `Z', x2?, p1?, p2?, p3?, idx1?, idx2?, idx3?)*counter(idx4?) = counter(idx4 + 5) *
+    vx(x1, `Z', x2, p1, p2, p3, idx1, idx2, idx3, idx4, idx4 + 1, idx4 + 2, idx4 + 3, idx4 + 4);
+
 id counter(x?) = 1;
 
 * make a copy of the Feynman rules
@@ -263,6 +299,7 @@ repeat id f?{vx,prop}(?a,p?) = f(?a);
 * do the spin sum external particles
 repeat id prop(`PHO', in, p?, idx1?)*prop(`PHO', out, p?, idx2?) = 1;
 repeat id prop(`GLU', in, p?, idx1?)*prop(`GLU', out, p?, idx2?) = d_(colA[idx1], colA[idx2]);
+repeat id prop(`Z', in, p?, idx1?)*prop(`Z', out, p?, idx2?) = 1;
 repeat id prop(x?{`L'}, in, p?, idx1?)*prop(x?{`L',}, out, p?, idx2?) = 1;
 repeat id prop(x?{`Q'}, in, p?, idx1?)*prop(x?{`Q'}, out, p?, idx2?) = d_(colF[idx2], colF[idx1]);
 repeat id prop(x?{`LBAR'}, out, p?, idx1?)*prop(x?{`LBAR'}, in, p?, idx2?) = 1;
@@ -272,6 +309,7 @@ repeat id prop(x?{`QBAR'}, out, p?, idx1?)*prop(x?{`QBAR'}, in, p?, idx2?) = d_(
 id prop(`GLU', virtual, p?, idx1?, idx2?) = - i_ * d_(colA[idx1], colA[idx2]);
 id prop(x?{`GHO',`GHOBAR'}, virtual, p?, idx1?, idx2?) = - i_ *d_(colA[idx1], colA[idx2]);
 id prop(`PHO', virtual, p?, idx1?, idx2?) = - i_;
+id prop(`Z', virtual, p?, idx1?, idx2?) = - i_;
 id prop(x?{`L'}, virtual, p?, idx1?, idx2?) = i_;
 id prop(x?{`LBAR'}, virtual, p?, idx1?, idx2?) = - i_;
 id prop(x?{`Q'}, virtual, p?, idx1?, idx2?) = i_ * d_(colF[idx2], colF[idx1]);
@@ -331,6 +369,8 @@ id vx(x1?{`LBAR'}, `PHO', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = charge
 id vx(x1?{`QBAR'}, `H', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gyq(x1) * i_ * d_(colF[idx1], colF[idx3]);
 id vx(x1?{`LBAR'}, `H', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = -gyq(x1) * i_;
 id vx(`H', `H', `H', p1?, p2?, p3?, idx1?, idx2?, idx3?) = -ghhh * i_;
+id vx(x1?{`QBAR'}, `Z', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?, idx4?, idx5?, idx6?, idx7?, idx8?) = -i_ * gw / cw / 2 * d_(colF[idx1], colF[idx3]);
+id vx(x1?{`LBAR'}, `Z', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?, idx4?, idx5?, idx6?, idx7?, idx8?) = -i_ * gw / cw / 2;
 
 id vx(`H', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = - i_ * d_(colA[idx2], colA[idx3]) * ( -gs^2/12/vev/pi^2 );
 id vx(`H', `GLU', `GLU', `GLU', p4?, p1?, p2?, p3?, idx4?, idx1?, idx2?, idx3?) = i_ * gs * colf(colA[idx1], colA[idx2], colA[idx3]) * ( -gs^2/12/vev/pi^2 );
@@ -411,6 +451,7 @@ repeat id vx(?a, 0, ?b) = vx(?a, pzero, ?b);
 * do the spin sum external particles
 repeat id prop(`PHO', in, p?, idx1?)*prop(`PHO', out, p?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
 repeat id prop(`GLU', in, p?, idx1?)*prop(`GLU', out, p?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
+repeat id prop(`Z', in, p?, idx1?)*prop(`Z', out, p?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
 repeat id prop(x?{`L'}, in, p?, idx1?)*prop(x?{`L',}, out, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x)*gamma(dirac[idx1], dirac[idx2]);
 repeat id prop(x?{`Q'}, in, p?, idx1?)*prop(x?{`Q'}, out, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x)*gamma(dirac[idx1], dirac[idx2]);
 repeat id prop(x?{`Q'}, in, p?, idx1?)*prop(x?{`Q'}, out, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x)*gamma(dirac[idx1], dirac[idx2]);
@@ -421,6 +462,7 @@ repeat id prop(x?{`QBAR'}, out, p?, idx1?)*prop(x?{`QBAR'}, in, p?, idx2?) = gam
 id prop(`GLU', virtual, p?, idx1?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
 id prop(x?{`GHO',`GHOBAR'}, virtual, p?, idx1?, idx2?) = 1;
 id prop(`PHO', virtual, p?, idx1?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
+id prop(`Z', virtual, p?, idx1?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
 id prop(x?{`L'}, virtual, p?, idx1?, idx2?) = gamma(dirac[idx2], p, dirac[idx1]) + masses(x) * gamma(dirac[idx2], dirac[idx1]);
 id prop(x?{`LBAR'}, virtual, p?, idx1?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x) * gamma(dirac[idx1], dirac[idx2]);
 id prop(x?{`Q'}, virtual, p?, idx1?, idx2?) = gamma(dirac[idx2], p, dirac[idx1]) + masses(x) * gamma(dirac[idx2], dirac[idx1]);
@@ -486,6 +528,10 @@ id vx(x1?{`LBAR'}, `PHO', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gamma(
 id vx(x1?{`QBAR'}, `H', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = d_(dirac[idx1], dirac[idx3]);
 id vx(x1?{`LBAR'}, `H', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = d_(dirac[idx1], dirac[idx3]);
 id vx(`H', `H', `H', p1?, p2?, p3?, idx1?, idx2?, idx3?) = 1;
+id vx(x1?{`QBAR'}, `Z', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?, idx4?, idx5?, idx6?, idx7?, idx8?) = zVcoupling(x2) * gamma(dirac[idx1], lorentz[idx2], dirac[idx3])
+                            - zAcoupling(x2) * gamma(dirac[idx1], lorentz[idx2], dirac[idx4])*gamma5(dirac[idx4], lorentz[idx5], lorentz[idx6], lorentz[idx7], lorentz[idx8], dirac[idx3]);
+id vx(x1?{`LBAR'}, `Z', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?, idx4?, idx5?, idx6?, idx7?, idx8?) = zVcoupling(x2) * gamma(dirac[idx1], lorentz[idx2], dirac[idx3])
+                            - zAcoupling(x2) * gamma(dirac[idx1], lorentz[idx2], dirac[idx4])*gamma5(dirac[idx4], lorentz[idx5], lorentz[idx6], lorentz[idx7], lorentz[idx8], dirac[idx3]);
 
 id vx(`H', `GLU', `GLU', p1?, p2?, p3?, idx1?, idx2?, idx3?) = p3(lorentz[idx2])*p2(lorentz[idx3]) - p2.p3 * d_(lorentz[idx2], lorentz[idx3]);
 id vx(`H', `GLU', `GLU', `GLU', p4?, p1?, p2?, p3?, idx4?, idx1?, idx2?, idx3?) =
@@ -539,9 +585,15 @@ id vx(`GLU', `GLU', p1?, p2?, idx1?, idx2?) = (
 id D = rat(4-2*ep, 1);
 .sort:feynman-rules-vertices-1;
 
-* construct gamma string, drop odd-length gamma traces and symmetrize the trace
-repeat id gamma(s1?,?a,s2?)*gamma(s2?,?b,s3?) = gamma(s1,?a,?b,s3);
-id gamma(s1?,?a,s1?) = gammatrace(?a)*delta_(mod_(nargs_(?a), 2));
+* construct gamma string, drop odd-length gamma traces, pair gamma5s and symmetrize the trace
+repeat;
+    id once gamma(s1?, ?a, s2?)*gamma5(s2?, ?b, s3?) = gamma5(s1, ?b, s2)*gamma(s2, ?a, s3)*(-1)^nargs_(?a);
+    id once gamma5(s1?, ?a, s2?)*gamma5(s2?, ?b, s3?) = gamma(s1, s3);
+    id once gamma(s1?,?a,s2?)*gamma(s2?,?b,s3?) = gamma(s1,?a,?b,s3);
+    id once gamma(s1?,?a,s1?) = gammatrace(?a)*delta_(mod_(nargs_(?a), 2));
+    id once gamma(s1?, ?a, s2?)*gamma5(s2?,?b, s1?) = e_(?b)*gammatrace(?a,?b)*delta_(mod_(nargs_(?a),2))/fac_(4); 
+endrepeat;
+contract 0;
 id gammatrace = 4;
 
 .sort:gamma-filter;
@@ -897,6 +949,10 @@ repeat id subgraph(?a,p?) = subgraph(?a);
     repeat id k1?.k2?*counter(n?) = vec(k1,n)*vec(k2,n)*counter(n + 1);
     id opengammastring(?a) = gamma(?a);
     repeat id gamma(s1?,?a,k1?,?b,s2?)*counter(n?) = gamma(s1,?a,n,?b,s2)*vec(k1,n)*counter(n + 1);
+
+    id e_(mu1?, mu2?, mu3?, mu4?) = levicivita(mu1, mu2, mu3, mu4); * the reverse substitution is delayed until after the call to IntegrateUV()
+    repeat id levicivita(?a, k1?, ?b)*counter(n?) = levicivita(?a,n,?b)*vec(k1,n)*counter(n+1);
+
     repeat id k1?(mu?)*counter(n?) = vec(k1,n)*vec1(mu,n)*counter(n + 1);
 
 * convert every k^0 into k.p0select, where p0select is effectively (1,0,0,0)
@@ -939,10 +995,12 @@ repeat id subgraph(?a,p?) = subgraph(?a);
     id k1?.p0select = penergy(k1);
 
     repeat id gamma(s1?,?a,n?,?b,s2?) = gamma(s1,?a,lorentzdummy[n],?b,s2);
+    repeat id levicivita(?a,n?,?b) = levicivita(?a,lorentzdummy[n],?b);
     id g(n1?,n2?) = d_(lorentzdummy[n1], lorentzdummy[n2]);
     id vec1(k1?,n?) = k1(lorentzdummy[n]);
     id vec1(mu?,n1?) = d_(mu, lorentzdummy[n1]);
     id gamma(?a) = opengammastring(?a);
+    id levicivita(?a) = e_(?a);
 
 * Simplify all open gamma strings so that the Ds are contracted out
     #call Gstring(opengammastring,0)

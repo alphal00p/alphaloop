@@ -455,6 +455,7 @@ pub struct ParameterizationSettings {
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 pub enum ObservableMode {
     Jet1PT,
+    AFB,
     #[serde(rename = "cross_section")]
     CrossSection,
 }
@@ -482,6 +483,16 @@ pub struct Jet1PTSettings {
     pub write_to_file: bool,
     pub filename: String,
     pub use_fastjet: bool,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[allow(non_snake_case)]
+pub struct AFBSettings {
+    pub x_min: f64,
+    pub x_max: f64,
+    pub n_bins: usize,
+    pub write_to_file: bool,
+    pub filename: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -524,6 +535,7 @@ pub struct PhaseSpaceSelectorSettings {
 pub struct ObservableSettings {
     pub active_observables: Vec<ObservableMode>,
     pub Jet1PT: Jet1PTSettings,
+    pub AFB: AFBSettings
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
