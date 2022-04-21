@@ -18,6 +18,7 @@ import subprocess
 import glob
 import pickle
 import time
+import shutil
 
 import aloha.create_aloha as create_aloha
 
@@ -1490,7 +1491,9 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             with open(qgraf_output, 'w') as f:
                 f.write(stream.read() % dict_replace)
 
-            subprocess.run(['rm', '-f', 'output.py'], cwd=qgraf_folder)
+            if os.path.isfile(pjoin(qgraf_folder,'output.py')):
+                os.remove(pjoin(qgraf_folder,'output.py'))
+
             r = subprocess.run([self.QGRAF_path, ],
                                cwd=qgraf_folder,
                                capture_output=True)
@@ -1552,7 +1555,8 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             with open(qgraf_output, 'w') as f:
                 f.write(stream.read() % dict_replace)
 
-            subprocess.run(['rm', 'output.py'], cwd=qgraf_folder)
+            if os.path.isfile(pjoin(qgraf_folder,'output.py')):
+                os.remove(pjoin(qgraf_folder,'output.py'))
             r = subprocess.run([self.QGRAF_path, ],
                                cwd=qgraf_folder,
                                capture_output=True)
@@ -1610,7 +1614,8 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             with open(qgraf_output, 'w') as f:
                 f.write(stream.read() % dict_replace)
 
-            subprocess.run(['rm', 'output.py'], cwd=qgraf_folder)
+            if os.path.isfile(pjoin(qgraf_folder,'output.py')):
+                os.remove(pjoin(qgraf_folder,'output.py'))
             r = subprocess.run([self.QGRAF_path, ],
                                cwd=qgraf_folder,
                                capture_output=True)

@@ -368,6 +368,8 @@ class AL_cluster(object):
                 if new_status['finished_and_not_processed']>0:
                     finished_jobs = rq.job.Job.fetch_many(self.redis_queue.finished_job_registry.get_job_ids(), connection=self.redis_connection)
                     for finished_job in finished_jobs:
+                        if finished_job is None:
+                            continue
                         do_process_result = True
                         job_result = None
                         job_id = finished_job.id
@@ -400,6 +402,8 @@ class AL_cluster(object):
                 if new_status['failed']>0:
                     failed_jobs = rq.job.Job.fetch_many(self.redis_queue.failed_job_registry.get_job_ids(), connection=self.redis_connection)
                     for failed_job in failed_jobs:
+                        if failed_job is None:
+                            continue
                         job_id = failed_job.id
                         logger.warning("%sRedis job '%s' failed with the following execution info:\n%s%s"%('\n'*50,str(job_id), str(failed_job.exc_info),'\n'*5))
                         if job_id in job_ids_already_handled:
@@ -441,7 +445,8 @@ class AL_cluster(object):
 
             except KeyboardInterrupt as e:
                 break
-
+            except Exception as e2:
+                logger.warning("Exception encountered when running redis_follow(), it will be ignored. Exception: %s"%str(e2))
     async def follow_workers(self):
         while self.active:
             try:

@@ -13,6 +13,7 @@ from itertools import combinations_with_replacement
 from collections import OrderedDict
 import glob as glob_module
 
+import importlib
 import progressbar
 from itertools import chain, product
 import sys
@@ -2623,7 +2624,10 @@ class FORMSuperGraphList(list):
         logger.info("Compiling imported supergraphs.")
         subprocess.run([sys.executable, '-O', '-m', p.stem], cwd=p.parent)
         m = __import__(p.stem)
+        # Reload to avoid border effects if this is the second process generated in this python session.
+        importlib.reload(m)
         logger.info("Imported {} supergraphs.".format(len(m.graphs)))
+        sys.path.pop(0)
 
         # Filter specific graphs by name 
         # filter_graphs = ['SG_QG3','SG_QG4']
@@ -4795,8 +4799,6 @@ class FORMProcessor(object):
 
         if not FORM_processing_options['generate_integrated_UV_CTs']:
             logger.warning('%s\n\nGeneration of integrated UV CTs is disabled per user request. Physical results will be incorrect.\n\n%s'%(utils.bcolors.RED,utils.bcolors.ENDC))
-        if not FORM_processing_options['generate_renormalisation_graphs']:
-            logger.warning('%s\n\nGeneration of renormalisation contributions is disabled per user request. Physical results will be incorrect.\n\n%s'%(utils.bcolors.RED,utils.bcolors.ENDC))
         if FORM_processing_options['UV_min_dod_to_subtract']>0:
             logger.warning('%s\n\nAs per user request, not all UV divegences will be locally subtracted. Numerical integration may be divergent in the UV.\n\n%s'%(utils.bcolors.RED,utils.bcolors.ENDC))
         if FORM_processing_options['UV_min_dod_to_subtract']<0:
