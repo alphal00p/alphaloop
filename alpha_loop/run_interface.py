@@ -3051,6 +3051,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         else:
             self.do_display('--deformation%s'%(' --show_momenta' if args.show_momenta else ''))
 
+        return SuperGraphCollection({SG_name: self.all_supergraphs[SG_name] for SG_name in selected_SGs})
+
     @classmethod
     def parse_IR_limit(cls, ir_limit_str):
         """ From a string representation of the limit, for instance 'C[+pq5,-pq4,pq7,S(?pq8)]C[-pq9,?pq10]S(pq11)S(pq13)', it returns the 

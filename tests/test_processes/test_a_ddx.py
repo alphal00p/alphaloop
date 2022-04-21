@@ -126,8 +126,18 @@ set_hyperparameter Selectors.active_selectors []
 set_hyperparameter General.deformation_strategy "none"
 set_hyperparameter Selectors.active_selectors []
 """, 
-            ir_test_cmd = "ir_profile ALL --perturbative_order 1 --ir_limits cutkosky --f128 --min 1.0e-03 --max 1.0e-05 --n_points 30 --seed 1 -c 1"
+            ir_test_cmd = "ir_profile ALL -nsof --perturbative_order 1 --ir_limits cutkosky --f128 --min 1.0e-03 --max 1.0e-05 --n_points 30 --seed 1"
         )
+
+    def test_deformation(self):
+        super(a_ddx_NLO,self).run_deformation_tests(warmup_cmds=
+"""
+set_hyperparameter General.deformation_strategy "fixed"
+set_hyperparameter Selectors.active_selectors []
+""", 
+            deformation_test_cmd = "deformation_profile ALL -nsof -nsf -max 1.0e-05 --seed 1"
+        )
+
 
 class a_ddx_NNLO(ProcessTester,unittest.TestCase):
 

@@ -251,7 +251,6 @@ class ProcessTester(object):
             # Perform test
             res = self.run_cmd_line.run_cmd(ir_test_cmd.strip())
 
-
         for supergraph_name in sorted(list(res.keys())):
             sg_info = res[supergraph_name]
 
@@ -300,3 +299,80 @@ class ProcessTester(object):
                                 )
                             )+'\n  %s'%result['command']
                         )
+
+
+    def run_deformation_tests(self, warmup_cmds, deformation_test_cmd):
+
+        if self.run_cmd_line is None:
+            self.run_cmd_line = alphaLoopRunInterface(
+                self.proc_output_path, self.cmd_line, 
+                launch_options={'reuse': pjoin(self.proc_output_path,'default_test_hyperparameters.yaml')}
+            )
+        
+        res = None
+        with utils.suppress_output(active=(DEBUG_MODE>=3)):
+            # Always remove all previously generated test results
+            self.run_cmd_line.run_cmd('refresh_derived_data')
+            # Send warmup commands
+            for line in warmup_cmds.split('\n'):
+                if line.strip()=='':
+                    continue
+                self.run_cmd_line.run_cmd(line.strip())
+            # Perform test
+            res = self.run_cmd_line.run_cmd(deformation_test_cmd.strip())
+
+
+        for supergraph_name in sorted(list(res.keys())):
+            sg_info = res[supergraph_name]
+
+            E_surface_ID_to_E_surface = { E_surf['id'] : E_surf for E_surf in sg_info['E_surfaces_analysis'] }
+
+            for inter_length, all_results in sg_info['E_surfaces_intersection_analysis'].items():
+                for E_surface_combination, results in all_results.items():
+
+                    res_str = []
+
+                    if len(results)==0:
+                        continue
+                    inter_str = '^'.join('dE%s(%s)'%(
+                            '' if not E_surface_ID_to_E_surface[E_surf_ID]['pinched'] else '%s%s%s%s%s'%(Colours.END, Colours.GREEN, 'P', Colours.END, Colours.BLUE),
+                            ','.join(osp['name'] for osp in E_surface_ID_to_E_surface[E_surf_ID]['onshell_propagators'])) for E_surf_ID in E_surface_combination)
+                    res_str.append('Intersection of E-surfaces %s%s%s'%( Colours.BLUE, inter_str, Colours.END ))
+
+                    this_intersection_contains_a_fail = (not results['dod_computed'][-1])
+
+                    res_list = [('Complete integrand','%sPASS%s'%(Colours.GREEN, Colours.END) if results['dod_computed'][-1] else '%sFAIL%s'%(Colours.RED, Colours.END), {k:v for k,v in results.items() if k!='cut_results'},''),]
+                    
+                    for cut_ID, cut_res in  sorted(list(results.get('cut_results',{}).items()),key = lambda k: k[0]):
+                        failed_deformation_colour = (Colours.RED if (not cut_res['dod_computed'][-1]) else '')
+                        this_intersection_contains_a_fail = (this_intersection_contains_a_fail or (not cut_res['dod_computed'][-1]) )
+                        tail_cut_info = '%-20s, %-20s, %-20s'%(
+                            't_scal: %s'%('%.3e'%cut_res['t_scaling'] if cut_res['t_scaling'] is not None else 'N/A'),
+                            'def_norm: %s'%('%.3e'%cut_res['deformation_norm'] if cut_res['deformation_norm'] is not None else 'N/A'),
+                            'def_proj: %s'%(
+                                ' | '.join(
+                                    '%s%s%s'%(
+                                        '' if E_surface_ID_to_E_surface[E_surf_id]['pinched'] else (failed_deformation_colour if proj>=0. else Colours.GREEN),
+                                        '#%d -> %s%.3e'%(E_surface_combination.index(E_surf_id),'+' if proj>=0. else '-',abs(proj)),
+                                        '' if (E_surface_ID_to_E_surface[E_surf_id]['pinched'] or (failed_deformation_colour=='' and proj>=0.)) else Colours.END
+                                    )
+                                    for E_surf_id, proj in sorted(cut_res['deformation_projections'].items(), key=lambda el:el[0])) 
+                                if cut_res['deformation_projections'] is not None else 'N/A'),
+                        )
+                        res_list.append(
+                            (' > Cut #%-2d (%s)'%(cut_ID,','.join(c['name'] for c in sg_info['cutkosky_cuts'][cut_ID]['cuts'])), 
+                            '%sPASS%s'%(Colours.GREEN, Colours.END) if cut_res['dod_computed'][-1] else '%sFAIL%s'%(Colours.RED, Colours.END), 
+                            cut_res,
+                            tail_cut_info
+                            )
+                        )
+                    
+                    for lead, middle, info, tail in res_list:
+                        res_str.append('   %-35s: %-15s %-100s %s'%(
+                            lead, middle, '%s (max for lambda = %.2e: %s)'%( '%-7.4f +/- %-7.4f'%(info['dod_computed'][0],info['dod_computed'][1]) if 
+                                (info['dod_computed'] is not None and not any(d is None for d in info['dod_computed'][:2])) else '%-19s'%'CutAway',info['max_result'][0],str(complex(*info['max_result'][1])) ), tail 
+                        ))
+                    
+                    fail_msg = '\n'.join(res_str)
+                    with self.subTest(SG=supergraph_name,E_surf_inter=inter_str):
+                        self.assertFalse(this_intersection_contains_a_fail, fail_msg)
