@@ -1601,7 +1601,7 @@ def wrap_in_process():
     """ Decorate the function so as to automatically sandbox it in a separate Process."""
     def wrap_function_in_process(f):
         q=multiprocessing.Queue()
-        def fowarad_function_output_to_queue(*args):
+        def forwarad_function_output_to_queue(*args):
             q.put(f(*args[1:],**args[0]))
         def modified_function(*args, **opts):
             # Note: using the multiprocessing instead of the threading module breaks on MacOS with python 3.8+ because of
@@ -1609,7 +1609,7 @@ def wrap_in_process():
             # p = multiprocessing.Process(target=fowarad_function_output_to_queue, args=tuple([opts,]+list(args)))
             # p.start()
             # p.join()
-            t = threading.Thread(target=fowarad_function_output_to_queue, args=tuple([opts,]+list(args)))
+            t = threading.Thread(target=forwarad_function_output_to_queue, args=tuple([opts,]+list(args)))
             t.start()
             return q.get()
         return modified_function
@@ -3922,6 +3922,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             display_options.append('--show_command')
         self.do_display(' '.join(display_options))
 
+        return SuperGraphCollection({SG_name: self.all_supergraphs[SG_name] for SG_name in selected_SGs})
+
     @staticmethod
     def evaluate_scalings(run_id, local_results, scalings_list, pbar, rust_worker, rust_worker_f128, workspace_path, rust_inputs_path, 
                             final_collinear_momenta, coll_sets, soft_set, external_momenta, LMBs_info, ir_limit_info, SG, E_cm, args):
@@ -4904,7 +4906,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             self.do_display('%s --uv'%selected_SGs[0])
         else:
             self.do_display('--uv')
-
+        
+        return SuperGraphCollection({SG_name: self.all_supergraphs[SG_name] for SG_name in selected_SGs})
 
     def plot_UV_profile_results(self, plots_repl_dict, results_for_plot, i_limit, LMB, UV_edge_indices, SG_name, args):
 

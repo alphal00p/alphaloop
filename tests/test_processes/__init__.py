@@ -6,6 +6,7 @@ warnings._showwarnmsg = (lambda msg: 0)
 
 import inspect
 import shutil
+import math
 from pprint import pformat
 from copy import deepcopy
 
@@ -64,10 +65,13 @@ if sys.path[:2] !=  [_mg5_dir,_aL_dir]:
 
 import alpha_loop
 from alpha_loop.interface import alphaLoopInterface
-from alpha_loop.run_interface import alphaLoopRunInterface, CrossSectionSet
+from alpha_loop.run_interface import alphaLoopRunInterface, CrossSectionSet, SuperGraph
 from alpha_loop.ltd_commons import HyperParameters
 from alpha_loop.ltd_commons import hyperparameters as default_hyperparameters
 import alpha_loop.utils as utils
+
+Colours = utils.bcolors
+#Colours = utils.NO_colors
 
 # Load Python API
 from ltd import CrossSection
@@ -102,14 +106,17 @@ class ProcessTester(object):
         # Now generate the process
         generation_card = cls._generation_card%({'output_path':cls.proc_output_path})
 
-        if not recycled:
-            cls._logger.debug("Generating process")
-            with utils.suppress_output(active=(DEBUG_MODE>=3)):
-                cls.cmd_line = alphaLoopInterface()
-                for line in generation_card.split('\n'):
-                    if line.strip()=='':
-                        continue
-                    cls.cmd_line.run_cmd(line.strip())
+        cls.cmd_line = alphaLoopInterface()
+        cls._logger.debug("Generating process")
+        with utils.suppress_output(active=(DEBUG_MODE>=3)):
+            for line in generation_card.split('\n'):
+                if line.strip()=='':
+                    continue
+                if recycled and 'output qgraf' in line:
+                    continue
+                cls.cmd_line.run_cmd(line.strip())
+
+        cls.run_cmd_line = None
 
         cls.cross_section_set = CrossSectionSet(pjoin(cls.proc_output_path,'Rust_inputs','all_QG_supergraphs.yaml'))
 
@@ -117,6 +124,7 @@ class ProcessTester(object):
         cls.hyperparams.update(default_hyperparameters, allow_undefined=True)
         for param, value in cls._global_hyperparameters.items():
             cls.hyperparams.set_parameter(param, value)
+        cls.hyperparams.export_to(pjoin(cls.proc_output_path,'default_test_hyperparameters.yaml'))
 
         cls._logger.debug("setUp finished")
 
@@ -174,3 +182,121 @@ class ProcessTester(object):
                 utils.bcolors.BLUE, self.__class__.__name__, utils.bcolors.ENDC,
                 utils.bcolors.GREEN, pformat(targets), utils.bcolors.ENDC
             ))
+
+    def run_UV_tests(self, warmup_cmds, uv_test_cmd):
+
+        if self.run_cmd_line is None:
+            self.run_cmd_line = alphaLoopRunInterface(
+                self.proc_output_path, self.cmd_line, 
+                launch_options={'reuse': pjoin(self.proc_output_path,'default_test_hyperparameters.yaml')}
+            )
+        
+        res = None
+        with utils.suppress_output(active=(DEBUG_MODE>=3)):
+            # Always remove all previously generated test results
+            self.run_cmd_line.run_cmd('refresh_derived_data')
+            # Send warmup commands
+            for line in warmup_cmds.split('\n'):
+                if line.strip()=='':
+                    continue
+                self.run_cmd_line.run_cmd(line.strip())
+            # Perform test
+            res = self.run_cmd_line.run_cmd(uv_test_cmd.strip())
+        
+
+        for supergraph_name in sorted(list(res.keys())):
+            sg_info = res[supergraph_name]
+
+            if ('DERIVED_UV_dod' not in sg_info):
+                continue
+            for k, v in sg_info['DERIVED_UV_dod'].items():
+                with self.subTest(SG=supergraph_name):
+                    self.assertTrue(v[-1], ('%-s : %s')%('%s%s%s : Sum over cuts dod for LMB=%s, UV_indices=%s'%(
+                        Colours.RED, supergraph_name, Colours.END,
+                        ','.join(k[0]),str(k[1])
+                    ),'%-7.4f +/- %-7.4f %s'%(
+                        v[0],v[1], '%sPASS%s'%(Colours.GREEN, Colours.END) if v[-1] else '%sFAIL%s'%(Colours.RED, Colours.END)
+                    )))
+
+            sorted_cut_evaluations = sorted(
+                [(i,k,v) for i, c in enumerate(sg_info['cutkosky_cuts']) for k,v in c['DERIVED_UV_dod'].items()],
+                key = lambda el: el[2][0], reverse=True
+            )
+            for cut_ID, k, v in sorted_cut_evaluations:
+                with self.subTest(SG=supergraph_name,cut_ID=cut_ID):
+                    self.assertTrue(v[-1], ('%-s : %s')%('%s%s%s : Cut dod for cut_ID=%d, LMB=%s, UV_indices=%s'%(
+                        Colours.RED, supergraph_name, Colours.END,
+                        cut_ID, ','.join(k[0]),str(k[1])
+                    ),'%-7.4f +/- %-7.4f %s'%(
+                        v[0],v[1], '%sPASS%s'%(Colours.GREEN, Colours.END) if v[-1] else '%sFAIL%s'%(Colours.RED, Colours.END)
+                    )))
+
+    def run_IR_tests(self, warmup_cmds, ir_test_cmd):
+
+        if self.run_cmd_line is None:
+            self.run_cmd_line = alphaLoopRunInterface(
+                self.proc_output_path, self.cmd_line, 
+                launch_options={'reuse': pjoin(self.proc_output_path,'default_test_hyperparameters.yaml')}
+            )
+        
+        res = None
+        with utils.suppress_output(active=(DEBUG_MODE>=3)):
+            # Always remove all previously generated test results
+            self.run_cmd_line.run_cmd('refresh_derived_data')
+            # Send warmup commands
+            for line in warmup_cmds.split('\n'):
+                if line.strip()=='':
+                    continue
+                self.run_cmd_line.run_cmd(line.strip())
+            # Perform test
+            res = self.run_cmd_line.run_cmd(ir_test_cmd.strip())
+
+
+        for supergraph_name in sorted(list(res.keys())):
+            sg_info = res[supergraph_name]
+
+            if 'ir_limits_analysis' not in sg_info or len(sg_info['ir_limits_analysis'])==0:
+                continue
+
+            ir_limits_to_consider = sg_info['ir_limits_analysis']
+
+            IR_limits_per_order = {}
+            for ir_limit in ir_limits_to_consider:
+                pert_order = SuperGraph.compute_ir_limit_perturbative_order(ir_limit)
+                if pert_order in IR_limits_per_order:
+                    IR_limits_per_order[pert_order].append(ir_limit)
+                else:
+                    IR_limits_per_order[pert_order] = [ir_limit,]
+
+            for pert_order in sorted(list(IR_limits_per_order.keys())):
+                max_IR_limit_str_len = max(len(SuperGraph.format_ir_limit_str(ir_limit,colored_output=False)) for ir_limit in ir_limits_to_consider )
+                for ir_limit in sorted(IR_limits_per_order[pert_order]):
+                    result = ir_limits_to_consider[ir_limit]
+                    cuts_sum_dod_colour = Colours.GREEN if (result['cuts_sum']['dod']['central'] < -1 + max(min(max(10.0*abs(result['cuts_sum']['dod']['std_err']),0.05),0.2),sg_info['ir_limits_analysis_setup']['min_dod_tolerance'])) else Colours.RED
+                    max_cut_dod = max(result['per_cut'].values(), key=lambda d: d['dod']['central'])
+                    severity_central = (max_cut_dod['dod']['central']-result['complete_integrand']['dod']['central'])
+                    severity_std_err = math.sqrt(result['complete_integrand']['dod']['std_err']**2+max_cut_dod['dod']['std_err']**2)
+                    with self.subTest(SG=supergraph_name,ir_limit=SuperGraph.format_ir_limit_str(ir_limit,colored_output=False)):
+                        self.assertTrue(result['status'][0],
+                            ('> %-{}s : %s%s%s %-12s dod: itg = %-32s cuts_sum = %-32s severity = %-32s'.format(
+                                    max_IR_limit_str_len+(len(SuperGraph.format_ir_limit_str(ir_limit,colored_output=True))-len(SuperGraph.format_ir_limit_str(ir_limit,colored_output=False)))
+                                ))%(
+                                SuperGraph.format_ir_limit_str(ir_limit),
+                                Colours.GREEN if result['status'][0] else Colours.RED, 'PASSED' if result['status'][0] else 'FAILED', Colours.END,
+                                '(%s)'%result['status'][1],
+                                '%sN/A%s'%(Colours.BLUE, Colours.END) if result['complete_integrand']['dod']['status'] not in ['SUCESS','UNSTABLE'] else (
+                                    '%s%s%.5f +/- %.1g%s'%(
+                                        Colours.GREEN if result['status'][0] else Colours.RED,
+                                        '+' if result['complete_integrand']['dod']['central']>=0. else '',
+                                        result['complete_integrand']['dod']['central'], result['complete_integrand']['dod']['std_err'],
+                                        Colours.END
+                                )),
+                                '%sN/A%s'%(Colours.BLUE, Colours.END) if result['complete_integrand']['dod']['status'] not in ['SUCESS','UNSTABLE'] else (
+                                    '%s%s%.5f +/- %.1g%s'%(cuts_sum_dod_colour, '+' if result['cuts_sum']['dod']['central']>=0. else '',
+                                    result['cuts_sum']['dod']['central'], result['cuts_sum']['dod']['std_err'],Colours.END)
+                                ),
+                                '%sN/A%s'%(Colours.BLUE, Colours.END) if result['complete_integrand']['dod']['status'] not in ['SUCESS','UNSTABLE'] else (
+                                    '%s%s%.5f +/- %.1g%s'%(Colours.BLUE,'+' if severity_central>=0. else '', severity_central, severity_std_err, Colours.END)
+                                )
+                            )+'\n  %s'%result['command']
+                        )

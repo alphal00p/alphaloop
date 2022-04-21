@@ -25,6 +25,22 @@ class bcolors:
     RED = '\033[91m'
     END = ENDC
 
+class NO_colors:
+    HEADER = ''
+    BLUE = ''
+    GREEN = ''
+    YELLOW = ''
+    WARNING = ''
+    FAIL = ''
+    ENDC = ''
+    BOLD = ''
+    UNDERLINE = ''
+    PURPLE = ''
+    CYAN = ''
+    DARKCYAN = ''
+    RED = ''
+    END = ENDC
+
 # An overwritable and streamable Canvas
 # Example usage:
 #

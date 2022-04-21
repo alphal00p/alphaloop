@@ -1,6 +1,6 @@
 import inspect
 import unittest
-from . import ProcessTester
+from . import ProcessTester, _aL_dir, _mg5_dir
 import multiprocessing
 
 class a_ddx_LO(ProcessTester,unittest.TestCase):
@@ -109,6 +109,24 @@ output qgraf %(output_path)s
             targets = 
 {'SG_QG0': [(0.1, 0.2, 0.3, 0.4, 0.5, 0.6),1,(4.060089806337099e-05-3.969361135922295e-05j)],
  'SG_QG1': [(0.1, 0.2, 0.3, 0.4, 0.5, 0.6), 2.0, (-8.666839338579953e-07+0j)]}
+        )
+
+    def test_UV(self):
+        super(a_ddx_NLO,self).run_UV_tests(warmup_cmds=
+"""
+set_hyperparameter General.deformation_strategy "none"
+set_hyperparameter Selectors.active_selectors []
+""", 
+            uv_test_cmd = "uv_profile ALL -nsof -min 1.0e3 -max 1.0e5 --n_points 100 --f128 --seed 1"
+        )
+
+    def test_IR(self):
+        super(a_ddx_NLO,self).run_IR_tests(warmup_cmds=
+"""
+set_hyperparameter General.deformation_strategy "none"
+set_hyperparameter Selectors.active_selectors []
+""", 
+            ir_test_cmd = "ir_profile ALL --perturbative_order 1 --ir_limits cutkosky --f128 --min 1.0e-03 --max 1.0e-05 --n_points 30 --seed 1 -c 1"
         )
 
 class a_ddx_NNLO(ProcessTester,unittest.TestCase):
