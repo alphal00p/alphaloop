@@ -137,6 +137,8 @@ class SquaredTopologyGenerator:
 
         pure_forest_counter = 0
 
+        uv_representative_graphs = {}
+
         for cutkosky_cut, cut_info in zip(cutkosky_cuts, cut_infos):
             c = cut_info['cuts']
 
@@ -276,43 +278,50 @@ class SquaredTopologyGenerator:
                 for i, diag_info in enumerate(diag_set['diagram_info']):
                     for uv_structure in diag_info['uv']:
                         # create the LTD representation of the derived UV graph
-                        forest_to_cb = []
+                        forest_to_lmb = []
                         for uv_subgraph in uv_structure['uv_subgraphs']:
                             for di, d in enumerate(uv_subgraph['derived_graphs']):
                                 (loop_mom_map, shift_map) = self.topo.build_proto_topology(d['graph'], c, skip_shift=True)
 
-                                # Construct a loop momentum map using the loop momenta that are in the full subgraph only (needed for UV and soft CT).
-                                # ie for fmb defining edge c3-c4+c1+p1+p2, where c1 is cut and c4 belongs to the remaining graph, we construct
-                                # f1 = c3, f1_shift = c1+p1+p2-c4
-                                # The shift should be added later to the parametric shifts of each propagator containing f1.
+                                if len(uv_structure['uv_subgraphs']) > 1:
+                                    # get the representative graph and map the LTD basis momenta to this representation
+                                    rg, rg_lmmm = uv_representative_graphs[tuple(uv_subgraph['full_subgraph_momenta'])]
+                                    sm = rg.get_signature_map()
+                                    # get the signature of the LTD basis momenta in the basis of the representative
+                                    ltd_mom_sig = [sm[d['graph'].edge_map_lin[e][0]] for e in d['graph'].loop_momenta]
 
-                                # get the loop momenta of the UV graph and its subgraphs in the lmb
-                                rem_edge_sigs = [edge_map[e] for e in uv_subgraph['full_subgraph_momenta']]
-                                rem_edge_loop_sigs = [s[0] for s in rem_edge_sigs if all(ss == 0 for ss in s[1]) and sum(abs(ss) for ss in s[0]) == 1]
-                                # now filter these loop momenta and filter cut momenta
-                                # we use that the loop momenta in the cmb are direcly one of the loop momenta in the lmb
-                                used_loop_momenta = [i for i in range(self.topo.n_loops) if any(s[i] != 0 for s in rem_edge_loop_sigs) and
-                                 len([cc for cc in diag_set['cb_to_lmb'][i * self.topo.n_loops:(i+1) * self.topo.n_loops] if cc != 0]) == 1 and
-                                 any(cc != 0 for cc in diag_set['cb_to_lmb'][i * self.topo.n_loops + len(c) - 1:(i+1) * self.topo.n_loops])]
+                                    basis_shift_map = []
+                                    loop_mom_map = [] # overwrite the generated loop momentum map
+                                    for lmb_sig, shift_sig in ltd_mom_sig:
+                                        # construct the loop momentum part that should not get expanded
+                                        lmc = numpy.array([0]*self.topo.n_loops, dtype=int)
+                                        for sign, (rg_lmb_sig, rg_shift_sig) in zip(lmb_sig, rg_lmmm):
+                                            assert(all(s == 0 for s in rg_shift_sig))
+                                            lmc += sign * numpy.array(rg_lmb_sig)
+                                        loop_mom_map.append((lmc, [0]*len(self.topo.ext)))
 
-                                basis_shift_map = []
-                                new_lm_map = []
-                                for lmp, shp in loop_mom_map:
-                                    # get the dependence of the loop momenta
-                                    dep = numpy.array([0]*self.topo.n_loops, dtype=int)
-                                    for ii, x in enumerate(lmp):
-                                        dep += x* numpy.array(diag_set['cb_to_lmb'][ii * self.topo.n_loops:(ii+1) * self.topo.n_loops], dtype=int)
-                                    deps = [0 if u not in used_loop_momenta else
-                                            dep.dot(numpy.array(diag_set['cb_to_lmb'][u * self.topo.n_loops:(u+1) * self.topo.n_loops], dtype=int))
-                                            for u in range(self.topo.n_loops)]
+                                        # construct the shift part that will get expanded
+                                        # it is split between loop momenta external to the subgraph
+                                        # and the external momenta of the supergraph
+                                        lm_shift = numpy.array([0]*self.topo.n_loops, dtype=int)
+                                        ext_shift = numpy.array([0]*len(self.topo.ext), dtype=int)
 
-                                    basis_shift_map.append([[a-b for a,b in zip(lmp,deps)],shp])
-                                    new_lm_map.append([deps, [0]*len(shp)])
-
-                                loop_mom_map = new_lm_map
+                                        assert(len(shift_sig) == len(rg.ext))
+                                        for sign, ext in zip(shift_sig, rg.ext):
+                                            # get the lmb dependence of the external edge of the rg graph from the supergraph
+                                            sig = edge_map[rg.edge_map_lin[ext][0]]
+                                            lm_shift += sign * numpy.array(sig[0], dtype=int)
+                                            ext_shift += sign * numpy.array(sig[1], dtype=int)
+                                        basis_shift_map.append((lm_shift, ext_shift))
+                                else:
+                                    # the UV subgraph has no subgraphs of itself and therefore contains at least as many lmb
+                                    # edges as there are loops. We select the basis of this graph, which is a subset of lmb momenta
+                                    # as a representative for all UV subgraphs that involve the same momenta (including subgraph momenta)
+                                    basis_shift_map = [[[0]*len(lmp), shp] for lmp, shp in loop_mom_map] # should be all 0
+                                    uv_representative_graphs[tuple(uv_subgraph['full_subgraph_momenta'])] = (d['graph'], loop_mom_map)
 
                                 if di == 0:
-                                    forest_to_cb.extend([x[0] for x in loop_mom_map])
+                                    forest_to_lmb.extend([x[0] for x in loop_mom_map])
 
                                 # note: the shift map signs may get swapped when edges switch orientation
                                 # the basis_shift_map should be unaffected since defining edges are not swapped
@@ -412,10 +421,10 @@ class SquaredTopologyGenerator:
 
                             uv_subgraph['integrated_ct_bubble_graph'] = loop_topo
 
-                        forest_to_cb.extend([x[0] for x in uv_structure['remaining_graph_loop_topo'].loop_momentum_map])
+                        forest_to_lmb.extend([x[0] for x in uv_structure['remaining_graph_loop_topo'].loop_momentum_map])
 
-                        if forest_to_cb != []:
-                            fmb_in_cb = (Matrix(forest_to_cb) * lmb_to_cb_matrix).tolist()
+                        if forest_to_lmb != []:
+                            fmb_in_cb = (Matrix(forest_to_lmb) * lmb_to_cb_matrix).tolist()
                             shift = Matrix([r[:len(c) - 1] for r in fmb_in_cb])
                             loops = [r[len(c) - 1:] for r in fmb_in_cb]
                             # filter out all columns with zeroes as these are cmb momenta belonging to another amplitude
