@@ -37,7 +37,7 @@ On nospacesinnumbers;
 
 S vev, pi, cw, sw ,sw2 , gw;
 
-Auto S mass, mUV;
+Auto S mass;
 Auto S yukawa;
 CTable masses(-10000:10000);
 CTable gyq(-10000:10000);
@@ -173,7 +173,7 @@ Fill gyq(1006) = yukawat;
 **************************************************
 
 * note: this set needs to be complete for the UV expansion
-Set allmasses: massu, massd, massc, masss, masst, massb, masse, massmu, masstau, massh, massw, massz, mUV;
+Set allmasses: massu, massd, massc, masss, masst, massb, masse, massmu, masstau, massh, massw, massz;
 
 Fill charges(1) = -1/3; * d
 Fill charges(2) = 2/3; * u
@@ -976,11 +976,11 @@ repeat id subgraph(?a,p?) = subgraph(?a);
 
 * divide by the normalizing factor of the denominator that is added to the topology
 * this is always 1/(k^2 - m_UV^2)^3 = -i / (4 pi)^2 * 1/2 * 1/mUV^2
-* use mUV2 so that it is ignored in the Taylor expansion
+* note that mUV is ignored in the Taylor expansion of masses
 * determine the number of loops with E - V + 1
         Multiply replace_(vxs,vx);
         id vx(?a) = x1*x2^nargs_(?a)*vxs(?a);
-        id x1^n1?*x2^n2? = (i_ * (4 * pi)^2 * 2 * mUV2^2)^(n2/2 - n1 + 1);
+        id x1^n1?*x2^n2? = (i_ * (4 * pi)^2 * 2 * mUV^2)^(n2/2 - n1 + 1);
     endif;
 
     #call IntegrateUV()
@@ -1045,7 +1045,6 @@ id xnomsbar = 0;
 id xlct = 1;
 id xuvexpand = 0;
 id xirexpand = 1;
-Multiply replace_(mUV2, mUV);
 .sort:local-uv-done;
 Drop uvdiag`uvdiagtotalstart',...,uvdiag`uvdiagend';
 delete extrasymbols>`uvdiagtotalstart';
