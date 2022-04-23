@@ -1158,7 +1158,7 @@ aGraph=%s;
         return [ edges_to_sort[identities[position][1]] for position in new_position ]
 
     @classmethod
-    def momenta_decomposition_to_string(cls, momenta_decomposition, set_outgoing_equal_to_incoming=True):
+    def momenta_decomposition_to_string(cls, momenta_decomposition, set_outgoing_equal_to_incoming=True, overall_sign=1, leading_sign=False):
         """ Turns ((1,0,0,-1),(1,1)) into 'k1-k4+p1+p2'"""
 
         res = ""
@@ -1175,8 +1175,9 @@ aGraph=%s;
         # Fuse outgoing and incoming
         for symbol, mom_decomposition in zip(('k','p'),momenta_decomposition):
             for i_k, wgt in enumerate(mom_decomposition):
+                wgt = wgt * overall_sign
                 if wgt!=0:
-                    if first:
+                    if first and not leading_sign:
                         if wgt<0:
                             res+="-"
                         first=False
@@ -1557,9 +1558,6 @@ aGraph=%s;
                                    graphs.append((signature_offset, dg['onshell_ct_id'], dg['loop_topo_orig_mass'], massct))
                             graphs.append((signature_offset, uv_subgraph['integrated_ct_id'], uv_subgraph['integrated_ct_bubble_graph'], None))
                             signature_offset += uv_subgraph['derived_graphs'][0]['loop_topo'].n_loops
-                        if len(uv_structure['bubble']) > 0:
-                            for bubble in uv_structure['bubble']:
-                                graphs.append((signature_offset, bubble['id'], bubble['remaining_graph_loop_topo'], None))
                         else:
                             graphs.append((signature_offset, uv_structure['remaining_graph_id'], uv_structure['remaining_graph_loop_topo'], None))
 
@@ -1840,6 +1838,9 @@ CTable ltdmap(0:{},0:{});
         uv_forest = []
         topo_map = '#procedure uvmap()\n'
 
+        def strip_plus(s):
+            return str(s[1:]) if len(s) > 1 and s[0] == '+' else s
+
         pure_forest_counter = 0
         for cut_index, cut in enumerate(topo.cuts):
             for diag_set in cut['diagram_sets']:
@@ -1877,7 +1878,7 @@ CTable ltdmap(0:{},0:{});
                             if all(x == 0 for x in r):
                                 assert(all(x == 0 for x in aff))
                                 continue
-                            mom = ''.join('+{}*fmb{}'.format(a, forest_index + 1) for forest_index, a in enumerate(r) if a != 0)
+                            mom = ''.join('{}fmb{}'.format('+' if a == 1 else ('-' if a == -1 else str(a) + '*'), forest_index + 1) for forest_index, a in enumerate(r) if a != 0)
                             # the shift should be subtracted
                             shift = ''
                             for cmb_index, a in enumerate(aff):
@@ -1885,17 +1886,15 @@ CTable ltdmap(0:{},0:{});
                                     continue
 
                                 # also subtract the external momenta
-                                d = self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][cmb_index]['signature'][1]), False)
+                                d = self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][cmb_index]['signature'][1]), False, -1, True)
                                 if d != '':
-                                    shift += '-{}*(c{}-({}))'.format(a, cmb_index + 1, d)
+                                    shift += '-{}*(c{}{})'.format(a, cmb_index + 1, d)
                                 else:
                                     shift += '-{}*c{}'.format(a, cmb_index + 1)
 
-                            eshift = self.momenta_decomposition_to_string(([0] * n_loops, extshift), True)
-                            if eshift != '':
-                                shift += '-({})'.format(eshift)
+                            shift += self.momenta_decomposition_to_string(([0] * n_loops, extshift), True, -1, True)
 
-                            m = 'c{},{}{}'.format(lmb_index + cmb_offset + 1, mom, shift)
+                            m = 'c{},{}{}'.format(lmb_index + cmb_offset + 1, strip_plus(mom), shift)
                             forest_to_cb.append(m)
                         if len(forest_to_cb) > 0:
                             forest_element.append('cbtofmb({})'.format(','.join(forest_to_cb)))
@@ -1906,7 +1905,7 @@ CTable ltdmap(0:{},0:{});
                             if all(x == 0 for x in r):
                                 assert(all(x == 0 for x in aff))
                                 continue
-                            mom = ''.join('+{}*cs{}'.format(a, cmb_index + cmb_offset + 1) for cmb_index, a in enumerate(r) if a != 0)
+                            mom = ''.join('{}cs{}'.format('+' if a == 1 else ('-' if a == -1 else str(a) + '*'), cmb_index + cmb_offset + 1) for cmb_index, a in enumerate(r) if a != 0)
                             # the shift should be added
                             shift = ''
                             for cmb_index, a in enumerate(aff):
@@ -1925,50 +1924,17 @@ CTable ltdmap(0:{},0:{});
                             if eshift != '':
                                 shift += '+({})'.format(eshift)
 
-                            m = 'fmbs{},{}{}'.format(fmb_index + 1, mom, shift)
+                            m = 'fmbs{},{}{}'.format(fmb_index + 1, strip_plus(mom), shift)
                             cb_to_forest.append(m)
                         if len(cb_to_forest) > 0:                           
                             forest_element.append('fmbtocb({})'.format(','.join(cb_to_forest)))
 
                         diag_moms = ','.join(self.momenta_decomposition_to_string(lmm, False) for lmm in uv_structure['remaining_graph_loop_topo'].loop_momentum_map)
 
-                        if len(uv_structure['bubble']) > 0:
-                            # we have a bubble: replace the remaining graphs by the sum of bubble derivative graphs
-                            bubbles = []
-                            for bubble in uv_structure['bubble']:
-                                trans = []
-
-                                # if the cutkosky cut has a negative sign, we derive in -p^0 instead of p^0.
-                                # here we compensate for this sign
-                                trans.append(str(next(c for c in cut['cuts'] if c['edge'] == bubble['derivative'][0])['sign']))
-
-                                ext_mom = next(ee for ee in self.edges.values() if ee['name'] == bubble['derivative'][0])['momentum']
-                                der_mom = next(ee for ee in self.edges.values() if ee['name'] == bubble['derivative'][1])['momentum']
-                                ext_sig = next(ee for ee in self.edges.values() if ee['name'] == bubble['derivative'][0])['signature']
-                                der_sig = next(ee for ee in self.edges.values() if ee['name'] == bubble['derivative'][1])['signature']
-
-                                if bubble['derivative'][0] == bubble['derivative'][1]:
-                                    # numerator derivative
-                                    bubble_uv_derivative = '{}*der({})*'.format('*'.join(trans), ext_mom)
-                                    trans.append('der({})'.format(ext_mom))
-                                else:
-                                    # check if we pick up a sign change due to the external momentum flowing in the opposite direction
-                                    signs = [se * sc for se, sc in zip(der_sig[0] + der_sig[1], ext_sig[0] + ext_sig[1]) if se * sc != 0]
-                                    assert(len(set(signs)) == 1)
-                                    trans.append('-2*{}der({},0)'.format('1*' if signs[0] == 1 else '-1*', der_mom))
-
-                                if diag_moms != '':
-                                    trans.append('diag({},{},{})'.format(diag_set['id'], topo.topo_map[bubble['id']], diag_moms))
-                                else:
-                                    trans.append('diag({},{})'.format(diag_set['id'], topo.topo_map[bubble['id']]))
-                                bubbles.append('*'.join(trans))
-
-                            forest_element.append('({})'.format('+'.join(bubbles)))
+                        if diag_moms != '':
+                            forest_element.append('{}diag({},{},{})'.format(bubble_uv_derivative, diag_set['id'], topo.topo_map[uv_structure['remaining_graph_id']], diag_moms))
                         else:
-                            if diag_moms != '':
-                                forest_element.append('{}diag({},{},{})'.format(bubble_uv_derivative, diag_set['id'], topo.topo_map[uv_structure['remaining_graph_id']], diag_moms))
-                            else:
-                                forest_element.append('{}diag({},{})'.format(bubble_uv_derivative, diag_set['id'], topo.topo_map[uv_structure['remaining_graph_id']]))
+                            forest_element.append('{}diag({},{})'.format(bubble_uv_derivative, diag_set['id'], topo.topo_map[uv_structure['remaining_graph_id']]))
 
                         if uv_index == 0:
                             if diag_moms != '':
@@ -2021,10 +1987,8 @@ CTable ltdmap(0:{},0:{});
                                 loop_mom_shift = ''
                                 for s, lmm, lm_shift in zip(ll_sig, uv_loop_graph.loop_momentum_map, uv_loop_graph.uv_loop_lines[1]):
                                     if s != 0:
-                                        loop_mom_sig += '{}({})'.format('+' if s == 1 else '-', self.momenta_decomposition_to_string(lmm, False))
-                                        ds = self.momenta_decomposition_to_string(lm_shift, False)
-                                        if ds != '':
-                                            loop_mom_shift += '{}({})'.format('+' if s == 1 else '-', ds)
+                                        loop_mom_sig += self.momenta_decomposition_to_string(lmm, False, s, True)
+                                        loop_mom_shift += self.momenta_decomposition_to_string(lm_shift, False, s, True)
 
                                 # the parametric shift is given in terms of external momenta of the subgraph
                                 # translate the signature and param_shift to momenta of the supergraph
@@ -2035,20 +1999,27 @@ CTable ltdmap(0:{},0:{});
                                     if all(s == 0 for s in param_shift[1]):
                                         for _ in range(power):
                                             if loop_mom_shift == '':
-                                                uv_props.append('uvprop({},t{},0,{})'.format(loop_mom_sig, i, edge_mass))
+                                                uv_props.append('uvprop({},t{},0,{})'.format(strip_plus(loop_mom_sig), i, edge_mass))
                                             else:
-                                                uv_props.append('uvprop({},t{},{},{})'.format(loop_mom_sig, i, loop_mom_shift, edge_mass))
+                                                uv_props.append('uvprop({},t{},{},{})'.format(strip_plus(loop_mom_sig), i, strip_plus(loop_mom_shift), edge_mass))
                                         continue
 
+                                    ext_mom_sig = ''
                                     for (ext_index, s) in enumerate(param_shift[1]):
                                         if s != 0:
                                             ext_mom = uv_subgraph['graph'].edge_map_lin[uv_subgraph['graph'].ext[ext_index]][0]
                                             ext_edge = next(ee for ee in self.edges.values() if ee['name'] == ext_mom)
-                                            ext_mom_sig += '{}({})'.format('+' if s == 1 else '-',
-                                                self.momenta_decomposition_to_string(ext_edge['signature'], False))
+                                            sig_l, sig_ext = np.array(ext_edge['signature'][0], dtype=int), np.array(ext_edge['signature'][1], dtype=int)
+                                            if ext_mom_sig == '':
+                                                ext_mom_sig = (s * sig_l, s * sig_ext)
+                                            else:
+                                                ext_mom_sig = (ext_mom_sig[0] + s * sig_l, ext_mom_sig[1] + s * sig_ext)
+
+                                    ext_mom_sig = (([x for x in ext_mom_sig[0]]), ([x for x in ext_mom_sig[1]]))
+                                    ext_mom_sig = self.momenta_decomposition_to_string(ext_mom_sig, False, 1, True)
 
                                     for _ in range(power):
-                                        uv_props.append('uvprop({},t{},{},{})'.format(loop_mom_sig, i, loop_mom_shift + ext_mom_sig, edge_mass))
+                                        uv_props.append('uvprop({},t{},{},{})'.format(loop_mom_sig, i, strip_plus(loop_mom_shift + ext_mom_sig), edge_mass))
                             # it could be that there are no propagators with external momentum dependence when pinching duplicate edges
                             if uv_props == []:
                                 uv_props = ['1']
@@ -2093,10 +2064,10 @@ CTable ltdmap(0:{},0:{});
                         if cs != 0:
                             s += '{}c{}'.format('+' if cs == 1 else '-', cc + 1)
                             if cc < len(cut['cuts'][:-1]):
-                                d = self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][cc]['signature'][1]), False)
-                                if d != '':
-                                    # note the sign inversion
-                                    s += '{}({})'.format('-' if cs == 1 else '+', d)
+                                # note the sign inversion
+                                s += self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][cc]['signature'][1]), False, -cs, True)
+                    if s[0] == '+':
+                        s = str(s[1:])
                     cmb_map.append(('k' + str(i + 1), s))
 
                 cmb_map = 'cmb({})'.format(','.join(d for c in cmb_map for d in c))
@@ -2104,11 +2075,9 @@ CTable ltdmap(0:{},0:{});
                 # store which momenta are LTD momenta
                 conf = 'c0' if n_loops == len(cut['cuts'][:-1]) else ','.join('c' + str(i + 1) for i in range(len(cut['cuts'][:-1]), n_loops) )
 
-                if diag_momenta == []:
-                    diag_momenta = ['1']
-
+                diag_momenta = '' if diag_momenta == [] else '*' + '*'.join(diag_momenta)
                 tder = '*tder({})'.format(','.join(str(c['power']) for c in cut['cuts'] if c['power'] > 1)) if any(c['power'] > 1 for c in cut['cuts']) else ''
-                conf = 'conf({},{},{},{}){}*{}'.format(diag_set['id'], cut_index, cmb_map, conf, tder, '*'.join(diag_momenta))
+                conf = 'conf({},{},{},{}){}{}'.format(diag_set['id'], cut_index, cmb_map, conf, tder, diag_momenta)
                 if diag_set_uv_conf != []:
                     conf += '*{}'.format('*'.join(diag_set_uv_conf))
 

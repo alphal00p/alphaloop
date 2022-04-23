@@ -131,10 +131,6 @@ class SquaredTopologyGenerator:
 
             cut_infos.append(cut_info)
 
-        has_2l_bubble = any(len(cut_info['diagram_sets'][0]['diagram_info']) > 2 and
-                            any(len(g['graph'].ext) == 2 and len(g['graph'].edge_map_lin) > 4 for g in cut_info['diagram_sets'][0]['diagram_info'])
-                        for cut_info in cut_infos)
-
         pure_forest_counter = 0
 
         uv_representative_graphs = {}
@@ -162,8 +158,6 @@ class SquaredTopologyGenerator:
 
                     subgraph_counter = {}
                     for uv_limit in uv_limits:
-                        uv_limit['bubble'] = []
-
                         for uv_sg in uv_limit['uv_subgraphs']:
                             subgraph_internal_edges = [e[0] for i, e in enumerate(uv_sg['graph'].edge_map_lin) if i not in uv_sg['graph'].ext]
 
@@ -202,10 +196,6 @@ class SquaredTopologyGenerator:
                         uv_limit['remaining_graph_id'] = graph_counter
                         graph_counter += 1
 
-                        for b in uv_limit['bubble']:
-                            b['id'] = graph_counter
-                            graph_counter += 1
-
                     diag_info.pop('graph')
                     diag_info['uv'] = [{
                         'uv_subgraphs': uv_limit['uv_subgraphs'],
@@ -214,7 +204,6 @@ class SquaredTopologyGenerator:
                         'uv_propagators': [m for g, _ in uv_limit['spinney'] for m in g],
                         'remaining_graph': uv_limit['remaining_graph'],
                         'remaining_graph_id' : uv_limit['remaining_graph_id'],
-                        'bubble': uv_limit['bubble']
                     } for uv_limit in uv_limits]
 
                 diag_set['id'] = diagram_set_counter
@@ -232,22 +221,6 @@ class SquaredTopologyGenerator:
 
                         if uv_structure['uv_spinney'] == []:
                             cut_to_lmb.extend([x[0] for x in loop_mom_map])
-
-                        for bubble in uv_structure['bubble']:
-                            # create the loop topo of the derivative bubble graphs
-                            (loop_mom_map, shift_map) = self.topo.build_proto_topology(bubble['graph'], c, skip_shift=False)
-
-                            bubble['remaining_graph_loop_topo'] = bubble['graph'].create_loop_topology(name + '_' + ''.join(cut_name) + '_' + str(i),
-                                # provide dummy external momenta
-                                ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
-                                fixed_deformation=False,
-                                mass_map=masses,
-                                loop_momentum_map=loop_mom_map,
-                                numerator_tensor_coefficients=[[0., 0.,]],
-                                shift_map=shift_map,
-                                check_external_momenta_names=False,
-                                analytic_result=0)
-                            bubble['remaining_graph_loop_topo'].external_kinematics = []
 
                         uv_structure['remaining_graph_loop_topo'] = uv_structure['remaining_graph'].create_loop_topology(name + '_' + ''.join(cut_name) + '_' + str(i),
                             # provide dummy external momenta
