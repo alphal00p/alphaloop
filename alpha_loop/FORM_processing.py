@@ -1838,6 +1838,9 @@ CTable ltdmap(0:{},0:{});
         uv_forest = []
         topo_map = '#procedure uvmap()\n'
 
+        def sign_prefix(s):
+            return '+' if s == 1 else ('-' if s == -1 else str(s) + '*')
+
         def strip_plus(s):
             return str(s[1:]) if len(s) > 1 and s[0] == '+' else s
 
@@ -1878,7 +1881,7 @@ CTable ltdmap(0:{},0:{});
                             if all(x == 0 for x in r):
                                 assert(all(x == 0 for x in aff))
                                 continue
-                            mom = ''.join('{}fmb{}'.format('+' if a == 1 else ('-' if a == -1 else str(a) + '*'), forest_index + 1) for forest_index, a in enumerate(r) if a != 0)
+                            mom = ''.join('{}fmb{}'.format(sign_prefix(a), forest_index + 1) for forest_index, a in enumerate(r) if a != 0)
                             # the shift should be subtracted
                             shift = ''
                             for cmb_index, a in enumerate(aff):
@@ -1886,14 +1889,10 @@ CTable ltdmap(0:{},0:{});
                                     continue
 
                                 # also subtract the external momenta
-                                d = self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][cmb_index]['signature'][1]), False, -1, True)
-                                if d != '':
-                                    shift += '-{}*(c{}{})'.format(a, cmb_index + 1, d)
-                                else:
-                                    shift += '-{}*c{}'.format(a, cmb_index + 1)
+                                d = self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][cmb_index]['signature'][1]), False, a, True)
+                                shift += '{}c{}{}'.format(sign_prefix(-a), cmb_index + 1, d)
 
                             shift += self.momenta_decomposition_to_string(([0] * n_loops, extshift), True, -1, True)
-
                             m = 'c{},{}{}'.format(lmb_index + cmb_offset + 1, strip_plus(mom), shift)
                             forest_to_cb.append(m)
                         if len(forest_to_cb) > 0:
@@ -1905,25 +1904,17 @@ CTable ltdmap(0:{},0:{});
                             if all(x == 0 for x in r):
                                 assert(all(x == 0 for x in aff))
                                 continue
-                            mom = ''.join('{}cs{}'.format('+' if a == 1 else ('-' if a == -1 else str(a) + '*'), cmb_index + cmb_offset + 1) for cmb_index, a in enumerate(r) if a != 0)
+                            mom = ''.join('{}cs{}'.format(sign_prefix(a), cmb_index + cmb_offset + 1) for cmb_index, a in enumerate(r) if a != 0)
                             # the shift should be added
                             shift = ''
                             for cmb_index, a in enumerate(aff):
                                 if a == 0:
                                     continue
 
-                                d = self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][cmb_index]['signature'][1]), False)
-                                d = d.replace('p', 'ps')
-                                if d != '':
-                                    shift += '+{}*(cs{}-({}))'.format(a, cmb_index + 1, d)
-                                else:
-                                    shift += '+{}*cs{}'.format(a, cmb_index + 1)
+                                d = self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][cmb_index]['signature'][1]), False, -a, True).replace('p', 'ps')
+                                shift += '{}cs{}{}'.format(sign_prefix(a), cmb_index + 1, d)
 
-                            eshift = self.momenta_decomposition_to_string(([0] * n_loops, extshift), True)
-                            eshift = eshift.replace('p', 'ps')
-                            if eshift != '':
-                                shift += '+({})'.format(eshift)
-
+                            shift += self.momenta_decomposition_to_string(([0] * n_loops, extshift), True, 1, True).replace('p', 'ps')
                             m = 'fmbs{},{}{}'.format(fmb_index + 1, strip_plus(mom), shift)
                             cb_to_forest.append(m)
                         if len(cb_to_forest) > 0:                           
@@ -1977,8 +1968,8 @@ CTable ltdmap(0:{},0:{});
                                         loop_mom_sig = ''
                                         for s, lmm in zip(ll.signature, uv_loop_graph.loop_momentum_map):
                                             if s != 0:
-                                                loop_mom_sig += '{}({})'.format('+' if s * outgoing == 1 else '-', self.momenta_decomposition_to_string(lmm, False))
-                                        vertex.append(loop_mom_sig)
+                                                loop_mom_sig += self.momenta_decomposition_to_string(lmm, False, s * outgoing,True)
+                                        vertex.append(strip_plus(loop_mom_sig))
                                 vertex_structure.append('vxs({})'.format(','.join(vertex)))
 
                             uv_props = []
