@@ -1,8 +1,8 @@
 use crate::dashboard::{StatusUpdate, StatusUpdateSender};
 use crate::squared_topologies::CutkoskyCut;
 use crate::{
-    FilterQuantity, FloatLike, JetSliceSettings, ObservableMode, RangedSelectorSettings,
-    SelectorMode, Settings,
+    FilterQuantity, FloatLike, JetSliceSettings, ObservableSettings, PhaseSpaceSelectorSettings,
+    RangeFilterSettings, Settings,
 };
 use itertools::Itertools;
 use libc::{c_double, c_int, c_void};
@@ -138,35 +138,35 @@ impl EventManager {
         status_update_sender: StatusUpdateSender,
     ) -> EventManager {
         let mut observables = vec![];
-        for o in &settings.observables.active_observables {
+        for o in &settings.observables {
             match o {
-                ObservableMode::Jet1PT => {
+                ObservableSettings::Jet1PT(settings) => {
                     if track_events {
                         observables.push(Observables::Jet1PT(Jet1PTObservable::new(
-                            settings.observables.Jet1PT.x_min,
-                            settings.observables.Jet1PT.x_max,
-                            settings.observables.Jet1PT.n_bins,
-                            settings.observables.Jet1PT.dR,
-                            settings.observables.Jet1PT.min_jpt,
-                            settings.observables.Jet1PT.write_to_file,
-                            settings.observables.Jet1PT.filename.clone(),
-                            settings.observables.Jet1PT.use_fastjet,
+                            settings.x_min,
+                            settings.x_max,
+                            settings.n_bins,
+                            settings.dR,
+                            settings.min_jpt,
+                            settings.write_to_file,
+                            settings.filename.clone(),
+                            settings.use_fastjet,
                         )));
                     }
                 }
-                ObservableMode::CrossSection => {
+                ObservableSettings::CrossSection => {
                     observables.push(Observables::CrossSection(CrossSectionObservable::new(
                         status_update_sender.clone(),
                     )));
                 }
-                ObservableMode::AFB => {
+                ObservableSettings::AFB(settings) => {
                     if track_events {
                         observables.push(Observables::AFB(AFBObservable::new(
-                            settings.observables.AFB.x_min,
-                            settings.observables.AFB.x_max,
-                            settings.observables.AFB.n_bins,
-                            settings.observables.AFB.write_to_file,
-                            settings.observables.AFB.filename.clone()
+                            settings.x_min,
+                            settings.x_max,
+                            settings.n_bins,
+                            settings.write_to_file,
+                            settings.filename.clone(),
                         )));
                     }
                 }
@@ -174,20 +174,13 @@ impl EventManager {
         }
 
         let mut selectors = vec![];
-        for s in &settings.selectors.active_selectors {
+        for s in &settings.selectors {
             match s {
-                &SelectorMode::Ranged => {
-                    selectors.push(Selectors::Ranged(
-                        settings
-                            .selectors
-                            .ranged
-                            .iter()
-                            .map(|r| RangedSelector::new(r))
-                            .collect(),
-                    ));
+                PhaseSpaceSelectorSettings::RangeFilter(settings) => {
+                    selectors.push(Selectors::RangeFilter(RangedSelector::new(settings)));
                 }
-                SelectorMode::Jet => {
-                    selectors.push(Selectors::Jet(JetSelector::new(&settings.selectors.jet)));
+                PhaseSpaceSelectorSettings::Jet(settings) => {
+                    selectors.push(Selectors::Jet(JetSelector::new(&settings)));
                 }
             }
         }
@@ -374,7 +367,7 @@ pub struct Event {
 pub enum Selectors {
     All(NoEventSelector),
     Jet(JetSelector),
-    Ranged(Vec<RangedSelector>),
+    RangeFilter(RangedSelector),
 }
 
 impl Selectors {
@@ -383,14 +376,7 @@ impl Selectors {
         match self {
             Selectors::All(f) => f.process_event(event),
             Selectors::Jet(f) => f.process_event(event),
-            Selectors::Ranged(f) => {
-                for range in f {
-                    if !range.process_event(event) {
-                        return false;
-                    }
-                }
-                true
-            }
+            Selectors::RangeFilter(f) => f.process_event(event),
         }
     }
 }
@@ -443,7 +429,7 @@ impl EventSelector for RangedSelector {
 }
 
 impl RangedSelector {
-    pub fn new(s: &RangedSelectorSettings) -> RangedSelector {
+    pub fn new(s: &RangeFilterSettings) -> RangedSelector {
         RangedSelector {
             pdgs: s.pdgs.clone(),
             filter: s.filter,
@@ -639,7 +625,7 @@ impl EventSelector for JetSelector {
 pub enum Observables {
     CrossSection(CrossSectionObservable),
     Jet1PT(Jet1PTObservable),
-    AFB(AFBObservable)
+    AFB(AFBObservable),
 }
 
 impl Observables {
@@ -649,7 +635,7 @@ impl Observables {
         match self {
             CrossSection(o) => o.process_event_group(event, integrator_weight),
             Jet1PT(o) => o.process_event_group(event, integrator_weight),
-            AFB(o) => o.process_event_group(event, integrator_weight)
+            AFB(o) => o.process_event_group(event, integrator_weight),
         }
     }
 
@@ -674,7 +660,7 @@ impl Observables {
         match self {
             CrossSection(o) => o.update_result(total_events),
             Jet1PT(o) => o.update_result(total_events),
-            AFB(o) => o.update_result(total_events)
+            AFB(o) => o.update_result(total_events),
         }
     }
 }
@@ -898,10 +884,8 @@ impl Observable for Jet1PTObservable {
 pub struct AFBObservable {
     x_min: f64,
     x_max: f64,
-    index_event_accumulator: Vec<(isize, f64)>,
-    fb_index_event_accumulator: Vec<(isize, f64)>,
+    event_accumulator: Vec<(isize, f64)>,
     bins: Vec<AverageAndErrorAccumulator>,
-    fb_bins: Vec<AverageAndErrorAccumulator>,
     write_to_file: bool,
     filename: String,
     num_events: usize,
@@ -913,15 +897,13 @@ impl AFBObservable {
         x_max: f64,
         num_bins: usize,
         write_to_file: bool,
-        filename: String
+        filename: String,
     ) -> AFBObservable {
         AFBObservable {
             x_min,
             x_max,
-            index_event_accumulator: Vec::with_capacity(20),
-            fb_index_event_accumulator: Vec::with_capacity(20),
+            event_accumulator: Vec::with_capacity(20),
             bins: vec![AverageAndErrorAccumulator::default(); num_bins],
-            fb_bins: vec![AverageAndErrorAccumulator::default(); 2],
             write_to_file,
             filename,
             num_events: 0,
@@ -932,19 +914,19 @@ impl AFBObservable {
 impl Observable for AFBObservable {
     fn process_event_group(&mut self, events: &[Event], integrator_weight: f64) {
         // add events in a correlated manner such that cancellations are realized in the error
-        self.index_event_accumulator.clear();
-        self.fb_index_event_accumulator.clear();
+        self.event_accumulator.clear();
         for e in events {
             let pin = e.kinematic_configuration.0[0];
             let pout = e.kinematic_configuration.1[1];
-            let costheta = pin.spatial_dot(&pout)/(pin.spatial_distance() * pout.spatial_distance());
-            
-            let index = ((costheta- self.x_min) / (self.x_max - self.x_min) * self.bins.len() as f64) as isize;
-            let fb_index = ((costheta- self.x_min) / (self.x_max - self.x_min) * 2 as f64) as isize;
+            let costheta =
+                pin.spatial_dot(&pout) / (pin.spatial_distance() * pout.spatial_distance());
+
+            let index = ((costheta - self.x_min) / (self.x_max - self.x_min)
+                * self.bins.len() as f64) as isize;
 
             if index >= 0 && index < self.bins.len() as isize {
                 let mut new = true;
-                for i in self.index_event_accumulator.iter_mut() {
+                for i in self.event_accumulator.iter_mut() {
                     if i.0 == index {
                         *i = (index, i.1 + e.integrand.re * integrator_weight);
                         new = false;
@@ -952,42 +934,20 @@ impl Observable for AFBObservable {
                     }
                 }
                 if new {
-                    self.index_event_accumulator
+                    self.event_accumulator
                         .push((index, e.integrand.re * integrator_weight));
                 }
             }
-
-            if fb_index >= 0 && fb_index < 2 as isize {
-                let mut new = true;
-                for i in self.fb_index_event_accumulator.iter_mut() {
-                    if i.0 == fb_index {
-                        *i = (fb_index, i.1 + e.integrand.re * integrator_weight);
-                        new = false;
-                        break;
-                    }
-                }
-                if new {
-                    self.fb_index_event_accumulator
-                        .push((fb_index, e.integrand.re * integrator_weight));
-                }
-            }
         }
 
-        for i in &self.index_event_accumulator {
+        for i in &self.event_accumulator {
             self.bins[i.0 as usize].add_sample(i.1);
-        }
-
-        for i in &self.fb_index_event_accumulator {
-            self.fb_bins[i.0 as usize].add_sample(i.1);
         }
     }
 
     fn merge_samples(&mut self, other: &mut AFBObservable) {
         // TODO: check if bins are compatible?
         for (b, bo) in self.bins.iter_mut().zip_eq(&mut other.bins) {
-            b.merge_samples(bo);
-        }
-        for (b, bo) in self.fb_bins.iter_mut().zip_eq(&mut other.fb_bins) {
             b.merge_samples(bo);
         }
     }
@@ -1007,19 +967,9 @@ impl Observable for AFBObservable {
             b.update_iter();
         }
 
-        for b in &mut self.fb_bins {
-            let scaling = b.num_samples as f64 / diff as f64;
-            b.sum *= scaling;
-            b.sum_sq *= scaling * scaling;
-            b.update_iter();
-        }
-
         if self.write_to_file {
             let mut f =
                 BufWriter::new(File::create(&self.filename).expect("Could not create .HwU file"));
-            let mut fo =
-                BufWriter::new(File::create("AFB_result.txt").expect("Could not create AFB_result.txt"));
-
             writeln!(f, "##& xmin & xmax & central value & dy &\n").unwrap();
             writeln!(
                 f,
@@ -1042,44 +992,10 @@ impl Observable for AFBObservable {
             }
 
             writeln!(f, "<\\histogram>").unwrap();
-
-            writeln!(
-                f,
-                "<histogram> 2 \"Forward-backward asymmetry |X_AXIS@LIN |Y_AXIS@LOG |TYPE@LOALPHALOOP\""
-            )
-            .unwrap();
-
-
-            for (i, b) in self.fb_bins.iter().enumerate() {
-                let c1 = (self.x_max - self.x_min) * i as f64 / 2 as f64 + self.x_min;
-                let c2 = (self.x_max - self.x_min) * (i + 1) as f64 / 2 as f64 + self.x_min;
-
-                writeln!(
-                    f,
-                    "  {:.8e}   {:.8e}   {:.8e}   {:.8e}",
-                    c1, c2, b.avg, b.err,
-                )
-                .unwrap();
-            }
-
-            writeln!(f, "<\\histogram>").unwrap();
-
-            // let Fwd = self.fb_bins[1].avg;
-            // let dFwd = self.fb_bins[1].err;
-            // let Bwd = self.fb_bins[0].avg;
-            // let dBwd = self.fb_bins[0].err;
-            // let tot = Fwd + Bwd;
-            // let AFB = (Fwd - Bwd) / tot;
-            // let dAFB = 2f64 * (Bwd * Bwd * dFwd * dFwd + Fwd * Fwd * dBwd * dBwd).sqrt() / (tot * tot);
-
-            // writeln!(fo, "Forward: {:.5e} +- {:.5e} pb", Fwd, dFwd);
-            // writeln!(fo, "Backward: {:.5e} +- {:.5e} pb", Bwd, dBwd);
-            // writeln!(fo, "AFB: {:.5e} +- {:.5e}", AFB, dAFB);
-
         } else {
-            for (i, b) in self.fb_bins.iter().enumerate() {
-                let c1 = (self.x_max - self.x_min) * i as f64 / 2 as f64 + self.x_min;
-                let c2 = (self.x_max - self.x_min) * (i + 1) as f64 / 2 as f64;
+            for (i, b) in self.bins.iter().enumerate() {
+                let c1 = (self.x_max - self.x_min) * i as f64 / self.bins.len() as f64 + self.x_min;
+                let c2 = (self.x_max - self.x_min) * (i + 1) as f64 / self.bins.len() as f64;
                 println!("{}={}: {} +/ {}", c1, c2, b.avg, b.err,);
             }
         }

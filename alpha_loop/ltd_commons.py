@@ -399,43 +399,46 @@ hyperparameters = HyperParameters({
         'compare_with_additional_topologies'    :   False,
     },
 
-    'Observables'   :   {
-        # options: Jet1PT, cross_section
-        'active_observables'        :   ['cross_section'],
-        'Jet1PT': {
-            'x_min'                 :   0.,
-            'x_max'                 :   0.8,
-            'n_bins'                :   50,
-            'dR'                    :   0.4,
-            'min_jpt'              :   0.,
-            'use_fastjet'           :   True, 
-            'write_to_file'         :   True,
-            'filename'              :   'Jet1PT.HwU'
-        }
-    },
+    'Observables'   :  [
+        # options: jet1pt, AFB, cross_section
+        {
+            'type': 'cross_section'
+        },
+#        {
+#            'type'                  :  'jet1pt',
+#            'x_min'                 :   0.,
+#            'x_max'                 :   0.8,
+#            'n_bins'                :   50,
+#            'dR'                    :   0.4,
+#            'min_jpt'               :   0.,
+#            'use_fastjet'           :   True,
+#            'write_to_file'         :   True,
+#            'filename'              :   'Jet1PT.HwU'
+#        }
+    ],
 
-    'Selectors'   :   {
+    'Selectors'   :   [
         # options: jet, ranged
-        'active_selectors'          :   [],
-        'ranged' : [
-            { 'pdgs'                :   [-6,6,25],
-              # options: E, CosThetaP, pT
-              'filter'              :   'E',
-              'min_value'           :   0.,
-              'max_value'           :   1000.,
-            }
-        ],
-        'jet': {
-            'min_jets'              :   2,
-            'max_jets'              :   100,
-            'min_j1pt'              :   0.,
-            # A negative maximum means no cut is applied
-            'max_j1pt'              :   -1.,
-            'dR'                    :   0.4,
-            'min_jpt'               :   10.0,
-            'use_fastjet'           :   True, 
-        }
-    },
+#        {
+#            'type'                  :   'ranged',
+#            'pdgs'                  :   [-6,6,25],
+#            # options: E, CosThetaP, pT
+#            'filter'                :   'E',
+#            'min_value'             :   0.,
+#            'max_value'             :   1000.,
+#        },
+#        {
+#            'type'                  :   'jet',
+#            'min_jets'              :   2,
+#            'max_jets'              :   100,
+#            'min_j1pt'              :   0.,
+#            # A negative maximum means no cut is applied
+#            'max_j1pt'              :   -1.,
+#            'dR'                    :   0.4,
+#            'min_jpt'               :   10.0,
+#            'use_fastjet'           :   True,
+#        }
+    ],
 
 })
 

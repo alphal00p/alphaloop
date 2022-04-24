@@ -452,14 +452,6 @@ pub struct ParameterizationSettings {
     pub shifts: Vec<(f64, f64, f64, f64)>,
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq)]
-pub enum ObservableMode {
-    Jet1PT,
-    AFB,
-    #[serde(rename = "cross_section")]
-    CrossSection,
-}
-
 #[derive(Debug, Clone, Default, Deserialize)]
 #[allow(non_snake_case)]
 pub struct JetSliceSettings {
@@ -497,7 +489,7 @@ pub struct AFBSettings {
 
 #[derive(Debug, Clone, Deserialize)]
 #[allow(non_snake_case)]
-pub struct RangedSelectorSettings {
+pub struct RangeFilterSettings {
     pub pdgs: Vec<isize>,
     pub filter: FilterQuantity,
     pub min_value: f64,
@@ -514,28 +506,25 @@ pub enum FilterQuantity {
     PT,
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq)]
-pub enum SelectorMode {
+#[derive(Debug, Clone, Deserialize)]
+#[allow(non_snake_case)]
+#[serde(tag = "type")]
+pub enum PhaseSpaceSelectorSettings {
     #[serde(rename = "jet")]
-    Jet,
+    Jet(JetSliceSettings),
     #[serde(rename = "ranged")]
-    Ranged,
+    RangeFilter(RangeFilterSettings),
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[allow(non_snake_case)]
-pub struct PhaseSpaceSelectorSettings {
-    pub active_selectors: Vec<SelectorMode>,
-    pub ranged: Vec<RangedSelectorSettings>,
-    pub jet: JetSliceSettings,
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
-#[allow(non_snake_case)]
-pub struct ObservableSettings {
-    pub active_observables: Vec<ObservableMode>,
-    pub Jet1PT: Jet1PTSettings,
-    pub AFB: AFBSettings
+#[serde(tag = "type")]
+pub enum ObservableSettings {
+    #[serde(rename = "jet1pt")]
+    Jet1PT(Jet1PTSettings),
+    AFB(AFBSettings),
+    #[serde(rename = "cross_section")]
+    CrossSection,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -727,9 +716,9 @@ pub struct Settings {
     #[serde(rename = "Parameterization")]
     pub parameterization: ParameterizationSettings,
     #[serde(rename = "Observables")]
-    pub observables: ObservableSettings,
+    pub observables: Vec<ObservableSettings>,
     #[serde(rename = "Selectors")]
-    pub selectors: PhaseSpaceSelectorSettings,
+    pub selectors: Vec<PhaseSpaceSelectorSettings>,
 }
 
 impl Settings {

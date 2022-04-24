@@ -1745,14 +1745,14 @@ fn main() -> Result<(), Report> {
         target = Some(Complex::new(tt[0], tt[1]));
     }
 
-    if !settings.observables.active_observables.is_empty()
+    if !settings.observables.is_empty()
         && ((cores > 1 && !settings.integrator.internal_parallelization)
             || (settings.integrator.integrator != Integrator::Vegas
                 && settings.integrator.integrator != Integrator::Suave
                 && settings.integrator.integrator != Integrator::Havana))
     {
         println!("Removing observable functions because we are not running in single core or because a not supported integrator is selected.");
-        settings.observables.active_observables.clear();
+        settings.observables.clear();
     }
 
     if settings.integrator.dashboard && !settings.integrator.internal_parallelization && cores > 0
