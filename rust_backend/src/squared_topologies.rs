@@ -6,7 +6,7 @@ use crate::dualt2::Dualt2;
 use crate::dualt3::Dualt3;
 use crate::integrand::{IntegrandImplementation, IntegrandSample};
 use crate::observables::EventManager;
-use crate::topologies::{FixedDeformationLimit, LTDCache, LTDNumerator, SOCPProblem, Topology};
+use crate::topologies::{FixedDeformationLimit, LTDCache, SOCPProblem, Topology};
 use crate::utils;
 use crate::IntegratedPhase;
 use crate::{float, DeformationStrategy, FloatLike, IntegrandType, NormalisingFunction, Settings};
@@ -347,8 +347,6 @@ pub struct CutkoskyCutDiagramSet {
     pub numerator_tensor_coefficients_sparse: Vec<(Vec<usize>, (f64, f64))>,
     #[serde(default)]
     pub numerator_tensor_coefficients: Vec<(f64, f64)>,
-    #[serde(skip_deserializing)]
-    pub numerator: LTDNumerator,
     pub cb_to_lmb: Option<Vec<i8>>,
 }
 
@@ -1881,28 +1879,6 @@ impl SquaredTopology {
             }
 
             for diagram_set in &mut cutkosky_cuts.diagram_sets {
-                diagram_set.numerator = if diagram_set.numerator_tensor_coefficients.len() == 0
-                    && diagram_set.numerator_tensor_coefficients_sparse.len() == 0
-                {
-                    LTDNumerator::one(squared_topo.n_loops)
-                } else {
-                    if !diagram_set.numerator_tensor_coefficients_sparse.is_empty() {
-                        LTDNumerator::from_sparse(
-                            squared_topo.n_loops,
-                            &diagram_set.numerator_tensor_coefficients_sparse,
-                        )
-                    } else {
-                        LTDNumerator::new(
-                            squared_topo.n_loops,
-                            &diagram_set
-                                .numerator_tensor_coefficients
-                                .iter()
-                                .map(|x| Complex::new(x.0, x.1))
-                                .collect::<Vec<_>>(),
-                        )
-                    }
-                };
-
                 for d in &mut diagram_set.diagram_info {
                     d.graph.settings = settings.clone();
                     d.graph.process(false);
@@ -2813,8 +2789,6 @@ impl SquaredTopology {
                 } else {
                     k_def_index += subgraph.n_loops;
                 }
-
-                subgraph_cache.cached_topology_integrand.clear();
             }
 
             if !self
@@ -3469,8 +3443,6 @@ impl SquaredTopology {
                 } else {
                     k_def_index += subgraph.n_loops;
                 }
-
-                subgraph_cache.cached_topology_integrand.clear();
             }
 
             if !self
@@ -3762,12 +3734,6 @@ impl SquaredTopology {
             e.z = (rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z)
                 .to_f64()
                 .unwrap();
-        }
-
-        for cut in rotated_topology.cutkosky_cuts.iter_mut() {
-            for uv_limit in cut.diagram_sets.iter_mut() {
-                uv_limit.numerator = uv_limit.numerator.rotate(rot_matrix);
-            }
         }
 
         rotated_topology

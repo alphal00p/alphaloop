@@ -1,23 +1,13 @@
-use crate::amplitude::Amplitude;
 use crate::dashboard::{StatusUpdate, StatusUpdateSender};
-use crate::integrand::IntegrandImplementation;
-use crate::integrand::IntegrandSample;
-use crate::observables::EventManager;
-use crate::partial_fractioning::PFCache;
-use crate::partial_fractioning::{PartialFractioning, PartialFractioningMultiLoops};
 use crate::utils;
 use crate::{float, FloatLike, Settings, MAX_LOOP};
 use color_eyre::{Help, Report};
 use eyre::WrapErr;
-use fnv::FnvHashMap;
-use havana::{ContinuousGrid, Grid};
 use hyperdual::Hyperdual;
 use itertools::Itertools;
 use lorentz_vector::LorentzVector;
-use mpolynomial::MPolynomial;
 use num::Complex;
-use num_traits::{Float, FloatConst, FromPrimitive, Inv, One, Signed, ToPrimitive, Zero};
-use rand::Rng;
+use num_traits::{Float, Signed, Zero};
 use scs;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -252,28 +242,13 @@ pub struct LTDCache<T: FloatLike> {
     pub complex_loop_line_eval: Vec<Vec<[Complex<T>; 2]>>,
     pub complex_ellipsoids: Vec<Vec<Complex<T>>>,
     pub overall_lambda: T, // used to log the minimum
-    pub numerator_momentum_cache: Vec<Complex<T>>,
-    pub numerator_cache_outdated: Vec<bool>,
-    pub reduced_coefficient_lb_mpoly: MPolynomial<Complex<T>>,
-    pub reduced_coefficient_lb: Vec<Vec<Complex<T>>>,
-    pub reduced_coefficient_lb_supergraph: Vec<Vec<Complex<T>>>,
-    pub reduced_coefficient_cb: Vec<Complex<T>>,
-    pub pf_cache: PFCache<T>,
-    pub propagators: FnvHashMap<(usize, usize), Complex<T>>, // TODO: remove hashmap
     pub propagators_eval: Vec<Complex<T>>,
     pub propagator_powers: Vec<usize>,
-    pub cached_topology_integrand: Vec<(usize, Complex<T>)>,
 }
 
 impl<T: FloatLike> LTDCache<T> {
     pub fn new(topo: &Topology) -> LTDCache<T> {
         let num_propagators = topo.loop_lines.iter().map(|x| x.propagators.len()).sum();
-        let num_propagators_deg_1l = topo
-            .loop_lines
-            .iter()
-            .filter(|x| !x.signature.iter().all(|x| *x == 0))
-            .map(|x| x.propagators.iter().map(|p| p.power).sum::<usize>())
-            .sum();
         LTDCache {
             one_loop: LTDCacheI::<T, 4>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
             two_loop: LTDCacheI::<T, 7>::new(topo.n_loops, topo.surfaces.len(), num_propagators),
@@ -294,22 +269,6 @@ impl<T: FloatLike> LTDCache<T> {
                 .collect(),
             complex_ellipsoids: vec![vec![Complex::default(); num_propagators]; num_propagators],
             overall_lambda: T::zero(),
-            numerator_momentum_cache: vec![],
-            numerator_cache_outdated: vec![],
-            cached_topology_integrand: vec![],
-            reduced_coefficient_lb_mpoly: MPolynomial::new(topo.n_loops),
-            reduced_coefficient_lb: vec![
-                vec![Complex::default(); topo.n_loops];
-                if topo.settings.general.use_amplitude {
-                    topo.amplitude.diagrams.len()
-                } else {
-                    1
-                }
-            ],
-            reduced_coefficient_lb_supergraph: vec![vec![Complex::default(); topo.n_loops]],
-            reduced_coefficient_cb: vec![Complex::default(); topo.n_loops],
-            pf_cache: PFCache::<T>::new(num_propagators_deg_1l, topo.n_loops),
-            propagators: HashMap::default(),
             propagators_eval: vec![Complex::zero(); num_propagators],
             propagator_powers: vec![1; num_propagators],
         }
@@ -452,34 +411,6 @@ pub struct ConstantDeformation {
     pub alpha: Vec<LorentzVector<f64>>,
     pub beta: Vec<LorentzVector<f64>>,
 }
-
-#[derive(Debug, Clone, Default)]
-pub struct LTDNumerator {
-    pub coefficients: Vec<Complex<f64>>,
-    pub n_loops: usize,
-    pub max_rank: usize,
-    pub reduced_size: usize,
-    pub sorted_linear: Vec<Vec<usize>>,
-    pub coefficient_index_map: Vec<(usize, usize)>,
-    pub coefficient_index_to_powers: Vec<Vec<u8>>,
-    pub reduced_coefficient_index_to_powers: Vec<Vec<u8>>,
-    pub reduced_blocks: Vec<usize>,
-    pub coefficients_modified: bool,
-    pub non_empty_coeff_map_to_reduced_numerator: Vec<Vec<(usize, usize, Complex<f64>)>>,
-    pub coeff_map_to_reduced_numerator: Vec<Vec<usize>>,
-}
-#[derive(Debug, Clone, Default)]
-pub struct ReducedLTDNumerator<T: FloatLike> {
-    pub coefficients: Vec<Complex<T>>,
-    pub n_loops: usize,
-    pub max_rank: usize,
-    pub size: usize,
-    //pub coefficient_index_map: Vec<(usize, usize)>,
-    //pub coefficient_index_to_powers: Vec<[u8; MAX_LOOP]>,
-    pub reduced_coefficient_index_to_powers: Vec<Vec<u8>>,
-    pub reduced_blocks: Vec<usize>,
-}
-
 #[derive(Debug, Clone, Deserialize)]
 pub struct Topology {
     pub name: String,
@@ -515,18 +446,6 @@ pub struct Topology {
     pub constant_deformation: Option<ConstantDeformation>,
     #[serde(skip_deserializing)]
     pub all_excluded_surfaces: Vec<bool>,
-    #[serde(skip_deserializing)]
-    pub numerator: LTDNumerator,
-    #[serde(skip_deserializing)]
-    pub partial_fractioning: PartialFractioning,
-    #[serde(skip_deserializing)]
-    pub partial_fractioning_multiloops: PartialFractioningMultiLoops,
-    #[serde(default)]
-    pub numerator_tensor_coefficients_sparse: Vec<(Vec<usize>, (f64, f64))>,
-    #[serde(default)]
-    pub numerator_tensor_coefficients: Vec<(f64, f64)>,
-    #[serde(default)]
-    pub amplitude: Amplitude,
     #[serde(default)]
     pub loop_momentum_map: Vec<(Vec<i8>, Vec<i8>)>,
     #[serde(skip_deserializing)]
@@ -646,194 +565,6 @@ impl Topology {
                 .unwrap(),
             _ => {}
         }
-    }
-
-    /// Create a rotated version of this topology. The axis needs to be normalized.
-    fn rotate(&self, angle: float, axis: (float, float, float)) -> Topology {
-        let cos_t = angle.cos();
-        let sin_t = angle.sin();
-        let cos_t_bar = float::one() - angle.cos();
-
-        let rot_matrix: [[float; 3]; 3] = [
-            [
-                cos_t + axis.0 * axis.0 * cos_t_bar,
-                axis.0 * axis.1 * cos_t_bar - axis.2 * sin_t,
-                axis.0 * axis.2 * cos_t_bar + axis.1 * sin_t,
-            ],
-            [
-                axis.0 * axis.1 * cos_t_bar + axis.2 * sin_t,
-                cos_t + axis.1 * axis.1 * cos_t_bar,
-                axis.1 * axis.2 * cos_t_bar - axis.0 * sin_t,
-            ],
-            [
-                axis.0 * axis.2 * cos_t_bar - axis.1 * sin_t,
-                axis.1 * axis.2 * cos_t_bar + axis.0 * sin_t,
-                cos_t + axis.2 * axis.2 * cos_t_bar,
-            ],
-        ];
-
-        let mut rotated_topology = self.clone();
-        rotated_topology.name = rotated_topology.name + "_rot";
-        rotated_topology.rotation_matrix = rot_matrix.clone();
-
-        for e in &mut rotated_topology.external_kinematics {
-            let old_x = float::from_f64(e.x).unwrap();
-            let old_y = float::from_f64(e.y).unwrap();
-            let old_z = float::from_f64(e.z).unwrap();
-            e.x = (rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z)
-                .to_f64()
-                .unwrap();
-            e.y = (rot_matrix[1][0] * old_x + rot_matrix[1][1] * old_y + rot_matrix[1][2] * old_z)
-                .to_f64()
-                .unwrap();
-            e.z = (rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z)
-                .to_f64()
-                .unwrap();
-        }
-
-        for ll in &mut rotated_topology.loop_lines {
-            for p in &mut ll.propagators {
-                let old_x = float::from_f64(p.q.x).unwrap();
-                let old_y = float::from_f64(p.q.y).unwrap();
-                let old_z = float::from_f64(p.q.z).unwrap();
-                p.q.x = (rot_matrix[0][0] * old_x
-                    + rot_matrix[0][1] * old_y
-                    + rot_matrix[0][2] * old_z)
-                    .to_f64()
-                    .unwrap();
-                p.q.y = (rot_matrix[1][0] * old_x
-                    + rot_matrix[1][1] * old_y
-                    + rot_matrix[1][2] * old_z)
-                    .to_f64()
-                    .unwrap();
-                p.q.z = (rot_matrix[2][0] * old_x
-                    + rot_matrix[2][1] * old_y
-                    + rot_matrix[2][2] * old_z)
-                    .to_f64()
-                    .unwrap();
-            }
-        }
-
-        for surf in &mut rotated_topology.surfaces {
-            let old_x = surf.shift.x;
-            let old_y = surf.shift.y;
-            let old_z = surf.shift.z;
-            surf.shift.x =
-                rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z;
-            surf.shift.y =
-                rot_matrix[1][0] * old_x + rot_matrix[1][1] * old_y + rot_matrix[1][2] * old_z;
-            surf.shift.z =
-                rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z;
-        }
-
-        // now rotate the fixed deformation vectors
-        for d_lim in &mut rotated_topology.fixed_deformation {
-            for d in &mut d_lim.deformation_per_overlap {
-                for source in &mut d.deformation_sources {
-                    let old_x = source.x;
-                    let old_y = source.y;
-                    let old_z = source.z;
-                    source.x = rot_matrix[0][0] * old_x
-                        + rot_matrix[0][1] * old_y
-                        + rot_matrix[0][2] * old_z;
-                    source.y = rot_matrix[1][0] * old_x
-                        + rot_matrix[1][1] * old_y
-                        + rot_matrix[1][2] * old_z;
-                    source.z = rot_matrix[2][0] * old_x
-                        + rot_matrix[2][1] * old_y
-                        + rot_matrix[2][2] * old_z;
-                }
-            }
-        }
-        // now rotate the numerators
-        rotated_topology.numerator = rotated_topology.numerator.rotate(rot_matrix);
-        if rotated_topology.settings.general.use_amplitude {
-            for diag in rotated_topology.amplitude.diagrams.iter_mut() {
-                diag.numerator = diag.numerator.rotate(rot_matrix);
-            }
-        }
-
-        rotated_topology
-    }
-}
-
-impl IntegrandImplementation for Topology {
-    type Cache = LTDCacheAllPrecisions;
-
-    fn create_stability_check(&self, num_checks: usize) -> Vec<Topology> {
-        let mut rng = rand::thread_rng();
-        let mut topologies = vec![];
-
-        for _ in 0..num_checks {
-            let angle =
-                float::from_f64(rng.gen::<f64>() * 2.).unwrap() * <float as FloatConst>::PI();
-            let mut rv = (
-                float::from_f64(rng.gen()).unwrap(),
-                float::from_f64(rng.gen()).unwrap(),
-                float::from_f64(rng.gen()).unwrap(),
-            ); // rotation axis
-            let inv_norm = (rv.0 * rv.0 + rv.1 * rv.1 + rv.2 * rv.2).sqrt().inv();
-            rv = (rv.0 * inv_norm, rv.1 * inv_norm, rv.2 * inv_norm);
-
-            topologies.push(self.rotate(angle, rv));
-        }
-
-        topologies
-    }
-
-    fn get_target(&self) -> Option<Complex<f64>> {
-        if self.analytical_result_real.is_some() || self.analytical_result_imag.is_some() {
-            return Some(Complex::new(
-                self.analytical_result_real.unwrap_or(0.),
-                self.analytical_result_imag.unwrap_or(0.),
-            ));
-        }
-        None
-    }
-
-    fn set_partial_fractioning(&mut self, enable: bool) {
-        if enable {
-            self.settings.general.partial_fractioning_threshold = 1e-99;
-        } else {
-            self.settings.general.partial_fractioning_threshold = -1.;
-        }
-    }
-
-    fn create_grid(&self) -> Grid {
-        Grid::ContinuousGrid(ContinuousGrid::new(
-            self.n_loops,
-            self.settings.integrator.n_bins,
-            self.settings.integrator.min_samples_for_update,
-        ))
-    }
-
-    #[inline]
-    fn evaluate_float<'a>(
-        &mut self,
-        x: IntegrandSample<'a>,
-        cache: &mut LTDCacheAllPrecisions,
-        _events: Option<&mut EventManager>,
-    ) -> Complex<float> {
-        self.evaluate(x, cache.get())
-    }
-
-    #[inline]
-    fn evaluate_f128<'a>(
-        &mut self,
-        x: IntegrandSample<'a>,
-        cache: &mut LTDCacheAllPrecisions,
-        _events: Option<&mut EventManager>,
-    ) -> Complex<f128::f128> {
-        self.evaluate(x, cache.get())
-    }
-
-    #[inline]
-    fn create_cache(&self) -> LTDCacheAllPrecisions {
-        LTDCacheAllPrecisions::new(self)
-    }
-
-    fn set_precision(&mut self, _prec: usize) {
-        // ignored
     }
 }
 

@@ -1,8 +1,3 @@
-#[macro_use]
-extern crate itertools;
-#[macro_use]
-extern crate eyre;
-
 #[cfg(feature = "use_mpi")]
 use ltd::integrand::OwnedIntegrandSample;
 #[cfg(feature = "use_mpi")]
@@ -12,14 +7,11 @@ use mpi::request::WaitGuard;
 #[cfg(feature = "use_mpi")]
 use mpi::topology::Communicator;
 
-use arrayvec::ArrayVec;
 use clap::{App, Arg, ArgMatches, SubCommand};
-use color_eyre::{Help, Report};
+use color_eyre::Report;
 use lorentz_vector::LorentzVector;
-use ltd::topologies::{Cut, CutList};
 use num::Complex;
-use num_traits::real::Real;
-use num_traits::{NumCast, One, ToPrimitive, Zero};
+use num_traits::ToPrimitive;
 use rand::prelude::*;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -31,15 +23,12 @@ use std::io::{BufWriter, Write};
 
 use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
 
-use ltd::amplitude::Amplitude;
 use ltd::integrand::IntegrandImplementation;
 use ltd::integrand::{Integrand, IntegrandSample};
 use ltd::squared_topologies::{SquaredTopology, SquaredTopologySet};
-use ltd::topologies::{LTDCache, LTDNumerator, Surface, SurfaceType, Topology};
-use ltd::utils::Signum;
-use ltd::{float, FloatLike, IntegratedPhase, Integrator, Settings};
+use ltd::topologies::Topology;
+use ltd::{float, IntegratedPhase, Integrator, Settings};
 
-use colored::*;
 use ltd::dashboard::{Dashboard, StatusUpdate, StatusUpdateSender};
 
 use havana::{AverageAndErrorAccumulator, Sample};
@@ -66,12 +55,10 @@ impl CubaResultDef {
 }
 
 pub enum Integrands {
-    Topology(Integrand<Topology>),
     CrossSection(Integrand<SquaredTopologySet>),
 }
 
 enum Diagram {
-    Topology(Topology),
     CrossSection(SquaredTopologySet),
 }
 
@@ -169,7 +156,6 @@ where
     let mut user_data = user_data_generator();
 
     let mut grid = match &user_data.integrand[0] {
-        Integrands::Topology(t) => t.topologies[0].create_grid(),
         Integrands::CrossSection(t) => t.topologies[0].create_grid(),
     };
 
@@ -198,9 +184,6 @@ where
             .for_each(|((integrand_f, ff), xi)| {
                 for (ffi, s) in ff.iter_mut().zip(xi.iter()) {
                     let fc = match integrand_f {
-                        Integrands::Topology(t) => {
-                            t.evaluate(IntegrandSample::Nested(s), s.get_weight(), iter)
-                        }
                         Integrands::CrossSection(t) => {
                             t.evaluate(IntegrandSample::Nested(s), s.get_weight(), iter)
                         }
@@ -262,7 +245,7 @@ where
         }
 
         for (s, f) in samples[..cur_points].iter().zip(&f[..cur_points]) {
-            grid.add_training_sample(s, *f);
+            grid.add_training_sample(s, *f).unwrap();
             integral.add_sample(*f * s.get_weight(), Some(s));
         }
 
@@ -280,15 +263,12 @@ where
                 (Integrands::CrossSection(i1), Integrands::CrossSection(i2)) => {
                     i1.merge_statistics(i2)
                 }
-                (Integrands::Topology(i1), Integrands::Topology(i2)) => i1.merge_statistics(i2),
-                _ => unreachable!(),
             }
         }
 
         #[cfg(not(feature = "use_mpi"))]
         match &mut user_data.integrand[0] {
             Integrands::CrossSection(i) => i.broadcast_statistics(),
-            Integrands::Topology(i) => i.broadcast_statistics(),
         }
 
         #[cfg(feature = "use_mpi")]
@@ -506,7 +486,6 @@ fn integrand(
 ) -> Result<(), &'static str> {
     let integrator_settings = match &user_data.integrand[0] {
         Integrands::CrossSection(t) => &t.settings.integrator,
-        Integrands::Topology(t) => &t.settings.integrator,
     };
 
     let n_start = integrator_settings.n_start;
@@ -543,7 +522,6 @@ fn integrand(
                         Integrands::CrossSection(c) => {
                             c.evaluate(IntegrandSample::Flat(w, y), w, iter)
                         }
-                        Integrands::Topology(t) => t.evaluate(IntegrandSample::Flat(w, y), w, iter),
                     };
 
                     if res.is_finite() {
@@ -577,14 +555,11 @@ fn integrand(
                 (Integrands::CrossSection(i1), Integrands::CrossSection(i2)) => {
                     i1.merge_statistics(i2)
                 }
-                (Integrands::Topology(i1), Integrands::Topology(i2)) => i1.merge_statistics(i2),
-                _ => unreachable!(),
             }
         }
 
         match &mut user_data.integrand[0] {
             Integrands::CrossSection(i) => i.broadcast_statistics(),
-            Integrands::Topology(i) => i.broadcast_statistics(),
         }
     } else {
         for (i, y) in x.chunks(3 * user_data.n_loops).enumerate() {
@@ -597,7 +572,6 @@ fn integrand(
 
             let res = match &mut user_data.integrand[(core + 1) as usize] {
                 Integrands::CrossSection(c) => c.evaluate(IntegrandSample::Flat(w, y), w, iter),
-                Integrands::Topology(t) => t.evaluate(IntegrandSample::Flat(w, y), w, iter),
             };
 
             if res.is_finite() {
@@ -625,7 +599,6 @@ fn integrand(
 
         match &mut user_data.integrand[0] {
             Integrands::CrossSection(i) => i.broadcast_statistics(),
-            Integrands::Topology(i) => i.broadcast_statistics(),
         }
     }
 
@@ -741,20 +714,10 @@ fn bench(diagram: &Diagram, status_update_sender: StatusUpdateSender, settings: 
             1,
             None,
         )),
-        Diagram::Topology(topo) => Integrands::Topology(Integrand::new(
-            topo.n_loops,
-            topo.clone(),
-            settings.clone(),
-            false,
-            status_update_sender,
-            1,
-            None,
-        )),
     };
 
     let n_loops = match &diagram {
         Diagram::CrossSection(sqt) => sqt.get_maximum_loop_count(),
-        Diagram::Topology(t) => t.n_loops,
     };
 
     let mut x = vec![0.; 3 * n_loops];
@@ -768,626 +731,10 @@ fn bench(diagram: &Diagram, status_update_sender: StatusUpdateSender, settings: 
 
         match &mut integrand {
             Integrands::CrossSection(sqt) => sqt.evaluate(IntegrandSample::Flat(1., &x), 1., 1),
-            Integrands::Topology(t) => t.evaluate(IntegrandSample::Flat(1., &x), 1., 1),
         };
     }
 
     println!("{:#?}", now.elapsed());
-}
-
-fn cb_to_lm(
-    topo: &Topology,
-    surf: &Surface,
-    mat: &[i8],
-    cut_momenta: &[LorentzVector<f128::f128>],
-    loop_momenta: &mut [LorentzVector<f128::f128>],
-) {
-    // transform from cut momentum basis to loop momentum basis
-    for (i, l) in loop_momenta.iter_mut().enumerate() {
-        *l = LorentzVector::default();
-        for (j, (c, e)) in mat[i * topo.n_loops..(i + 1) * topo.n_loops]
-            .iter()
-            .zip(&cut_momenta[..topo.n_loops])
-            .enumerate()
-        {
-            *l += e.multiply_sign(*c);
-
-            // subtract the shifts
-            let mut index = 0;
-            for (&cut, ll) in surf.cut.iter().zip(topo.loop_lines.iter()) {
-                if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = cut {
-                    if j == index {
-                        *l -= ll.propagators[i].q.cast().multiply_sign(*c);
-                    }
-                    index += 1;
-                }
-            }
-        }
-    }
-}
-
-fn point_generator<'a>(
-    topo: &Topology,
-    surf: &Surface,
-    rescaling: f64,
-    mat: &[i8],
-    pos_mom: &mut [LorentzVector<f128::f128>],
-    neg_mom: &mut [LorentzVector<f128::f128>],
-) -> bool {
-    let mut rng = rand::thread_rng();
-
-    let mut neg_surface_signs_count = surf.signs.iter().filter(|x| **x == -1).count();
-    let mut pos_surface_signs_count = surf.signs.iter().filter(|x| **x == 1).count();
-    if surf.delta_sign > 0 {
-        pos_surface_signs_count += 1;
-    } else {
-        neg_surface_signs_count += 1;
-    }
-
-    let mut loop_momenta: ArrayVec<[LorentzVector<f128::f128>; ltd::MAX_LOOP]> = (0..topo.n_loops)
-        .map(|_| LorentzVector::default())
-        .collect();
-
-    let mut cut_momenta: ArrayVec<[LorentzVector<f128::f128>; ltd::MAX_LOOP]> = (0..topo.n_loops)
-        .map(|_| LorentzVector::default())
-        .collect();
-
-    let cut_masses: ArrayVec<[f128::f128; ltd::MAX_LOOP]> = surf
-        .cut
-        .iter()
-        .zip(topo.loop_lines.iter())
-        .filter_map(|(cut, ll)| {
-            if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = cut {
-                Some(ll.propagators[*i].m_squared.into())
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    let surf_mass: f128::f128 = topo.loop_lines[surf.onshell_ll_index].propagators
-        [surf.onshell_prop_index]
-        .m_squared
-        .into();
-
-    let mass_sum = cut_masses.iter().map(|m2| m2.sqrt()).sum::<f128::f128>() + surf_mass.sqrt();
-
-    // sample a random point
-    for cm in cut_momenta.iter_mut() {
-        for index in 1..4 {
-            cm[index] =
-                ((rng.gen::<f64>() * 2.0 - 1.0) * topo.e_cm_squared.sqrt() * rescaling).into();
-        }
-    }
-
-    if pos_surface_signs_count == 1 && neg_surface_signs_count == 1 {
-        // find the relevant cut
-        let index = surf.signs.iter().position(|x| *x != 0).unwrap();
-
-        // the one-loop case can be solved analytically
-        let mut k = cut_momenta[index].spatial_squared().sqrt();
-        let shift: LorentzVector<f128::f128> = surf.shift.cast();
-        let p = shift.spatial_squared().sqrt();
-
-        let mut costheta = f128::f128::zero();
-        while k < f128::f128::INFINITY {
-            costheta = (cut_masses[index] * cut_masses[index] - surf_mass * surf_mass - p * p
-                + Into::<f128::f128>::into(2.)
-                    * (k * k + cut_masses[index]).sqrt()
-                    * shift.t.multiply_sign(-surf.delta_sign)
-                + shift.t * shift.t)
-                / (Into::<f128::f128>::into(2.) * k * p);
-            if costheta >= -f128::f128::one() && costheta <= f128::f128::one() {
-                break;
-            }
-
-            k *= Into::<f128::f128>::into(2.0);
-        }
-
-        let pv: LorentzVector<f128::f128> = surf.shift.cast();
-        let perp = if pv.z.is_zero() && (pv.x - pv.y).is_zero() {
-            LorentzVector::from_args(f128::f128::zero(), pv.y - pv.z, pv.x, pv.x)
-        } else {
-            LorentzVector::from_args(f128::f128::zero(), pv.z, pv.z, -pv.x - pv.y)
-        };
-        let k_perp = (k * k - (k * k * costheta * costheta)).sqrt() / perp.spatial_squared().sqrt();
-        cut_momenta[index] = pv * (k * costheta / p) + perp * k_perp;
-    }
-
-    // transform from cut momentum basis to loop momentum basis
-    cb_to_lm(topo, surf, mat, &cut_momenta, &mut loop_momenta);
-    let res = evaluate_surface(topo, surf, &loop_momenta);
-
-    if res.abs() < Into::<f128::f128>::into(1e-15) {
-        for i in 0..topo.n_loops {
-            pos_mom[i] = loop_momenta[i];
-            neg_mom[i] = loop_momenta[i];
-        }
-
-        return true;
-    }
-
-    if pos_surface_signs_count == 1 && neg_surface_signs_count == 1 {
-        println!(
-            "{} {}",
-            "One-loop hyperboloid not correctly sampled:".red(),
-            res
-        );
-        return false;
-    }
-
-    let need_positive = res < f128::f128::zero();
-
-    if need_positive {
-        for i in 0..topo.n_loops {
-            neg_mom[i] = loop_momenta[i];
-        }
-    } else {
-        for i in 0..topo.n_loops {
-            pos_mom[i] = loop_momenta[i];
-        }
-    }
-
-    let mut branch; // for debugging
-    if need_positive && pos_surface_signs_count > 1 || !need_positive && neg_surface_signs_count > 1
-    {
-        let mut indices = [100; 2];
-        let mut index = 0;
-
-        for (i, &s) in surf.signs.iter().enumerate() {
-            if s > 0 && need_positive || s < 0 && !need_positive {
-                indices[index] = i;
-                index += 1;
-
-                if index == 2 {
-                    break;
-                }
-            }
-        }
-
-        if index == 1 {
-            // the second index would be the surface term!
-            // in this case we simply scale
-            let q1 = (cut_momenta[indices[0]].spatial_squared() + cut_masses[indices[0]]).sqrt();
-
-            // evaluate the contributions without the index we want and without the surface term
-            let mut res1 = Into::<f128::f128>::into(surf.shift.t);
-            for (i, (s, cm, mass)) in izip!(&surf.signs, &cut_momenta, &cut_masses).enumerate() {
-                if i != indices[0] {
-                    res1 += (cm.spatial_squared() + mass).sqrt().multiply_sign(*s);
-                }
-            }
-
-            cut_momenta[indices[0]] *= res1 / q1;
-            branch = 1;
-        } else {
-            // let q1 and q2 both have a + or -
-            // q1 -> q1 - s * q2 *lambda
-            // q2 -> q2 + q2 * lambda
-            // then the negative surface term stays the same
-            // s is the relative surface sign of q1 and q2
-            let s = surf.sig_ll_in_cb[indices[0]] * surf.sig_ll_in_cb[indices[1]];
-
-            let q1 = (cut_momenta[indices[0]].spatial_squared() + cut_masses[indices[0]]).sqrt();
-            let q2 = (cut_momenta[indices[1]].spatial_squared() + cut_masses[indices[1]]).sqrt();
-            let lambda = (-res
-                + q1.multiply_sign(surf.signs[indices[0]])
-                + q2.multiply_sign(surf.signs[indices[1]]))
-                / q2
-                - f128::f128::one();
-
-            let old_mom = cut_momenta[indices[1]];
-            cut_momenta[indices[0]] -= old_mom * lambda * s.into();
-            cut_momenta[indices[1]] += old_mom * lambda;
-            branch = 2;
-        }
-    } else {
-        // we are in the case where we only have 1 term (or 0) with the sign we need
-        // set it equal to minus the shift and set the rest to their mass
-        // this is the minimal solution
-
-        branch = 3; // branch 3: sign is on the surface term
-        for (cm, cmass, &s, &mom_sign) in izip!(
-            cut_momenta.iter_mut(),
-            cut_masses.iter(),
-            surf.signs.iter(),
-            surf.sig_ll_in_cb.iter()
-        ) {
-            if s > 0 && need_positive || s < 0 && !need_positive {
-                *cm = -surf.shift.cast().multiply_sign(mom_sign);
-                branch = 4;
-            } else {
-                if mass_sum.is_zero() {
-                    *cm = LorentzVector::default();
-                } else {
-                    // in the case of an ellipsoid with masses, we need to take a weighted average over
-                    // the masses
-                    // TODO: is this also ok for hyperboloids? if not, we should set the term with opposite
-                    // sign to 0 and treat the remainder like an ellipsoid
-                    *cm = -surf.shift.cast().multiply_sign(mom_sign) * cmass.sqrt() / mass_sum;
-                }
-            }
-        }
-    }
-
-    cb_to_lm(topo, surf, mat, &cut_momenta, &mut loop_momenta);
-    let res2 = evaluate_surface(topo, surf, &loop_momenta);
-
-    if res.signum() == res2.signum() {
-        println!(
-            "{} {} vs {}, branch: {}",
-            "FAILED to get a different sign:".red(),
-            res,
-            res2,
-            branch
-        );
-
-        for (i, x) in cut_momenta.iter().enumerate() {
-            println!(
-                "q{}={}; |q{}| = {}",
-                i + 1,
-                x,
-                i + 1,
-                x.spatial_squared().sqrt()
-            );
-        }
-    }
-
-    if need_positive {
-        for i in 0..topo.n_loops {
-            pos_mom[i] = loop_momenta[i];
-        }
-    } else {
-        for i in 0..topo.n_loops {
-            neg_mom[i] = loop_momenta[i];
-        }
-    }
-
-    res.signum() != res2.signum()
-}
-
-fn evaluate_surface(
-    topo: &Topology,
-    surf: &Surface,
-    loop_momenta: &[LorentzVector<f128::f128>],
-) -> f128::f128 {
-    let mut res = f128::f128::zero();
-
-    let mut cut_index = 0;
-    for (cut, ll) in izip!(surf.cut.iter(), topo.loop_lines.iter()) {
-        if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = *cut {
-            if surf.signs[cut_index] == 0 {
-                cut_index += 1;
-                continue;
-            }
-
-            // construct the cut energy
-            let mut mom = LorentzVector::<f128::f128>::default();
-            for (&cut_sign, lm) in ll.signature.iter().zip(loop_momenta.iter()) {
-                mom += lm * cut_sign.into();
-            }
-            // compute the postive cut energy
-            let q: LorentzVector<f128::f128> = ll.propagators[i].q.cast();
-            let energy = ((mom + q).spatial_squared()
-                + <f128::f128 as NumCast>::from(ll.propagators[i].m_squared).unwrap())
-            .sqrt();
-
-            res += energy.multiply_sign(surf.signs[cut_index]);
-
-            cut_index += 1;
-        }
-    }
-
-    // now for the surface term
-    let mut mom = LorentzVector::<f128::f128>::default();
-    let onshell_ll = &topo.loop_lines[surf.onshell_ll_index];
-    let onshell_prop = &onshell_ll.propagators[surf.onshell_prop_index];
-    for (&surf_sign, lm) in onshell_ll.signature.iter().zip(loop_momenta.iter()) {
-        mom += lm * surf_sign.into();
-    }
-    let energy = ((mom + onshell_prop.q.cast()).spatial_squared()
-        + <f128::f128 as NumCast>::from(onshell_prop.m_squared).unwrap())
-    .sqrt();
-
-    res += energy.multiply_sign(surf.delta_sign);
-    res += <f128::f128 as NumCast>::from(surf.shift.t).unwrap();
-    res
-}
-
-fn evaluate_surface_complex<T: FloatLike>(
-    topo: &Topology,
-    surf: &Surface,
-    loop_momenta: &[LorentzVector<num::Complex<T>>],
-) -> num::Complex<T> {
-    let mut res = num::Complex::zero();
-
-    let mut cut_index = 0;
-    for (cut, ll) in izip!(surf.cut.iter(), topo.loop_lines.iter()) {
-        if let Cut::PositiveCut(i) | Cut::NegativeCut(i) = *cut {
-            if surf.signs[cut_index] == 0 {
-                cut_index += 1;
-                continue;
-            }
-
-            // construct the cut energy
-            let mut mom = LorentzVector::<num::Complex<T>>::default();
-            for (&cut_sign, lm) in ll.signature.iter().zip(loop_momenta.iter()) {
-                mom += lm.multiply_sign(cut_sign);
-            }
-            // compute the postive cut energy
-            let q: LorentzVector<T> = ll.propagators[i].q.cast();
-            let energy = ((mom + q).spatial_squared()
-                + <T as NumCast>::from(ll.propagators[i].m_squared).unwrap())
-            .sqrt();
-
-            res += energy.multiply_sign(surf.signs[cut_index]);
-
-            cut_index += 1;
-        }
-    }
-
-    // now for the surface term
-    let mut mom = LorentzVector::<num::Complex<T>>::default();
-    let onshell_ll = &topo.loop_lines[surf.onshell_ll_index];
-    let onshell_prop = &onshell_ll.propagators[surf.onshell_prop_index];
-    for (&surf_sign, lm) in onshell_ll.signature.iter().zip(loop_momenta.iter()) {
-        mom += lm.multiply_sign(surf_sign);
-    }
-
-    let q: LorentzVector<T> = onshell_prop.q.cast();
-    let energy = ((mom + q).spatial_squared()
-        + <T as NumCast>::from(onshell_prop.m_squared).unwrap())
-    .sqrt();
-
-    res += energy.multiply_sign(surf.delta_sign);
-    res += <T as NumCast>::from(surf.shift.t).unwrap();
-    res
-}
-
-// TODO: move to diagnostics
-fn surface_prober<'a>(topo: &Topology, settings: &Settings, matches: &ArgMatches<'a>) {
-    let mut loop_momenta = vec![LorentzVector::<f128::f128>::default(); topo.n_loops];
-
-    let mut k_def: ArrayVec<[LorentzVector<num::Complex<f128::f128>>; ltd::MAX_LOOP]>;
-    let mut cache = LTDCache::new(topo);
-
-    let mut positive_lm = vec![LorentzVector::<f128::f128>::default(); topo.n_loops];
-    let mut negative_lm = vec![LorentzVector::<f128::f128>::default(); topo.n_loops];
-
-    let ids: Vec<_> = match matches.values_of("ids") {
-        Some(x) => x.map(|x| usize::from_str(x).unwrap()).collect(),
-        None => vec![],
-    };
-
-    let samples = usize::from_str(matches.value_of("samples").unwrap()).unwrap();
-    let rescaling = f64::from_str(matches.value_of("rescaling").unwrap()).unwrap();
-    let evaluate_after_deformation = matches.is_present("evaluate_after_deformation");
-
-    let mut n_unique_e_surface = 0;
-    println!("");
-    println!(">>> Start of the listing of unique non-pinched E-surfaces");
-    for (surf_index, surf) in topo.surfaces.iter().enumerate() {
-        if !ids.is_empty() && !ids.contains(&surf_index) {
-            continue;
-        }
-        if surf_index != surf.group || surf.surface_type != SurfaceType::Ellipsoid || !surf.exists {
-            continue;
-        }
-        println!(
-            "|-> {}: group={}, prop={:?} cut={}, full_id={:?}, shift={}",
-            n_unique_e_surface,
-            surf.group,
-            (surf.onshell_ll_index, surf.onshell_prop_index),
-            CutList(&surf.cut),
-            surf.id,
-            surf.shift
-        );
-        n_unique_e_surface += 1;
-    }
-    println!(
-        ">>> End of the listing of {} unique non-pinched E-surfaces",
-        n_unique_e_surface
-    );
-    println!("");
-
-    for (surf_index, surf) in topo.surfaces.iter().enumerate() {
-        if !ids.is_empty() && !ids.contains(&surf_index) || !surf.exists {
-            continue;
-        }
-
-        println!(
-            "-> id={}, group={}, type={:?}, prop={:?} cut={}, full_id={:?}, shift={}",
-            surf_index,
-            surf.group,
-            surf.surface_type,
-            (surf.onshell_ll_index, surf.onshell_prop_index),
-            CutList(&surf.cut),
-            surf.id,
-            surf.shift
-        );
-
-        for _ in 0..samples {
-            let mut did_break = false;
-
-            if point_generator(
-                topo,
-                surf,
-                rescaling,
-                &topo.cb_to_lmb_mat[surf.cut_structure_index],
-                &mut positive_lm,
-                &mut negative_lm,
-            ) {
-                // try to bisect
-                for _ in 0..1000 {
-                    for (lm, pl, nl) in izip!(
-                        loop_momenta.iter_mut(),
-                        positive_lm.iter(),
-                        negative_lm.iter()
-                    ) {
-                        *lm = (pl + nl) * Into::<f128::f128>::into(0.5);
-                    }
-
-                    // optionally evaluate the real part of the surface with complex momentum
-                    let res = if evaluate_after_deformation {
-                        let (kappas, _) = topo.deform(&loop_momenta, &mut cache);
-                        k_def = (0..topo.n_loops)
-                            .map(|i| {
-                                loop_momenta[i].map(|x| num::Complex::new(x, f128::f128::zero()))
-                                    + kappas[i].map(|x| num::Complex::new(f128::f128::zero(), x))
-                            })
-                            .collect();
-
-                        let res = evaluate_surface_complex(topo, surf, &k_def);
-                        res.re
-                    } else {
-                        evaluate_surface(topo, surf, &loop_momenta)
-                    };
-
-                    // update the bounds
-                    if res < f128::f128::zero() {
-                        for (nl, ll) in negative_lm.iter_mut().zip(loop_momenta.iter()) {
-                            *nl = ll.clone();
-                        }
-                    }
-                    if res > f128::f128::zero() {
-                        for (pl, ll) in positive_lm.iter_mut().zip(loop_momenta.iter()) {
-                            *pl = ll.clone();
-                        }
-                    }
-
-                    if res.abs() < 1e-14.into() {
-                        if settings.general.debug > 0 {
-                            println!("Found point {:?}: {}", &loop_momenta[..topo.n_loops], res);
-                        }
-
-                        // check the pole for non-pinched ellipsoids
-                        if surf.surface_type == SurfaceType::Ellipsoid {
-                            // set the loop momenta
-                            let (kappas, _) = topo.deform(&loop_momenta, &mut cache);
-                            k_def = (0..topo.n_loops)
-                                .map(|i| {
-                                    loop_momenta[i]
-                                        .map(|x| num::Complex::new(x, f128::f128::zero()))
-                                        + kappas[i]
-                                            .map(|x| num::Complex::new(f128::f128::zero(), x))
-                                })
-                                .collect();
-
-                            // check the sign of the surface
-                            let res_c = evaluate_surface_complex(topo, surf, &k_def);
-                            if res_c.im.signum() == Into::<f128::f128>::into(surf.delta_sign) {
-                                println!(
-                                    "{} k={:?}: {}",
-                                    "Bad pole detected".red(),
-                                    k_def,
-                                    res_c.im,
-                                );
-                            }
-                        } else {
-                            // check the dual cancelations by probing points close to the dual canceling surface
-                            // also check counterterms by going closer to pinched ellipsoids
-                            let mut probes = [
-                                num::Complex::<f128::f128>::default(),
-                                num::Complex::<f128::f128>::default(),
-                                num::Complex::<f128::f128>::default(),
-                            ];
-                            for (probe, lambda) in probes.iter_mut().zip(&[
-                                1.000000001,
-                                1.0000000089999991,
-                                1.00000008999991,
-                            ]) {
-                                if settings.general.debug > 4 {
-                                    println!("Testing lambda {}", lambda);
-                                }
-
-                                for lm in &mut loop_momenta {
-                                    *lm *= Into::<f128::f128>::into(*lambda);
-                                }
-
-                                // set the loop momenta
-                                let (kappas, _) = topo.deform(&loop_momenta, &mut cache);
-                                k_def = (0..topo.n_loops)
-                                    .map(|i| {
-                                        loop_momenta[i]
-                                            .map(|x| num::Complex::new(x, f128::f128::zero()))
-                                            + kappas[i]
-                                                .map(|x| num::Complex::new(f128::f128::zero(), x))
-                                    })
-                                    .collect();
-
-                                // do a full evaluation
-                                if topo.populate_ltd_cache(&k_def, &mut cache).is_ok() {
-                                    for (cuts, mat) in
-                                        topo.ltd_cut_options.iter().zip(topo.cb_to_lmb_mat.iter())
-                                    {
-                                        for cut in cuts.iter() {
-                                            let v = if topo.settings.general.use_amplitude {
-                                                topo.evaluate_amplitude_cut(
-                                                    &mut k_def, cut, mat, &mut cache,
-                                                )
-                                                .unwrap()
-                                            } else {
-                                                let v = topo
-                                                    .evaluate_cut(
-                                                        &mut k_def[..topo.n_loops],
-                                                        &mut LTDNumerator::one(topo.n_loops),
-                                                        cut,
-                                                        mat,
-                                                        &mut cache,
-                                                        true,
-                                                        0,
-                                                    )
-                                                    .unwrap();
-                                                // Assuming that there is no need for the residue energy or the cut_id
-                                                let ct = if topo.settings.general.use_ct {
-                                                    topo.counterterm(
-                                                        &k_def[..topo.n_loops],
-                                                        num::Complex::default(),
-                                                        0,
-                                                        &mut cache,
-                                                    )
-                                                } else {
-                                                    num::Complex::default()
-                                                };
-
-                                                v * (ct + f128::f128::one())
-                                            };
-                                            *probe += v;
-                                        }
-                                    }
-                                }
-                            }
-
-                            let mut a: Vec<_> = probes.iter().map(|x| x.norm()).collect();
-                            a.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Less));
-
-                            let pv: f128::f128 =
-                                (a.last().unwrap() - a.first().unwrap()) / (a[a.len() / 2]);
-
-                            if pv > Into::<f128::f128>::into(1e-3) {
-                                println!(
-                                    "{}: pv={:e}, probes={:?}",
-                                    "Dual cancellation breakdown detected".red(),
-                                    pv,
-                                    probes
-                                );
-                            }
-                        }
-                        did_break = true;
-                        break;
-                    }
-                }
-
-                if !did_break {
-                    println!(
-                        "Could not bisect for surface with cut={} and os={:?}",
-                        CutList(&surf.cut),
-                        (surf.onshell_ll_index, surf.onshell_prop_index)
-                    );
-                }
-            }
-        }
-    }
 }
 
 fn inspect<'a>(
@@ -1398,7 +745,6 @@ fn inspect<'a>(
 ) {
     let (n_loops, e_cm_squared) = match &diagram {
         Diagram::CrossSection(sqt) => (sqt.get_maximum_loop_count(), sqt.e_cm_squared),
-        Diagram::Topology(t) => (t.n_loops, t.e_cm_squared),
     };
 
     let mut pt: Vec<_> = matches
@@ -1441,16 +787,6 @@ fn inspect<'a>(
                 None,
             )
             .evaluate(IntegrandSample::Flat(1., &pt), 1., 1),
-            Diagram::Topology(topo) => Integrand::new(
-                topo.n_loops,
-                topo.clone(),
-                settings.clone(),
-                false,
-                status_update_sender,
-                1,
-                None,
-            )
-            .evaluate(IntegrandSample::Flat(1., &pt), 1., 1),
         };
         println!("result={:e}\n  | x={:?}\n", result, pt);
         return;
@@ -1464,11 +800,6 @@ fn inspect<'a>(
                 sqt.clone()
                     .evaluate::<f128::f128>(IntegrandSample::Flat(1., &pt), &mut cache, None)
             }
-            Diagram::Topology(t) => {
-                let mut cache = LTDCache::<f128::f128>::new(&t);
-                t.clone()
-                    .evaluate::<f128::f128>(IntegrandSample::Flat(1., &pt), &mut cache)
-            }
         };
 
         println!("result={:e}\n  | x={:?}\n", result, pt);
@@ -1478,11 +809,6 @@ fn inspect<'a>(
                 let mut cache = sqt.create_caches();
                 sqt.clone()
                     .evaluate::<float>(IntegrandSample::Flat(1., &pt), &mut cache, None)
-            }
-            Diagram::Topology(t) => {
-                let mut cache = LTDCache::<float>::new(&t);
-                t.clone()
-                    .evaluate::<float>(IntegrandSample::Flat(1., &pt), &mut cache)
             }
         };
         println!("result={:e}\n  | x={:?}\n", result, pt);
@@ -1718,10 +1044,6 @@ fn main() -> Result<(), Report> {
         settings.general.topology = x.to_owned();
     }
 
-    if let Some(x) = matches.value_of("amplitude") {
-        settings.general.amplitude = x.to_owned();
-    }
-
     if let Some(x) = matches.value_of("state_filename_prefix") {
         settings.integrator.state_filename_prefix = Some(x.to_owned());
     }
@@ -1787,38 +1109,7 @@ fn main() -> Result<(), Report> {
     } else if let Some(css_opt) = matches.value_of("cross_section_set") {
         Diagram::CrossSection(SquaredTopologySet::from_file(css_opt, &settings)?)
     } else {
-        let topology_file = matches.value_of("topologies").unwrap();
-
-        let amplitude_file = matches.value_of("amplitudes").unwrap();
-        let mut amplitudes = Amplitude::from_file(amplitude_file)?;
-        let mut amp0 = Amplitude::default();
-        let amp: &mut ltd::amplitude::Amplitude = if settings.general.amplitude != "" {
-            settings.general.use_amplitude = true;
-            amplitudes
-                .get_mut(&settings.general.amplitude)
-                .ok_or_else(|| eyre!("Could not find ampltitude {}", settings.general.amplitude))
-                .suggestion("Check if this amplitude is in the specified amplitude file.")?
-        } else {
-            settings.general.use_amplitude = false;
-            &mut amp0
-        };
-        // Ensure that it's using the right topology and process the amplitude
-        if amp.topology != "" {
-            if amp.topology != settings.general.topology {
-                println!("Changing Topology to fit the amplitude setup");
-            }
-            settings.general.topology = amp.topology.clone();
-            amp.process(&settings.general);
-        }
-        // Call topology
-        let mut topologies = Topology::from_file(topology_file, &settings)?;
-        let mut topo = topologies
-            .remove(&settings.general.topology)
-            .ok_or_else(|| eyre!("Could not find topology {}", settings.general.topology))
-            .suggestion("Check if this topology is in the specified topology file.")?;
-        topo.amplitude = amp.clone();
-        topo.process(true);
-        Diagram::Topology(topo)
+        panic!("Specify cross_section or cross_section_set");
     };
 
     if let Some(_) = matches.subcommand_matches("bench") {
@@ -1847,31 +1138,10 @@ fn main() -> Result<(), Report> {
                 .unwrap();
             sqt.print_info(&mut dashboard.status_update_sender);
         }
-        Diagram::Topology(topo) => {
-            if let Some(matches) = matches.subcommand_matches("probe") {
-                surface_prober(topo, &settings, matches);
-                return Ok(());
-            }
-            if let Some(_) = matches.subcommand_matches("integrated_ct") {
-                topo.amplitude.print_integrated_ct();
-                return Ok(());
-            }
-            dashboard
-                .status_update_sender
-                .send(StatusUpdate::Message(format!(
-                    "Integrating {} with {} samples and deformation '{}'",
-                    settings.general.topology,
-                    settings.integrator.n_max,
-                    settings.general.deformation_strategy
-                )))
-                .unwrap();
-            topo.print_info(&mut dashboard.status_update_sender);
-        }
     }
 
     let n_loops = match &diagram {
         Diagram::CrossSection(sqt) => sqt.get_maximum_loop_count(),
-        Diagram::Topology(t) => t.n_loops,
     };
 
     #[cfg(feature = "use_mpi")]
@@ -1889,15 +1159,6 @@ fn main() -> Result<(), Report> {
                         sqt.clone(),
                         settings.clone(),
                         true,
-                        dashboard.status_update_sender.clone(),
-                        1,
-                        target,
-                    )),
-                    Diagram::Topology(topo) => Integrands::Topology(Integrand::new(
-                        topo.n_loops,
-                        topo.clone(),
-                        settings.clone(),
-                        false,
                         dashboard.status_update_sender.clone(),
                         1,
                         target,
@@ -1951,7 +1212,6 @@ fn main() -> Result<(), Report> {
 
     let name = &match &diagram {
         Diagram::CrossSection(sqt) => &sqt.name,
-        Diagram::Topology(t) => &t.name,
     }
     .clone();
 
@@ -1975,15 +1235,6 @@ fn main() -> Result<(), Report> {
                     sqt.clone(),
                     settings.clone(),
                     true,
-                    dashboard.status_update_sender.clone(),
-                    i,
-                    target,
-                )),
-                Diagram::Topology(topo) => Integrands::Topology(Integrand::new(
-                    topo.n_loops,
-                    topo.clone(),
-                    settings.clone(),
-                    false,
                     dashboard.status_update_sender.clone(),
                     i,
                     target,
@@ -2048,18 +1299,6 @@ fn main() -> Result<(), Report> {
     };
     println!("{:#?}", cuba_result);
 
-    if let Diagram::Topology(topo) = diagram {
-        match topo.analytical_result_real {
-            Some(_) => println!(
-                "Analytic result: {:e}",
-                num::Complex::<f64>::new(
-                    topo.analytical_result_real.unwrap(),
-                    topo.analytical_result_imag.unwrap()
-                )
-            ),
-            _ => println!("Analytic result not available."),
-        }
-    }
     let f = OpenOptions::new()
         .create(true)
         .write(true)
