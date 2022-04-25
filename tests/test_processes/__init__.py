@@ -10,6 +10,9 @@ import math
 from pprint import pformat
 from copy import deepcopy
 
+class ProcessTesterError(Exception):
+    pass
+
 import logging
 FORMAT = '%(name)s : %(asctime)s %(message)s'
 logging.basicConfig(format=FORMAT)
@@ -46,7 +49,16 @@ def ignore_warnings(test_func):
 pjoin = os.path.join
 _root_path = os.path.dirname(os.path.realpath( __file__ ))
 _aL_dir = os.path.abspath(pjoin(_root_path,os.path.pardir,os.path.pardir))
-_mg5_dir = os.path.abspath(pjoin(_aL_dir,os.path.pardir,os.path.pardir))
+if 'MGPATH' in os.environ:
+    _mg5_dir = os.environ['MGPATH']
+    if not os.path.isfile(pjoin(_mg5_dir,'madgraph','interface','madgraph_interface.py')):
+        raise ProcessTesterError("The madgraph directory '%s' specified through the env. variable MGPATH seems invalid. Double-check it."%_mg5_dir)
+else:
+    _mg5_dir = os.path.abspath(pjoin(_aL_dir,os.path.pardir,os.path.pardir))
+    # Use a test file to see if this corresponds to a valid madgraph directory (it may not be if the PLUGIN was linked)
+    if not os.path.isfile(pjoin(_mg5_dir,'madgraph','interface','madgraph_interface.py')):
+        raise ProcessTesterError("The madgraph directory automatically detected '%s' is invalid. This is probably because you soft-linked the alphaLoop plugin."%_mg5_dir+
+            "\nRun the test again with the environment variable 'MGPATH=<your_madgraph_path>' to fix this.")
 
 # If not in debug mode, disable progress bar too
 if DEBUG_MODE < 3:

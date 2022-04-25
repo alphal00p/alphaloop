@@ -1,6 +1,6 @@
 import inspect
 import unittest
-from . import ProcessTester, _aL_dir, _mg5_dir
+from . import ProcessTester, _aL_dir, _mg5_dir, ProcessTesterError
 import multiprocessing
 
 class a_ddx_LO(ProcessTester,unittest.TestCase):
