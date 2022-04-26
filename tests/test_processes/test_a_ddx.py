@@ -115,7 +115,7 @@ output qgraf %(output_path)s
         super(a_ddx_NLO,self).run_UV_tests(warmup_cmds=
 """
 set_hyperparameter General.deformation_strategy "none"
-set_hyperparameter Selectors.active_selectors []
+set_hyperparameter Selectors []
 """, 
             uv_test_cmd = "uv_profile ALL -nsof -min 1.0e3 -max 1.0e5 --n_points 100 --f128 --seed 1"
         )
@@ -124,7 +124,7 @@ set_hyperparameter Selectors.active_selectors []
         super(a_ddx_NLO,self).run_IR_tests(warmup_cmds=
 """
 set_hyperparameter General.deformation_strategy "none"
-set_hyperparameter Selectors.active_selectors []
+set_hyperparameter Selectors []
 """, 
             ir_test_cmd = "ir_profile ALL -nsof --perturbative_order 1 --ir_limits cutkosky --f128 --min 1.0e-03 --max 1.0e-05 --n_points 30 --seed 1"
         )
@@ -133,7 +133,7 @@ set_hyperparameter Selectors.active_selectors []
         super(a_ddx_NLO,self).run_deformation_tests(warmup_cmds=
 """
 set_hyperparameter General.deformation_strategy "fixed"
-set_hyperparameter Selectors.active_selectors []
+set_hyperparameter Selectors []
 """, 
             deformation_test_cmd = "deformation_profile ALL -nsof -nsf -max 1.0e-05 --seed 1"
         )

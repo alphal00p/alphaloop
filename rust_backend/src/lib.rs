@@ -866,30 +866,36 @@ impl PythonCrossSection {
                 (Some(a_havana_updater_re), Some(a_havana_updater_im)) => {
                     a_havana_updater_re
                         .grid
-                        .add_training_sample(s, integrand_sample.re);
+                        .add_training_sample(s, integrand_sample.re)
+                        .unwrap();
                     a_havana_updater_im
                         .grid
-                        .add_training_sample(s, integrand_sample.im);
+                        .add_training_sample(s, integrand_sample.im)
+                        .unwrap();
                 }
                 (Some(a_havana_updater_re), _) => {
                     a_havana_updater_re
                         .grid
-                        .add_training_sample(s, integrand_sample.re);
+                        .add_training_sample(s, integrand_sample.re)
+                        .unwrap();
                     if phase == IntegratedPhase::Imag {
                         havana_sampler
                             .grid
-                            .add_training_sample(s, integrand_sample.im);
+                            .add_training_sample(s, integrand_sample.im)
+                            .unwrap();
                     }
                 }
                 (_, Some(a_havana_updater_im)) => {
                     if phase == IntegratedPhase::Real {
                         havana_sampler
                             .grid
-                            .add_training_sample(s, integrand_sample.re);
+                            .add_training_sample(s, integrand_sample.re)
+                            .unwrap();
                     }
                     a_havana_updater_im
                         .grid
-                        .add_training_sample(s, integrand_sample.im);
+                        .add_training_sample(s, integrand_sample.im)
+                        .unwrap();
                 }
                 _ => {
                     let f = match phase {
@@ -897,7 +903,7 @@ impl PythonCrossSection {
                         IntegratedPhase::Imag => integrand_sample.im,
                         IntegratedPhase::Both => unimplemented!(),
                     };
-                    havana_sampler.grid.add_training_sample(s, f);
+                    havana_sampler.grid.add_training_sample(s, f).unwrap();
                 }
             }
 

@@ -694,7 +694,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             finalize_optimisation(new_channels,save_on_disk=False)
             return
 
-        if len(self.hyperparameters['Selectors']['active_selectors'])>0:
+        if len(self.hyperparameters['Selectors'])>0:
             logger.warning("Cannot do the dynamic optimisation of channels in the presence of a selector.\n"+
                 "Disable the selector and run the optimisation with 'inspect' if you want to enable this feature.")
             finalize_optimisation(new_channels,save_on_disk=False)
