@@ -46,8 +46,6 @@ pub trait FloatLike:
     + Float
     + Field
     + RealNumberLike
-    + mpolynomial::Field
-    + mpolynomial::RealNumberLike
     + Signed
     + FloatConst
     + std::fmt::LowerExp

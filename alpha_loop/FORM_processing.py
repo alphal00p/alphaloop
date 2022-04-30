@@ -1393,7 +1393,7 @@ aGraph=%s;
         else:
             return dict_to_dump
 
-    def generate_ltd_integrand(self, g, graph_id, signature_offset, unique_ltd, constants, unique_propagators, prop_id, prop_mom_in_lmb, energies, on_shell_condition):
+    def generate_ltd_integrand_verbose(self, g, graph_id, constants, unique_propagators, prop_id, prop_mom_in_lmb, energies, on_shell_condition):
         diagres = []
         propagators = []
         res = []
@@ -1409,21 +1409,21 @@ aGraph=%s;
                 nmi = []
                 cb_to_lmb = []
             else:
-                nmi = np.linalg.inv(np.array(mat).transpose()) # the tranpose matrix is used for signatures
+                nmi = np.linalg.inv(np.array(mat).transpose()) # the transpose matrix is used for signatures
                 cb_to_lmb = np.linalg.inv(np.array(mat))
 
-            m = []
+            cb_to_lmb_str = []
             ltdenergy = ['ltd{0},{1}E{0}'.format(prop_id[(li, pi)], '+' if cut_sign == 1 else '-') for (cut_sign, (li, pi)) in co]
             for i, r in enumerate(cb_to_lmb):
                 mm = []
                 for (c, (_, (li, pi))) in zip(r, co):
                     if c != 0:
                         ext = self.momenta_decomposition_to_string((prop_mom_in_lmb[prop_id[(li, pi)]][1], prop_mom_in_lmb[prop_id[(li, pi)]][2]), True)
-                        if ext == '':
-                            ext = '0'
+                        if ext != '':
+                            ext = '{}energies({})'.format('-' if c == 1 else '+', ext)
                         
-                        mm.append('{}ltd{}{}energies({})'.format('' if c == 1 else '-', prop_id[(li, pi)], '-' if c == 1 else '+', ext))
-                m += ['fmb{}'.format(i + signature_offset + 1), '+'.join(mm)]
+                        mm.append('{}ltd{}'.format('' if c == 1 else '-', prop_id[(li, pi)], ext))
+                cb_to_lmb_str.append('+'.join(mm))
 
             r = []
             der = []
@@ -1458,7 +1458,7 @@ aGraph=%s;
                         if prop_plus not in unique_propagators:
                             unique_propagators[prop_plus] = len(unique_propagators)
                         propagators.append('invd{},{}'.format(unique_propagators[prop_plus], prop_plus))
-                        r.append('prop(invd{0},1,ltd{1},0,E{1}){2}'.format(unique_propagators[prop_plus], prop_id[(li, pi)], powmod))
+                        r.append('prop(1/({0}),1,ltd{1},0,E{1}){2}'.format(prop_plus, prop_id[(li, pi)], powmod))
                         if p.power > 1:
                             # add derivative prescription
                             der.append('ltd{},{}'.format(prop_id[(li, pi)], p.power - 1))
@@ -1467,7 +1467,7 @@ aGraph=%s;
                         if prop_min not in unique_propagators:
                             unique_propagators[prop_min] = len(unique_propagators)
                         propagators.append('invd{},{}'.format(unique_propagators[prop_min], prop_min))
-                        r.append('prop(invd{0},-1,ltd{1},0,-E{1}){2}'.format(unique_propagators[prop_min], prop_id[(li, pi)], powmod))
+                        r.append('prop(1/({0}),-1,ltd{1},0,-E{1}){2}'.format(prop_min, prop_id[(li, pi)], powmod))
                         if p.power > 1:
                             der.append('ltd{},{}'.format(prop_id[(li, pi)], p.power - 1))
                     else:
@@ -1498,7 +1498,7 @@ aGraph=%s;
 
             diagres.append('{}*{}{}{}({})'.format(
                 ltd_closure_factor,
-                'ltdcbtolmb({})*'.format(','.join(m)) if len(m) > 0 else '',
+                'ltdcbtolmb({})*'.format(','.join(cb_to_lmb_str)) if len(cb_to_lmb_str) > 0 else '',
                 'ltdenergy({})*'.format(','.join(ltdenergy)) if len(ltdenergy) > 0 else '',
                 'der({})*'.format(','.join(der))  if len(der) > 0 else '',
                 '*'.join(r) if len(r) > 0 else '1'))
@@ -1509,31 +1509,50 @@ aGraph=%s;
 
         propagators = list(sorted(set(propagators)))
 
-        ltd_instr = '(-1)^{}*(2*pi*i_)^{}*constants({})*\n\tellipsoids({})*\n\tallenergies({})*(\n\t\t{}\n)'.format(g.n_loops,
-            g.n_loops, ','.join(constants + ['1']), ','.join(propagators), ','.join(energies), res)
+        return '(-1)^{}*(2*pi*i_)^{}*constants({})*\n\tellipsoids({})*\n\tallenergies({})*(\n\t\t{}\n)'.format(g.n_loops,
+            g.n_loops, ','.join(constants + ['1']), ','.join(propagators), ','.join(energies), res)      
 
-        if ltd_instr not in unique_ltd:
-            unique_ltd[ltd_instr] = graph_id
-            integrand_body = 'Fill ltdtopo({},{}) = {};\n'.format(*graph_id, ltd_instr)
-        else:
-            integrand_body = ''
+    def generate_ltd_integrand(self, g, graph_id, constants, unique_propagators, prop_id, prop_mom_in_lmb, energies, on_shell_condition):
+        res = []
+        for li, l in enumerate(g.loop_lines):
+            if all(s == 0 for s in l.signature):
+                continue
 
-        return (integrand_body, 'Fill ltdmap({},{}) = diag({},{});\n'.format(*graph_id, *unique_ltd[ltd_instr]))
+            for pi, p in enumerate(l.propagators):
+                powmod = '' if p.power == 1 else '^' +  str(p.power)
+                m = prop_mom_in_lmb[prop_id[(li, pi)]]
+
+                sig = tuple(list(m[1]) + list(m[2]))
+                minsig = tuple(list(-m[1]) + list(-m[2]))
+
+                if l.signature in on_shell_condition:
+                    momp = '+{}'.format(on_shell_condition[sig])
+                elif minsig in on_shell_condition:
+                    momp = '-{}'.format(on_shell_condition[minsig])
+                else:
+                    momp = self.momenta_decomposition_to_string((m[1], m[2]), True)
+                    momp = '' if momp == '' else '+energies({})'.format(momp)
+                mom = '+'.join('{}ltd{}'.format('' if s == 1 else ('-' if s == -1 else '{}*'.format(s)), i + 1) for i, s in enumerate(l.signature) if s != 0)
+
+                res.append('prop({}{},E{}){}'.format(mom,momp, prop_id[(li, pi)], powmod))
+
+        prefactor = '' if g.n_loops == 0 else '(-1)^{0}*(2*pi*i_)^{0}*'.format(g.n_loops)
+        res = '*allenergies()' if res == [] else '*\n\tallenergies({})*\n\t{}'.format(','.join(energies), '*'.join(res))
+
+        return '{}constants({}){}\n'.format(prefactor, ','.join(constants + ['1']), res)
 
     def generate_integrand(self, topo, integrand_type, workspace, numerator_call, progress_bar=None):
         """Construct a table of integrand descriptors"""
         unique_pf = {}
         integrand_body = ''
-        topo_map = {}
-
-        unique_ltd = {}
-        ltd_topo_map = ''
         ltd_integrand_body = ''
+        topo_map = {}
         den_library = []
 
         for cut in topo.cuts:
             unique_energies = {}
-            unique_propagators = {}
+            unique_propagators = {} # for LTD
+
             for diag_set in cut['diagram_sets']:
                 # collect all graphs
                 graphs = []
@@ -1647,20 +1666,20 @@ aGraph=%s;
                             res = '\n'.join(['\t' + l for l in res.split('\n')])
                             resden = ','.join('invd{},{}'.format(i, d) for i, d in enumerate(den_library) if i in used_props)
 
-                        pf_instr = '(2*pi*i_)^{}*constants({})*\nallenergies({})*\nellipsoids({})*(\n{})'.format(g.n_loops, ','.join(constants + [pf_prefactor]),
+                        pf_instr = '(2*pi*i_)^{}*constants({})*\n\tallenergies({})*\n\tellipsoids({})*(\n{})'.format(g.n_loops, ','.join(constants + [pf_prefactor]),
                             ','.join(energies), resden, res)
 
                         if pf_instr not in unique_pf:
                             integrand_body += 'Fill pftopo({}) = {};\n'.format(len(unique_pf), pf_instr)
+
+                            if integrand_type == "both" or integrand_type == "LTD":
+                                ltd_instr = self.generate_ltd_integrand(g, graph_id, constants, unique_propagators, prop_id, prop_mom_in_lmb,
+                                        energies, on_shell_condition)
+                                ltd_integrand_body += 'Fill ltdtopo({}) = {};\n'.format(len(unique_pf), ltd_instr)
+
                             unique_pf[pf_instr] = len(unique_pf)
 
                         topo_map[graph_id] = unique_pf[pf_instr]
-
-                    if integrand_type == "both" or integrand_type == "LTD":
-                        (body_addition, topo_addition) = self.generate_ltd_integrand(g, graph_id, signature_offset, unique_ltd, constants, unique_propagators, prop_id, prop_mom_in_lmb,
-                                energies, on_shell_condition)
-                        ltd_integrand_body += body_addition
-                        ltd_topo_map += topo_addition
 
             # the on-shell energy needs to be accessible to construct the input file
             diag_set['energies'] = unique_energies
@@ -1681,17 +1700,14 @@ CTable pftopo(0:{});
         if ltd_integrand_body != 0:
             with open(pjoin(workspace, 'ltdtable_{}.h'.format(numerator_call)), 'w') as f:
                 f.write("""
-Auto S invd, E, shift, ltd;
-S r, s;
-CF a, num, ncmd, conf1, replace, energies, ellipsoids, ltdcbtolmb, ltdenergy, constants;
-NF allenergies;
-CTable ltdtopo(0:{},0:{});
-CTable ltdmap(0:{},0:{});
+Auto S n,m,y,ltd, p0,E,invd;
+CF num, der, a;
+CF den, prop, prop0, norm, tmp, energies, allenergies, constants, ellipsoids;
+Set energyset:E0,...,E1000;
+CTable ltdtopo(0:{});
 
 {}
-
-{}
-""".format(0, 0, 0, 0, ltd_topo_map, ltd_integrand_body))
+""".format(len(unique_pf), ltd_integrand_body))
 
 
     def get_edge_scaling(self, pdg, edge_name=None):
@@ -2251,6 +2267,7 @@ class FORMSuperGraphIsomorphicList(list):
 
         with open(pjoin(selected_workspace,'input_%d.h'%i_graph), 'w') as f:
             (uv_map, uv_conf, uv_forest, conf) = characteristic_super_graph.configurations
+            f.write('* Graph {}\n'.format(self[0].name))
             f.write(uv_map + '\n')
             f.write('CTable uvdiag(0:{});\n'.format(len(uv_conf)))
             f.write('{}\n\n'.format('\n'.join('Fill uvdiag({}) = {};'.format(i, uv) for i,uv in enumerate(uv_conf))))
@@ -3356,6 +3373,10 @@ const complex<double> I{ 0.0, 1.0 };
                                 # parse the denominators
                                 denom_secs = conf_sec.split('#ELLIPSOIDS')[1]
                                 denom_secs = denom_secs.replace('\n', '').replace('\t', '')
+                                
+                                # write out all integer powers as multiplications to prevent slow pow evaluation with floating exponent
+                                denom_secs  = re.sub(r'(E\d+)\^(\d+)', lambda x: '*'.join([x.group(1)]*int(x.group(2))) , denom_secs)
+                                denom_secs  = re.sub(r'(lm\d+)\^(\d+)', lambda x: '*'.join([x.group(1)]*int(x.group(2))) , denom_secs)
                                 d = [d for d in denom_secs.split(',') if d != '']
 
                                 for j in range(0, len(d), 2):
@@ -3386,6 +3407,7 @@ const complex<double> I{ 0.0, 1.0 };
 
                             # write out all integer powers as multiplications to prevent slow pow evaluation with floating exponent
                             conf_sec = re.sub(r'pow\(([^,]+),(\d+)\)', lambda x: '*'.join([x.group(1)]*int(x.group(2))) , conf_sec)
+                            conf_sec = re.sub(r'pow\(([^,]+),-1\.\)', r'1./(\1)', conf_sec) # fix for 1/E
 
                             base_type = 'complex<double>'
                             dual_base_type = '{}<{}>'.format(dual_num_type, base_type) if dual_num_mode else base_type

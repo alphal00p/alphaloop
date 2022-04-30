@@ -1225,19 +1225,14 @@ endif;
 #if (`INTEGRAND' == "LTD") || (`INTEGRAND' == "both")
     Hide forest1,...,forest`forestcount',F;
 
-* copy the forest since LTD and PF may map the diag calls differently
-* TODO: unify call
+* TODO: unify call and make decision at runtime
     #do i=1,`forestcount'
         L forestltd`i' = forest`i';
-        L Fltd = F;
     #enddo
+    L Fltd = F;
 
     .sort:ltd-forest-copy;
     #include- ltdtable_`SGID'.h
-
-* map all diagrams to their unique representative
-    id diag(x1?,x2?,?a) = diag(x1,ltdmap(x1,x2),?a);
-    id diag(x1?,diag(?a),?b) = diag(x1,?a,?b);
 
     repeat id cmb(?a)*tder(?c)*diag(?b) = f(diag(?b,cmb(?a)*tder(?c)))*cmb(?a)*tder(?c);
     repeat id cmb(?a)*diag(?b) = f(diag(?b,cmb(?a)))*cmb(?a);
@@ -1253,29 +1248,118 @@ endif;
     #define diagcount "{`diagend'-`diagstart'}"
 
     id diag(x?) = diag(x-`diagstart'+`forestcount');
-    id diag(xcut?,x1?,x2?,?a,x3?) = diag(?a)*ltdtopo(x1,x2)*x3*conf(-1,xcut,-1);
+    id diag(xcut?,x2?,?a,x3?) = diag(?a)*ltdtopo(x2)*x3*conf(-1,xcut,-1);
     id cmb(?a) = replace_(?a);
     .sort:ltd-splitoff;
     Hide forestltd1,...,forestltd`forestcount',Fltd;
 
+    Multiply norm(1)*num();
+    id prop(?a) = prop(?a,1);
+
+    #do i=1,`NFINALMOMENTA'
+        id diag(fmb1?,n?,?a) = ltd`i'^n*diag(?a); * order should be consistent
+
+        B+ prop, ltd`i', norm, num, diag;
+        .sort:loop-{`i'};
+        Keep brackets;
+
+        repeat id prop(?a,n1?)*prop(?a,n2?) = prop(?a,n1+n2);
+
+* Identify poles in the loop momentum energy 
+        splitarg (ltd`i') prop;
+        id prop(ltd`i',E?,n?) = prop0(ltd`i',0,E,n); 
+        id prop(p0?,ltd?,E?,n?) = prop0(ltd,p0,E,n); 
+
+        factarg (-1) prop0 1;
+        id prop0(ltd`i',y?{-1,1},E?,n?) = prop0(ltd`i',y,0,E,n); 
+        id all prop0(ltd?,y?{-1,1},p0?,E?,n?)*norm(n0?) = 
+            sum_(m,0,n-1,
+                (-1)^(n-m-1)*fac_(2*n-m-2)/fac_(n-m-1)/fac_(m)*
+                der(ltd`i',m)*norm(n0*(2*E)^(2*n-m-2))
+                )/fac_(n-1)*
+            a(y*p0,0,E)*a(y*p0,E,0); 
+
+* Apply derivative
+        repeat;
+            repeat id der(ltd`i',n1?{>0})*prop0(ltd`i',y?{-1,1},p0?,E?,n2?) =  
+                +der(ltd`i',n1)*prop(ltd`i',y,p0,E,n2)
+                -der(ltd`i',n1-1,0)*(2*n2*(ltd`i'+y*p0))*prop0(ltd`i',y,p0,E,n2+1) 
+            ; 
+            id der(ltd`i',n1?{>0})*ltd`i'^n3? =
+                +n3*der(ltd`i',n1-1,0)*ltd`i'^(n3-1)
+                ; 
+            id der(ltd`i',n?{>0})= 0;
+            id der(ltd`i',n?,0)=der(ltd`i',n);
+            id prop(ltd`i',y?{-1,1},p0?,E?,n2?) = prop0(ltd`i',y,p0,E,n2);
+        endrepeat;
+        id der(ltd`i',0)=1;
+        id prop0(ltd?,y?{-1,1},?a) = prop(y*ltd,?a); 
+
+* check for errors
+        if (count(der,1));
+            print "Remaining diff operators: %t";
+            exit "Critical ERROR";
+        endif;
+
+* Split the poles by their position in the complex plane
+        splitarg a;
+        repeat id a(?y1,+E?energyset,?y2,E1?,E2?) = a(?y1,?y2,E1+E,E2);
+        repeat id a(?y1,-E?energyset,?y2,E1?,E2?) = a(?y1,?y2,E1,E2+E);
+        id a(E1?,E2?) = a(0,E1,E2);
+
+* check for errors
+        id a(?y,0,0) = tmp(a(?y,0,0));
+        if (count(tmp,1));
+            print "[ltd`i'] Cannot find energy signature %t";
+            exit "Critical ERROR";
+        endif;
+        transform, a, prop, addargs(1,last-2);
+
+* take residue
+        id a(p0?,0,E?)*a(p0?,E1?,E2?)*norm(n?)*num(?y) = replace_(ltd`i',E-p0)*norm(n*(E+E1-E2))*num(?y,E-p0);
+        if ( count(a,1) ) discard;
+    #enddo
+    id prop(?a,n?) = prop(?a)^n;
+    id prop(p0?,E?) = den(p0^2-E^2);
+    id num(?a) = 1;
+    id norm(n?) = 1/n;
+    id diag = 1;
+
+    .sort
+
+    argtoextrasymbol tonumber, den;
+    #redefine denstart "{`extrasymbols_'+1}"
+    .sort:invd-creation;
+    #do i = `denstart',`extrasymbols_'
+        id den(`i') = invd{`i'-`denstart'};
+    #enddo
+    Multiply ellipsoids(<invd0,extrasymbol_({`denstart'})>,...,<invd{`extrasymbols_'-`denstart'},extrasymbol_(`extrasymbols_')>);
+
+* old treatment, that has a bug for derivatives
+#if 0
 * transform the LTD energies back to normal energies
     id energy(f(?a)) = energy(?a);
     chainout energy;
     id energy(c0) = 1;
 
-    repeat id ltdcbtolmb(?a,fmb1?,x?,?b)*diag(fmb1?,n?,?c) = x^n*ltdcbtolmb(?a,fmb1,x,?b)*diag(?c);
+    repeat id ltdcbtolmb(x?,?a)*diag(fmb1?,n?,?b) = x^n*ltdcbtolmb(?a)*diag(?b);
     id diag = 1;
-    id ltdcbtolmb(?a) = 1;
+    id ltdcbtolmb = 1;
 
-    if (count(diag,1));
+    if (count(diag,1) || count(ltdcbtolmb,1));
         Print "Unsubstituted energies: %t";
         exit "Critical error";
     endif;
 
+    B ellipsoids,allenergies,tder;
     .sort:energy-replacement;
 
     id prop(?a) = prop(-1,?a);
     repeat id prop(x1?,x?,?a)*prop(x2?,x?,?a) = prop(x1+x2,x,?a);
+
+
+    B ellipsoids,allenergies,tder;
+    .sort:energy-replacement-2;
 
     #do i = 1,`NFINALMOMENTA'
         id once der(ltd1?,n?,?a) = f(ltd1,n)*der(?a)/fac_(n);
@@ -1293,6 +1377,7 @@ endif;
             Print "Derivative left in result: %t";
             exit "Critical error";
         endif;
+        B ellipsoids,allenergies,tder;
         .sort:der-`i';
     #enddo
     id der = 1;
@@ -1307,16 +1392,38 @@ endif;
     argument ellipsoids;
         id energies(0) = 0;
     endargument;
+#endif
 
+    B allenergies, ellipsoids,conf,tder,constants,pi;
     .sort:ltd-num-0;
-    UnHide forestltd1,...,forestltd`forestcount';
+    UnHide forestltd1,...,forestltd`forestcount',Fltd;
+    delete extrasymbols>`denstart';
+
+* Some expressions may have evaluated to 0, so remove the call
+    #do i = 1,`diagcount'
+        #if (termsin(diag`i') == 0)
+            id diag({`i'+`forestcount'}) = 0;
+        #endif
+    #enddo
+
     .sort:ltd-num-1;
     Drop diag1,...,diag`diagcount',forestltd1,...,forestltd`forestcount',Fltd;
 
 * now add all LTD structures as a special conf
     #if `diagcount' > 0
-        L FINTEGRANDLTD = Fltd + <diag1*conf(-{1+`forestcount'})>+...+<diag`diagcount'*conf(-{`diagcount'+`forestcount'})> + <forestltd1*conf(-1,-1)>+...+<forestltd`forestcount'*conf(-`forestcount',-1)>;
+        #if `forestcount' > 0
+            L FINTEGRANDLTD = Fltd + <diag1*conf(-{1+`forestcount'})>+...+<diag`diagcount'*conf(-{`diagcount'+`forestcount'})> + <forestltd1*conf(-1,-1)>+...+<forestltd`forestcount'*conf(-`forestcount',-1)>;
+        #else
+            L FINTEGRANDLTD = Fltd + <diag1*conf(-{1+`forestcount'})>+...+<diag`diagcount'*conf(-{`diagcount'+`forestcount'})>;
+        #endif
     #endif
+
+* Some forests may be 0 due to an LTD expression being 0 inside it, so remove the call
+    #do i = 1,`forestcount'
+        #if (termsin(forestltd`i') == 0)
+            id forestid({`i'}) = 0;
+        #endif
+    #enddo
 
     id conf(x?)*conf(x1?{<0},?a) = conf(x,?a);
 

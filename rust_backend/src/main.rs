@@ -27,7 +27,7 @@ use ltd::integrand::IntegrandImplementation;
 use ltd::integrand::{Integrand, IntegrandSample};
 use ltd::squared_topologies::{SquaredTopology, SquaredTopologySet};
 use ltd::topologies::Topology;
-use ltd::{float, IntegratedPhase, Integrator, Settings};
+use ltd::{float, IntegrandType, IntegratedPhase, Integrator, Settings};
 
 use ltd::dashboard::{Dashboard, StatusUpdate, StatusUpdateSender};
 
@@ -738,7 +738,7 @@ fn bench(diagram: &Diagram, status_update_sender: StatusUpdateSender, settings: 
 }
 
 fn inspect<'a>(
-    diagram: &Diagram,
+    diagram: &mut Diagram,
     status_update_sender: StatusUpdateSender,
     settings: &mut Settings,
     matches: &ArgMatches<'a>,
@@ -796,6 +796,12 @@ fn inspect<'a>(
     if matches.is_present("use_f128") {
         let result = match diagram {
             Diagram::CrossSection(sqt) => {
+                if matches.is_present("use_ltd") {
+                    for t in &mut sqt.topologies {
+                        t.settings.cross_section.integrand_type = IntegrandType::LTD;
+                    }
+                }
+
                 let mut cache = sqt.create_caches();
                 sqt.clone()
                     .evaluate::<f128::f128>(IntegrandSample::Flat(1., &pt), &mut cache, None)
@@ -806,6 +812,12 @@ fn inspect<'a>(
     } else {
         let result = match diagram {
             Diagram::CrossSection(sqt) => {
+                if matches.is_present("use_ltd") {
+                    for t in &mut sqt.topologies {
+                        t.settings.cross_section.integrand_type = IntegrandType::LTD;
+                    }
+                }
+
                 let mut cache = sqt.create_caches();
                 sqt.clone()
                     .evaluate::<float>(IntegrandSample::Flat(1., &pt), &mut cache, None)
@@ -996,6 +1008,12 @@ fn main() -> Result<(), Report> {
                         .help("Use f128 evaluation"),
                 )
                 .arg(
+                    Arg::with_name("use_ltd")
+                        .short("ltd")
+                        .long("use_ltd")
+                        .help("Use LTD instead of cLTD for the evaluation"),
+                )
+                .arg(
                     Arg::with_name("momentum_space")
                         .short("m")
                         .long("momentum_space")
@@ -1119,7 +1137,7 @@ fn main() -> Result<(), Report> {
 
     if let Some(matches) = matches.subcommand_matches("inspect") {
         inspect(
-            &diagram,
+            &mut diagram,
             dashboard.status_update_sender,
             &mut settings,
             matches,

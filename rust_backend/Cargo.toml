@@ -44,7 +44,6 @@ itertools = "0.8"
 libc = "*"
 lorentz_vector = {git = "https://github.com/benruijl/lorentz_vector", branch="hyperdual", features = ["serde_support", "hyperdual_support", "f128_support"]}
 mpi = {git = "https://github.com/rsmpi/rsmpi", optional = true}
-mpolynomial = {git = "https://github.com/apelloni/mpolynomial", branch = "master"}
 nalgebra = "0.29"
 num = "0.3"
 num-traits = "0.2"

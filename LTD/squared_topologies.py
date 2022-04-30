@@ -323,6 +323,19 @@ class SquaredTopologyGenerator:
                                         for prop in ll.propagators:
                                             prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
 
+                                # merge equal-mass and equal-shift propagators, needed for LTD derivative treatment
+                                from collections import defaultdict
+                                for ll in d['loop_topo_orig_mass'].loop_lines:
+                                    unique_props = defaultdict(list)
+                                    for p in ll.propagators:
+                                        unique_props[(p.m_squared, (tuple(prop.parametric_shift[0]), tuple(prop.parametric_shift[1])))].append(p)
+
+                                    for props in unique_props.values():
+                                        for p in props[1:]:
+                                            d['loop_topo_orig_mass'].propagator_map[p.name] = props[0].name
+                                            props[0].power += p.power
+                                        ll.propagators = [p for p in ll.propagators if p not in props[1:]]
+
                                 # take the UV limit of the diagram, add the mass and set the parametric shift to 0
                                 # collect the parametric shifts of the loop lines such that it can be used to Taylor expand
                                 # the UV subgraph
