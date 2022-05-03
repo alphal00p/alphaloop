@@ -703,7 +703,12 @@ fn divonne_integrand(
     integrand(x, f, user_data, nvec, core, &[], 1)
 }
 
-fn bench(diagram: &Diagram, status_update_sender: StatusUpdateSender, settings: &Settings) {
+fn bench(
+    diagram: &Diagram,
+    status_update_sender: StatusUpdateSender,
+    settings: &Settings,
+    num_samples: usize,
+) {
     let mut integrand = match diagram {
         Diagram::CrossSection(sqt) => Integrands::CrossSection(Integrand::new(
             sqt.get_maximum_loop_count(),
@@ -724,7 +729,7 @@ fn bench(diagram: &Diagram, status_update_sender: StatusUpdateSender, settings: 
     let mut rng: StdRng = SeedableRng::seed_from_u64(100);
 
     let now = Instant::now();
-    for _ in 0..settings.integrator.n_max {
+    for _ in 0..num_samples {
         for xi in x.iter_mut() {
             *xi = rng.gen();
         }
@@ -878,14 +883,6 @@ fn main() -> Result<(), Report> {
                 .help("Set the topology file"),
         )
         .arg(
-            Arg::with_name("amplitudes")
-                .short("p")
-                .long("amplitudes")
-                .value_name("AMPLITUDE_FILE")
-                .default_value("../LTD/amplitudes.yaml")
-                .help("Set the amplitude file"),
-        )
-        .arg(
             Arg::with_name("config")
                 .short("f")
                 .long("config")
@@ -963,33 +960,15 @@ fn main() -> Result<(), Report> {
             SubCommand::with_name("integrated_ct")
                 .about("Gives the integrated CT for the selected amplitude"),
         )
-        .subcommand(SubCommand::with_name("bench").about("Run a benchmark"))
         .subcommand(
-            SubCommand::with_name("probe")
-                .about("Sample points on hyperboloids and ellipsoids")
-                .arg(
-                    Arg::with_name("ids")
-                        .long("ids")
-                        .min_values(1)
-                        .help("Only sample these surface ids"),
-                )
-                .arg(
-                    Arg::with_name("samples")
-                        .short("s")
-                        .default_value("100")
-                        .help("Number of samples per surface"),
-                )
-                .arg(
-                    Arg::with_name("rescaling")
-                        .short("r")
-                        .default_value("1.")
-                        .help("Rescale the sampling range by this factor"),
-                )
-                .arg(
-                    Arg::with_name("evaluate_after_deformation")
-                        .short("d")
-                        .help("Probe surfaces after deforming"),
-                ),
+            SubCommand::with_name("bench").about("Run a benchmark").arg(
+                Arg::with_name("samples")
+                    .required(true)
+                    .long("samples")
+                    .short("s")
+                    .value_name("SAMPLES")
+                    .help("Number of samples for benchmark"),
+            ),
         )
         .subcommand(
             SubCommand::with_name("inspect")
@@ -1130,8 +1109,13 @@ fn main() -> Result<(), Report> {
         panic!("Specify cross_section or cross_section_set");
     };
 
-    if let Some(_) = matches.subcommand_matches("bench") {
-        bench(&diagram, dashboard.status_update_sender, &settings);
+    if let Some(matches) = matches.subcommand_matches("bench") {
+        bench(
+            &diagram,
+            dashboard.status_update_sender,
+            &settings,
+            matches.value_of("samples").unwrap().parse().unwrap(),
+        );
         return Ok(());
     }
 

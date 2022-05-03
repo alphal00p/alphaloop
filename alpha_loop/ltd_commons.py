@@ -276,17 +276,10 @@ hyperparameters = HyperParameters({
             'source_branch_cut_multiplier' : 0.8,
             # the strategy can be none, real_solution (the old method), exact (for 1 loop), and tangent_check
             'pole_check_strategy'       : 'real_solution',
+            'soft_dampening_power'      : 1.5,
             'theta_r_out'               : 10.,
             'theta_r_in'                : 10.,
             'theta_c'                   : 10.,
-        },
-
-        'additive'              :   {
-            # can be exponential, hyperbolic, or unity
-            'mode'  :   'exponential',
-            'a_ij'  :   0.01,
-            # set aijs per surface. if the entry isn't there, a_ij is used instead
-            'a_ijs' :   [],
         },
 
         'fixed' : {
@@ -314,7 +307,7 @@ hyperparameters = HyperParameters({
             # Specify a strategy to veto small problematic regions close to IR singularities
             # The strategy can either be "dismiss_point", "dismiss_deformation" or "none"
             'ir_handling_strategy': 'none',
-            'ir_alpha': 1.0,
+            'ir_alpha': 1.5,
             'ir_k_com': 0.,
             'ir_k_shift': 1.0,
             'ir_beta_energy': 1.0,

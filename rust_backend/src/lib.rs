@@ -92,6 +92,7 @@ pub struct Scaling {
     pub source_branch_cut_multiplier: f64,
     pub expansion_check_strategy: ExpansionCheckStrategy,
     pub pole_check_strategy: PoleCheckStrategy,
+    pub soft_dampening_power: f64,
     pub theta_r_out: f64,
     pub theta_r_in: f64,
     pub theta_c: f64,
@@ -99,8 +100,6 @@ pub struct Scaling {
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
 pub enum DeformationStrategy {
-    #[serde(rename = "additive")]
-    Additive,
     #[serde(rename = "constant")]
     Constant,
     #[serde(rename = "fixed")]
@@ -213,7 +212,6 @@ impl Default for OverallDeformationScaling {
 impl From<&str> for DeformationStrategy {
     fn from(s: &str) -> Self {
         match s {
-            "additive" => DeformationStrategy::Additive,
             "constant" => DeformationStrategy::Constant,
             "fixed" => DeformationStrategy::Fixed,
             "none" => DeformationStrategy::None,
@@ -316,7 +314,6 @@ impl Default for NormalisingFunction {
 impl fmt::Display for DeformationStrategy {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            DeformationStrategy::Additive => write!(f, "additive"),
             DeformationStrategy::Constant => write!(f, "constant"),
             DeformationStrategy::Fixed => write!(f, "fixed"),
             DeformationStrategy::None => write!(f, "none"),
@@ -326,7 +323,7 @@ impl fmt::Display for DeformationStrategy {
 
 impl Default for DeformationStrategy {
     fn default() -> DeformationStrategy {
-        DeformationStrategy::Additive
+        DeformationStrategy::None
     }
 }
 
@@ -359,13 +356,6 @@ impl Default for AdditiveMode {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct DeformationAdditiveSettings {
-    pub mode: AdditiveMode,
-    pub a_ij: f64,
-    pub a_ijs: Vec<f64>,
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
 pub struct DeformationFixedSettings {
     pub mode: AdditiveMode,
     #[serde(rename = "M_ij")]
@@ -392,7 +382,6 @@ pub struct DeformationFixedSettings {
     pub ir_beta_pinch: f64,
     pub normalize_per_source: bool,
     pub normalisation_of_subspace_components: bool,
-    pub include_normal_source: bool,
     pub source_dampening_factor: f64,
     pub maximize_radius: bool,
 }
@@ -405,7 +394,6 @@ pub struct DeformationSettings {
     pub overall_scaling: OverallDeformationScaling,
     pub overall_scaling_constant: f64,
     pub lambdas: Vec<f64>,
-    pub additive: DeformationAdditiveSettings,
     pub fixed: DeformationFixedSettings,
 }
 

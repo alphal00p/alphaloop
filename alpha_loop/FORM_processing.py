@@ -3533,6 +3533,12 @@ const complex<double> I{ 0.0, 1.0 };
 
                         conf_no_dual, conf_dual = [x for x in confs if x[1]] != "", [x for x in confs if x[1] == ""]
 
+                        if itype != "PF":
+                            integrand_main_code = integrand_main_code.replace('diag_', 'diag_{}_'.format(itype)).replace('forest_', 'forest_{}_'.format(itype))
+                            integrand_f128_main_code = integrand_f128_main_code.replace('diag_', 'diag_{}_'.format(itype)).replace('forest_', 'forest_{}_'.format(itype))
+                            integrand_mpfr_main_code = integrand_mpfr_main_code.replace('diag_', 'diag_{}_'.format(itype)).replace('forest_', 'forest_{}_'.format(itype))
+
+
                         integrand_main_code += \
 """
 extern "C" {{

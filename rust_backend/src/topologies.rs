@@ -43,6 +43,7 @@ pub struct Surface {
     pub signs: Vec<i8>,
     pub shift: LorentzVector<float>,
     pub id: Vec<((usize, usize), i8, i8)>,
+    pub massless: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -159,7 +160,7 @@ pub struct CutInfo<T: FloatLike, const N: usize> {
     pub kappa: LorentzVector<Hyperdual<T, N>>,
     pub kappa_sq: Hyperdual<T, N>,
     pub kappa_dot_mom: Hyperdual<T, N>,
-    pub mass: Hyperdual<T, N>,
+    pub m_sq: Hyperdual<T, N>,
     pub a: Hyperdual<T, N>,
     pub b: Hyperdual<T, N>,
     pub c: Hyperdual<T, N>,
@@ -177,7 +178,7 @@ impl<T: FloatLike, const N: usize> Default for CutInfo<T, N> {
             kappa: LorentzVector::default(),
             kappa_sq: Hyperdual::default(),
             kappa_dot_mom: Hyperdual::default(),
-            mass: Hyperdual::default(),
+            m_sq: Hyperdual::default(),
             a: Hyperdual::default(),
             b: Hyperdual::default(),
             c: Hyperdual::default(),
@@ -189,6 +190,7 @@ impl<T: FloatLike, const N: usize> Default for CutInfo<T, N> {
 /// A cache for objects needed during LTD computation
 pub struct LTDCacheI<T: FloatLike, const N: usize> {
     pub ellipsoid_eval: Vec<Option<Hyperdual<T, N>>>,
+    pub ellipsoid_normal_norm_eval: Vec<Option<Hyperdual<T, N>>>,
     pub deform_dirs: Vec<LorentzVector<Hyperdual<T, N>>>,
     pub non_empty_cuts: Vec<(usize, usize)>,
     pub deformation_jacobian: Vec<Complex<T>>,
@@ -201,6 +203,7 @@ impl<T: FloatLike, const N: usize> Default for LTDCacheI<T, N> {
     fn default() -> LTDCacheI<T, N> {
         LTDCacheI {
             ellipsoid_eval: vec![],
+            ellipsoid_normal_norm_eval: vec![],
             deform_dirs: vec![],
             non_empty_cuts: vec![],
             deformation_jacobian: vec![],
@@ -215,6 +218,7 @@ impl<T: FloatLike, const N: usize> LTDCacheI<T, N> {
     fn new(num_loops: usize, num_surfaces: usize, num_propagators: usize) -> LTDCacheI<T, N> {
         LTDCacheI {
             ellipsoid_eval: vec![None; num_surfaces],
+            ellipsoid_normal_norm_eval: vec![None; num_surfaces],
             deform_dirs: vec![LorentzVector::default(); num_surfaces * num_loops],
             non_empty_cuts: vec![(0, 0); num_surfaces],
             deformation_jacobian: vec![Complex::default(); 9 * num_loops * num_loops],
