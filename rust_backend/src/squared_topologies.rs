@@ -2276,6 +2276,7 @@ impl SquaredTopology {
                         scaling,
                         scaling_jac,
                         None,
+                        false,
                     ),
                     [2] => self.evaluate_cut_derivative::<T, Hyperdual<T, 2>>(
                         loop_momenta,
@@ -2378,9 +2379,10 @@ impl SquaredTopology {
         scaling: T,
         scaling_jac: T,
         selected_diagram_set: Option<usize>,
+        deformation_only: bool,
     ) -> Complex<T> {
         let cutkosky_cuts = &mut self.cutkosky_cuts[cut_index];
-        debug_assert!(cutkosky_cuts.cuts.iter().all(|cc| cc.power == 1));
+        debug_assert!(deformation_only || cutkosky_cuts.cuts.iter().all(|cc| cc.power == 1));
 
         let mut cut_energies_summed = T::zero();
         let mut scaling_result = Complex::one();
@@ -2789,6 +2791,10 @@ impl SquaredTopology {
                 } else {
                     k_def_index += subgraph.n_loops;
                 }
+            }
+
+            if deformation_only {
+                return Complex::zero();
             }
 
             if !self

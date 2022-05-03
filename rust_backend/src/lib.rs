@@ -1085,6 +1085,7 @@ impl PythonCrossSection {
                 scaling,
                 scaling_jac,
                 diagram_set,
+                false,
             ),
             [2] => self
                 .squared_topology
@@ -1211,6 +1212,7 @@ impl PythonCrossSection {
                 f128::f128::from_f64(scaling).unwrap(),
                 f128::f128::from_f64(scaling_jac).unwrap(),
                 diagram_set,
+                false,
             ),
             [2] => self
                 .squared_topology
@@ -1344,6 +1346,7 @@ impl PythonCrossSection {
             scaling[1].0,
             scaling[1].1,
             diagram_set,
+            true,
         );
 
         let def = k_def[num_cuts - 1..max_cuts - 1]
