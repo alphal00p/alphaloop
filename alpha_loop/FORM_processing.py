@@ -3209,6 +3209,7 @@ const complex<double> I{ 0.0, 1.0 };
         float_pattern = re.compile(r'((\d+\.\d*)|(\.\d+))')
         diag_pattern = re.compile(r'diag\((\d*)\)')
         forest_pattern = re.compile(r'forestid\((\d*)\)')
+        dot_pattern = re.compile(r'dot\(([^,]+),([^,]+),([^,]+)\)')
         square_pattern = re.compile(r'([^^*+\-\s]*)\^2')
         pow_pattern = re.compile(r'([^^*+\-\s]*)\^(\d+)')
         int_pattern = re.compile(r'(?:^|(?<=[^\.\w]))(\d+)(?=[^\.\w]|$)')
@@ -3387,6 +3388,8 @@ const complex<double> I{ 0.0, 1.0 };
 
                                 conf_sec = conf_sec.split('#ELLIPSOIDS')[-1]
 
+                            conf_sec = dot_pattern.sub(r'(\1)*(\2)-(\3)', conf_sec).replace('*(1)', '*(1.)').replace('=(1)', '=(1.)').replace(')-(0)', ')')
+
                             const_code = denom_pattern.sub(r'invd[\1]', energy_pattern.sub(r'E[\1]', lm_pattern.sub(r'lm[\1]', const_code)))
                             conf_sec = denom_pattern.sub(r'invd[\1]', energy_pattern.sub(r'E[\1]', lm_pattern.sub(r'lm[\1]', conf_sec)))
                             conf_sec = re.sub(r'(^|[+\-*=])(\s*\d+)($|[^.\d\w])', r'\1\2.\3', conf_sec)
@@ -3415,7 +3418,6 @@ const complex<double> I{ 0.0, 1.0 };
                             dual_base_type_f128 = '{}<{}>'.format(dual_num_type,base_type_f128) if dual_num_mode else base_type_f128
                             base_type_mpfr = 'mpcomplex'
                             dual_base_type_mpfr = '{}<{}>'.format(dual_num_type,base_type_mpfr) if dual_num_mode else base_type_mpfr
-                            
 
                             if denominator_mode == 'FOREST':
                                 main_code = conf_sec.replace('logmUVmu', 'log(mUV*mUV/(mu*mu))').replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(masst*masst)')

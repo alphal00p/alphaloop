@@ -48,7 +48,7 @@ CTable zAcoupling(-10000:10000);
 
 #ifndef `OPTIMLVL'
     #define OPTIMLVL "4"
-#endif 
+#endif
 
 #ifndef `OPTIMITERATIONS'
     #define OPTIMITERATIONS "100"
@@ -211,7 +211,7 @@ Set lorentz: mu1,...,mu40;
 Set lorentzdummy: mud1,...,mud40;
 
 CF gamma, gamma5, gammatrace(c), levicivita, GGstring, NN, vector,g(s),delta(s),tmps(s), counter,color, prop, replace;
-CF f, vx, vxs(s), uvx, vec, vec1;
+CF dot, f, vx, vxs(s), uvx, vec, vec1;
 CF subs, configurations, conf, tder, cmb, cbtofmb, fmbtocb, diag, forestid, nloops, der, energy, spatial(s), onshell;
 CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, irtopo, intuv, integrateduv;
 CT gammatracetensor(c),opengammastring;
@@ -591,7 +591,7 @@ repeat;
     id once gamma5(s1?, ?a, s2?)*gamma5(s2?, ?b, s3?) = gamma(s1, s3);
     id once gamma(s1?,?a,s2?)*gamma(s2?,?b,s3?) = gamma(s1,?a,?b,s3);
     id once gamma(s1?,?a,s1?) = gammatrace(?a)*delta_(mod_(nargs_(?a), 2));
-    id once gamma(s1?, ?a, s2?)*gamma5(s2?,?b, s1?) = e_(?b)*gammatrace(?a,?b)*delta_(mod_(nargs_(?a),2))/fac_(4); 
+    id once gamma(s1?, ?a, s2?)*gamma5(s2?,?b, s1?) = e_(?b)*gammatrace(?a,?b)*delta_(mod_(nargs_(?a),2))/fac_(4);
 endrepeat;
 contract 0;
 id gammatrace = 4;
@@ -908,7 +908,7 @@ repeat id subgraph(?a,p?) = subgraph(?a);
     id uvprop(?a,m?) = uvprop(?a);
     id uvtopo?{uvtopo,irtopo}(x?,?a) = uvtopo(x,1,?a);
     repeat id t1?ts^n2? = tmp(t1,n2);
-    repeat id uvprop(k?,t1?,n1?)*uvprop(k?,t1?,n2?) = uvprop(k,t1,n1+n2); 
+    repeat id uvprop(k?,t1?,n1?)*uvprop(k?,t1?,n2?) = uvprop(k,t1,n1+n2);
     repeat id uvprop(k?,t1?,n1?)*uvtopo?{uvtopo,irtopo}(x?,x1?,?a)*tmp(t1?,n2?) = uvprop(k,n1 + n2)*uvtopo(x,x1*t1^n2,?a);
     id uvprop(k?,t1?ts,n?) = uvprop(k, n);
 
@@ -1071,10 +1071,14 @@ AB+ cmb,energy,diag,fmbtocb;
 .sort:energy-splitoff-1;
 Keep brackets;
 #do i=1,`NFINALMOMENTA'
-    Multiply replace_(fmb`i', energy(fmb`i')*energyselector - fmbs`i');
+    Multiply replace_(fmb`i', fmb`i'*xorig + xsplit*energy(fmb`i')*energyselector - xsplit*fmbs`i');
+    id xorig * xsplit = 0;
 #enddo
 id energyselector.energyselector = 1;
 id energyselector.p?spatialparts = 0;
+
+id xorig^n?{>0} = xorig;
+id xsplit^n?{>0} = xsplit;
 .sort:energy-splitoff-2;
 
 * extract all scalar forests into new expressions, except for when the forest
@@ -1099,11 +1103,22 @@ argtoextrasymbol tonumber,f,1;
 #define forestcount "{`forestend'-`foreststart'}"
 
 * convert fmb spatial part back to cmb in the forest
-id fmbtocb(?a) = replace_(?a);
+id xorig * xsplit = 0;
+if (count(xorig,1));
+    Multiply replace_(<fmbs1,fmb1>,...,<fmbs40,fmb40>);
+    argument fmbtocb;
+        Multiply replace_(<ps1,p1>,...,<ps40,p40>,<cs1,c1>,...,<cs40,c40>);
+    endargument;
+endif;
 
+id fmbtocb(?a) = replace_(?a);
 .sort:tensorforest-2;
 Hide forest1,...,forest`forestcount';
 UnHide F;
+
+id xorig * xsplit = 0;
+id xorig^n?{>0} = xorig;
+id xsplit^n?{>0} = xsplit;
 
 B+ forestid;
 .sort:tensorforest-3;
@@ -1216,6 +1231,7 @@ if ((count(cmb,1) == 0) && count(diag,1));
     Print "CMB missing: %t";
     exit "Critical error";
 endif;
+B xsplit,xorig;
 .sort:energy-collect;
 
 *********************************************
@@ -1223,6 +1239,7 @@ endif;
 *********************************************
 
 #if (`INTEGRAND' == "LTD") || (`INTEGRAND' == "both")
+    #include- ltdtable_`SGID'.h
     Hide forest1,...,forest`forestcount',F;
 
 * TODO: unify call and make decision at runtime
@@ -1231,8 +1248,44 @@ endif;
     #enddo
     L Fltd = F;
 
+* only apply compressed numerator to case without nested UV CT
+    if (count(forestid, 1) || (match(diag(x1?,x2?,c1?,?a)*diag(x3?,x4?,c2?,?b))));
+        id xsplit = 1;
+        id xorig = 0;
+    else;
+        id xsplit = 0;
+    endif;
+
+    id xorig^n?{>0} = xorig;
+    B xorig;
+
+    .sort
+    Hide Fltd,forestltd1,...,forestltd`forestcount';
+    L rest = Fltd[1];
+    L diagorig = Fltd[xorig];
+
+* split compressed numerator per diag as well, as they may have different energy dependence
+    B conf,tder,cmb,diag;
+    .sort;
+    Hide rest;
+    collect f; * let's hope this works for large expressions!
+
+    repeat id f(x?)*diag(?a) = f(x*diag(?a));
+
+    argument f;
+        id diag(?a) = diag(?a,1);
+        id p1?.p2? = dot(p1,p2,p1.p2);
+        argument dot,3;
+            Multiply replace_(<p1,ps1>,...,<p40,ps40>,<c1,cs1>,...,<c40,cs40>);
+        endargument;
+    endargument;
+    id f(x?) = diag(x,-1); * tag compressed numerator
+    .sort
+    UnHide Fltd,forestltd1,...,forestltd`forestcount';
+    .sort
+    Drop rest, diagorig;
+    L Fltd = rest + diagorig;
     .sort:ltd-forest-copy;
-    #include- ltdtable_`SGID'.h
 
     repeat id cmb(?a)*tder(?c)*diag(?b) = f(diag(?b,cmb(?a)*tder(?c)))*cmb(?a)*tder(?c);
     repeat id cmb(?a)*diag(?b) = f(diag(?b,cmb(?a)))*cmb(?a);
@@ -1247,53 +1300,87 @@ endif;
     #enddo
     #define diagcount "{`diagend'-`diagstart'}"
 
+    id diag(x?,-1,y?) = x*y*xorig;
     id diag(x?) = diag(x-`diagstart'+`forestcount');
     id diag(xcut?,x2?,?a,x3?) = diag(?a)*ltdtopo(x2)*x3*conf(-1,xcut,-1);
     id cmb(?a) = replace_(?a);
+
+    repeat id conf(?a)*conf(?a) = conf(?a);
+    repeat id constants(x?)*constants(x1?) = constants(x*x1);
+    repeat id allenergies(?a)*allenergies(?b) = allenergies(?a,?b);
     .sort:ltd-splitoff;
     Hide forestltd1,...,forestltd`forestcount',Fltd;
 
     Multiply norm(1)*num();
     id prop(?a) = prop(?a,1);
 
+    B+ dot,onshell,diag,xorig;
+    .sort:fmb-conv;
+    Keep brackets;
     #do i=1,`NFINALMOMENTA'
-        id diag(fmb1?,n?,?a) = ltd`i'^n*diag(?a); * order should be consistent
+* NOTE: taking derivatives is only possible if `fmb1` is a vector_ and not a sum of them
+        if (count(xorig,1));
+            id diag(fmb1?,n?,?a) = replace_(fmb1,ltd`i'*energyselector)*diag(?a);
+        else;
+            id diag(fmb1?,n?,?a) = ltd`i'^n*diag(?a); * order should be consistent
+        endif;
+        argument dot 1,2;
+            id energyselector = 1;
+        endargument;
+        id diag = 1;
+    #enddo
 
-        B+ prop, ltd`i', norm, num, diag;
+    argument dot 1,2;
+        id p? = penergy(p);
+    endargument;
+
+    argument dot,3;
+        Multiply replace_(<ps1,p1>,...,<ps40,p40>,<cs1,c1>,...,<cs40,c40>);
+    endargument;
+    id dot(?a,p1?.p2?) = dot(?a,spatial(p1,p2));
+
+    #do i=1,`NFINALMOMENTA'
+        symmetrize dot 1,2;
+        id dot(x1?,x2?,x3?) = dot(x1,xsplit,x2,x3);
+        splitarg (ltd`i') dot;
+        id dot(x?,xsplit,?a) = dot(0,x,xsplit,?a);
+        id dot(x1?,x2?,xsplit,x3?,x4?) = dot(x1,x2,xsplit,0,x3,x4);
+        repeat id dot(?a,x?,-ltd`i',?b,x4?) = -dot(?a,-x,ltd`i',?b,-x4);
+
+        B+ prop, ltd`i', norm, num, diag, onshell, xorig, dot;
+
         .sort:loop-{`i'};
         Keep brackets;
 
         repeat id prop(?a,n1?)*prop(?a,n2?) = prop(?a,n1+n2);
 
-* Identify poles in the loop momentum energy 
+* Identify poles in the loop momentum energy
         splitarg (ltd`i') prop;
-        id prop(ltd`i',E?,n?) = prop0(ltd`i',0,E,n); 
-        id prop(p0?,ltd?,E?,n?) = prop0(ltd,p0,E,n); 
+        id prop(ltd`i',E?,n?) = prop0(ltd`i',0,E,n);
+        id prop(p0?,ltd?,E?,n?) = prop0(ltd,p0,E,n);
 
         factarg (-1) prop0 1;
-        id prop0(ltd`i',y?{-1,1},E?,n?) = prop0(ltd`i',y,0,E,n); 
-        id all prop0(ltd?,y?{-1,1},p0?,E?,n?)*norm(n0?) = 
+        id prop0(ltd`i',y?{-1,1},E?,n?) = prop0(ltd`i',y,0,E,n);
+        id all prop0(ltd?,y?{-1,1},p0?,E?,n?)*norm(n0?) =
             sum_(m,0,n-1,
                 (-1)^(n-m-1)*fac_(2*n-m-2)/fac_(n-m-1)/fac_(m)*
                 der(ltd`i',m)*norm(n0*(2*E)^(2*n-m-2))
                 )/fac_(n-1)*
-            a(y*p0,0,E)*a(y*p0,E,0); 
+            a(y*p0,0,E)*a(y*p0,E,0);
 
 * Apply derivative
         repeat;
-            repeat id der(ltd`i',n1?{>0})*prop0(ltd`i',y?{-1,1},p0?,E?,n2?) =  
-                +der(ltd`i',n1)*prop(ltd`i',y,p0,E,n2)
-                -der(ltd`i',n1-1,0)*(2*n2*(ltd`i'+y*p0))*prop0(ltd`i',y,p0,E,n2+1) 
-            ; 
-            id der(ltd`i',n1?{>0})*ltd`i'^n3? =
-                +n3*der(ltd`i',n1-1,0)*ltd`i'^(n3-1)
-                ; 
-            id der(ltd`i',n?{>0})= 0;
-            id der(ltd`i',n?,0)=der(ltd`i',n);
+            repeat id der(ltd`i',n1?{>0})*prop0(ltd`i',y?{-1,1},p0?,E?,n2?) =
+                        +der(ltd`i',n1)*prop(ltd`i',y,p0,E,n2)
+                        -der(ltd`i',n1-1,0)*(2*n2*(ltd`i'+y*p0))*prop0(ltd`i',y,p0,E,n2+1);
+            id der(ltd`i',n1?{>0})*ltd`i'^n3? = der(ltd`i',n1)*ltd`i'^n3 + n3*der(ltd`i',n1-1,0)*ltd`i'^(n3-1);
+            id all der(ltd`i',n1?{>0})*dot(?a,x1?,ltd`i',?b,x2?) = der(ltd`i',n1-1,0)*dot(?a,0,1,?b,0);
+            id der(ltd`i',n?{>0}) = 0;
+            id der(ltd`i',n?,0) = der(ltd`i',n);
             id prop(ltd`i',y?{-1,1},p0?,E?,n2?) = prop0(ltd`i',y,p0,E,n2);
         endrepeat;
-        id der(ltd`i',0)=1;
-        id prop0(ltd?,y?{-1,1},?a) = prop(y*ltd,?a); 
+        id der(ltd`i',0) = 1;
+        id prop0(ltd?,y?{-1,1},?a) = prop(y*ltd,?a);
 
 * check for errors
         if (count(der,1));
@@ -1318,81 +1405,31 @@ endif;
 * take residue
         id a(p0?,0,E?)*a(p0?,E1?,E2?)*norm(n?)*num(?y) = replace_(ltd`i',E-p0)*norm(n*(E+E1-E2))*num(?y,E-p0);
         if ( count(a,1) ) discard;
+
+* fuse dots
+        repeat id dot(x1?,x2?,?a,xsplit,?b,x3?) = dot(x1+x2,?a,xsplit,?b,x3);
+        repeat id dot(x1?,xsplit,x2?,x3?,?b,x4?) = dot(x1,xsplit,x2+x3,?b,x4);
+        id dot(x1?,xsplit,x2?,x3?) = dot(x1,x2,x3);
     #enddo
     id prop(?a,n?) = prop(?a)^n;
     id prop(p0?,E?) = den(p0^2-E^2);
     id num(?a) = 1;
     id norm(n?) = 1/n;
     id diag = 1;
+    id xorig = 1;
 
-    .sort
-
+    .sort:ltd;
     argtoextrasymbol tonumber, den;
-    #redefine denstart "{`extrasymbols_'+1}"
+    #define denstart "`extrasymbols_'"
     .sort:invd-creation;
-    #do i = `denstart',`extrasymbols_'
-        id den(`i') = invd{`i'-`denstart'};
+    #do i = {`denstart'+1},`extrasymbols_'
+        id den(`i') = invd{`i'-`denstart'-1};
     #enddo
-    Multiply ellipsoids(<invd0,extrasymbol_({`denstart'})>,...,<invd{`extrasymbols_'-`denstart'},extrasymbol_(`extrasymbols_')>);
-
-* old treatment, that has a bug for derivatives
-#if 0
-* transform the LTD energies back to normal energies
-    id energy(f(?a)) = energy(?a);
-    chainout energy;
-    id energy(c0) = 1;
-
-    repeat id ltdcbtolmb(x?,?a)*diag(fmb1?,n?,?b) = x^n*ltdcbtolmb(?a)*diag(?b);
-    id diag = 1;
-    id ltdcbtolmb = 1;
-
-    if (count(diag,1) || count(ltdcbtolmb,1));
-        Print "Unsubstituted energies: %t";
-        exit "Critical error";
-    endif;
-
-    B ellipsoids,allenergies,tder;
-    .sort:energy-replacement;
-
-    id prop(?a) = prop(-1,?a);
-    repeat id prop(x1?,x?,?a)*prop(x2?,x?,?a) = prop(x1+x2,x,?a);
-
-
-    B ellipsoids,allenergies,tder;
-    .sort:energy-replacement-2;
-
-    #do i = 1,`NFINALMOMENTA'
-        id once der(ltd1?,n?,?a) = f(ltd1,n)*der(?a)/fac_(n);
-* write the numerator as a propagator
-        id ltd1?^n?*f(ltd1?,n1?) = prop(n,-1,1,ltd1,0,0)*f(ltd1,n1);
-        repeat id prop(x1?,x?,?a)*prop(x2?,x?,?a) = prop(x1+x2,x,?a);
-* perform the derivative
-        repeat id all prop(n2?,x1?,?a,n1?,ltd1?,?b)*f(ltd1?,n3?{>0}) = n2*n1*prop(n2-1,x1,?a,n1,ltd1,?b)*f(ltd1,n3 - 1);
-
-        id prop(n?{>=0},-1,1,E?,0,0) = E^n;
-
-        id f(ltd1?,0) = 1;
-
-        if (count(f,1));
-            Print "Derivative left in result: %t";
-            exit "Critical error";
-        endif;
-        B ellipsoids,allenergies,tder;
-        .sort:der-`i';
-    #enddo
-    id der = 1;
-
-* rewrite the propagators
-    id energies(0) = 0;
-    id prop(n?,x?,?a) = x^(-n);
-
-* set the ltd energies (including cut sign)
-    id ltdenergy(?a) = replace_(?a);
-
-    argument ellipsoids;
-        id energies(0) = 0;
-    endargument;
-#endif
+    #if `denstart' < `extrasymbols_'
+        Multiply ellipsoids(<invd0,extrasymbol_({`denstart'+1})>,...,<invd{`extrasymbols_'-`denstart'-1},extrasymbol_(`extrasymbols_')>);
+    #else
+        Multiply ellipsoids;
+    #endif
 
     B allenergies, ellipsoids,conf,tder,constants,pi;
     .sort:ltd-num-0;
@@ -1441,6 +1478,8 @@ endif;
 
     #include- pftable_`SGID'.h
     .sort:load-pf;
+    id xorig = 0;
+    id xsplit = 1;
 
 * TODO: here we create a unique diagram per cut as we include the cmb (and conf) into the key
 * it is possible that diagrams are the same after the cmb is applied, for example for UV topologies
@@ -1542,11 +1581,11 @@ id replace(?a) = replace_(?a);
 id energy(p?) = penergy(p);
 id energies(p?) = penergy(p);
 
-B+ penergy,spatial,energies,allenergies,ellipsoids,constants;
+B+ penergy,spatial,energies,allenergies,ellipsoids,constants,dot;
 .sort:func-prep;
 Keep brackets;
 
-argument ellipsoids;
+argument ellipsoids, dot;
     id energies(p?) = penergy(p);
 endargument;
 
@@ -1572,17 +1611,17 @@ endargument;
 #$OFFSET = 0;
 #do i=1,`$MAXP'
     id penergy(p`i') = lm`$OFFSET';
-    argument energies, ellipsoids, constants;
+    argument energies, ellipsoids, constants, dot;
         id penergy(p`i') = lm`$OFFSET';
     endargument;
     #$OFFSET = $OFFSET + 1;
     #do j=`i',`$MAXP'
-        argument energies, ellipsoids, constants;
+        argument energies, ellipsoids, constants, dot;
             id p`i'.p`j' = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
         id spatial(p`i', p`j') = lm`$OFFSET';
-        argument energies;
+        argument energies, dot;
             id spatial(p`i', p`j') = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
@@ -1591,29 +1630,29 @@ endargument;
 
 #do i=1,`$MAXK'
     id penergy(c`i') = lm`$OFFSET';
-    argument energies, ellipsoids, constants;
+    argument energies, ellipsoids, constants, dot;
         id penergy(c`i') = lm`$OFFSET';
     endargument;
     #$OFFSET = $OFFSET + 1;
     #do j=1,`$MAXP'
-        argument energies, ellipsoids, constants;
+        argument energies, ellipsoids, constants, dot;
             id c`i'.p`j' = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
         id spatial(p`j', c`i') = lm`$OFFSET';
-        argument energies;
+        argument energies, dot;
             id spatial(p`j', c`i') = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
     #enddo
 
     #do j=`i',`$MAXK'
-        argument energies, ellipsoids, constants;
+        argument energies, ellipsoids, constants, dot;
             id c`i'.c`j' = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
         id spatial(c`i', c`j') = lm`$OFFSET';
-        argument energies;
+        argument energies, dot;
             id spatial(c`i', c`j') = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
