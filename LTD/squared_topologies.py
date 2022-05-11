@@ -328,7 +328,7 @@ class SquaredTopologyGenerator:
                                 for ll in d['loop_topo_orig_mass'].loop_lines:
                                     unique_props = defaultdict(list)
                                     for p in ll.propagators:
-                                        unique_props[(p.m_squared, (tuple(prop.parametric_shift[0]), tuple(prop.parametric_shift[1])))].append(p)
+                                        unique_props[(p.m_squared, (tuple(p.parametric_shift[0]), tuple(p.parametric_shift[1])))].append(p)
 
                                     for props in unique_props.values():
                                         for p in props[1:]:

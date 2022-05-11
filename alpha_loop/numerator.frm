@@ -1581,9 +1581,7 @@ id replace(?a) = replace_(?a);
 id energy(p?) = penergy(p);
 id energies(p?) = penergy(p);
 
-B+ penergy,spatial,energies,allenergies,ellipsoids,constants,dot;
 .sort:func-prep;
-Keep brackets;
 
 argument ellipsoids, dot;
     id energies(p?) = penergy(p);
@@ -1735,6 +1733,7 @@ Keep brackets;
             #endif
 
             Format C;
+            Format 255;
             #if (`$activeforestcount' < `MAXVARSFOROPTIM')
                 #if `OPTIMLVL' > 1
                     Format O`OPTIMLVL',method=`OPTIMISATIONSTRATEGY',stats=on,saIter=`OPTIMITERATIONS';
