@@ -328,6 +328,20 @@ class SuperGraph(dict):
         return n_unresolved
 
     @classmethod
+    def compute_jacobian_offset(cls, ir_limit):
+        """ Compute *optimal* parameterisation jacobian behaviour in the soft limit (bringing -3 each) and the collinear (bringing -2 each) """
+
+        collinear_sets, soft_set = ir_limit
+
+        jacobian_dod = 0
+        for s in soft_set:
+            jacobian_dod += 3
+        for coll_set in collinear_sets:
+            jacobian_dod += 2*(len(coll_set)-1)
+
+        return jacobian_dod
+
+    @classmethod
     def format_ir_limit_str(cls, ir_limit, colored_output=True):
         collinear_sets, soft_set = ir_limit
         # turn the collinear_sets in the canonical form if not already in it
@@ -2346,7 +2360,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         'pinched' : (E_surface_key in pinched_E_surface_keys),
                         'E_shift' : sum( os[2]*loop_SG.loop_lines[os[0][0]].propagators[os[0][1]].q[0] for os in E_surface_key )
                     })
-
+                
                 if frozen_momenta is not None:
                     frozen_edge_names = set([c['name'] for c in self.all_supergraphs[selected_SGs[0]]['cutkosky_cuts'][0]['cuts']])
                     E_surfaces = self.freeze_momenta_in_E_surfaces(E_surfaces, cvxpy_source_coordinates, SG['topo']['n_loops'], frozen_edge_names, frozen_momenta, E_cm)
@@ -2384,7 +2398,6 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     # assert(all(list(osp['v_shift'])==[0.,0.,0.] for osp in E_surf['onshell_propagators']))
 
                 IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces']=E_surfaces
-                
                 external_edges = SG.get_external_edges()
 
                 # For each E-surfaces, build what are the set of nodes to its left
@@ -2539,7 +2552,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 # Skim away the cvxpy expression which is heavy and will not be used any longer.
                 for E_surf_info in IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces']:
                     del E_surf_info['cxpy_expression']
-
+                
                 if args.selected_e_surfaces is None or any(key not in SG for key in ['E_surfaces','E_surfaces_intersection']):
                     # Save the completed preprocessing
                     SG['E_surfaces'] = IR_info_per_SG_and_E_surfaces_set[SG_name]['E_surfaces']
@@ -3238,6 +3251,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if args.check_if_lib_file_exists:
             skipped_because_of_no_lib_file = []
             for SG_name in list(selected_SGs):
+
                 if SG_name in self.all_supergraphs and 'FORM_integrand' in self.all_supergraphs[SG_name]:
                     lib_file_name = pjoin(self.dir_path, self._lib_folder, 'libFORM_sg_%d.so'%(self.all_supergraphs[SG_name]['FORM_integrand']['call_signature']['id']))
                 else:
@@ -3984,6 +3998,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
             local_results['defining_LMB_momenta'].append( (scaling, tuple(tuple(vi for vi in v) for v in rescaled_momenta_in_defining_lmb)) )
 
+            #print('TTT',rescaled_momenta_in_defining_lmb)
             # Now map these momenta in the defining LMB into x variables in the unit hypercube
             xs_in_defining_lmb = []
             overall_jac = 1.0
@@ -4070,6 +4085,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         coll_sets = ir_limit[0]
         soft_set = ir_limit[1]
         
+        jacobian_offset = SuperGraph.compute_jacobian_offset(ir_limit)
+
         # If there is a spectator, then we must find the collinear set it belongs to since for that set the collinear direction will be forced to be opposite of the sum of all other collinear directions
         spectator_collinear_set_id = None
         if ir_limit_info['extra_spectator'] is not None:
@@ -4176,11 +4193,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             dod, standard_error, number_of_points_considered, successful_fit = utils.compute_dod(container['evaluations'])
             # Our scaling goes towards zero here, so we must swap the sign of the dod.
             dod *= -1.
-            # Also include dod from jacobian behavior in the soft limit. Ignore collinear jacobian linear suppression as it should not be necessary.
-            # Also subtract one so as to make the natural target dod -1 (since we're approaching a finite point here.)
-            dod -= 3.*float(len(soft_set))+1
+            dod -= jacobian_offset
             if for_plots:
-                container['evaluations'] = [ (s, e, (s**(3.*float(len(soft_set))+1)) ) for s, e in container['evaluations'] ]
+                container['evaluations'] = [ (s, e, (s**( jacobian_offset )) ) for s, e in container['evaluations'] ]
 
             dod_status = 'SUCESS' if successful_fit else 'UNSTABLE'
             if args.ignore_cut_configs > 0:

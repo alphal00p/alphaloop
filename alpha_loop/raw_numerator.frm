@@ -27,6 +27,7 @@ id prop(?a) = 1;
 Drop F;
 
 Unhide F1;
+#call FeynmanRulesGlobal()
 #call FeynmanRulesMomentum()
 .sort
 PolyRatFun rat(expand,ep,50);

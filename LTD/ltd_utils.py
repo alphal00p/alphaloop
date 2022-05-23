@@ -499,18 +499,8 @@ class TopologyGenerator(object):
             PDGs_in_jet=(0,1,2,3,4,5,-1,-2,-3,-4,-5,21,82,-82,1337)
 
         if not self.spanning_trees:
-            # if a final state particle only occurs once in the graph, we can always add the edge
-            # to the already visited list
-            tree = set()
             accum = []
-            for fspi in final_state_particle_ids:
-                edges_with_id = [e for e, p in particle_ids.items() if p == fspi]
-                if len(edges_with_id) == 1:
-                    accum.append(self.edge_name_map[edges_with_id[0]])
-                    tree |= set(self.edge_map_lin[self.edge_name_map[edges_with_id[0]]][1:])
-
-            if len(tree) == 0:
-                tree = {self.edges[0][0]}
+            tree = {self.edges[0][0]}
 
             spanning_trees = []
             seen_state = set()

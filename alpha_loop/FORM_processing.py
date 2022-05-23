@@ -2723,24 +2723,24 @@ class FORMSuperGraphList(list):
                 undirected_edges = set()
 
                 for e in graph.edges.values():
-                    undirected_edges.add(tuple(sorted(e['vertices'])))
+                    undirected_edges.add( ( tuple(sorted(e['vertices'])), ( ('type', e['type'] ),('name',e['name']) ) ) )
 
                 edge_colors = []
                 ext_id = 0
-                for ue in undirected_edges:
+                for ue, attrs in undirected_edges:
                     e_color = 1
                     for e in graph.edges.values():
                         if tuple(sorted(e['vertices'])) == ue:
-                            #TODO: Reserve the first #externals primes for external edges
-                            # with the current implementation it still allows swap 
-                            # of final/initial state edges
-                            if e['type'] == 'in':
-                                ext_id += 1
-                                e_color *= sp.prime(ext_id)
-                            else:
-                                e_color *= pdg_primes[abs(e['PDG'])]
+                            # We want to include the Z2 symmetry so allow for swap of in and out states
+                            # if e['type'] == 'in':
+                            #     ext_id += 1
+                            #     e_color *= sp.prime(ext_id)
+                            # else:
+                            #     e_color *= pdg_primes[abs(e['PDG'])]
+                            e_color *= pdg_primes[abs(e['PDG'])]
                     edge_colors.append(e_color)
-                    g.add_edges([tuple(sorted([x - 1 for x in ue]))])
+                    new_edge = tuple(sorted([x - 1 for x in ue]))
+                    g.add_edge( new_edge[0], new_edge[1], **dict(attrs) )
 
                 for (ref_graph, ref_colors), graph_list in iso_groups:
                     v_maps = ref_graph.get_isomorphisms_vf2(g, edge_color1=ref_colors, edge_color2=edge_colors)
@@ -2752,6 +2752,27 @@ class FORMSuperGraphList(list):
                         # map the signature from the new graph to the reference graph using the vertex map
                         edge_map = [next(re.index for re in ref_graph.es if (re.source, re.target) == (v_map[e.source], v_map[e.target]) or \
                             (re.source, re.target) == (v_map[e.target], v_map[e.source])) for e in g.es]
+
+                        out_edges = [ee for ee in graph_list[0].edges.values() if ee['type']=='out']
+                        # If an incoming edge has been mapped to an outgoing one, then the external momentum flow has been flipped.
+                        is_external_flow_flipped = None
+                        for out_edge in out_edges:
+                            orig_edge_in_ref = next(ee for ee in ref_graph.es if tuple(sorted(out_edge['vertices'])) == (ee.source + 1, ee.target + 1))
+                            mapped_out_edge_type = g.es[edge_map.index(orig_edge_in_ref.index)].attributes()['type']
+                            if mapped_out_edge_type=='in':
+                                if is_external_flow_flipped is None:
+                                    is_external_flow_flipped = True
+                                elif not is_external_flow_flipped:
+                                    raise FormProcessingError("Inconsistent mapping of incoming and outgoing externals during graph isomorphism checks. (1)")
+                            elif mapped_out_edge_type=='out':
+                                if is_external_flow_flipped is None:
+                                    is_external_flow_flipped = False
+                                elif is_external_flow_flipped:
+                                    raise FormProcessingError("Inconsistent mapping of incoming and outgoing externals during graph isomorphism checks. (2)")
+                            else:
+                                raise FormProcessingError("Inconsistent mapping of incoming and outgoing externals during graph isomorphism checks. (3)")                                
+                        if is_external_flow_flipped is None:
+                            raise FormProcessingError("Inconsistent mapping of incoming and outgoing externals during graph isomorphism checks. (4)")                                
 
                         # go through all loop momenta and make the matrix
                         # and the shifts
@@ -2785,6 +2806,11 @@ class FORMSuperGraphList(list):
                                 match_particle = new_edge['PDG'] == orig_edge['PDG']
                                 if not match_direction:# != match_particle:
                                     orientation_factor = -1
+
+                            # When the external momentum flow is flipped, we can either flip them back, or more conveniently here,
+                            # flip all internal momenta.
+                            if is_external_flow_flipped:
+                                orientation_factor *= -1
 
                             shifts.append([-orientation_factor * s * orig_edge['signature'][0][loop_var] for s in new_edge['signature'][1]])
                             mat.append([orientation_factor * s * orig_edge['signature'][0][loop_var] for s in new_edge['signature'][0]])
@@ -2883,6 +2909,12 @@ class FORMSuperGraphList(list):
             #full_graph_list[:] = graph_filtered['KEEP']
             iso_groups[:] = graph_filtered['KEEP']
             logger.info("\033[1mRemoved {} graphs with no valid cuts\033[0m".format(len(graph_filtered['DUMP'])))
+
+        # Useful printout of all isomorphic groups detected
+        # if verbose or True:
+        #     print("ISO groups:")
+        #     for i_g, (_, iso_group) in enumerate(iso_groups):
+        #         print('#%d -> %s'%(i_g, ','.join([g[1].name for g in iso_group])))
 
         FORM_iso_sg_list = FORMSuperGraphList([FORMSuperGraphIsomorphicList(iso_group) for _, iso_group in iso_groups], name=p.stem)
 

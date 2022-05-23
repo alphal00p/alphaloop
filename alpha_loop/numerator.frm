@@ -31,6 +31,9 @@ On nospacesinnumbers;
 #define QMASSIVEPRIME "1006,"
 #define QBARMASSIVEPRIME "-1006,"
 #define SDUMMY "1122"
+#define GLUPRIME "1021"
+#define GHOPRIME "1066"
+#define GHOPRIMEBAR "-1066"
 **************************************************
 * END SE PDGs
 **************************************************
@@ -168,6 +171,10 @@ Fill charges(-1006) = -2/3;
 Fill charges(1006) = 2/3;
 Fill gyq(-1006) = yukawat;
 Fill gyq(1006) = yukawat;
+Fill masses(1122) = 0;
+Fill masses(1021) = 0;
+Fill masses(1066) = 0;
+Fill masses(-1066) = 0;
 **************************************************
 * END SE parameters
 **************************************************
@@ -329,12 +336,17 @@ repeat id prop(x1?{`QBARMASSIVEPRIME'}, in, p?, idx1?)*prop(x2?{`QBARMASSIVE'}, 
 repeat id prop(x1?{`QBARMASSIVE'}, in, p?, idx1?)*prop(x2?{`QBARMASSIVEPRIME'}, out, p?, idx2?) = d_(colF[idx1], colF[idx2]);
 repeat id prop(x1?{`QMASSIVEPRIME'}, in, p?, idx1?)*prop(x2?{`QMASSIVE'}, out, p?, idx2?) = d_(colF[idx2], colF[idx1]);
 repeat id prop(x1?{`QMASSIVE'}, in, p?, idx1?)*prop(x2?{`QMASSIVEPRIME'}, out, p?, idx2?) = d_(colF[idx2], colF[idx1]);
+repeat id prop(`GLUPRIME', in, p?, idx1?)*prop(`GLUPRIME', out, p?, idx2?) = d_(colA[idx1], colA[idx2]);
+repeat id prop(`GHOPRIME', in, p?, idx1?)*prop(`GHOPRIME', out, p?, idx2?) = d_(colA[idx1], colA[idx2]);
+repeat id prop(`GHOPRIMEBAR', in, p?, idx1?)*prop(`GHOPRIMEBAR', out, p?, idx2?) = d_(colA[idx1], colA[idx2]);
 id prop(`SDUMMY', virtual, p?, idx1?, idx2?) = 1;
 id prop(`SDUMMY', in, p?, idx1?) = 1;
 id prop(`SDUMMY', out, p?, idx1?) = 1;
 id prop(`PHOPRIME', virtual, p?, idx1?, idx2?) = 1;
 id prop(x?{`QMASSIVEPRIME'}, virtual, p?, idx1?, idx2?) = i_ * d_(colF[idx2], colF[idx1]);
 id prop(x?{`QBARMASSIVEPRIME'}, virtual, p?, idx1?, idx2?) = - i_ * d_(colF[idx1], colF[idx2]);
+id prop(x?{`GHOPRIME',`GHOPRIMEBAR'}, virtual, p?, idx1?, idx2?) = - i_ *d_(colA[idx1], colA[idx2]);
+id prop(`GLUPRIME', virtual, p?, idx1?, idx2?) = - i_ * d_(colA[idx1], colA[idx2]);
 **************************************************
 * END SE prop couplings Feynman rules
 **************************************************
@@ -357,6 +369,9 @@ id vx(x1?{`QBARMASSIVE'}, `PHO', x2?{`QMASSIVEPRIME'}, `SDUMMY', p1?, p2?, p3?, 
 id vx(x1?{`QBARMASSIVEPRIME'}, `H', x2?{`QMASSIVE'}, `SDUMMY', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = -gyq(x1) * i_ * d_(colF[idx1], colF[idx3]);
 id vx(x1?{`QBARMASSIVEPRIME'}, `GLU', x2?{`QMASSIVE'}, `SDUMMY', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = -gs * T(colF[idx1], colA[idx2], colF[idx3]);
 id vx(x1?{`QBARMASSIVEPRIME'}, `PHO', x2?{`QMASSIVE'}, `SDUMMY', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = charges(x2) * ge * i_* d_(colF[idx1], colF[idx3]);
+id vx(`GLU', `GLUPRIME', `SDUMMY', p1?, p2?, p3?, idx1?, idx2?, idx3?) = i_ * d_(colA[idx1], colA[idx2]);
+id vx(`GHOPRIMEBAR', `SDUMMY', `GHOPRIMEBAR', p1?, p2?, p3?, idx1?, idx2?, idx3?) = i_ * d_(colA[idx1], colA[idx3]);
+id vx(`GHOPRIME', `SDUMMY', `GHOPRIME', p1?, p2?, p3?, idx1?, idx2?, idx3?) = i_ * d_(colA[idx1], colA[idx3]);
 **************************************************
 * END SE vx couplings Feynman rules
 **************************************************
@@ -492,6 +507,8 @@ id prop(`SDUMMY', out, p?, idx1?) = 1;
 id prop(`PHOPRIME', virtual, p?, idx1?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
 id prop(x?{`QMASSIVEPRIME'}, virtual, p?, idx1?, idx2?) = gamma(dirac[idx2], p, dirac[idx1]) + masses(x) * gamma(dirac[idx2], dirac[idx1]);
 id prop(x?{`QBARMASSIVEPRIME'}, virtual, p?, idx1?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x) * gamma(dirac[idx1], dirac[idx2]);
+id prop(`GLUPRIME', virtual, p?, idx1?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
+id prop(x?{`GHOPRIME',`GHOPRIMEBAR'}, virtual, p?, idx1?, idx2?) = 1;
 **************************************************
 * END SE prop Lorentz Feynman rules
 **************************************************
@@ -514,6 +531,9 @@ id vx(x1?{`QBARMASSIVE'}, `PHO', x2?{`QMASSIVEPRIME'}, `SDUMMY', p1?, p2?, p3?, 
 id vx(x1?{`QBARMASSIVEPRIME'}, `H', x2?{`QMASSIVE'}, `SDUMMY', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = d_(dirac[idx1], dirac[idx3]);
 id vx(x1?{`QBARMASSIVEPRIME'}, `GLU', x2?{`QMASSIVE'}, `SDUMMY', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
 id vx(x1?{`QBARMASSIVEPRIME'}, `PHO', x2?{`QMASSIVE'}, `SDUMMY', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
+id vx(`GLU', `GLUPRIME', `SDUMMY', p1?, p2?, p3?, idx1?, idx2?, idx3?) = d_(lorentz[idx1], lorentz[idx2]);
+id vx(`GHO', `SDUMMY', `GHOPRIME', p1?, p2?, p3?, idx1?, idx2?, idx3?) = d_(lorentz[idx1], lorentz[idx3]);
+id vx(`GHOBAR', `SDUMMY', `GHOPRIMEBAR', p1?, p2?, p3?, idx1?, idx2?, idx3?) = d_(lorentz[idx1], lorentz[idx3]);
 **************************************************
 * END SE vx Lorentz Feynman rules
 **************************************************
