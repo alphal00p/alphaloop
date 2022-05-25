@@ -3564,9 +3564,6 @@ const complex<double> I{ 0.0, 1.0 };
 
                         integrand_f128_main_code = integrand_f128_main_code.replace('const complex<double> I{ 0.0, 1.0 };', 'constexpr complex128 I{ 0.0, 1.0 };')
 
-
-                        conf_no_dual, conf_dual = [x for x in confs if x[1]] != "", [x for x in confs if x[1] == ""]
-
                         if itype != "PF":
                             integrand_main_code = integrand_main_code.replace('diag_', 'diag_{}_'.format(itype)).replace('forest_', 'forest_{}_'.format(itype))
                             integrand_f128_main_code = integrand_f128_main_code.replace('diag_', 'diag_{}_'.format(itype)).replace('forest_', 'forest_{}_'.format(itype))
@@ -3575,26 +3572,18 @@ const complex<double> I{ 0.0, 1.0 };
 
                         integrand_main_code += \
 """
-extern "C" {{
-void %(header)sevaluate_{0}_{1}(complex<double> lm[], complex<double> params[], int conf, complex<double>* out) {{
-   switch(conf) {{
-{2}
-    }}
-}}
 
-void %(header)sevaluate_{0}_{1}_dual(double lm[], complex<double> params[], int conf, double* out) {{
-   switch(conf) {{
-{3}
+extern "C" {{
+void %(header)sevaluate_{0}_{1}(double lm[], complex<double> params[], int conf, double* out) {{
+    switch(conf) {{
+{2}
     }}
 }}
 }}
 """.format(itype, i,
         '\n'.join(
-            ['\t\tcase {}: %(header)sevaluate_{}_{}_{}(lm, params, out); return;'.format(conf, itype, i, conf) for conf, is_dual in sorted(x for x in confs if not x[1])] +
-            (['\t\tdefault: *out = 0.;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
-        ),
-        '\n'.join(
-            ['\t\tcase {}: %(header)sevaluate_{}_{}_{}(({}<complex<double>>*)lm, params, ({}<complex<double>>*)out); return;'.format(conf, itype, i, conf, is_dual, is_dual) for conf, is_dual in sorted(x for x in confs if x[1])] +
+            ['\t\tcase {0}: %(header)sevaluate_{1}_{2}_{0}(({3}complex<double>{4}*)lm, params, ({3}complex<double>{4}*)out); return;'.format(
+                conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '') for conf, is_dual in sorted(x for x in confs)] +
             (['\t\tdefault: *out = 0.;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
         )
         )
@@ -3602,27 +3591,19 @@ void %(header)sevaluate_{0}_{1}_dual(double lm[], complex<double> params[], int 
 
                         integrand_f128_main_code += \
 """
+
 extern "C" {{
 void %(header)sevaluate_{0}_{1}_f128(complex128 lm[], complex128 params[], int conf, complex128* out) {{
-   switch(conf) {{
+    switch(conf) {{
 {2}
-    }}
-}}
-
-void %(header)sevaluate_{0}_{1}_f128_dual(complex128 lm[], complex128 params[], int conf, complex128* out) {{
-   switch(conf) {{
-{3}
     }}
 }}
 }}
 """.format(itype, i,
         '\n'.join(
-                ['\t\tcase {}: %(header)sevaluate_{}_{}_{}_f128(lm, params, out); return;'.format(conf, itype, i, conf) for conf, is_dual in sorted(x for x in confs if not x[1])] +
-                (['\t\tdefault: *out = 0.q;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
-        ),
-        '\n'.join(
-                ['\t\tcase {}: %(header)sevaluate_{}_{}_{}_f128(({}<complex128>*)lm, params, ({}<complex128>*)out); return;'.format(conf, itype, i, conf, is_dual, is_dual) for conf, is_dual in sorted(x for x in confs if x[1])] +
-                (['\t\tdefault: *out = real128(0.q);']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
+            ['\t\tcase {0}: %(header)sevaluate_{1}_{2}_{0}_f128(({3}complex128{4}*)lm, params, ({3}complex128{4}*)out); return;'.format(
+                conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '') for conf, is_dual in sorted(x for x in confs)] +
+            (['\t\tdefault: *out = real128(0.q);'])
         )
         )
 
@@ -3639,29 +3620,20 @@ using mpfr::mpcomplex;
 """ + integrand_mpfr_main_code
                         integrand_mpfr_main_code += \
 """
+
 extern "C" {{
 void %(header)sevaluate_{0}_{1}_mpfr(complex128 lm[], complex128 params[], int conf, int prec, complex128* out) {{
-   mpfr_set_default_prec((mpfr_prec_t)(ceil(prec * 3.3219280948873624)));
-   switch(conf) {{
+    mpfr_set_default_prec((mpfr_prec_t)(ceil(prec * 3.3219280948873624)));
+    switch(conf) {{
 {2}
-    }}
-}}
-
-void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], int conf, int prec, complex128* out) {{
-   mpfr_set_default_prec((mpfr_prec_t)(ceil(prec * 3.3219280948873624)));
-   switch(conf) {{
-{3}
     }}
 }}
 }}
 """.format(itype, i,
         '\n'.join(
-            ['\t\tcase {}: %(header)sevaluate_{}_{}_{}_mpfr(lm, params, out); return;'.format(conf, itype, i, conf) for conf, is_dual in sorted(x for x in confs if not x[1])] +
-            (['\t\tdefault: *out = 0.;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else
-        ),
-        '\n'.join(
-            ['\t\tcase {}: %(header)sevaluate_{}_{}_{}_mpfr(({}<complex128>*)lm, params, ({}<complex128>*)out); return;'.format(conf, itype, i, conf, is_dual, is_dual) for conf, is_dual in sorted(x for x in confs if x[1])] +
-            (['\t\tdefault: *out = real128(0.q);']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
+            ['\t\tcase {0}: %(header)sevaluate_{1}_{2}_{0}(({3}complex128{4}*)lm, params, ({3}complex128{4}*)out); return;'.format(
+                conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '') for conf, is_dual in sorted(x for x in confs)] +
+            (['\t\tdefault: *out = real128(0.q);'])
         )
         )
 

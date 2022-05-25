@@ -1046,23 +1046,16 @@ impl PythonCrossSection {
         loop_momenta: Vec<LorentzVector<f64>>,
         cut_index: usize,
         scaling: f64,
-        scaling_jac: f64,
-        diagram_set: Option<usize>,
+        _scaling_jac: f64,
+        _diagram_set: Option<usize>,
     ) -> PyResult<(f64, f64)> {
-        let mut external_momenta: ArrayVec<[LorentzVector<float>; MAX_LOOP]> = self
+        let external_momenta: ArrayVec<[LorentzVector<float>; MAX_LOOP]> = self
             .squared_topology
             .external_momenta
             .iter()
             .map(|m| m.map(|c| c.into()))
             .collect();
 
-        let mut cut_momenta = [LorentzVector::default(); MAX_LOOP + 4];
-        let mut rescaled_loop_momenta = [LorentzVector::default(); MAX_LOOP + 4];
-
-        let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_LOOP];
-        let mut k_def = [LorentzVector::default(); MAX_LOOP + 4];
-
-        let n_loops = self.squared_topology.n_loops;
         let raised_cut_powers: ArrayVec<[usize; MAX_LOOP + 4]> =
             self.squared_topology.cutkosky_cuts[cut_index]
                 .cuts
@@ -1072,24 +1065,18 @@ impl PythonCrossSection {
                 .collect();
 
         let res = match &raised_cut_powers[..] {
-            [] => self.squared_topology.evaluate_cut(
+            [] => self.squared_topology.evaluate_cut::<f64, f64>(
                 &loop_momenta,
-                &mut cut_momenta,
-                &mut external_momenta,
-                &mut rescaled_loop_momenta,
-                &mut subgraph_loop_momenta,
-                &mut k_def[..n_loops],
+                &external_momenta,
                 &mut self.caches,
                 &mut Some(&mut self.integrand.event_manager),
                 cut_index,
                 scaling,
-                scaling_jac,
-                diagram_set,
-                false,
+                None,
             ),
             [2] => self
                 .squared_topology
-                .evaluate_cut_derivative::<f64, Hyperdual<f64, 2>>(
+                .evaluate_cut::<f64, Hyperdual<f64, 2>>(
                     &loop_momenta,
                     &external_momenta,
                     &mut self.caches,
@@ -1098,61 +1085,51 @@ impl PythonCrossSection {
                     scaling,
                     None,
                 ),
-            [3] => self
-                .squared_topology
-                .evaluate_cut_derivative::<f64, Dualt2<f64>>(
-                    &loop_momenta,
-                    &external_momenta,
-                    &mut self.caches,
-                    &mut Some(&mut self.integrand.event_manager),
-                    cut_index,
-                    scaling,
-                    None,
-                ),
-            [2, 2] => self
-                .squared_topology
-                .evaluate_cut_derivative::<f64, Dualkt2<f64>>(
-                    &loop_momenta,
-                    &external_momenta,
-                    &mut self.caches,
-                    &mut Some(&mut self.integrand.event_manager),
-                    cut_index,
-                    scaling,
-                    None,
-                ),
-            [4] => self
-                .squared_topology
-                .evaluate_cut_derivative::<f64, Dualt3<f64>>(
-                    &loop_momenta,
-                    &external_momenta,
-                    &mut self.caches,
-                    &mut Some(&mut self.integrand.event_manager),
-                    cut_index,
-                    scaling,
-                    None,
-                ),
-            [2, 3] => self
-                .squared_topology
-                .evaluate_cut_derivative::<f64, Dualkt3<f64>>(
-                    &loop_momenta,
-                    &external_momenta,
-                    &mut self.caches,
-                    &mut Some(&mut self.integrand.event_manager),
-                    cut_index,
-                    scaling,
-                    None,
-                ),
-            [2, 2, 2] => self
-                .squared_topology
-                .evaluate_cut_derivative::<f64, Dualklt3<f64>>(
-                    &loop_momenta,
-                    &external_momenta,
-                    &mut self.caches,
-                    &mut Some(&mut self.integrand.event_manager),
-                    cut_index,
-                    scaling,
-                    None,
-                ),
+            [3] => self.squared_topology.evaluate_cut::<f64, Dualt2<f64>>(
+                &loop_momenta,
+                &external_momenta,
+                &mut self.caches,
+                &mut Some(&mut self.integrand.event_manager),
+                cut_index,
+                scaling,
+                None,
+            ),
+            [2, 2] => self.squared_topology.evaluate_cut::<f64, Dualkt2<f64>>(
+                &loop_momenta,
+                &external_momenta,
+                &mut self.caches,
+                &mut Some(&mut self.integrand.event_manager),
+                cut_index,
+                scaling,
+                None,
+            ),
+            [4] => self.squared_topology.evaluate_cut::<f64, Dualt3<f64>>(
+                &loop_momenta,
+                &external_momenta,
+                &mut self.caches,
+                &mut Some(&mut self.integrand.event_manager),
+                cut_index,
+                scaling,
+                None,
+            ),
+            [2, 3] => self.squared_topology.evaluate_cut::<f64, Dualkt3<f64>>(
+                &loop_momenta,
+                &external_momenta,
+                &mut self.caches,
+                &mut Some(&mut self.integrand.event_manager),
+                cut_index,
+                scaling,
+                None,
+            ),
+            [2, 2, 2] => self.squared_topology.evaluate_cut::<f64, Dualklt3<f64>>(
+                &loop_momenta,
+                &external_momenta,
+                &mut self.caches,
+                &mut Some(&mut self.integrand.event_manager),
+                cut_index,
+                scaling,
+                None,
+            ),
             _ => {
                 return Err(pyo3::exceptions::PyValueError::new_err(
                     "No scaling could be obtained",
@@ -1169,27 +1146,21 @@ impl PythonCrossSection {
         loop_momenta: Vec<LorentzVector<f64>>,
         cut_index: usize,
         scaling: f64,
-        scaling_jac: f64,
-        diagram_set: Option<usize>,
+        _scaling_jac: f64,
+        _diagram_set: Option<usize>,
     ) -> PyResult<(f64, f64)> {
         let mut moms: ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP + 4]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(l.cast());
         }
 
-        let mut external_momenta: ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = self
+        let external_momenta: ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = self
             .squared_topology
             .external_momenta
             .iter()
             .map(|m| m.map(|c| c.into()))
             .collect();
 
-        let mut cut_momenta = [LorentzVector::default(); MAX_LOOP + 4];
-        let mut rescaled_loop_momenta = [LorentzVector::default(); MAX_LOOP + 4];
-
-        let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_LOOP];
-        let mut k_def = [LorentzVector::default(); MAX_LOOP + 4];
-        let n_loops = self.squared_topology.n_loops;
         let raised_cut_powers: ArrayVec<[usize; MAX_LOOP + 4]> =
             self.squared_topology.cutkosky_cuts[cut_index]
                 .cuts
@@ -1199,24 +1170,20 @@ impl PythonCrossSection {
                 .collect();
 
         let res = match &raised_cut_powers[..] {
-            [] => self.squared_topology.evaluate_cut(
-                &moms,
-                &mut cut_momenta,
-                &mut external_momenta,
-                &mut rescaled_loop_momenta,
-                &mut subgraph_loop_momenta,
-                &mut k_def[..n_loops],
-                &mut self.caches_f128,
-                &mut Some(&mut self.integrand.event_manager),
-                cut_index,
-                f128::f128::from_f64(scaling).unwrap(),
-                f128::f128::from_f64(scaling_jac).unwrap(),
-                diagram_set,
-                false,
-            ),
+            [] => self
+                .squared_topology
+                .evaluate_cut::<f128::f128, f128::f128>(
+                    &moms,
+                    &external_momenta,
+                    &mut self.caches_f128,
+                    &mut Some(&mut self.integrand.event_manager),
+                    cut_index,
+                    f128::f128::from_f64(scaling).unwrap(),
+                    None,
+                ),
             [2] => self
                 .squared_topology
-                .evaluate_cut_derivative::<f128::f128, Hyperdual<f128::f128, 2>>(
+                .evaluate_cut::<f128::f128, Hyperdual<f128::f128, 2>>(
                     &moms,
                     &external_momenta,
                     &mut self.caches_f128,
@@ -1227,7 +1194,7 @@ impl PythonCrossSection {
                 ),
             [3] => self
                 .squared_topology
-                .evaluate_cut_derivative::<f128::f128, Dualt2<f128::f128>>(
+                .evaluate_cut::<f128::f128, Dualt2<f128::f128>>(
                     &moms,
                     &external_momenta,
                     &mut self.caches_f128,
@@ -1238,7 +1205,7 @@ impl PythonCrossSection {
                 ),
             [2, 2] => self
                 .squared_topology
-                .evaluate_cut_derivative::<f128::f128, Dualkt2<f128::f128>>(
+                .evaluate_cut::<f128::f128, Dualkt2<f128::f128>>(
                     &moms,
                     &external_momenta,
                     &mut self.caches_f128,
@@ -1249,7 +1216,7 @@ impl PythonCrossSection {
                 ),
             [4] => self
                 .squared_topology
-                .evaluate_cut_derivative::<f128::f128, Dualt3<f128::f128>>(
+                .evaluate_cut::<f128::f128, Dualt3<f128::f128>>(
                     &moms,
                     &external_momenta,
                     &mut self.caches_f128,
@@ -1260,7 +1227,7 @@ impl PythonCrossSection {
                 ),
             [2, 3] => self
                 .squared_topology
-                .evaluate_cut_derivative::<f128::f128, Dualkt3<f128::f128>>(
+                .evaluate_cut::<f128::f128, Dualkt3<f128::f128>>(
                     &moms,
                     &external_momenta,
                     &mut self.caches_f128,
@@ -1271,7 +1238,7 @@ impl PythonCrossSection {
                 ),
             [2, 2, 2] => self
                 .squared_topology
-                .evaluate_cut_derivative::<f128::f128, Dualklt3<f128::f128>>(
+                .evaluate_cut::<f128::f128, Dualklt3<f128::f128>>(
                     &moms,
                     &external_momenta,
                     &mut self.caches_f128,
@@ -1293,67 +1260,13 @@ impl PythonCrossSection {
     #[args(diagram_set = "None")]
     fn get_cut_deformation(
         &mut self,
-        loop_momenta: Vec<LorentzVector<f64>>,
-        cut_index: usize,
-        diagram_set: Option<usize>,
+        _loop_momenta: Vec<LorentzVector<f64>>,
+        _cut_index: usize,
+        _diagram_set: Option<usize>,
     ) -> PyResult<Vec<LorentzVector<Complex<f64>>>> {
-        let mut moms: ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP + 4]> = ArrayVec::new();
-        for l in loop_momenta {
-            moms.push(l.cast());
-        }
-
-        let mut external_momenta: ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = self
-            .squared_topology
-            .external_momenta
-            .iter()
-            .map(|m| m.map(|c| c.into()))
-            .collect();
-
-        let mut cut_momenta = [LorentzVector::default(); MAX_LOOP + 4];
-        let mut rescaled_loop_momenta = [LorentzVector::default(); MAX_LOOP + 4];
-
-        let mut subgraph_loop_momenta = [LorentzVector::default(); MAX_LOOP];
-        let mut k_def = [LorentzVector::default(); MAX_LOOP + 4];
-        let incoming_energy = self.squared_topology.external_momenta
-            [..self.squared_topology.n_incoming_momenta]
-            .iter()
-            .map(|m| m.t)
-            .sum();
-
-        let cutkosky_cuts = &self.squared_topology.cutkosky_cuts[cut_index];
-
-        let scaling = squared_topologies::SquaredTopology::find_scaling(
-            cutkosky_cuts,
-            &external_momenta,
-            &moms[..self.squared_topology.n_loops],
-            f128::f128::from_f64(incoming_energy).unwrap(),
-            self.squared_topology.settings.general.debug,
-        )
-        .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("No scaling could be obtained"))?;
-
-        let max_cuts = self.squared_topology.n_loops + 1;
-        let num_cuts = cutkosky_cuts.cuts.len();
-        self.squared_topology.evaluate_cut(
-            &moms,
-            &mut cut_momenta,
-            &mut external_momenta,
-            &mut rescaled_loop_momenta,
-            &mut subgraph_loop_momenta,
-            &mut k_def[..max_cuts],
-            &mut self.caches_f128,
-            &mut Some(&mut self.integrand.event_manager),
-            cut_index,
-            scaling[1].0,
-            scaling[1].1,
-            diagram_set,
-            true,
-        );
-
-        let def = k_def[num_cuts - 1..max_cuts - 1]
-            .iter()
-            .map(|k| k.map(|d| Complex::new(d.re.into(), d.im.into())))
-            .collect();
-        Ok(def)
+        Err(pyo3::exceptions::PyAssertionError::new_err(
+            "Not implemented",
+        ))
     }
 
     fn parameterize(
