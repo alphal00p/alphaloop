@@ -357,6 +357,7 @@ pub struct MultiChannelingBasis {
     pub channel_id: usize,
     pub cutkosky_cut_id: i8,
     pub defining_propagators: Vec<String>,
+    pub defining_propagator_masses: Vec<f64>,
     pub signatures: Vec<(Vec<i8>, Vec<i8>)>,
 }
 
@@ -383,7 +384,7 @@ pub struct SquaredTopology {
     #[serde(default)]
     pub optimal_channel_ids: Option<Vec<usize>>,
     #[serde(skip_deserializing)]
-    pub multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)>,
+    pub multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>,Vec<f64>)>,
     #[serde(rename = "FORM_integrand")]
     pub form_integrand: FORMIntegrand,
     #[serde(skip_deserializing)]
@@ -399,7 +400,7 @@ pub struct SquaredTopologySet {
     pub multiplicity: Vec<f64>,
     pub settings: Settings,
     pub rotation_matrix: [[float; 3]; 3],
-    pub multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)>,
+    pub multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>,Vec<f64>)>,
     pub stability_check_topologies: Vec<Vec<SquaredTopology>>,
     pub is_stability_check_topo: bool,
 }
@@ -534,7 +535,7 @@ impl SquaredTopologySet {
         }
 
         // filter duplicate channels between supergraphs
-        let mut unique_multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)> =
+        let mut unique_multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>,Vec<f64>)> =
             vec![];
 
         'mc_loop: for c in multi_channeling_channels {
@@ -571,7 +572,7 @@ impl SquaredTopologySet {
         let mut c = self.multi_channeling_channels.clone();
 
         let rot_matrix = &rotated_topologies[0].rotation_matrix;
-        for (_, _, shifts) in &mut c {
+        for (_, _, shifts,_) in &mut c {
             for shift in shifts.iter_mut() {
                 let old_shift = shift.clone();
                 shift.x = (rot_matrix[0][0] * old_shift.x
@@ -708,7 +709,7 @@ impl SquaredTopologySet {
 
         status_update_sender
             .send(StatusUpdate::Message(format!(
-                "Number of integration channels: {}",
+                "Nusdfgfggdmber of integration channels: {}",
                 self.multi_channeling_channels.len()
             )))
             .unwrap();
@@ -831,7 +832,7 @@ impl SquaredTopologySet {
         let mut k_other_channel = [LorentzVector::default(); MAX_SG_LOOP];
         let mut event_counter = 0;
         let mut result = Complex::zero();
-        for (channel_id, (channel, _, channel_shift)) in mc_channels.iter().enumerate() {
+        for (channel_id, (channel, _, channel_shift, channel_masses)) in mc_channels.iter().enumerate() {
             if let Some(selected_channel) = selected_channel {
                 if selected_channel != channel_id {
                     continue;
@@ -859,7 +860,7 @@ impl SquaredTopologySet {
 
             // determine the normalization constant
             let mut normalization = T::zero();
-            for (_, other_channel_inv, other_channel_shift) in &mc_channels {
+            for (_, other_channel_inv, other_channel_shift, other_channel_masses) in &mc_channels {
                 // transform from the loop momentum basis to the other channel basis
                 for ((kk, r), shift) in k_other_channel[..n_loops]
                     .iter_mut()
@@ -890,14 +891,21 @@ impl SquaredTopologySet {
                                 + <T as NumCast>::from(rot[1][2]).unwrap() * k_other_channel[i].y
                                 + <T as NumCast>::from(rot[2][2]).unwrap() * k_other_channel[i].z,
                         );
-
-                        Topology::inv_parametrize(&rotated, self.e_cm_squared, i, &self.settings).1
+                        if self.settings.general.multi_channeling_alpha < 0. {
+                            Topology::inv_parametrize(&rotated, self.e_cm_squared, i, &self.settings).1
+                        } else {
+                            Into::<T>::into(f64::powf((rotated.spatial_squared().to_f64().unwrap()
+                                +other_channel_masses[i]*other_channel_masses[i]).sqrt(),self.settings.general.multi_channeling_alpha)).inv()
+                        }
                     } else {
-                        (Into::<T>::into(2.) * <T as FloatConst>::PI())
-                            .powi(4)
-                            .inv()
+                        if self.settings.general.multi_channeling_alpha < 0. {
+                            (Into::<T>::into(2.) * <T as FloatConst>::PI())
+                                .powi(4)
+                                .inv()
+                        } else {
+                            Into::<T>::into(1.)
+                        }
                     };
-
                     inv_jac_para *= jac;
                 }
 
@@ -949,6 +957,21 @@ impl SquaredTopologySet {
                     let (_, jac) =
                         Topology::inv_parametrize(&k_lmb[i], self.e_cm_squared, i, &self.settings);
                     jac_correction *= jac;
+                }
+                if self.settings.general.multi_channeling_alpha >= 0. {
+                    for i in 0..t.n_loops {
+                        let (_, jac) =
+                            Topology::inv_parametrize(&k_channel[i], self.e_cm_squared, i, &self.settings);
+                        jac_correction *= jac.inv();
+                    }
+                    for i in 0..t.n_loops {
+                        jac_correction *= Into::<T>::into(f64::powf((k_channel[i].spatial_squared().to_f64().unwrap()
+                            +channel_masses[i]*channel_masses[i]).sqrt(),self.settings.general.multi_channeling_alpha)).inv();
+                    }
+                    for _i in t.n_loops..n_loops {
+                        jac_correction *= (Into::<T>::into(2.) * <T as FloatConst>::PI())
+                        .powi(4);
+                    }
                 }
 
                 channel_result += t.evaluate_mom(&k_lmb[..t.n_loops], cache, &mut event_manager)
@@ -1833,7 +1856,7 @@ impl SquaredTopology {
     }
 
     pub fn generate_multi_channeling_channels(&mut self) {
-        let mut multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>)> =
+        let mut multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>, Vec<f64>)> =
             vec![];
 
         let multi_channeling_bases_to_consider = if self.settings.general.use_lmb_channels {
@@ -1864,7 +1887,7 @@ impl SquaredTopology {
             let lmb_to_cb_mat = na::DMatrix::from_row_slice(
                 mcb.signatures.len(),
                 mcb.signatures.len(),
-                &cut_signatures_matrix,
+                &cut_signatures_matrix
             );
             let c = lmb_to_cb_mat.try_inverse().unwrap();
             // note: this transpose is ONLY there because the iteration is column-wise instead of row-wise
@@ -1879,6 +1902,7 @@ impl SquaredTopology {
                 cb_to_lmb_mat.clone(),
                 lmb_to_cb_mat_i8.clone(),
                 shifts.clone(),
+                mcb.defining_propagator_masses.clone()
             ));
         }
 

@@ -527,6 +527,7 @@ fn default_as_false() -> bool {
 pub struct GeneralSettings {
     pub multi_channeling: bool,
     pub multi_channeling_channel: Option<isize>,
+    pub multi_channeling_alpha: f64,
     pub use_optimal_channels: bool,
     #[serde(default = "default_as_false")]
     pub use_lmb_channels: bool,

@@ -485,11 +485,14 @@ class SquaredTopologyGenerator:
         channel_id = 0
         for lmb_channel in self.topo.loop_momentum_bases():
             defining_edges_for_this_channel = [ self.topo.edge_map_lin[e_id][0] for e_id in lmb_channel ]
+            defining_edge_masses = [ model.get_particle(self.particle_ids[e_name]).get('mass') for e_name in defining_edges_for_this_channel ]
+            defining_edge_masses = [ 0.0 if mass_param.upper()=='ZERO' else model['parameter_dict'][mass_param].real for mass_param in defining_edge_masses ]
             signatures = [ out['edge_signatures'][edge_name] for edge_name in defining_edges_for_this_channel ]
             multi_channeling_lmb_bases.append(
                 {
                     'channel_id' : channel_id,
                     'cutkosky_cut_id' : -1, 
+                    'defining_propagator_masses' : defining_edge_masses,
                     'defining_propagators' : defining_edges_for_this_channel,
                     'signatures' : signatures
                 }
@@ -531,6 +534,8 @@ class SquaredTopologyGenerator:
                 # Now complement the basis with all possible ones from the remaining loops to the left and right of the cut
                 for LMB in channel['loop_LMBs']:
                     defining_edges_for_this_channel = edge_names_in_basis+LMB['loop_edges']
+                    defining_edge_masses = [ model.get_particle(self.particle_ids[e_name]).get('mass') for e_name in defining_edges_for_this_channel ]
+                    defining_edge_masses = [ 0.0 if mass_param.upper()=='ZERO' else model['parameter_dict'][mass_param].real for mass_param in defining_edge_masses ]
                     signatures = [ sg['edge_signatures'][edge_name] for edge_name in defining_edges_for_this_channel ]
                     canonical_signatures = set([ (tuple(sig[0]),tuple(sig[1])) for sig in signatures] )
                     if set(canonical_signatures) in all_channels_added_so_far:
@@ -539,7 +544,8 @@ class SquaredTopologyGenerator:
                     multi_channeling_bases.append(
                         {
                             'channel_id' : channel_id,
-                            'cutkosky_cut_id' : channel['cutkosky_cut_id'], 
+                            'cutkosky_cut_id' : channel['cutkosky_cut_id'],
+                            'defining_propagator_masses' : defining_edge_masses,
                             'defining_propagators' : defining_edges_for_this_channel,
                             'signatures' : signatures,
                             'defining_propagators_powers' : [sg_edge_powers[de_name] for de_name in defining_edges_for_this_channel],
