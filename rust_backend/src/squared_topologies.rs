@@ -709,7 +709,7 @@ impl SquaredTopologySet {
 
         status_update_sender
             .send(StatusUpdate::Message(format!(
-                "Nusdfgfggdmber of integration channels: {}",
+                "Number of integration channels: {}",
                 self.multi_channeling_channels.len()
             )))
             .unwrap();
