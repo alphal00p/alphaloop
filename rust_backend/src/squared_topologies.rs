@@ -846,13 +846,11 @@ impl SquaredTopologySet {
             }
 
             // transform to the loop momentum basis
-            for (kk, r) in k_lmb[..n_loops].iter_mut().zip_eq(channel.chunks(n_loops)) {
+            for (kk, r) in utils::zip_eq(&mut k_lmb[..n_loops], channel.chunks(n_loops)) {
                 *kk = LorentzVector::default();
 
-                for ((ko, s), shift) in k_channel[..n_loops]
-                    .iter()
-                    .zip_eq(r.iter())
-                    .zip_eq(channel_shift)
+                for ((ko, s), shift) in
+                    utils::zip_eq(utils::zip_eq(&k_channel[..n_loops], r), channel_shift)
                 {
                     *kk += (ko - shift.cast()).multiply_sign(*s);
                 }
@@ -862,13 +860,15 @@ impl SquaredTopologySet {
             let mut normalization = T::zero();
             for (_, other_channel_inv, other_channel_shift, other_channel_masses) in &mc_channels {
                 // transform from the loop momentum basis to the other channel basis
-                for ((kk, r), shift) in k_other_channel[..n_loops]
-                    .iter_mut()
-                    .zip_eq(other_channel_inv.chunks(n_loops))
-                    .zip_eq(other_channel_shift)
-                {
+                for ((kk, r), shift) in utils::zip_eq(
+                    utils::zip_eq(
+                        &mut k_other_channel[..n_loops],
+                        other_channel_inv.chunks(n_loops),
+                    ),
+                    other_channel_shift,
+                ) {
                     *kk = shift.cast();
-                    for (ko, s) in k_lmb[..n_loops].iter().zip_eq(r.iter()) {
+                    for (ko, s) in utils::zip_eq(&k_lmb[..n_loops], r) {
                         *kk += ko.multiply_sign(*s);
                     }
                 }
@@ -914,11 +914,8 @@ impl SquaredTopologySet {
 
             // evaluate the integrand in this channel
             let mut channel_result = Complex::zero();
-            for (current_supergraph, (t, &m)) in self
-                .topologies
-                .iter_mut()
-                .zip_eq(&self.multiplicity)
-                .enumerate()
+            for (current_supergraph, (t, &m)) in
+                utils::zip_eq(&mut self.topologies, &self.multiplicity).enumerate()
             {
                 if let Some(tt) = selected_topology {
                     if current_supergraph != tt {
@@ -1111,12 +1108,11 @@ impl SquaredTopologySet {
 
         let mut result = Complex::zero();
         let mut event_counter = 0;
-        for (current_supergraph, ((t, &m), extra_topos)) in self
-            .topologies
-            .iter_mut()
-            .zip_eq(&self.multiplicity)
-            .zip_eq(self.additional_topologies.iter_mut())
-            .enumerate()
+        for (current_supergraph, ((t, &m), extra_topos)) in utils::zip_eq(
+            utils::zip_eq(&mut self.topologies, &self.multiplicity),
+            &mut self.additional_topologies,
+        )
+        .enumerate()
         {
             if let Some(tt) = selected_topology {
                 if current_supergraph != tt {
@@ -1229,12 +1225,12 @@ impl<T: Scalar + Zero + Copy> DualWrapper<T> for T {
         *self
     }
 
-    #[inline]
+    #[cold]
     fn get_der(&self, _i: &[usize]) -> T {
         panic!("Bad index for dual");
     }
 
-    #[inline]
+    #[cold]
     fn get_der_mut(&mut self, _i: &[usize]) -> &mut T {
         panic!("Bad index for dual");
     }
@@ -1839,7 +1835,7 @@ impl SquaredTopology {
         U: From<T>,
     {
         let mut cut_momentum = LorentzVector::default();
-        for (&sign, mom) in signature.0.iter().zip_eq(loop_momenta) {
+        for (&sign, mom) in utils::zip_eq(&signature.0, loop_momenta) {
             if sign != 0 {
                 // note: we allow for the sign to be any small integer
                 cut_momentum += mom * U::from_i8(sign).unwrap();
@@ -2275,10 +2271,11 @@ impl SquaredTopology {
             .unwrap_or(0);
 
         // evaluate the cuts with the proper scaling
-        for (cut_index, (cut_mom, cut)) in cut_momenta[..cutkosky_cuts.cuts.len()]
-            .iter_mut()
-            .zip_eq(cutkosky_cuts.cuts.iter())
-            .enumerate()
+        for (cut_index, (cut_mom, cut)) in utils::zip_eq(
+            &mut cut_momenta[..cutkosky_cuts.cuts.len()],
+            cutkosky_cuts.cuts.iter(),
+        )
+        .enumerate()
         {
             let k = utils::evaluate_signature(&cut.signature.0, loop_momenta);
             let shift = utils::evaluate_signature(
@@ -2439,10 +2436,7 @@ impl SquaredTopology {
         );
 
         // rescale the loop momenta
-        for (rlm, lm) in rescaled_loop_momenta[..self.n_loops]
-            .iter_mut()
-            .zip_eq(loop_momenta)
-        {
+        for (rlm, lm) in utils::zip_eq(&mut rescaled_loop_momenta[..self.n_loops], loop_momenta) {
             *rlm = lm.convert::<D>() * scaling;
         }
 
@@ -2679,10 +2673,10 @@ impl SquaredTopology {
                 {
                     // do the loop momentum map, which is expressed in the loop momentum basis
                     // the time component should not matter here
-                    for (slm, lmm) in subgraph_loop_momenta[..subgraph.n_loops]
-                        .iter_mut()
-                        .zip_eq(&subgraph.loop_momentum_map)
-                    {
+                    for (slm, lmm) in utils::zip_eq(
+                        &mut subgraph_loop_momenta[..subgraph.n_loops],
+                        &subgraph.loop_momentum_map,
+                    ) {
                         *slm = SquaredTopology::evaluate_signature(
                             lmm,
                             &external_momenta[..self.external_momenta.len()],

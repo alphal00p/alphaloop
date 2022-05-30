@@ -6,7 +6,6 @@ use crate::dualt3::Dualt3;
 use crate::{FloatLike, MAX_LOOP};
 use f128::f128;
 use hyperdual::Hyperdual;
-use itertools::Itertools;
 use lorentz_vector::RealNumberLike;
 use lorentz_vector::{Field, LorentzVector};
 use num::Complex;
@@ -16,6 +15,67 @@ use std::cmp::{Ord, Ordering};
 use std::ops::Neg;
 
 const MAX_DIMENSION: usize = MAX_LOOP * 3;
+
+/// An iterator which iterates two other iterators simultaneously
+#[derive(Clone, Debug)]
+#[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
+pub struct ZipEq<I, J> {
+    a: I,
+    b: J,
+}
+
+/// An iterator which iterates two other iterators simultaneously and checks
+/// if the sizes are equal in debug mode.
+pub fn zip_eq<I, J>(i: I, j: J) -> ZipEq<I::IntoIter, J::IntoIter>
+where
+    I: IntoIterator,
+    J: IntoIterator,
+{
+    ZipEq {
+        a: i.into_iter(),
+        b: j.into_iter(),
+    }
+}
+
+impl<I, J> Iterator for ZipEq<I, J>
+where
+    I: Iterator,
+    J: Iterator,
+{
+    type Item = (I::Item, J::Item);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match (self.a.next(), self.b.next()) {
+            (None, None) => None,
+            (Some(a), Some(b)) => Some((a, b)),
+            (None, Some(_)) => {
+                #[cfg(debug_assertions)]
+                panic!("Unequal length of iterators; first iterator finished first");
+                #[cfg(not(debug_assertions))]
+                None
+            }
+            (Some(_), None) => {
+                #[cfg(debug_assertions)]
+                panic!("Unequal length of iterators; second iterator finished first");
+                #[cfg(not(debug_assertions))]
+                None
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let sa = self.a.size_hint();
+        let sb = self.b.size_hint();
+        (sa.0.min(sb.0), sa.1.zip(sb.1).map(|(ua, ub)| ua.min(ub)))
+    }
+}
+
+impl<I, J> ExactSizeIterator for ZipEq<I, J>
+where
+    I: ExactSizeIterator,
+    J: ExactSizeIterator,
+{
+}
 
 /// Format a mean ± sdev as mean(sdev) with the correct number of digits.
 /// Based on the Python package gvar.
@@ -278,7 +338,7 @@ pub fn evaluate_signature<T: FloatLike>(
     momenta: &[LorentzVector<T>],
 ) -> LorentzVector<T> {
     let mut momentum = LorentzVector::default();
-    for (&sign, mom) in signature.iter().zip_eq(momenta) {
+    for (&sign, mom) in zip_eq(signature, momenta) {
         if sign != 0 {
             momentum += mom.multiply_sign(sign);
         }
