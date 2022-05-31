@@ -2799,35 +2799,11 @@ impl SquaredTopology {
                 || diag_set_index == 0
             {
                 cache.scalar_products.clear();
-
-                for (i1, e1) in external_momenta[..self.n_incoming_momenta]
-                    .iter()
-                    .enumerate()
-                {
-                    cache.scalar_products.extend_from_slice(&[e1.t, T::zero()]);
-                    for e2 in &external_momenta[i1..self.n_incoming_momenta] {
-                        let (d, ds) = e1.dot_spatial_dot(e2);
-                        cache
-                            .scalar_products
-                            .extend_from_slice(&[d, T::zero(), ds, T::zero()]);
-                    }
+                for e in &external_momenta[..self.n_incoming_momenta] {
+                    cache.scalar_products.extend_from_slice(&[e.t, T::zero(), e.x, T::zero(), e.y, T::zero(), e.z, T::zero()]);
                 }
-
-                for (i1, m1) in k_def[..self.n_loops].iter().enumerate() {
-                    cache.scalar_products.extend_from_slice(&[m1.t.re, m1.t.im]);
-                    for e1 in &external_momenta[..self.n_incoming_momenta] {
-                        let (d, ds) = m1.dot_spatial_dot(&e1.cast());
-                        cache
-                            .scalar_products
-                            .extend_from_slice(&[d.re, d.im, ds.re, ds.im]);
-                    }
-
-                    for m2 in k_def[i1..self.n_loops].iter() {
-                        let (d, ds) = m1.dot_spatial_dot(m2);
-                        cache
-                            .scalar_products
-                            .extend_from_slice(&[d.re, d.im, ds.re, ds.im]);
-                    }
+                for l in &k_def[..self.n_loops] {
+                    cache.scalar_products.extend_from_slice(&[l.t.re, l.t.im, l.x.re, l.x.im, l.y.re, l.y.im, l.z.re, l.z.im]);
                 }
             }
 
@@ -3454,36 +3430,17 @@ impl SquaredTopology {
             {
                 cache.scalar_products.clear();
                 cache.scalar_products_dual.clear();
-
-                for (i1, e1) in external_momenta[..self.n_incoming_momenta]
-                    .iter()
-                    .enumerate()
-                {
-                    D::from_real(e1.t).zip_flatten(&D::zero(), &mut cache.scalar_products_dual);
-
-                    for e2 in &external_momenta[i1..self.n_incoming_momenta] {
-                        let (d, ds) = e1.dot_spatial_dot(e2);
-
-                        D::from_real(d).zip_flatten(&D::zero(), &mut cache.scalar_products_dual);
-                        D::from_real(ds).zip_flatten(&D::zero(), &mut cache.scalar_products_dual);
-                    }
+                for e in &external_momenta[..self.n_incoming_momenta] {
+                    D::from_real(e.t).zip_flatten(&D::zero(), &mut cache.scalar_products_dual);
+                    D::from_real(e.x).zip_flatten(&D::zero(), &mut cache.scalar_products_dual);
+                    D::from_real(e.y).zip_flatten(&D::zero(), &mut cache.scalar_products_dual);
+                    D::from_real(e.z).zip_flatten(&D::zero(), &mut cache.scalar_products_dual);
                 }
-
-                for (i1, m1) in k_def[..self.n_loops].iter().enumerate() {
-                    m1.t.re
-                        .zip_flatten(&m1.t.im, &mut cache.scalar_products_dual);
-
-                    for e1 in &external_momenta[..self.n_incoming_momenta] {
-                        let (d, ds) = m1.dot_spatial_dot(&e1.cast());
-                        d.re.zip_flatten(&d.im, &mut cache.scalar_products_dual);
-                        ds.re.zip_flatten(&ds.im, &mut cache.scalar_products_dual);
-                    }
-
-                    for m2 in k_def[i1..self.n_loops].iter() {
-                        let (d, ds) = m1.dot_spatial_dot(m2);
-                        d.re.zip_flatten(&d.im, &mut cache.scalar_products_dual);
-                        ds.re.zip_flatten(&ds.im, &mut cache.scalar_products_dual);
-                    }
+                for l in &k_def[..self.n_loops] {
+                    l.t.re.zip_flatten(&l.t.im, &mut cache.scalar_products_dual);
+                    l.x.re.zip_flatten(&l.x.im, &mut cache.scalar_products_dual);
+                    l.y.re.zip_flatten(&l.y.im, &mut cache.scalar_products_dual);
+                    l.z.re.zip_flatten(&l.z.im, &mut cache.scalar_products_dual);
                 }
             }
 

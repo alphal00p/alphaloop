@@ -1340,7 +1340,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             for gdraw_file in glob.glob(pjoin(drawings_output_path, 'Graph*')):
                 os.remove(gdraw_file)
             super_graph_list = FORM_processing.FORMSuperGraphList.from_dict(
-                self.qgraf_output, merge_isomorphic_graphs=True, 
+                self.qgraf_output, merge_isomorphic_graphs=False, 
                 model=self.model, workspace=FORM_workspace, cuts=cuts)
             pickle.dump(super_graph_list, open(self.checkpoint[0][0],'wb'))
             logger.info("\033[1:32mFirst Checkpoint!\033[0m")

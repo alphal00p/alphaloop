@@ -3528,16 +3528,86 @@ const complex<double> I{ 0.0, 1.0 };
 
                         conf_no_dual, conf_dual = [x for x in confs if x[1]] != "", [x for x in confs if x[1] == ""]
 
+                        n_incoming = sum([1 for edge in graph[0].edges.values() if edge['type'] == 'in'])
+                        n_loops = len(graph[0].edges) - len(graph[0].nodes) + 1
+                        n_tot = n_incoming + n_loops
+
+                        fill_lm_body = ""
+                        out_idx = 0
+                        for i1 in range(n_tot):
+                            fill_lm_body += "\tout[{}] = moms[{}];\n".format(out_idx, 4*i1)
+                            out_idx += 1
+                            for i2 in range(i1, n_tot):
+                                fill_lm_body += "\tdot_spatial_dot(&moms[{}],&moms[{}],&out[{}]);\n".format(4*i1, 4*i2, out_idx)
+                                out_idx += 2
+                        
+                        for i1 in range(n_tot):
+                            for i2 in range(i1+1, n_tot):
+                                for i3 in range(i2+1, n_tot):
+                                    fill_lm_body += "\tout[{}] = I*levicivita(&moms[{}],&moms[{}],&moms[{}], energyselector);\n".format(out_idx, 4*i1, 4*i2, 4*i3)
+                                    out_idx += 1
+                                    for i4 in range(i3+1, n_tot):
+                                        fill_lm_body += "\tout[{}] = I*levicivita(&moms[{}],&moms[{}],&moms[{}], &moms[{}]);\n".format(out_idx, 4*i1, 4*i2, 4*i3, 4*i4)
+                                        out_idx += 1
+
+
                         integrand_main_code += \
 """
+template<class T>
+static inline void dot_spatial_dot(T mom1[], T mom2[], T out[]) {{
+    out[1] = mom1[1]*mom2[1] + mom1[2]*mom2[2] + mom1[3]*mom2[3];
+	out[0] = mom1[0]*mom2[0] - out[1];
+}}
+template<class T>
+static inline T levicivita(T mom1[], T mom2[], T mom3[], T mom4[]) {{
+return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
+        - mom1[0]*mom2[1]*mom3[3]*mom4[2]
+        - mom1[0]*mom2[2]*mom3[1]*mom4[3]
+        + mom1[0]*mom2[2]*mom3[3]*mom4[1]
+        + mom1[0]*mom2[3]*mom3[1]*mom4[2]
+        - mom1[0]*mom2[3]*mom3[2]*mom4[1]
+        - mom1[1]*mom2[0]*mom3[2]*mom4[3]
+        + mom1[1]*mom2[0]*mom3[3]*mom4[2]
+        + mom1[1]*mom2[2]*mom3[0]*mom4[3]
+        - mom1[1]*mom2[2]*mom3[3]*mom4[0]
+        - mom1[1]*mom2[3]*mom3[0]*mom4[2]
+        + mom1[1]*mom2[3]*mom3[2]*mom4[0]
+        + mom1[2]*mom2[0]*mom3[1]*mom4[3]
+        - mom1[2]*mom2[0]*mom3[3]*mom4[1]
+        - mom1[2]*mom2[1]*mom3[0]*mom4[3]
+        + mom1[2]*mom2[1]*mom3[3]*mom4[0]
+        + mom1[2]*mom2[3]*mom3[0]*mom4[1]
+        - mom1[2]*mom2[3]*mom3[1]*mom4[0]
+        - mom1[3]*mom2[0]*mom3[1]*mom4[2]
+        + mom1[3]*mom2[0]*mom3[2]*mom4[1]
+        + mom1[3]*mom2[1]*mom3[0]*mom4[2]
+        - mom1[3]*mom2[1]*mom3[2]*mom4[0]
+        - mom1[3]*mom2[2]*mom3[0]*mom4[1]
+        + mom1[3]*mom2[2]*mom3[1]*mom4[0];
+}}
+template<class T>
+static inline void fill_lm(T moms[], T out[]) {{
+    T energyselector[] = {{T(1.),T(0.),T(0.),T(0.)}};
+{4}
+}}
 extern "C" {{
-void %(header)sevaluate_{0}_{1}(complex<double> lm[], complex<double> params[], int conf, complex<double>* out) {{
+void %(header)sevaluate_{0}_{1}(complex<double> moms[], complex<double> params[], int conf, complex<double>* out) {{
+    complex<double> lm[{5}] = {{0}};
+    fill_lm<complex<double>>(moms, lm);
+    //printf("\\nmomenta: ");
+	//for (int i = 0; i != {6}; ++i)
+	//	printf("\\n%%f+i*%%f,", moms[i].real(),moms[i].imag());
+	//printf("\\nlm: ");
+	//for (int j = 0; j != {5}; ++j)
+	//	printf("\\n%%f+i*%%f,", lm[j].real(),lm[j].imag());
    switch(conf) {{
 {2}
     }}
 }}
 
-void %(header)sevaluate_{0}_{1}_dual(double lm[], complex<double> params[], int conf, double* out) {{
+void %(header)sevaluate_{0}_{1}_dual(dual<complex<double>> moms[], complex<double> params[], int conf, dual<complex<double>>* out) {{
+    dual<complex<double>> lm[{5}] = {{dual<complex<double>>(0)}};
+    fill_lm<dual<complex<double>>>(moms, lm);
    switch(conf) {{
 {3}
     }}
@@ -3551,20 +3621,64 @@ void %(header)sevaluate_{0}_{1}_dual(double lm[], complex<double> params[], int 
         '\n'.join(
             ['\t\tcase {}: %(header)sevaluate_{}_{}_{}(({}<complex<double>>*)lm, params, ({}<complex<double>>*)out); return;'.format(conf, itype, i, conf, is_dual, is_dual) for conf, is_dual in sorted(x for x in confs if x[1])] +
             (['\t\tdefault: *out = 0.;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
-        )
+        ),
+        fill_lm_body,
+        out_idx,
+        4*(n_incoming + n_loops)
         )
 
 
                         integrand_f128_main_code += \
 """
+template<class T>
+static inline void dot_spatial_dot(T mom1[], T mom2[], T out[]) {{
+    out[1] = mom1[1]*mom2[1] + mom1[2]*mom2[2] + mom1[3]*mom2[3];
+	out[0] = mom1[0]*mom2[0] - out[1];
+}}
+template<class T>
+static inline T levicivita(T mom1[], T mom2[], T mom3[], T mom4[]) {{
+return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
+        - mom1[0]*mom2[1]*mom3[3]*mom4[2]
+        - mom1[0]*mom2[2]*mom3[1]*mom4[3]
+        + mom1[0]*mom2[2]*mom3[3]*mom4[1]
+        + mom1[0]*mom2[3]*mom3[1]*mom4[2]
+        - mom1[0]*mom2[3]*mom3[2]*mom4[1]
+        - mom1[1]*mom2[0]*mom3[2]*mom4[3]
+        + mom1[1]*mom2[0]*mom3[3]*mom4[2]
+        + mom1[1]*mom2[2]*mom3[0]*mom4[3]
+        - mom1[1]*mom2[2]*mom3[3]*mom4[0]
+        - mom1[1]*mom2[3]*mom3[0]*mom4[2]
+        + mom1[1]*mom2[3]*mom3[2]*mom4[0]
+        + mom1[2]*mom2[0]*mom3[1]*mom4[3]
+        - mom1[2]*mom2[0]*mom3[3]*mom4[1]
+        - mom1[2]*mom2[1]*mom3[0]*mom4[3]
+        + mom1[2]*mom2[1]*mom3[3]*mom4[0]
+        + mom1[2]*mom2[3]*mom3[0]*mom4[1]
+        - mom1[2]*mom2[3]*mom3[1]*mom4[0]
+        - mom1[3]*mom2[0]*mom3[1]*mom4[2]
+        + mom1[3]*mom2[0]*mom3[2]*mom4[1]
+        + mom1[3]*mom2[1]*mom3[0]*mom4[2]
+        - mom1[3]*mom2[1]*mom3[2]*mom4[0]
+        - mom1[3]*mom2[2]*mom3[0]*mom4[1]
+        + mom1[3]*mom2[2]*mom3[1]*mom4[0];
+}}
+template<class T>
+static inline void fill_lm(T moms[], T out[]) {{
+    T energyselector[] = {{T(1.),T(0.),T(0.),T(0.)}};
+{4}
+}}
 extern "C" {{
-void %(header)sevaluate_{0}_{1}_f128(complex128 lm[], complex128 params[], int conf, complex128* out) {{
+void %(header)sevaluate_{0}_{1}_f128(complex128 moms[], complex128 params[], int conf, complex128* out) {{
+    complex128 lm[{5}] = {{0}};
+    fill_lm<complex128>(moms, lm);
    switch(conf) {{
 {2}
     }}
 }}
 
-void %(header)sevaluate_{0}_{1}_f128_dual(complex128 lm[], complex128 params[], int conf, complex128* out) {{
+void %(header)sevaluate_{0}_{1}_f128_dual(dual<complex128> moms[], complex128 params[], int conf, dual<complex128>* out) {{
+    dual<complex128> lm[{5}] = {{dual<complex128>(0)}};
+    fill_lm<dual<complex128>>(moms, lm);
    switch(conf) {{
 {3}
     }}
@@ -3578,7 +3692,9 @@ void %(header)sevaluate_{0}_{1}_f128_dual(complex128 lm[], complex128 params[], 
         '\n'.join(
                 ['\t\tcase {}: %(header)sevaluate_{}_{}_{}_f128(({}<complex128>*)lm, params, ({}<complex128>*)out); return;'.format(conf, itype, i, conf, is_dual, is_dual) for conf, is_dual in sorted(x for x in confs if x[1])] +
                 (['\t\tdefault: *out = real128(0.q);']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
-        )
+        ),
+        fill_lm_body,
+        out_idx
         )
 
 
@@ -3594,9 +3710,45 @@ using mpfr::mpcomplex;
 """ + integrand_mpfr_main_code
                         integrand_mpfr_main_code += \
 """
+static inline void dot_spatial_dot(complex128 mom1[], complex128 mom2[], complex128* out) {{
+    out[1] = conj(mom1[1])*mom2[1] + conj(mom1[2])*mom2[2] + conj(mom1[3])*mom2[3];
+	out[0] = conj(mom1[0])*mom2[0] - out[1];
+}}
+static inline complex128 levicivita(complex128 mom1[], complex128 mom2[], complex128 mom3[], complex128 mom4[]) {{
+return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
+        - mom1[0]*mom2[1]*mom3[3]*mom4[2]
+        - mom1[0]*mom2[2]*mom3[1]*mom4[3]
+        + mom1[0]*mom2[2]*mom3[3]*mom4[1]
+        + mom1[0]*mom2[3]*mom3[1]*mom4[2]
+        - mom1[0]*mom2[3]*mom3[2]*mom4[1]
+        - mom1[1]*mom2[0]*mom3[2]*mom4[3]
+        + mom1[1]*mom2[0]*mom3[3]*mom4[2]
+        + mom1[1]*mom2[2]*mom3[0]*mom4[3]
+        - mom1[1]*mom2[2]*mom3[3]*mom4[0]
+        - mom1[1]*mom2[3]*mom3[0]*mom4[2]
+        + mom1[1]*mom2[3]*mom3[2]*mom4[0]
+        + mom1[2]*mom2[0]*mom3[1]*mom4[3]
+        - mom1[2]*mom2[0]*mom3[3]*mom4[1]
+        - mom1[2]*mom2[1]*mom3[0]*mom4[3]
+        + mom1[2]*mom2[1]*mom3[3]*mom4[0]
+        + mom1[2]*mom2[3]*mom3[0]*mom4[1]
+        - mom1[2]*mom2[3]*mom3[1]*mom4[0]
+        - mom1[3]*mom2[0]*mom3[1]*mom4[2]
+        + mom1[3]*mom2[0]*mom3[2]*mom4[1]
+        + mom1[3]*mom2[1]*mom3[0]*mom4[2]
+        - mom1[3]*mom2[1]*mom3[2]*mom4[0]
+        - mom1[3]*mom2[2]*mom3[0]*mom4[1]
+        + mom1[3]*mom2[2]*mom3[1]*mom4[0];
+}}
+static inline void fill_lm(complex128 moms[], complex128* out) {{
+    complex128 energyselector[] = {{1.,0.,0.,0.}};
+{4}
+}}
 extern "C" {{
 void %(header)sevaluate_{0}_{1}_mpfr(complex128 lm[], complex128 params[], int conf, int prec, complex128* out) {{
    mpfr_set_default_prec((mpfr_prec_t)(ceil(prec * 3.3219280948873624)));
+    complex128 lm[{5}] = {{0}};
+    fill_lm(moms, lm);
    switch(conf) {{
 {2}
     }}
@@ -3617,7 +3769,9 @@ void %(header)sevaluate_{0}_{1}_mpfr_dual(complex128 lm[], complex128 params[], 
         '\n'.join(
             ['\t\tcase {}: %(header)sevaluate_{}_{}_{}_mpfr(({}<complex128>*)lm, params, ({}<complex128>*)out); return;'.format(conf, itype, i, conf, is_dual, is_dual) for conf, is_dual in sorted(x for x in confs if x[1])] +
             (['\t\tdefault: *out = real128(0.q);']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
-        )
+        ),
+        fill_lm_body,
+        out_idx
         )
 
                         bar.update(timing='%d'%int((total_time/float(i_graph+1))*1000.0))

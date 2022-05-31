@@ -180,15 +180,22 @@ Keep Brackets;
 *
 rcyclesymmetrize `G';
 renumber;
-B+ `G';
+B+ `G', e_;
 .sort:simplefilter;
 Keep brackets;
 id	`G' = 4;
+
+putinside tmp;
+id tmp(x?$a) = 1;
+inside $a;
 repeat;
   id,once,`G'(?a) = g_(1,?a);
   tracen,1;
   id  D = rat(4-2*ep,1);
 endrepeat;
+endinside;
+Multiply $a;
+Moduleoption local $a;
 .sort:trace;
 *
 *	Done

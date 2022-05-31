@@ -916,8 +916,14 @@ impl Observable for AFBObservable {
         // add events in a correlated manner such that cancellations are realized in the error
         self.event_accumulator.clear();
         for e in events {
-            let pin = e.kinematic_configuration.0[0];
-            let pout = e.kinematic_configuration.1[1];
+
+            let pin = e.kinematic_configuration.0[1];
+
+            let pout = e
+            .final_state_particle_ids
+            .iter()
+            .zip(&e.kinematic_configuration.1).find(|(id, _mom)| 0 < **id && **id <= 6).map(|(_, mom)| *mom).unwrap();
+
             let costheta =
                 pin.spatial_dot(&pout) / (pin.spatial_distance() * pout.spatial_distance());
 
