@@ -1243,8 +1243,7 @@ impl<T: Scalar + Zero + Copy> DualWrapper<T> for T {
 
     #[inline]
     fn zip_flatten(&self, other: &Self, buffer: &mut Vec<T>) {
-        buffer.push(*self);
-        buffer.push(*other);
+        buffer.extend(&[*self, *other]);
     }
 
     fn from_zipped_slice(slice: &[T]) -> (Self, Self) {
@@ -1291,10 +1290,7 @@ impl<T: Scalar + Zero + Copy> DualWrapper<T> for Hyperdual<T, 2> {
 
     #[inline]
     fn zip_flatten(&self, other: &Self, buffer: &mut Vec<T>) {
-        buffer.push(self[0]);
-        buffer.push(other[0]);
-        buffer.push(self[1]);
-        buffer.push(other[1]);
+        buffer.extend(&[self[0], other[0], self[1], other[1]]);
     }
 
     fn from_zipped_slice(slice: &[T]) -> (Self, Self) {
@@ -1343,12 +1339,14 @@ impl<T: Zero + Copy> DualWrapper<T> for Dualt2<T> {
 
     #[inline]
     fn zip_flatten(&self, other: &Self, buffer: &mut Vec<T>) {
-        buffer.push(self.real);
-        buffer.push(other.real);
-        buffer.push(self.ep_t);
-        buffer.push(other.ep_t);
-        buffer.push(self.ep_t2);
-        buffer.push(other.ep_t2);
+        buffer.extend(&[
+            self.real,
+            other.real,
+            self.ep_t,
+            other.ep_t,
+            self.ep_t2,
+            other.ep_t2,
+        ]);
     }
 
     fn from_zipped_slice(slice: &[T]) -> (Self, Self) {
@@ -1404,16 +1402,18 @@ impl<T: Zero + Copy> DualWrapper<T> for Dualkt2<T> {
 
     #[inline]
     fn zip_flatten(&self, other: &Self, buffer: &mut Vec<T>) {
-        buffer.push(self.real);
-        buffer.push(other.real);
-        buffer.push(self.ep_k0);
-        buffer.push(other.ep_k0);
-        buffer.push(self.ep_t);
-        buffer.push(other.ep_t);
-        buffer.push(self.ep_k0_t);
-        buffer.push(other.ep_k0_t);
-        buffer.push(self.ep_t2);
-        buffer.push(other.ep_t2);
+        buffer.extend(&[
+            self.real,
+            other.real,
+            self.ep_k0,
+            other.ep_k0,
+            self.ep_t,
+            other.ep_t,
+            self.ep_k0_t,
+            other.ep_k0_t,
+            self.ep_t2,
+            other.ep_t2,
+        ]);
     }
 
     fn from_zipped_slice(slice: &[T]) -> (Self, Self) {
@@ -1467,14 +1467,16 @@ impl<T: Zero + Copy> DualWrapper<T> for Dualt3<T> {
 
     #[inline]
     fn zip_flatten(&self, other: &Self, buffer: &mut Vec<T>) {
-        buffer.push(self.real);
-        buffer.push(other.real);
-        buffer.push(self.ep_t);
-        buffer.push(other.ep_t);
-        buffer.push(self.ep_t2);
-        buffer.push(other.ep_t2);
-        buffer.push(self.ep_t3);
-        buffer.push(other.ep_t3);
+        buffer.extend(&[
+            self.real,
+            other.real,
+            self.ep_t,
+            other.ep_t,
+            self.ep_t2,
+            other.ep_t2,
+            self.ep_t3,
+            other.ep_t3,
+        ]);
     }
 
     fn from_zipped_slice(slice: &[T]) -> (Self, Self) {
@@ -1534,20 +1536,22 @@ impl<T: Zero + Copy> DualWrapper<T> for Dualkt3<T> {
 
     #[inline]
     fn zip_flatten(&self, other: &Self, buffer: &mut Vec<T>) {
-        buffer.push(self.real);
-        buffer.push(other.real);
-        buffer.push(self.ep_k0);
-        buffer.push(other.ep_k0);
-        buffer.push(self.ep_t);
-        buffer.push(other.ep_t);
-        buffer.push(self.ep_k0_t);
-        buffer.push(other.ep_k0_t);
-        buffer.push(self.ep_t2);
-        buffer.push(other.ep_t2);
-        buffer.push(self.ep_k0_t2);
-        buffer.push(other.ep_k0_t2);
-        buffer.push(self.ep_t3);
-        buffer.push(other.ep_t3);
+        buffer.extend(&[
+            self.real,
+            other.real,
+            self.ep_k0,
+            other.ep_k0,
+            self.ep_t,
+            other.ep_t,
+            self.ep_k0_t,
+            other.ep_k0_t,
+            self.ep_t2,
+            other.ep_t2,
+            self.ep_k0_t2,
+            other.ep_k0_t2,
+            self.ep_t3,
+            other.ep_t3,
+        ]);
     }
 
     fn from_zipped_slice(slice: &[T]) -> (Self, Self) {
@@ -1621,30 +1625,32 @@ impl<T: Zero + Copy> DualWrapper<T> for Dualklt3<T> {
 
     #[inline]
     fn zip_flatten(&self, other: &Self, buffer: &mut Vec<T>) {
-        buffer.push(self.real);
-        buffer.push(other.real);
-        buffer.push(self.ep_k0);
-        buffer.push(other.ep_k0);
-        buffer.push(self.ep_l0);
-        buffer.push(other.ep_l0);
-        buffer.push(self.ep_t);
-        buffer.push(other.ep_t);
-        buffer.push(self.ep_k0_l0);
-        buffer.push(other.ep_k0_l0);
-        buffer.push(self.ep_k0_t);
-        buffer.push(other.ep_k0_t);
-        buffer.push(self.ep_l0_t);
-        buffer.push(other.ep_l0_t);
-        buffer.push(self.ep_t2);
-        buffer.push(other.ep_t2);
-        buffer.push(self.ep_k0_l0_t);
-        buffer.push(other.ep_k0_l0_t);
-        buffer.push(self.ep_k0_t2);
-        buffer.push(other.ep_k0_t2);
-        buffer.push(self.ep_l0_t2);
-        buffer.push(other.ep_l0_t2);
-        buffer.push(self.ep_t3);
-        buffer.push(other.ep_t3);
+        buffer.extend(&[
+            self.real,
+            other.real,
+            self.ep_k0,
+            other.ep_k0,
+            self.ep_l0,
+            other.ep_l0,
+            self.ep_t,
+            other.ep_t,
+            self.ep_k0_l0,
+            other.ep_k0_l0,
+            self.ep_k0_t,
+            other.ep_k0_t,
+            self.ep_l0_t,
+            other.ep_l0_t,
+            self.ep_t2,
+            other.ep_t2,
+            self.ep_k0_l0_t,
+            other.ep_k0_l0_t,
+            self.ep_k0_t2,
+            other.ep_k0_t2,
+            self.ep_l0_t2,
+            other.ep_l0_t2,
+            self.ep_t3,
+            other.ep_t3,
+        ]);
     }
 
     fn from_zipped_slice(slice: &[T]) -> (Self, Self) {
@@ -3121,7 +3127,7 @@ impl IntegrandImplementation for SquaredTopologySet {
                                         ))
                                     })
                                     .collect(),
-                                self.settings.integrator.min_probability_per_bin,
+                                self.settings.integrator.max_discrete_bin_probability_ratio,
                             ))
                         } else {
                             Grid::ContinuousGrid(ContinuousGrid::new(
@@ -3132,7 +3138,7 @@ impl IntegrandImplementation for SquaredTopologySet {
                         }
                     })
                     .collect(),
-                self.settings.integrator.min_probability_per_bin,
+                self.settings.integrator.max_discrete_bin_probability_ratio,
             ))
         } else {
             if self.settings.general.multi_channeling
@@ -3152,7 +3158,7 @@ impl IntegrandImplementation for SquaredTopologySet {
                             ))
                         })
                         .collect(),
-                    self.settings.integrator.min_probability_per_bin,
+                    self.settings.integrator.max_discrete_bin_probability_ratio,
                 ))
             } else {
                 Grid::ContinuousGrid(ContinuousGrid::new(

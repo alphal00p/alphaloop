@@ -203,7 +203,7 @@ hyperparameters = HyperParameters({
         'n_start'           :   int(1.0e5),
         'n_max'             :   int(1.0e10),
         'n_increase'        :   int(1.0e5),
-        'min_probability_per_bin'   : 0.1,
+        'max_discrete_bin_probability_ratio'    : 5.,
         'min_samples_for_update'    : 1000,
         'n_bins'            : 128,
         'train_on_avg'      : False,

@@ -339,8 +339,14 @@ pub fn evaluate_signature<T: FloatLike>(
 ) -> LorentzVector<T> {
     let mut momentum = LorentzVector::default();
     for (&sign, mom) in zip_eq(signature, momenta) {
-        if sign != 0 {
-            momentum += mom.multiply_sign(sign);
+        match sign {
+            0 => {}
+            1 => momentum += mom,
+            -1 => momentum -= mom,
+            _ => {
+                #[cfg(debug_assertions)]
+                panic!("Sign should be -1,0,1")
+            }
         }
     }
 
