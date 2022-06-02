@@ -16,8 +16,8 @@ from pprint import pprint, pformat
 class SquaredTopologyGenerator:
     def __init__(self, edges, name, incoming_momentum_names, n_jets, external_momenta, final_state_particle_ids=(),
         loop_momenta_names=None, loop_momenta_signs=None, masses={}, powers=None, particle_ids={}, jet_ids=None,
-        MG_numerator={}, subgraphs_info={},overall_numerator=1., numerator_structure={},
-        cut_filter=set(), FORM_numerator={}, FORM_integrand={},
+        subgraphs_info={},overall_numerator=1., numerator_structure={},
+        cut_filter=set(), FORM_integrand={},
         vertex_weights={}, edge_weights={}, generation_options={},analytic_result=None,
         default_kinematics=None, uv_test=None):
 
@@ -25,8 +25,6 @@ class SquaredTopologyGenerator:
         self.topo = TopologyGenerator(edges, powers)
         self.topo.generate_momentum_flow(loop_momenta_names)
         self.external_momenta = external_momenta
-        self.MG_numerator = MG_numerator
-        self.FORM_numerator = FORM_numerator
         self.FORM_integrand = FORM_integrand
         self.subgraphs_info = subgraphs_info
         self.generation_options = generation_options
@@ -47,7 +45,6 @@ class SquaredTopologyGenerator:
             loop_momenta_names=loop_momenta_names,
             fixed_deformation=False,
             mass_map=masses,
-            numerator_tensor_coefficients=[[0., 0.]],
             shift_map=None,
             analytic_result=analytic_result
             )
@@ -228,7 +225,6 @@ class SquaredTopologyGenerator:
                             fixed_deformation=False,
                             mass_map=masses,
                             loop_momentum_map=loop_mom_map,
-                            numerator_tensor_coefficients=[[0., 0.,]],
                             shift_map=shift_map,
                             check_external_momenta_names=False,
                             analytic_result=0)
@@ -304,7 +300,6 @@ class SquaredTopologyGenerator:
                                     fixed_deformation=False,
                                     mass_map=masses,
                                     loop_momentum_map=loop_mom_map,
-                                    numerator_tensor_coefficients=[[0., 0.,]],
                                     shift_map=shift_map,
                                     check_external_momenta_names=False,
                                     analytic_result=0)
@@ -393,7 +388,6 @@ class SquaredTopologyGenerator:
                                 fixed_deformation=False,
                                 mass_map=masses,
                                 loop_momentum_map=loop_mom_map,
-                                numerator_tensor_coefficients=[[0., 0.,]],
                                 shift_map=shift_map,
                                 check_external_momenta_names=False,
                                 analytic_result=0)
@@ -445,8 +439,6 @@ class SquaredTopologyGenerator:
                                 for i, e in enumerate(self.topo.edge_map_lin) ],
             'edge_PDGs' : [[k,v] for k,v in self.particle_ids.items()],
             'edge_signatures' : self.topo.get_signature_map(),
-            'MG_numerator': self.MG_numerator,
-            'FORM_numerator': self.FORM_numerator,
             'FORM_integrand': self.FORM_integrand,
             # UNCOMMENT the entry below in order to output the information necessary for handling self-energies.
             #'subgraphs_info' : self.subgraphs_info,

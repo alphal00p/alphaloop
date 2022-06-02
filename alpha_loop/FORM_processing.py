@@ -1802,7 +1802,6 @@ CTable ltdtopo(0:{});
             jet_ids=jet_ids,
             overall_numerator=1.0,
             numerator_structure={},
-            FORM_numerator={'call_signature': {'id': call_signature_ID}},
             FORM_integrand={'call_signature': {'id': call_signature_ID}},
             edge_weights={e['name']: self.get_edge_scaling(e['PDG'],e['name']) for e in self.edges.values()},
             vertex_weights={nv: self.get_node_scaling( n['PDGs'], tuple(sorted([ self.edges[eID]['name'] for eID in n['edge_ids'] ])) ) for nv, n in self.nodes.items()},
@@ -3344,6 +3343,7 @@ const complex<double> I{ 0.0, 1.0 };
                         integrand_main_code = ''
                         integrand_f128_main_code = ''
                         integrand_mpfr_main_code = ''
+                        max_lm = max(int(m.group(1)) for m in lm_pattern.finditer(num))
                         conf_secs = num.split('#CONF')
                         for conf_sec in conf_secs[1:]:
                             conf_sec = conf_sec.replace("#CONF\n", '')
@@ -3454,7 +3454,7 @@ const complex<double> I{ 0.0, 1.0 };
                             if denominator_mode == 'FOREST':
                                 main_code = conf_sec.replace('logmUVmu', 'log(mUV*mUV/(mu*mu))').replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(masst*masst)')
                                 main_code_with_diag_call = diag_pattern.sub(r'diag_\1(lm, params, E, invd)', main_code)
-                                integrand_main_code += '\nstatic {0} forest_{2}({0} lm[], {1} params[], {0} E[], {0} invd[]) {{{3}\n{4}}}'.format(
+                                integrand_main_code += '\nstatic {0} forest_{2}(const {0} lm[], const {1} params[], const {0} E[], const {0} invd[]) {{{3}\n{4}}}'.format(
                                     dual_base_type, base_type, abs(int(conf[0])),
                                     '\n\t{} {};'.format(dual_base_type, ','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_with_diag_call
                                 )
@@ -3462,7 +3462,7 @@ const complex<double> I{ 0.0, 1.0 };
                                 main_code_f128 = main_code.replace('pi', 'mppp::real128_pi()').replace('complex<double>', 'complex128')
                                 main_code_f128 = float_pattern.sub(r'real128(\1q)', main_code_f128)
                                 main_code_f128 = diag_pattern.sub(r'diag_\1_f128(lm, params, E, invd)', main_code_f128)
-                                integrand_f128_main_code += '\n' + '\nstatic {0} forest_{2}_f128({0} lm[], {1} params[], {0} E[], {0} invd[]) {{{3}\n{4}}}'.format(
+                                integrand_f128_main_code += '\n' + '\nstatic {0} forest_{2}_f128(const {0} lm[], const {1} params[], const {0} E[], const {0} invd[]) {{{3}\n{4}}}'.format(
                                     dual_base_type_f128, base_type_f128, abs(int(conf[0])),
                                     '\n\t{} {};'.format(dual_base_type_f128, ','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
                                 )
@@ -3479,13 +3479,13 @@ const complex<double> I{ 0.0, 1.0 };
                             elif denominator_mode == 'DIAG':
                                 main_code = conf_sec
                                 main_code = main_code.replace('logmUVmu', 'log(mUV*mUV/(mu*mu))').replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(masst*masst)')
-                                integrand_main_code += '\nstatic {0} diag_{2}({0} lm[], {1} params[], {0} E[], {0} invd[]) {{{3}\n{4}}}'.format(dual_base_type, base_type, abs(int(conf[0])),
+                                integrand_main_code += '\nstatic {0} diag_{2}(const {0} lm[], const {1} params[], const {0} E[], const {0} invd[]) {{{3}\n{4}}}'.format(dual_base_type, base_type, abs(int(conf[0])),
                                     '\n\t{} {};'.format(dual_base_type, ','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code
                                 )
 
                                 main_code_f128 = main_code.replace('pi', 'mppp::real128_pi()').replace('complex<double>', 'complex128')
                                 main_code_f128 = float_pattern.sub(r'real128(\1q)', main_code_f128)
-                                integrand_f128_main_code += '\n' + '\nstatic {0} diag_{2}_f128({0} lm[], {1} params[], {0} E[], {0} invd[]) {{{3}\n{4}}}'.format(dual_base_type_f128, base_type_f128, abs(int(conf[0])),
+                                integrand_f128_main_code += '\n' + '\nstatic {0} diag_{2}_f128(const {0} lm[], const {1} params[], const {0} E[], const {0} invd[]) {{{3}\n{4}}}'.format(dual_base_type_f128, base_type_f128, abs(int(conf[0])),
                                     '\n\t{} {};'.format(dual_base_type_f128,','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
                                 )
 
@@ -3494,7 +3494,7 @@ const complex<double> I{ 0.0, 1.0 };
                                 main_code_mpfr = re.sub(r'pow\(([^,]+)', r'pow(mpcomplex(\1)', main_code_mpfr)
                                 main_code_mpfr = re.sub(r'log\(([^)]+)\)', r'log(mpcomplex(\1))', main_code_mpfr)
                                 main_code_mpfr = float_pattern.sub(r'mpreal("\1")', main_code_mpfr)
-                                integrand_mpfr_main_code += '\n' + '\nstatic {0} diag_{2}_mpfr({0} lm[], {1} params[], {0} E[], {0} invd[]) {{{3}\n{4}}}'.format(dual_base_type_mpfr, base_type_mpfr, abs(int(conf[0])),
+                                integrand_mpfr_main_code += '\n' + '\nstatic {0} diag_{2}_mpfr(const {0} lm[], const {1} params[], const {0} E[], const {0} invd[]) {{{3}\n{4}}}'.format(dual_base_type_mpfr, base_type_mpfr, abs(int(conf[0])),
                                     '\n\t{} {};'.format(dual_base_type_mpfr, ','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_mpfr
                                 )
                             else:
@@ -3526,14 +3526,14 @@ const complex<double> I{ 0.0, 1.0 };
                                 else:
                                     main_code = forest_pattern.sub(r'forest_\1(lm, params, E, invd)', main_code)
 
-                                integrand_main_code += '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}({0} lm[], {1} params[], {0}* out) {{{5}}}'.format(dual_base_type, base_type, itype, i, int(conf[0]),
+                                integrand_main_code += '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}(const {0} lm[], const {1} params[], {0}* out) {{{5}}}'.format(dual_base_type, base_type, itype, i, int(conf[0]),
                                     diag_pattern.sub(r'diag_\1(lm, params, E, invd)', main_code)
                                 )
 
                                 main_code_f128 = main_code.replace('pi', 'mppp::real128_pi()').replace('complex<double>', 'complex128')
                                 main_code_f128 = float_pattern.sub(r'real128(\1q)', main_code_f128)
                                 main_code_f128 = main_code_f128.replace('(lm,', '_f128(lm,')
-                                integrand_f128_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}_f128({0} lm[], {1} params[], {0}* out) {{{5}}}'.format(dual_base_type_f128, base_type_f128, itype, i, int(conf[0]),
+                                integrand_f128_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}_f128(const {0} lm[], const {1} params[], {0}* out) {{{5}}}'.format(dual_base_type_f128, base_type_f128, itype, i, int(conf[0]),
                                     diag_pattern.sub(r'diag_\1_f128(lm, params, E, invd)', main_code_f128)
                                 )
 
@@ -3548,7 +3548,7 @@ const complex<double> I{ 0.0, 1.0 };
                                 main_code_mpfr = float_pattern.sub(r'mpreal("\1")', main_code_mpfr)
                                 main_code_mpfr = forest_pattern.sub(r'forest_\1_mpfr(lm, params, E, invd)', main_code_mpfr)
                                 main_code_mpfr = re.sub(r'\*out =([^;]*);', r'*out = (complex128)(\1);', main_code_mpfr)
-                                integrand_mpfr_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}_mpfr({0} lm[], {1} params[], {0}* out) {{{5}}}'.format(dual_base_type_mpfr, base_type_mpfr, itype, i, int(conf[0]),
+                                integrand_mpfr_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}_mpfr(const {0} lm[], const {1} params[], {0}* out) {{{5}}}'.format(dual_base_type_mpfr, base_type_mpfr, itype, i, int(conf[0]),
                                     diag_pattern.sub(r'diag_\1_mpfr(lm, params, E, invd)', main_code_mpfr)
                                 )
 
@@ -3583,24 +3583,26 @@ const complex<double> I{ 0.0, 1.0 };
                                 fill_lm_body += "\tdot_spatial_dot(&moms[{}],&moms[{}],&out[{}]);\n".format(4*i1, 4*i2, out_idx)
                                 out_idx += 2
                         
-                        for i1 in range(n_tot):
-                            for i2 in range(i1+1, n_tot):
-                                for i3 in range(i2+1, n_tot):
-                                    fill_lm_body += "\tout[{}] = I*levicivita3e4(&moms[{}],&moms[{}],&moms[{}]);\n".format(out_idx, 4*i1, 4*i2, 4*i3)
-                                    out_idx += 1
-                                    for i4 in range(i3+1, n_tot):
-                                        fill_lm_body += "\tout[{}] = I*levicivita4(&moms[{}],&moms[{}],&moms[{}], &moms[{}]);\n".format(out_idx, 4*i1, 4*i2, 4*i3, 4*i4)
+                        # check if levi-civita symbols are needed
+                        if max_lm >= out_idx:
+                            for i1 in range(n_tot):
+                                for i2 in range(i1+1, n_tot):
+                                    for i3 in range(i2+1, n_tot):
+                                        fill_lm_body += "\tout[{}] = I*levicivita3e4(&moms[{}],&moms[{}],&moms[{}]);\n".format(out_idx, 4*i1, 4*i2, 4*i3)
                                         out_idx += 1
+                                        for i4 in range(i3+1, n_tot):
+                                            fill_lm_body += "\tout[{}] = I*levicivita4(&moms[{}],&moms[{}],&moms[{}], &moms[{}]);\n".format(out_idx, 4*i1, 4*i2, 4*i3, 4*i4)
+                                            out_idx += 1
 
 
                         integrand_main_code += \
 """
 template<class T>
-static inline void fill_lm(T moms[], T out[]) {{
+static inline void fill_lm(const T moms[], T out[]) {{
 {3}}}
 
 extern "C" {{
-void %(header)sevaluate_{0}_{1}(double moms[], complex<double> params[], int conf, double* out) {{
+void %(header)sevaluate_{0}_{1}(const double moms[], const complex<double> params[], int conf, double* out) {{
    switch(conf) {{
 {2}
     }}
@@ -3608,7 +3610,7 @@ void %(header)sevaluate_{0}_{1}(double moms[], complex<double> params[], int con
 }}
 """.format(itype, i,
         '\n'.join(
-            ['\t\tcase {0}: {{ {3}complex<double>{4} lm[{5}] = {{{3}complex<double>{4}(0)}}; fill_lm(({3}complex<double>{4}*)moms, lm); %(header)sevaluate_{1}_{2}_{0}(lm, params, ({3}complex<double>{4}*)out); }} return;'.format(
+            ['\t\tcase {0}: {{\n\t\t\t{3}complex<double>{4} lm[{5}] = {{{3}complex<double>{4}(0)}};\n\t\t\tfill_lm(({3}complex<double>{4}*)moms, lm);\n\t\t\t%(header)sevaluate_{1}_{2}_{0}(lm, params, ({3}complex<double>{4}*)out);\n\t\t}} return;'.format(
                 conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '', out_idx) for conf, is_dual in sorted(x for x in confs)] +
             (['\t\tdefault: *out = 0.;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
         ),
@@ -3633,7 +3635,7 @@ void %(header)sevaluate_{0}_{1}_f128(complex128 moms[], complex128 params[], int
 }}
 """.format(itype, i,
         '\n'.join(
-            ['\t\tcase {0}: {{ {3}complex128{4} lm[{5}] = {{{3}complex128{4}(0)}}; fill_lm(({3}complex128{4}*)moms, lm); %(header)sevaluate_{1}_{2}_{0}_f128(lm, params, ({3}complex128{4}*)out); }} return;'.format(
+            ['\t\tcase {0}: {{\n\t\t\t{3}complex128{4} lm[{5}] = {{{3}complex128{4}(0)}};\n\t\t\tfill_lm(({3}complex128{4}*)moms, lm);\n\t\t\t%(header)sevaluate_{1}_{2}_{0}_f128(lm, params, ({3}complex128{4}*)out);\n\t\t}} return;'.format(
                 conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '', out_idx) for conf, is_dual in sorted(x for x in confs)] +
             (['\t\tdefault: *out = real128(0.q);'])
         ),
@@ -3668,7 +3670,7 @@ void %(header)sevaluate_{0}_{1}_mpfr(complex128 moms[], complex128 params[], int
 }}
 """.format(itype, i,
         '\n'.join(
-            ['\t\tcase {0}:  {3}complex128{4} lm[{5}] = {{{3}complex128{4}(0)}}; fill_lm<{3}complex128{4}>(moms, lm); %(header)sevaluate_{1}_{2}_{0}({3}complex128{4}*)lm, params, ({3}complex128{4}*)out); return;'.format(
+            ['\t\tcase {0}: {{\n\t\t\t{3}complex128{4} lm[{5}] = {{{3}complex128{4}(0)}};\n\t\t\tfill_lm<{3}complex128{4}>(moms, lm);\n\t\t\t%(header)sevaluate_{1}_{2}_{0}({3}complex128{4}*)lm, params, ({3}complex128{4}*)out);\n\t\t}} return;'.format(
                 conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '', out_idx) for conf, is_dual in sorted(x for x in confs)] +
             (['\t\tdefault: *out = real128(0.q);'])
         ),
@@ -3765,13 +3767,13 @@ void %(header)sevaluate_{0}_{1}_mpfr(complex128 moms[], complex128 params[], int
 {}
 
 template<class T>
-static inline void dot_spatial_dot(T mom1[], T mom2[], T out[]) {{
+static inline void dot_spatial_dot(const T mom1[], const T mom2[], T out[]) {{
     out[1] = mom1[1]*mom2[1] + mom1[2]*mom2[2] + mom1[3]*mom2[3];
     out[0] = mom1[0]*mom2[0] - out[1];
 }}
 
 template<class T>
-static inline T levicivita3e4(T mom1[], T mom2[], T mom3[]) {{
+static inline T levicivita3e4(const T mom1[], const T mom2[], const T mom3[]) {{
 return  - mom1[1]*mom2[2]*mom3[3]
         + mom1[1]*mom2[3]*mom3[2]
         + mom1[2]*mom2[1]*mom3[3]
@@ -3781,7 +3783,7 @@ return  - mom1[1]*mom2[2]*mom3[3]
 }}
 
 template<class T>
-static inline T levicivita4(T mom1[], T mom2[], T mom3[], T mom4[]) {{
+static inline T levicivita4(const T mom1[], const T mom2[], const T mom3[], const T mom4[]) {{
 return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
         - mom1[0]*mom2[1]*mom3[3]*mom4[2]
         - mom1[0]*mom2[2]*mom3[1]*mom4[3]

@@ -205,10 +205,6 @@ pub struct CutkoskyCutDiagramInfo {
 pub struct CutkoskyCutDiagramSet {
     pub id: usize,
     pub diagram_info: Vec<CutkoskyCutDiagramInfo>,
-    #[serde(default)]
-    pub numerator_tensor_coefficients_sparse: Vec<(Vec<usize>, (f64, f64))>,
-    #[serde(default)]
-    pub numerator_tensor_coefficients: Vec<(f64, f64)>,
     pub cb_to_lmb: Option<Vec<i8>>,
 }
 
@@ -2149,72 +2145,31 @@ impl SquaredTopology {
                     continue;
                 }
 
-                result += match &raised_cut_powers[..] {
-                    [] => self.evaluate_cut::<T, T>(
-                        loop_momenta,
-                        &external_momenta,
-                        cache,
-                        event_manager,
-                        cut_index,
-                        scaling,
-                        None,
-                    ),
-                    [2] => self.evaluate_cut::<T, Hyperdual<T, 2>>(
-                        loop_momenta,
-                        &external_momenta,
-                        cache,
-                        event_manager,
-                        cut_index,
-                        scaling,
-                        None,
-                    ),
-                    [3] => self.evaluate_cut::<T, Dualt2<T>>(
-                        loop_momenta,
-                        &external_momenta,
-                        cache,
-                        event_manager,
-                        cut_index,
-                        scaling,
-                        None,
-                    ),
-                    [2, 2] => self.evaluate_cut::<T, Dualkt2<T>>(
-                        loop_momenta,
-                        &external_momenta,
-                        cache,
-                        event_manager,
-                        cut_index,
-                        scaling,
-                        None,
-                    ),
-                    [4] => self.evaluate_cut::<T, Dualt3<T>>(
-                        loop_momenta,
-                        &external_momenta,
-                        cache,
-                        event_manager,
-                        cut_index,
-                        scaling,
-                        None,
-                    ),
-                    [2, 3] => self.evaluate_cut::<T, Dualkt3<T>>(
-                        loop_momenta,
-                        &external_momenta,
-                        cache,
-                        event_manager,
-                        cut_index,
-                        scaling,
-                        None,
-                    ),
-                    [2, 2, 2] => self.evaluate_cut::<T, Dualklt3<T>>(
-                        loop_momenta,
-                        &external_momenta,
-                        cache,
-                        event_manager,
-                        cut_index,
-                        scaling,
-                        None,
-                    ),
-                    _ => panic!("No supported dual for raised cut configuration"),
-                };
+                macro_rules! select_eval {
+                    ($( $c:pat, $dual:ty ),*) => (
+                        match &raised_cut_powers[..] {
+                            $($c => self.evaluate_cut::<T, $dual>(
+                                &loop_momenta,
+                                &external_momenta,
+                                cache,
+                                event_manager,
+                                cut_index,
+                                scaling,
+                                None,
+                            ),)+
+                            _ => panic!("No supported dual for raised cut configuration"),
+                        }
+                    )
+                }
+
+                result += select_eval!(
+                    [], T,
+                    [2], Hyperdual<T, 2>,
+                    [3], Dualt2<T>,
+                    [2,2], Dualkt2<T>,
+                    [4], Dualt3<T>,
+                    [2,3], Dualkt3<T>,
+                    [2,2,2], Dualklt3<T>);
             }
         }
 
