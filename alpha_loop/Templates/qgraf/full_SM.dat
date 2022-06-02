@@ -16,7 +16,7 @@
 * Psi PsiBar
 [ghost,ghostbar,-; pdg=('82','-82')]
 [photon,photon,+;pdg=('22')]
-[eminus, eplus, - , external; pdg= ('+11', '-11')]
+[eminus, eplus, -, external; pdg= ('+11', '-11')]
 [d, dbar, - ; pdg=('1','-1')]
 [u, ubar, - ; pdg=('2','-2')]
 [c, cbar, - ; pdg=('3','-3')]

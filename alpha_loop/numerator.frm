@@ -38,7 +38,7 @@ On nospacesinnumbers;
 * END SE PDGs
 **************************************************
 
-S vev, pi, cw, sw ,sw2 , gw;
+S vev, pi, cw ,sw2 , gw;
 
 Auto S mass;
 Auto S yukawa;
@@ -1601,6 +1601,17 @@ id replace(?a) = replace_(?a);
 id energy(p?) = penergy(p);
 id energies(p?) = penergy(p);
 
+* Append the final momenta to the initial ones
+#$MAXK = `NFINALMOMENTA';
+#$MAXP = `NINITIALMOMENTA';
+#$OFFSET = `$MAXP';
+#do i= 1,`$MAXK'
+    #$OFFSET = $OFFSET + 1;
+    repeat id e_(p1?,p2?,p3?,cs`i') = penergy(p`$OFFSET')*e_(p1,p2,p3,energyselector) - e_(p1,p2,p3,p`$OFFSET');
+    multiply replace_(c`i', p`$OFFSET');
+#enddo
+#$MAXP = $MAXP + $MAXK;
+
 .sort:func-prep;
 
 argument ellipsoids, dot;
@@ -1623,9 +1634,7 @@ argument ellipsoids, constants;
     id energy(p?) = penergy(p);
 endargument;
 
-* Convert the dot products and energies to a symbol
-#$MAXK = `NFINALMOMENTA';
-#$MAXP = `NINITIALMOMENTA';
+* Convert the dot products, energies and levi civita tensors to a symbol
 #$OFFSET = 0;
 #do i=1,`$MAXP'
     id penergy(p`i') = lm`$OFFSET';
@@ -1646,38 +1655,20 @@ endargument;
     #enddo
 #enddo
 
-#do i=1,`$MAXK'
-    id penergy(c`i') = lm`$OFFSET';
-    argument energies, ellipsoids, constants, dot;
-        id penergy(c`i') = lm`$OFFSET';
-    endargument;
-    #$OFFSET = $OFFSET + 1;
-    #do j=1,`$MAXP'
-        argument energies, ellipsoids, constants, dot;
-            id c`i'.p`j' = lm`$OFFSET';
-        endargument;
-        #$OFFSET = $OFFSET + 1;
-        id spatial(p`j', c`i') = lm`$OFFSET';
-        argument energies, dot;
-            id spatial(p`j', c`i') = lm`$OFFSET';
-        endargument;
-        #$OFFSET = $OFFSET + 1;
-    #enddo
+.sort:conv-func;
 
-    #do j=`i',`$MAXK'
-        argument energies, ellipsoids, constants, dot;
-            id c`i'.c`j' = lm`$OFFSET';
-        endargument;
-        #$OFFSET = $OFFSET + 1;
-        id spatial(c`i', c`j') = lm`$OFFSET';
-        argument energies, dot;
-            id spatial(c`i', c`j') = lm`$OFFSET';
-        endargument;
-        #$OFFSET = $OFFSET + 1;
+#do i1=1,`$MAXP'
+    #do i2={`i1'+1},`$MAXP'
+        #do i3={`i2'+1},`$MAXP'
+            id e_(p`i1',p`i2',p`i3',energyselector) = lm`$OFFSET';
+            #$OFFSET = $OFFSET + 1;
+            #do i4={`i3'+1},`$MAXP'
+                id e_(p`i1',p`i2',p`i3',p`i4') = lm`$OFFSET';
+                #$OFFSET = $OFFSET + 1;
+            #enddo
+        #enddo
     #enddo
 #enddo
-
-.sort:conv-func;
 
 #$OFFSET = 0;
 #do i=1,`$MAXP'
@@ -1688,18 +1679,6 @@ endargument;
     #enddo
 #enddo
 
-#do i=1,`$MAXK'
-    #$OFFSET = $OFFSET + 1;
-    #do j=1,`$MAXP'
-        id c`i'.p`j' = lm`$OFFSET';
-        #$OFFSET = $OFFSET + 2;
-    #enddo
-
-    #do j=`i',`$MAXK'
-        id c`i'.c`j' = lm`$OFFSET';
-        #$OFFSET = $OFFSET + 2;
-    #enddo
-#enddo
 .sort:conv-dots;
 
 * split off every energy configuration into a new expression

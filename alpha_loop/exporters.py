@@ -377,7 +377,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             FORM_processor = FORM_processing.FORMProcessor(
                 FORM_processing.FORMSuperGraphList.from_dict(
                     pjoin(FORM_output_path,'all_MG_supergraphs.py'), 
-                first=None,  merge_isomorphic_graphs=False),
+                first=None,  merge_isomorphic_graphs=True),
 #                FORM_super_graph_list,
                 computed_model, characteristic_process_definition,
                 force_options=FORM_processing.FORM_processing_options

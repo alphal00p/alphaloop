@@ -384,7 +384,7 @@ pub struct SquaredTopology {
     #[serde(default)]
     pub optimal_channel_ids: Option<Vec<usize>>,
     #[serde(skip_deserializing)]
-    pub multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>,Vec<f64>)>,
+    pub multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>, Vec<f64>)>,
     #[serde(rename = "FORM_integrand")]
     pub form_integrand: FORMIntegrand,
     #[serde(skip_deserializing)]
@@ -400,7 +400,7 @@ pub struct SquaredTopologySet {
     pub multiplicity: Vec<f64>,
     pub settings: Settings,
     pub rotation_matrix: [[float; 3]; 3],
-    pub multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>,Vec<f64>)>,
+    pub multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>, Vec<f64>)>,
     pub stability_check_topologies: Vec<Vec<SquaredTopology>>,
     pub is_stability_check_topo: bool,
 }
@@ -535,8 +535,12 @@ impl SquaredTopologySet {
         }
 
         // filter duplicate channels between supergraphs
-        let mut unique_multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>,Vec<f64>)> =
-            vec![];
+        let mut unique_multi_channeling_channels: Vec<(
+            Vec<i8>,
+            Vec<i8>,
+            Vec<LorentzVector<f64>>,
+            Vec<f64>,
+        )> = vec![];
 
         'mc_loop: for c in multi_channeling_channels {
             for uc in &unique_multi_channeling_channels {
@@ -572,7 +576,7 @@ impl SquaredTopologySet {
         let mut c = self.multi_channeling_channels.clone();
 
         let rot_matrix = &rotated_topologies[0].rotation_matrix;
-        for (_, _, shifts,_) in &mut c {
+        for (_, _, shifts, _) in &mut c {
             for shift in shifts.iter_mut() {
                 let old_shift = shift.clone();
                 shift.x = (rot_matrix[0][0] * old_shift.x
@@ -619,7 +623,7 @@ impl SquaredTopologySet {
         SquaredTopologyCache {
             topology_cache: self.topologies.iter().map(|t| t.create_caches()).collect(),
             deformation_vector_cache: vec![],
-            scalar_products: vec![],
+            momenta: vec![],
             params: vec![],
             current_supergraph: 0,
             current_deformation_index: 0,
@@ -832,7 +836,9 @@ impl SquaredTopologySet {
         let mut k_other_channel = [LorentzVector::default(); MAX_SG_LOOP];
         let mut event_counter = 0;
         let mut result = Complex::zero();
-        for (channel_id, (channel, _, channel_shift, channel_masses)) in mc_channels.iter().enumerate() {
+        for (channel_id, (channel, _, channel_shift, channel_masses)) in
+            mc_channels.iter().enumerate()
+        {
             if let Some(selected_channel) = selected_channel {
                 if selected_channel != channel_id {
                     continue;
@@ -892,10 +898,21 @@ impl SquaredTopologySet {
                                 + <T as NumCast>::from(rot[2][2]).unwrap() * k_other_channel[i].z,
                         );
                         if self.settings.general.multi_channeling_alpha < 0. {
-                            Topology::inv_parametrize(&rotated, self.e_cm_squared, i, &self.settings).1
+                            Topology::inv_parametrize(
+                                &rotated,
+                                self.e_cm_squared,
+                                i,
+                                &self.settings,
+                            )
+                            .1
                         } else {
-                            Into::<T>::into(f64::powf((rotated.spatial_squared().to_f64().unwrap()
-                                +other_channel_masses[i]*other_channel_masses[i]).sqrt(),self.settings.general.multi_channeling_alpha)).inv()
+                            Into::<T>::into(f64::powf(
+                                (rotated.spatial_squared().to_f64().unwrap()
+                                    + other_channel_masses[i] * other_channel_masses[i])
+                                    .sqrt(),
+                                self.settings.general.multi_channeling_alpha,
+                            ))
+                            .inv()
                         }
                     } else {
                         if self.settings.general.multi_channeling_alpha < 0. {
@@ -957,17 +974,25 @@ impl SquaredTopologySet {
                 }
                 if self.settings.general.multi_channeling_alpha >= 0. {
                     for i in 0..t.n_loops {
-                        let (_, jac) =
-                            Topology::inv_parametrize(&k_channel[i], self.e_cm_squared, i, &self.settings);
+                        let (_, jac) = Topology::inv_parametrize(
+                            &k_channel[i],
+                            self.e_cm_squared,
+                            i,
+                            &self.settings,
+                        );
                         jac_correction *= jac.inv();
                     }
                     for i in 0..t.n_loops {
-                        jac_correction *= Into::<T>::into(f64::powf((k_channel[i].spatial_squared().to_f64().unwrap()
-                            +channel_masses[i]*channel_masses[i]).sqrt(),self.settings.general.multi_channeling_alpha)).inv();
+                        jac_correction *= Into::<T>::into(f64::powf(
+                            (k_channel[i].spatial_squared().to_f64().unwrap()
+                                + channel_masses[i] * channel_masses[i])
+                                .sqrt(),
+                            self.settings.general.multi_channeling_alpha,
+                        ))
+                        .inv();
                     }
                     for _i in t.n_loops..n_loops {
-                        jac_correction *= (Into::<T>::into(2.) * <T as FloatConst>::PI())
-                        .powi(4);
+                        jac_correction *= (Into::<T>::into(2.) * <T as FloatConst>::PI()).powi(4);
                     }
                 }
 
@@ -1670,7 +1695,7 @@ impl<T: Zero + Copy> DualWrapper<T> for Dualklt3<T> {
 #[derive(Default)]
 pub struct SquaredTopologyCache<T: FloatLike> {
     topology_cache: Vec<Vec<Vec<Vec<LTDCache<T>>>>>,
-    scalar_products: Vec<T>,
+    momenta: Vec<T>,
     params: Vec<T>,
     deformation_vector_cache: Vec<Vec<FixedDeformationLimit>>,
     current_supergraph: usize,
@@ -1858,8 +1883,12 @@ impl SquaredTopology {
     }
 
     pub fn generate_multi_channeling_channels(&mut self) {
-        let mut multi_channeling_channels: Vec<(Vec<i8>, Vec<i8>, Vec<LorentzVector<f64>>, Vec<f64>)> =
-            vec![];
+        let mut multi_channeling_channels: Vec<(
+            Vec<i8>,
+            Vec<i8>,
+            Vec<LorentzVector<f64>>,
+            Vec<f64>,
+        )> = vec![];
 
         let multi_channeling_bases_to_consider = if self.settings.general.use_lmb_channels {
             &mut self.multi_channeling_lmb_bases
@@ -1889,7 +1918,7 @@ impl SquaredTopology {
             let lmb_to_cb_mat = na::DMatrix::from_row_slice(
                 mcb.signatures.len(),
                 mcb.signatures.len(),
-                &cut_signatures_matrix
+                &cut_signatures_matrix,
             );
             let c = lmb_to_cb_mat.try_inverse().unwrap();
             // note: this transpose is ONLY there because the iteration is column-wise instead of row-wise
@@ -1904,7 +1933,7 @@ impl SquaredTopology {
                 cb_to_lmb_mat.clone(),
                 lmb_to_cb_mat_i8.clone(),
                 shifts.clone(),
-                mcb.defining_propagator_masses.clone()
+                mcb.defining_propagator_masses.clone(),
             ));
         }
 
@@ -2739,36 +2768,18 @@ impl SquaredTopology {
                 || !can_inherit_momenta
                 || diag_set_index == 0
             {
-                cache.scalar_products.clear();
-
-                for (i1, e1) in external_momenta[..self.n_incoming_momenta]
-                    .iter()
-                    .enumerate()
-                {
-                    D::from_real(e1.t).zip_flatten(&D::zero(), &mut cache.scalar_products);
-
-                    for e2 in &external_momenta[i1..self.n_incoming_momenta] {
-                        let (d, ds) = e1.dot_spatial_dot(e2);
-
-                        D::from_real(d).zip_flatten(&D::zero(), &mut cache.scalar_products);
-                        D::from_real(ds).zip_flatten(&D::zero(), &mut cache.scalar_products);
-                    }
+                cache.momenta.clear();
+                for e in &external_momenta[..self.n_incoming_momenta] {
+                    D::from_real(e.t).zip_flatten(&D::zero(), &mut cache.momenta);
+                    D::from_real(e.x).zip_flatten(&D::zero(), &mut cache.momenta);
+                    D::from_real(e.y).zip_flatten(&D::zero(), &mut cache.momenta);
+                    D::from_real(e.z).zip_flatten(&D::zero(), &mut cache.momenta);
                 }
-
-                for (i1, m1) in k_def[..self.n_loops].iter().enumerate() {
-                    m1.t.re.zip_flatten(&m1.t.im, &mut cache.scalar_products);
-
-                    for e1 in &external_momenta[..self.n_incoming_momenta] {
-                        let (d, ds) = m1.dot_spatial_dot(&e1.cast());
-                        d.re.zip_flatten(&d.im, &mut cache.scalar_products);
-                        ds.re.zip_flatten(&ds.im, &mut cache.scalar_products);
-                    }
-
-                    for m2 in k_def[i1..self.n_loops].iter() {
-                        let (d, ds) = m1.dot_spatial_dot(m2);
-                        d.re.zip_flatten(&d.im, &mut cache.scalar_products);
-                        ds.re.zip_flatten(&ds.im, &mut cache.scalar_products);
-                    }
+                for l in &k_def[..self.n_loops] {
+                    l.t.re.zip_flatten(&l.t.im, &mut cache.momenta);
+                    l.x.re.zip_flatten(&l.x.im, &mut cache.momenta);
+                    l.y.re.zip_flatten(&l.y.im, &mut cache.momenta);
+                    l.z.re.zip_flatten(&l.z.im, &mut cache.momenta);
                 }
             }
 
@@ -2804,7 +2815,7 @@ impl SquaredTopology {
                         // TODO: mpfr
                         IntegrandType::LTD => T::get_integrand_ltd(
                             call_signature,
-                            &cache.scalar_products,
+                            &cache.momenta,
                             &cache.params,
                             conf,
                             &mut result_buffer,
@@ -2816,7 +2827,7 @@ impl SquaredTopology {
                             {
                                 T::get_integrand_pf(
                                     call_signature,
-                                    &cache.scalar_products,
+                                    &cache.momenta,
                                     &cache.params,
                                     conf,
                                     &mut result_buffer,
@@ -2824,7 +2835,7 @@ impl SquaredTopology {
                             } else {
                                 T::get_integrand_mpfr(
                                     call_signature,
-                                    &cache.scalar_products,
+                                    &cache.momenta,
                                     &cache.params,
                                     conf,
                                     call_signature.prec,
@@ -3196,7 +3207,7 @@ impl IntegrandImplementation for SquaredTopologySet {
             float_cache: SquaredTopologyCache {
                 topology_cache: self.topologies.iter().map(|t| t.create_caches()).collect(),
                 deformation_vector_cache: vec![],
-                scalar_products: vec![],
+                momenta: vec![],
                 params: vec![],
                 current_supergraph: 0,
                 current_deformation_index: 0,
@@ -3204,7 +3215,7 @@ impl IntegrandImplementation for SquaredTopologySet {
             quad_cache: SquaredTopologyCache {
                 topology_cache: self.topologies.iter().map(|t| t.create_caches()).collect(),
                 deformation_vector_cache: vec![],
-                scalar_products: vec![],
+                momenta: vec![],
                 params: vec![],
                 current_supergraph: 0,
                 current_deformation_index: 0,
