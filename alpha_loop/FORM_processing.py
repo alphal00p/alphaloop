@@ -3431,6 +3431,7 @@ const complex<double> I{ 0.0, 1.0 };
                                 # write out all integer powers as multiplications to prevent slow pow evaluation with floating exponent
                                 denom_secs  = re.sub(r'(E\d+)\^(\d+)', lambda x: '*'.join([x.group(1)]*int(x.group(2))) , denom_secs)
                                 denom_secs  = re.sub(r'(lm\d+)\^(\d+)', lambda x: '*'.join([x.group(1)]*int(x.group(2))) , denom_secs)
+                                denom_secs  = re.sub(r'((?:p|c)\d+_\d+)\^(\d+)', lambda x: '*'.join([x.group(1)]*int(x.group(2))) , denom_secs)
                                 d = [d for d in denom_secs.split(',') if d != '']
 
                                 for j in range(0, len(d), 2):
