@@ -120,12 +120,12 @@ hyperparameters = HyperParameters({
     'General'       :   {
         # Consider a multi-channeling treatment of the integrand with shifted parametrisations regularising
         # integrable singularities for which one has no deformation.
-        'multi_channeling'      :   False,
+        'multi_channeling'      :   True,
         # Instead of None, one can specify here a list of indices, like 0,2,7 which corresponds to
         # the channel IDs to consider. A channel ID corresponds to its index in the list produced by the
         # cartesian product of the cut_structure with the propagators in each of the loop lines.
         'multi_channeling_channel': None,
-        'multi_channeling_alpha': 1.0,
+        'multi_channeling_alpha': -1.0,
         'use_optimal_channels': True,
         'use_lmb_channels' : False,
         # Derive the overlap structure required for the fixed deformation in Rust.
@@ -154,27 +154,27 @@ hyperparameters = HyperParameters({
         # randomly shift each component in x-space by plus or minus stability_nudge_size
         'stability_nudge_size'  :   0.,
         # return the unstable point only if it has more stable digits than specified below
-        'minimal_precision_for_returning_result': 10.,
+        'minimal_precision_for_returning_result': 999.,
         # the stability pipeline
         'stability_checks'      : [
             {
                 # number of samples to take for the numerical stability check
                 'n_samples': 3,
                 'prec': 16,
-                'use_pf': True,
+                'use_pf': False,
                 # number of digits that should be the same between rotated versions
-                'relative_precision': 4.0,
+                'relative_precision': 10.0,
                 # force an upgrade when a new weight is this threshold times the current maximum weight
                 'escalate_for_large_weight_threshold': 0.8,
-                'minimal_precision_to_skip_further_checks': 99.0
+                'minimal_precision_to_skip_further_checks': 999.0
             },
             {            
                 'n_samples': 3,
                 'prec': 16,
                 'use_pf': True,
-                'relative_precision': 4.0,
+                'relative_precision': 5.0,
                 'escalate_for_large_weight_threshold': 0.8,
-                'minimal_precision_to_skip_further_checks': 99.0
+                'minimal_precision_to_skip_further_checks': 999.0
             },
             {
                 'n_samples': 3,
@@ -182,7 +182,7 @@ hyperparameters = HyperParameters({
                 'use_pf': True,
                 'relative_precision': 8.0,
                 'escalate_for_large_weight_threshold': -1.,
-                'minimal_precision_to_skip_further_checks': 99.0
+                'minimal_precision_to_skip_further_checks': 999.0
             }
         ],
         'res_file_prefix'       :   '',
@@ -203,15 +203,15 @@ hyperparameters = HyperParameters({
         'n_start'           :   int(1.0e5),
         'n_max'             :   int(1.0e10),
         'n_increase'        :   int(1.0e5),
-        'max_discrete_bin_probability_ratio'    : 5.,
+        'max_discrete_bin_probability_ratio'    : 100.,
         'min_samples_for_update'    : 1000,
-        'n_bins'            : 128,
+        'n_bins'            : 16,
         'train_on_avg'      : False,
         'learning_rate'     : 1.5,
         # can be set to high values for use with MPI or internal_parallelization, otherwise leave it at 1
-        'n_vec'             :   100,
+        'n_vec'             :   100000,
         'seed'              :   1,
-        'integrated_phase'  :  'imag',
+        'integrated_phase'  :  'real',
         'state_filename_prefix' :   None,
         'survey_n_points'   :   0,
         'survey_n_iterations':  0,
@@ -239,7 +239,7 @@ hyperparameters = HyperParameters({
         # can be constant, linear, sigmoid, or exp_dampening
         'overall_scaling' : 'constant',
         # fraction of e_cm used for scaling
-        'overall_scaling_constant'  : 1.0,
+        'overall_scaling_constant'  : 10.0,
         # A negative number indicates this normalisation is disabled
         # A positive number indicate the value to use in the T function for this normalisation strategy
         'normalize_on_E_surfaces_m' : -1.0,
@@ -268,7 +268,7 @@ hyperparameters = HyperParameters({
             'expansion_threshold'       : -0.3,
             'branch_cut_check'          : True,
             # take the branch cut lambda to a higher power to dampen faster around focal points
-            'branch_cut_alpha'          : 2.0,
+            'branch_cut_alpha'          : 1.0,
             # The two branchcut M parameters below allow the argument of the square roots
             # to visit all four complex quadrants while still never crossing a branchcut
             'branch_cut_m'              : -1.0,

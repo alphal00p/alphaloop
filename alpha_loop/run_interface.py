@@ -157,7 +157,7 @@ class RunHyperparameters(HyperParameters):
             'CrossSection.NormalisingFunction.name'         : 'left_right_exponential',
             'CrossSection.NormalisingFunction.center'       : 1.0,
             'CrossSection.NormalisingFunction.spread'       : 1.0,
-            'Deformation.fixed.pinch_dampening_alpha'       : 1.0,
+            'Deformation.fixed.pinch_dampening_alpha'       : 2.0,
             'Deformation.fixed.pinch_dampening_k_com'       : 1.0,
             'Deformation.fixed.pinch_dampening_k_shift'     : 0.0,
             'Deformation.scaling.branch_cut_alpha'          : 1.0,
@@ -166,7 +166,7 @@ class RunHyperparameters(HyperParameters):
             'Deformation.overall_scaling'                   : 'constant',
             'Deformation.overall_scaling_constant'          : 10.0,
             'Deformation.scaling.lambda'                    : 10.0,
-            'CrossSection.inherit_deformation_for_uv_counterterm' : True,
+            'CrossSection.inherit_deformation_for_uv_counterterm' : False,
 
             'General.stability_checks'                      : [
                 {
@@ -175,10 +175,10 @@ class RunHyperparameters(HyperParameters):
                     'prec': 16,
                     'use_pf': True,
                     # number of digits that should be the same between rotated versions
-                    'relative_precision': 4.0,
+                    'relative_precision': 5.0,
                     # force an upgrade when a new weight is this threshold times the current maximum weight
                     'escalate_for_large_weight_threshold': 0.8,
-                    'minimal_precision_to_skip_further_checks': 99.0
+                    'minimal_precision_to_skip_further_checks': 999.0
                 },
                 {
                     'n_samples': 3,
@@ -186,7 +186,7 @@ class RunHyperparameters(HyperParameters):
                     'use_pf': True,
                     'relative_precision': 8.0,
                     'escalate_for_large_weight_threshold': -1.,
-                    'minimal_precision_to_skip_further_checks': 99.0
+                    'minimal_precision_to_skip_further_checks': 999.0
                 }
             ],
             # Can be LTD, PF
@@ -196,7 +196,6 @@ class RunHyperparameters(HyperParameters):
             'CrossSection.sum_diagram_sets'                      :   False,
             # compare locally against the same topology written in another loop momentum basis
             'CrossSection.compare_with_additional_topologies'    :   False,
-            'CrossSection.inherit_deformation_for_uv_counterterm':   True,
         }
 
         for param, value in alphaloop_run_interface_specific_params.items():
@@ -5347,7 +5346,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     integrate_parser.add_argument(
         '--no_use_optimal_channels', action="store_false", dest="use_optimal_integration_channels", default=None,
         help="Do not use optimal channels (default: as per hyperparameters).")
-    integrate_parser.add_argument('--havana_starting_n_bins', dest='havana_starting_n_bins', type=int, default=128,
+    integrate_parser.add_argument('--havana_starting_n_bins', dest='havana_starting_n_bins', type=int, default=16,
         help='Number of starting bins in Havana continuous grids (default: %(default)d).')
     integrate_parser.add_argument('--havana_n_points_min', dest='havana_n_points_min', type=int, default=1000,
         help='Minimum number of points in Havana continuous grids before update (default: %(default)d).')

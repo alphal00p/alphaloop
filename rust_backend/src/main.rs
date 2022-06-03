@@ -17,6 +17,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::time::Instant;
+use tabled::{Tabled, Table, Style};
 
 use std::fs::OpenOptions;
 use std::io::{BufWriter, Write};
@@ -32,6 +33,8 @@ use ltd::{float, IntegrandType, IntegratedPhase, Integrator, Settings};
 use ltd::dashboard::{Dashboard, StatusUpdate, StatusUpdateSender};
 
 use havana::{AverageAndErrorAccumulator, Sample};
+
+use std::fs::File;
 
 #[derive(Serialize, Deserialize)]
 struct CubaResultDef {
@@ -139,6 +142,23 @@ pub fn evaluate_mpi_worker(mut integrand: Integrands, world: &mpi::topology::Sys
                 WaitGuard::from(world.process_at_rank(0).immediate_send(scope, f.as_slice()));
         });
     }
+}
+
+#[derive(Tabled)]
+struct IntegralResult {
+    id: String,
+    n_samples: String,
+    #[tabled(rename = "n_samples[%]")]
+    n_samples_perc: String,
+    #[tabled(rename = "<I>")]
+    integral: String,
+    #[tabled(rename = "sqrt(σ)")]
+    variance: String,
+    err: String,
+    #[tabled(err = "err[%]")]
+    err_perc: String,
+    #[tabled(err = "PDF")]
+    pdf: String,
 }
 
 fn havana_integrate<'a, F>(settings: &Settings, user_data_generator: F) -> CubaResult
@@ -280,7 +300,55 @@ where
         );
 
         if let havana::Grid::DiscreteGrid(g) = &grid {
-            g.discrete_dimensions[0].plot("grid_disc.svg").unwrap();
+            g.discrete_dimensions[0].plot(&format!("grid_disc_it_{}.svg",iter)).unwrap();
+            let mut tabled_data = vec![];
+
+            tabled_data.push(IntegralResult {
+                id: format!("Sum@it#{}",integral.cur_iter),
+                n_samples: format!("{}",integral.processed_samples),
+                n_samples_perc: format!("{:.3e}%",100.),
+                integral: format!("{:.8e}",integral.avg),
+                variance: format!("{:.8e}",integral.err*((integral.processed_samples-1).max(0) as f64).sqrt()),
+                err: format!("{:.8e}",integral.err),
+                err_perc: format!("{:.3e}%",(integral.err/(integral.avg.abs()).max(1.0e-99)).abs()*100.),
+                pdf: String::from_str("N/A").unwrap()
+            });
+            for (i, b) in g.discrete_dimensions[0].bin_accumulator.iter().enumerate() {
+                tabled_data.push(IntegralResult {
+                    id: format!("chann#{}",i),
+                    n_samples: format!("{}",b.processed_samples),
+                    n_samples_perc: format!("{:.3e}%",((b.processed_samples as f64)/(integral.processed_samples.max(1) as f64))*100.),
+                    integral: format!("{:.8e}",b.avg),
+                    variance: format!("{:.8e}",b.err*((b.processed_samples-1).max(0) as f64).sqrt()),
+                    err: format!("{:.8e}",b.err),
+                    err_perc: format!("{:.3e}%",(b.err/(b.avg.abs()).max(1.0e-99)).abs()*100.),
+                    pdf: format!("{:.8e}", if i>1 { g.discrete_dimensions[0].cdf[i]-g.discrete_dimensions[0].cdf[i-1]} else {g.discrete_dimensions[0].cdf[i]} )
+                });
+            }
+            let mut f =
+                BufWriter::new(File::create(&format!("results_it_{}.txt",iter)).expect("Could not create results file"));
+            writeln!(f,"{}",Table::new(tabled_data).with(Style::psql()).to_string()).unwrap();
+            /*
+            let mut f =
+                BufWriter::new(File::create(&format!("results_it_{}.txt",iter)).expect("Could not create results file"));
+            writeln!(f,"{},\t\t{},\t\t{},\t\t{},\t\t{},\t\t{},\t\t{},\t\t{},\t\t{}",
+                "channel", "nsamples","nsamples[%]","<I>","sqrt(var)","err","err[%]", "CDF", "PDF"
+            ).unwrap();
+            writeln!(f,"Tot@it {},\t\t{},\t\t{:.3e},\t\t{:.8e},\t\t{:.8e},\t\t{:.8e},\t\t{:.3e}",
+                integral.cur_iter, integral.processed_samples, 100., integral.avg, integral.err*((integral.processed_samples-1).max(0) as f64).sqrt(), 
+                integral.err, (integral.err/(integral.avg.abs()).max(1.0e-99)).abs()*100.
+            ).unwrap();
+            for (i, b) in g.discrete_dimensions[0].bin_accumulator.iter().enumerate() {
+                writeln!(
+                    f,
+                    "{},\t\t{},\t\t{:.3e},\t\t{:.8e},\t\t{:.8e},\t\t{:.8e},\t\t{:.3e},\t\t{:.8e},\t\t{:.8e}",
+                    i, b.processed_samples, ((b.processed_samples as f64)/(integral.processed_samples.max(1) as f64))*100., b.avg, 
+                    b.err*((b.processed_samples-1).max(0) as f64).sqrt(), b.err, (b.err/(b.avg.abs()).max(1.0e-99)).abs()*100.,
+                    g.discrete_dimensions[0].cdf[i], if i>1 { g.discrete_dimensions[0].cdf[i]-g.discrete_dimensions[0].cdf[i-1]} else {g.discrete_dimensions[0].cdf[i]}
+                )
+                .unwrap();
+            }
+            */
         }
 
         iter += 1;

@@ -928,7 +928,7 @@ aGraph=%s;
                     sig = list(signatures[self.edges[edge_key]['name']][0])+list(signatures[self.edges[edge_key]['name']][1])
                     node_weight += sum([ 1 if abs(wgt)!=0 else 0 for wgt in sig ])
                 node_weights.append(node_weight)
-            elif vertex_spins in [(3,3,3,3),(2,2,3),(2,2,1)]:
+            elif vertex_spins in [(3,3,3,3),(2,2,3),(1,2,2)]:
                 node_weights.append(1)
             elif all(s==1 for s in vertex_spins):
                 node_weights.append(1)
