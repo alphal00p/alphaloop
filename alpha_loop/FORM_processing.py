@@ -3203,7 +3203,7 @@ class FORMSuperGraphList(list):
             raise FormProcessingError("This FORMSuperGraphList instance requires at least one entry for generating numerators.")
 
         # add all numerators in one file and write the headers
-        numerator_header = """
+        numerator_header_general = """
 #include <complex>
 #include <signal.h>
 #include "%(header)snumerator.h"
@@ -3343,7 +3343,28 @@ const complex<double> I{ 0.0, 1.0 };
                         integrand_main_code = ''
                         integrand_f128_main_code = ''
                         integrand_mpfr_main_code = ''
+
+                        # rename all lm in the code with a dot product macro
+                        n_incoming = sum([1 for edge in graph[0].edges.values() if edge['type'] == 'in'])
+                        n_loops = len(graph[0].edges) - len(graph[0].nodes) + 1
+                        n_tot = n_incoming + n_loops
+                        varmap = {}
+                        out_idx = 0
+                        for i1 in range(n_tot):
+                            m1 = 'p' + str(i1+1) if i1 < n_incoming else 'c' + str(i1+1-n_incoming)
+                            varmap[str(out_idx)] = '{}_0'.format(m1)
+                            out_idx += 1
+                            for i2 in range(i1, n_tot):
+                                m2 = 'p' + str(i2+1) if i2 < n_incoming else 'c' + str(i2+1-n_incoming)
+                                varmap[str(out_idx)] = '{}_{}'.format(m1, m2)
+                                varmap[str(out_idx + 1)] = '{}_{}s'.format(m1, m2)
+                                out_idx += 2
+
+                        numerator_header = numerator_header_general + '\n'.join('#define {} lm[{}]'.format(v, k) for k, v in varmap.items()) + "\n"
+
                         max_lm = max(int(m.group(1)) for m in lm_pattern.finditer(num))
+                        num = re.sub(r'lm(\d*)', lambda m: varmap[m.group(1)], num)
+
                         conf_secs = num.split('#CONF')
                         for conf_sec in conf_secs[1:]:
                             conf_sec = conf_sec.replace("#CONF\n", '')
@@ -3569,11 +3590,6 @@ const complex<double> I{ 0.0, 1.0 };
                             integrand_f128_main_code = integrand_f128_main_code.replace('diag_', 'diag_{}_'.format(itype)).replace('forest_', 'forest_{}_'.format(itype))
                             integrand_mpfr_main_code = integrand_mpfr_main_code.replace('diag_', 'diag_{}_'.format(itype)).replace('forest_', 'forest_{}_'.format(itype))
 
-
-                        n_incoming = sum([1 for edge in graph[0].edges.values() if edge['type'] == 'in'])
-                        n_loops = len(graph[0].edges) - len(graph[0].nodes) + 1
-                        n_tot = n_incoming + n_loops
-
                         fill_lm_body = ""
                         out_idx = 0
                         for i1 in range(n_tot):
@@ -3597,6 +3613,9 @@ const complex<double> I{ 0.0, 1.0 };
 
                         integrand_main_code += \
 """
+
+//NOSPLIT
+
 template<class T>
 static inline void fill_lm(const T moms[], T out[]) {{
 {3}}}
@@ -3621,10 +3640,11 @@ void %(header)sevaluate_{0}_{1}(const double moms[], const complex<double> param
                         integrand_f128_main_code += \
 """
 
+//NOSPLIT
+
 template<class T>
-static inline void fill_lm(T moms[], T out[]) {{
-{3}
-}}
+static inline void fill_lm(const T moms[], T out[]) {{
+{3}}}
 
 extern "C" {{
 void %(header)sevaluate_{0}_{1}_f128(complex128 moms[], complex128 params[], int conf, complex128* out) {{
@@ -3656,9 +3676,11 @@ using mpfr::mpcomplex;
                         integrand_mpfr_main_code += \
 """
 
-static inline void fill_lm(complex128 moms[], complex128* out) {{
-{3}
-}}
+//NOSPLIT
+
+template<class T>
+static inline void fill_lm(const T moms[], T out[]) {{
+{3}}}
 
 extern "C" {{
 void %(header)sevaluate_{0}_{1}_mpfr(complex128 moms[], complex128 params[], int conf, int prec, complex128* out) {{
@@ -4049,17 +4071,17 @@ return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
 
         # Add the necessary arguments
         all_args = [ arg for arg in args_for_splits if arg not in all_args ] + [ (Z_type, 'Zs_[]') ] + all_args
-        if len(set(a[1] for a in all_args))!=len(all_args):
+        if len(set(a[-1] for a in all_args))!=len(all_args):
             raise FormProcessingError("Split function constructed contains arguments with same names but different types: %s"%str(all_args))
 
         split_function_prototype = 'void {}_split_%d({}){}'.format(
             function_prototype_match.group('name'),
-            ', '.join( ('%s %s'%a for a in  all_args) ),
+            ', '.join(' '.join(a) for a in all_args),
             function_prototype_match.group('suffix')
         )
         split_function_call = '\t{}_split_%d({});'.format(
             function_prototype_match.group('name'),
-            ', '.join( (('%s'%a[1]).replace('[]','') for a in  all_args) )
+            ', '.join( (('%s'%a[-1]).replace('[]','') for a in  all_args) )
         )
 
         def chunks(lst, n):
@@ -4110,26 +4132,26 @@ return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
             ))
             return [source_code_name,]
 
-        extern_c_re = re.compile(r'^extern \"C\" {$')
+        no_split_re = re.compile(r'^//NOSPLIT')
         start_func_re = re.compile(r"^(static|void).*{$")
         end_func_re = re.compile(r"}\s*$")
         header = []
         functions = []
         in_function = False
-        in_extern_C = False
-        extern_C_code = []
+        in_no_split = False
+        no_split_C_code = []
         was_las_match_a_closing_bracket = False
         for line in open(pjoin(root_output_path, source_code_name),'r').readlines():
             if end_func_re.match(line):
                 if was_las_match_a_closing_bracket:
                     # This denotes the end of an extern C
-                    extern_C_code.append(line)
-                    in_extern_C = False
+                    no_split_C_code.append(line)
+                    in_no_split = False
                     was_las_match_a_closing_bracket=False
                 else:
                     was_las_match_a_closing_bracket = True
-                    if in_extern_C:
-                        extern_C_code.append(line)
+                    if in_no_split:
+                        no_split_C_code.append(line)
                     else:
                         if not in_function or len(functions)==0:
                             raise FormProcessingError("Found function end before start in %s: %s"%(pjoin(root_output_path, source_code_name),line))
@@ -4139,15 +4161,12 @@ return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
                 continue
 
             was_las_match_a_closing_bracket=False
-            if extern_c_re.match(line):
+            if no_split_re.match(line):
                 if in_function:
-                    raise FormProcessingError("Extern C function found while in the body of a function %s: %s"%(pjoin(root_output_path, source_code_name),line))
-                if len(extern_C_code) > 0:
-                    raise FormProcessingError("Multiple extern C blocks in %s not supported in code splitter."%pjoin(root_output_path, source_code_name))
-                extern_C_code.append(line,)
-                in_extern_C = True
-            elif in_extern_C:
-                extern_C_code.append(line)
+                    raise FormProcessingError("No split command found while in the body of a function %s: %s"%(pjoin(root_output_path, source_code_name),line))
+                in_no_split = True
+            elif in_no_split:
+                no_split_C_code.append(line)
             elif start_func_re.match(line):
                 in_function = True
                 functions.append([line.replace('static','').replace('inline','').strip()+'\n',])
@@ -4185,9 +4204,9 @@ return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
                     n_function_lines_accumulated += len(functions[0])
                     out.write(''.join(functions.pop(0)))
                 if len(functions) == 0:
-                    # Now write the extern_c code at the end
-                    if len(extern_C_code)>0:
-                        out.write(''.join(extern_C_code))
+                    # Now write the no_split code at the end
+                    if len(no_split_C_code)>0:
+                        out.write(''.join(no_split_C_code))
                     break
                 else:
                     i_file += 1
