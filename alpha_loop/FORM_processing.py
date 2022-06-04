@@ -3224,10 +3224,12 @@ using namespace dualskt2;
 using namespace dualst3;
 using namespace dualskt3;
 using namespace dualsklt3;
-using namespace mppp;
 using namespace mppp::literals;
 
-const complex<double> I{ 0.0, 1.0 };
+using real128 = mppp::real128;
+using complex128 = mppp::complex128;
+
+const std::complex<double> I{ 0.0, 1.0 };
 
 """
 
@@ -3359,6 +3361,18 @@ const complex<double> I{ 0.0, 1.0 };
                                 varmap[str(out_idx)] = '{}_{}'.format(m1, m2)
                                 varmap[str(out_idx + 1)] = '{}_{}s'.format(m1, m2)
                                 out_idx += 2
+                        for i1 in range(n_tot):
+                            m1 = 'p' + str(i1+1) if i1 < n_incoming else 'c' + str(i1+1-n_incoming)
+                            for i2 in range(i1+1, n_tot):
+                                m2 = 'p' + str(i2+1) if i2 < n_incoming else 'c' + str(i2+1-n_incoming)
+                                for i3 in range(i2+1, n_tot):
+                                    m3 = 'p' + str(i3+1) if i3 < n_incoming else 'c' + str(i3+1-n_incoming)
+                                    varmap[str(out_idx)] = 'e_{}_{}_{}_0'.format(m1, m2, m3)
+                                    out_idx += 1
+                                    for i4 in range(i3+1, n_tot):
+                                        m4 = 'p' + str(i4+1) if i4 < n_incoming else 'c' + str(i4+1-n_incoming)
+                                        varmap[str(out_idx)] = 'e_{}_{}_{}_{}'.format(m1, m2, m3, m4)
+                                        out_idx += 1
 
                         numerator_header = numerator_header_general + '\n'.join('#define {} lm[{}]'.format(v, k) for k, v in varmap.items()) + "\n"
 
@@ -3378,17 +3392,24 @@ const complex<double> I{ 0.0, 1.0 };
 
                             denominator_mode = 'NUM' if int(conf[0]) >= 0 else ('FOREST' if len(conf) == 2 else 'DIAG')
                             dual_num_mode = conf_part[1] is not None
+                            dual_length = 1
                             if conf_part[1] == "*tder(2)":
                                 dual_num_type = "dual"
+                                dual_length = 2
                             elif conf_part[1] == "*tder(3)":
                                 dual_num_type = "dualt2"
+                                dual_length = 3
                             elif conf_part[1] == "*tder(2,2)":
                                 dual_num_type = "dualkt2"
+                                dual_length = 5
                             elif conf_part[1] == "*tder(4)":
                                 dual_num_type = "dualt3"
+                                dual_length = 4
                             elif conf_part[1] == "*tder(2,3)":
                                 dual_num_type = "dualkt3"
+                                dual_length = 7
                             elif conf_part[1] == "*tder(2,2,2)":
+                                dual_length = 12
                                 dual_num_type = "dualklt3"
                             elif not dual_num_mode:
                                 dual_num_type = ""
@@ -3450,6 +3471,13 @@ const complex<double> I{ 0.0, 1.0 };
                             returnval = list(return_exp.finditer(conf_sec))[0].groups()[0]
                             returnval = re.sub(r'(^|[+\-*=]|\*\()(\s*\d+)($|[^.\d\w])', r'\1\2.\3', returnval)
 
+                            base_type = 'complex<double>'
+                            dual_base_type = '{}<{}>'.format(dual_num_type, base_type) if dual_num_mode else base_type
+                            base_type_f128 = 'complex128'
+                            dual_base_type_f128 = '{}<{}>'.format(dual_num_type,base_type_f128) if dual_num_mode else base_type_f128
+                            base_type_mpfr = 'mppp::complex'
+                            dual_base_type_mpfr = '{}<{}>'.format(dual_num_type,base_type_mpfr) if dual_num_mode else base_type_mpfr
+
                             if dual_num_mode and all(x not in returnval for x in ['E', 'lm', 'Z']):
                                 returnval = '{}({})'.format(dual_num_type, returnval)
 
@@ -3465,13 +3493,6 @@ const complex<double> I{ 0.0, 1.0 };
                             # write out all integer powers as multiplications to prevent slow pow evaluation with floating exponent
                             conf_sec = re.sub(r'pow\(([^,]+),(\d+)\)', lambda x: '*'.join([x.group(1)]*int(x.group(2))) , conf_sec)
                             conf_sec = re.sub(r'pow\(([^,]+),-1\.\)', r'1./(\1)', conf_sec) # fix for 1/E
-
-                            base_type = 'complex<double>'
-                            dual_base_type = '{}<{}>'.format(dual_num_type, base_type) if dual_num_mode else base_type
-                            base_type_f128 = 'complex128'
-                            dual_base_type_f128 = '{}<{}>'.format(dual_num_type,base_type_f128) if dual_num_mode else base_type_f128
-                            base_type_mpfr = 'mpcomplex'
-                            dual_base_type_mpfr = '{}<{}>'.format(dual_num_type,base_type_mpfr) if dual_num_mode else base_type_mpfr
 
                             if denominator_mode == 'FOREST':
                                 main_code = conf_sec.replace('logmUVmu', 'log(mUV*mUV/(mu*mu))').replace('logmUV', 'log(mUV*mUV)').replace('logmu' , 'log(mu*mu)').replace('logmt' , 'log(masst*masst)')
@@ -3489,12 +3510,10 @@ const complex<double> I{ 0.0, 1.0 };
                                     '\n\t{} {};'.format(dual_base_type_f128, ','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
                                 )
 
-                                main_code_mpfr = main_code.replace('pi', 'mpreal(mpfr::const_pi())').replace('complex<double>', 'mpcomplex')
-                                main_code_mpfr = float_pattern.sub(r'mpreal("\1")', main_code_mpfr)
-                                main_code_mpfr = re.sub(r'sqrt\(([^)]+)\)', r'sqrt(mpcomplex(\1))', main_code_mpfr)
-                                main_code_mpfr = re.sub(r'pow\(([^,]+)', r'pow(mpcomplex(\1)', main_code_mpfr)
-                                main_code_mpfr = diag_pattern.sub(r'diag_\1_mpfr(lm, params, E, invd)', main_code_mpfr)
-                                integrand_mpfr_main_code += '\n' + '\nstatic {0} forest_{2}_mpfr({0} lm[], {1} params[], {0} E[], {0} invd[]) {{{3}\n{4}}}'.format(
+                                main_code_mpfr = main_code.replace('pi', 'mppp::real_pi(prec)').replace('complex<double>', 'mppp::complex')
+                                main_code_mpfr = float_pattern.sub(r'mppp::real(real128(\1q), prec)', main_code_mpfr)
+                                main_code_mpfr = diag_pattern.sub(r'diag_\1_mpfr(lm, params, E, invd, prec)', main_code_mpfr)
+                                integrand_mpfr_main_code += '\n' + '\nstatic {0} forest_{2}_mpfr(const {0} lm[], const {1} params[], const {0} E[], const {0} invd[], const int prec) {{{3}\n{4}}}'.format(
                                     dual_base_type_mpfr, base_type_mpfr, abs(int(conf[0])),
                                     '\n\t{} {};'.format(dual_base_type_mpfr, ','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_mpfr
                                 )
@@ -3511,17 +3530,14 @@ const complex<double> I{ 0.0, 1.0 };
                                     '\n\t{} {};'.format(dual_base_type_f128,','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_f128
                                 )
 
-                                main_code_mpfr = main_code.replace('pi', 'mpreal(mpfr::const_pi())').replace('complex<double>', 'mpcomplex')
-                                main_code_mpfr = re.sub(r'sqrt\(([^)]+)\)', r'sqrt(mpcomplex(\1))', main_code_mpfr)
-                                main_code_mpfr = re.sub(r'pow\(([^,]+)', r'pow(mpcomplex(\1)', main_code_mpfr)
-                                main_code_mpfr = re.sub(r'log\(([^)]+)\)', r'log(mpcomplex(\1))', main_code_mpfr)
-                                main_code_mpfr = float_pattern.sub(r'mpreal("\1")', main_code_mpfr)
-                                integrand_mpfr_main_code += '\n' + '\nstatic {0} diag_{2}_mpfr(const {0} lm[], const {1} params[], const {0} E[], const {0} invd[]) {{{3}\n{4}}}'.format(dual_base_type_mpfr, base_type_mpfr, abs(int(conf[0])),
+                                main_code_mpfr = main_code.replace('pi', 'mppp::real_pi(prec)').replace('complex<double>', 'mppp::complex')
+                                main_code_mpfr = float_pattern.sub(r'mppp::real(real128(\1q), prec)', main_code_mpfr)
+                                integrand_mpfr_main_code += '\n' + '\nstatic {0} diag_{2}_mpfr(const {0} lm[], const {1} params[], const {0} E[], const {0} invd[], const int prec) {{{3}\n{4}}}'.format(dual_base_type_mpfr, base_type_mpfr, abs(int(conf[0])),
                                     '\n\t{} {};'.format(dual_base_type_mpfr, ','.join(temp_vars)) if len(temp_vars) > 0 else '', main_code_mpfr
                                 )
                             else:
                                 cut_id = int(conf[0])
-                                confs.append((cut_id, dual_num_type))
+                                confs.append((cut_id, dual_num_type, dual_length))
 
                                 forests = []
                                 if len(conf_sec) > 0:
@@ -3554,25 +3570,26 @@ const complex<double> I{ 0.0, 1.0 };
 
                                 main_code_f128 = main_code.replace('pi', 'mppp::real128_pi()').replace('complex<double>', 'complex128')
                                 main_code_f128 = float_pattern.sub(r'real128(\1q)', main_code_f128)
-                                main_code_f128 = main_code_f128.replace('(lm,', '_f128(lm,')
+                                main_code_f128 = main_code_f128.replace('(lm,', '_f128(lm,') # patch forest
                                 integrand_f128_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}_f128(const {0} lm[], const {1} params[], {0}* out) {{{5}}}'.format(dual_base_type_f128, base_type_f128, itype, i, int(conf[0]),
                                     diag_pattern.sub(r'diag_\1_f128(lm, params, E, invd)', main_code_f128)
                                 )
 
-                                main_code_mpfr = main_code.replace('pi', 'mpreal(mpfr::const_pi())').replace('complex<double>', 'mpcomplex')
-
-                                for p in params:
-                                    if p != 'pi':
-                                        main_code_mpfr = main_code_mpfr.replace(p, 'mpcomplex({})'.format(p))
-                                main_code_mpfr = re.sub(r'pow\(([^,]+)', r'pow(mpcomplex(\1)', main_code_mpfr)
-                                main_code_mpfr = re.sub(r'sqrt\(([^)]+)\)', r'sqrt(mpcomplex(\1))', main_code_mpfr)
-                                main_code_mpfr = re.sub(r'log\(([^)]+)\)', r'log(mpcomplex(\1))', main_code_mpfr)
-                                main_code_mpfr = float_pattern.sub(r'mpreal("\1")', main_code_mpfr)
-                                main_code_mpfr = forest_pattern.sub(r'forest_\1_mpfr(lm, params, E, invd)', main_code_mpfr)
-                                main_code_mpfr = re.sub(r'\*out =([^;]*);', r'*out = (complex128)(\1);', main_code_mpfr)
-                                integrand_mpfr_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}_mpfr(const {0} lm[], const {1} params[], {0}* out) {{{5}}}'.format(dual_base_type_mpfr, base_type_mpfr, itype, i, int(conf[0]),
-                                    diag_pattern.sub(r'diag_\1_mpfr(lm, params, E, invd)', main_code_mpfr)
+                                main_code_mpfr = main_code.replace('pi', 'real(mppp::const_pi(prec))').replace('complex<double>', 'mppp::complex')
+                                main_code_mpfr = float_pattern.sub(r'mppp::real(real128(\1q), prec)', main_code_mpfr) # TODO: use string instead?
+                                main_code_mpfr = main_code_mpfr.replace('(lm,', '_mpfr(lm,').replace('invd)', 'invd, prec)') # patch forest
+                                main_code_mpfr = re.sub(r'\*out =([^;]*);', '*out = ({})'.format(dual_base_type_f128) + r'(\1);', main_code_mpfr)
+                                integrand_mpfr_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}_mpfr(const {0} lm[], const {1} params[], {6}* out, const int prec) {{{5}}}'.format(dual_base_type_mpfr, base_type_mpfr, itype, i, int(conf[0]),
+                                    diag_pattern.sub(r'diag_\1_mpfr(lm, params, E, invd, prec)', main_code_mpfr), dual_base_type_f128
                                 )
+
+                        integrand_main_code = integrand_main_code.replace('pi', 'std::numbers::pi')
+
+                        # convert all hardcoded parameters
+                        for p, v in params.items():
+                            if 'params' not in str(v):
+                                integrand_f128_main_code = integrand_f128_main_code.replace(p, 'real128({})'.format(p))
+                                integrand_mpfr_main_code = integrand_mpfr_main_code.replace(p, 'mppp::real({}, prec)'.format(p))
 
                         
                         for x in range(4):
@@ -3581,10 +3598,8 @@ const complex<double> I{ 0.0, 1.0 };
                             integrand_mpfr_main_code = empty_line_pattern.sub(r'\n\n', integrand_mpfr_main_code)
 
                         integrand_main_code = numerator_header + integrand_main_code
-                        integrand_f128_main_code = numerator_header + integrand_f128_main_code
-                        integrand_mpfr_main_code = numerator_header + integrand_mpfr_main_code
-
-                        integrand_f128_main_code = integrand_f128_main_code.replace('const complex<double> I{ 0.0, 1.0 };', 'constexpr complex128 I{ 0.0, 1.0 };')
+                        integrand_f128_main_code = numerator_header.replace('const std::complex<double> I{ 0.0, 1.0 };', 'constexpr complex128 I{ 0, 1 };') + integrand_f128_main_code
+                        integrand_mpfr_main_code = numerator_header.replace('const std::complex<double> I{ 0.0, 1.0 };', 'const mppp::complex I{ 0, 1 };') + integrand_mpfr_main_code
 
                         if itype != "PF":
                             integrand_main_code = integrand_main_code.replace('diag_', 'diag_{}_'.format(itype)).replace('forest_', 'forest_{}_'.format(itype))
@@ -3622,7 +3637,7 @@ static inline void fill_lm(const T moms[], T out[]) {{
 {3}}}
 
 extern "C" {{
-void %(header)sevaluate_{0}_{1}(const double moms[], const complex<double> params[], int conf, double* out) {{
+void %(header)sevaluate_{0}_{1}(const double* moms, const complex<double>* params, int conf, double* out) {{
    switch(conf) {{
 {2}
     }}
@@ -3630,8 +3645,8 @@ void %(header)sevaluate_{0}_{1}(const double moms[], const complex<double> param
 }}
 """.format(itype, i,
         '\n'.join(
-            ['\t\tcase {0}: {{\n\t\t\t{3}complex<double>{4} lm[{5}] = {{{3}complex<double>{4}(0)}};\n\t\t\tfill_lm(({3}complex<double>{4}*)moms, lm);\n\t\t\t%(header)sevaluate_{1}_{2}_{0}(lm, params, ({3}complex<double>{4}*)out);\n\t\t}} return;'.format(
-                conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '', out_idx) for conf, is_dual in sorted(x for x in confs)] +
+            ['\t\tcase {0}: {{\n\t\t\t{3}complex<double>{4} lm[{5}];\n\t\t\tfill_lm(({3}complex<double>{4}*)moms, lm);\n\t\t\t%(header)sevaluate_{1}_{2}_{0}(lm, params, ({3}complex<double>{4}*)out);\n\t\t}} return;'.format(
+                conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '', out_idx) for conf, is_dual, _ in sorted(x for x in confs)] +
             (['\t\tdefault: *out = 0.;']) # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else 
         ),
         fill_lm_body,
@@ -3648,7 +3663,7 @@ static inline void fill_lm(const T moms[], T out[]) {{
 {3}}}
 
 extern "C" {{
-void %(header)sevaluate_{0}_{1}_f128(complex128 moms[], complex128 params[], int conf, complex128* out) {{
+void %(header)sevaluate_{0}_{1}_f128(const complex128* moms, const complex128* params, int conf, complex128* out) {{
     switch(conf) {{
 {2}
     }}
@@ -3656,24 +3671,16 @@ void %(header)sevaluate_{0}_{1}_f128(complex128 moms[], complex128 params[], int
 }}
 """.format(itype, i,
         '\n'.join(
-            ['\t\tcase {0}: {{\n\t\t\t{3}complex128{4} lm[{5}] = {{{3}complex128{4}(0)}};\n\t\t\tfill_lm(({3}complex128{4}*)moms, lm);\n\t\t\t%(header)sevaluate_{1}_{2}_{0}_f128(lm, params, ({3}complex128{4}*)out);\n\t\t}} return;'.format(
-                conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '', out_idx) for conf, is_dual in sorted(x for x in confs)] +
+            ['\t\tcase {0}: {{\n\t\t\t{3}complex128{4} lm[{5}];\n\t\t\tfill_lm(({3}complex128{4}*)moms, lm);\n\t\t\t%(header)sevaluate_{1}_{2}_{0}_f128(lm, params, ({3}complex128{4}*)out);\n\t\t}} return;'.format(
+                conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '', out_idx) for conf, is_dual, _ in sorted(x for x in confs)] +
             (['\t\tdefault: *out = real128(0.q);'])
         ),
         fill_lm_body,
         )
 
 
-
-                        integrand_mpfr_main_code = \
-"""
-#include "mpreal.h"
-#include "mpcomplex.h"
-
-using mpfr::mpreal;
-using mpfr::mpcomplex;
-
-""" + integrand_mpfr_main_code
+                        integrand_mpfr_main_code = integrand_mpfr_main_code.replace('#include <mp++/complex128.hpp>',
+                            '#include <mp++/complex128.hpp>\n#include <mp++/complex.hpp>\n#define CONV(a) mppp::complex(a, mppp::complex_prec_t(prec))\n')
                         integrand_mpfr_main_code += \
 """
 
@@ -3684,8 +3691,7 @@ static inline void fill_lm(const T moms[], T out[]) {{
 {3}}}
 
 extern "C" {{
-void %(header)sevaluate_{0}_{1}_mpfr(complex128 moms[], complex128 params[], int conf, int prec, complex128* out) {{
-   mpfr_set_default_prec((mpfr_prec_t)(ceil(prec * 3.3219280948873624)));
+void %(header)sevaluate_{0}_{1}_mpfr(complex128* moms, complex128* params, int conf, int prec, complex128* out) {{
    switch(conf) {{
 {2}
     }}
@@ -3693,9 +3699,22 @@ void %(header)sevaluate_{0}_{1}_mpfr(complex128 moms[], complex128 params[], int
 }}
 """.format(itype, i,
         '\n'.join(
-            ['\t\tcase {0}: {{\n\t\t\t{3}complex128{4} lm[{5}] = {{{3}complex128{4}(0)}};\n\t\t\tfill_lm<{3}complex128{4}>(moms, lm);\n\t\t\t%(header)sevaluate_{1}_{2}_{0}({3}complex128{4}*)lm, params, ({3}complex128{4}*)out);\n\t\t}} return;'.format(
-                conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '', out_idx) for conf, is_dual in sorted(x for x in confs)] +
-            (['\t\tdefault: *out = real128(0.q);'])
+            [
+"""
+        case {0}: {{
+            mppp::complex moms_arb[{6}] = {{{7}}};
+            mppp::complex params_arb[{8}] = {{{9}}};
+            {3}mppp::complex{4} lm[{5}];
+            fill_lm<{3}mppp::complex{4}>(({3}mppp::complex{4}*)moms_arb, lm);
+            %(header)sevaluate_{1}_{2}_{0}_mpfr(lm, params_arb, ({3}complex128{4}*)out, prec);
+        }} return;
+"""''.format(conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '', out_idx,
+             dual_length * n_tot * 4,
+            ','.join('CONV(moms[{}])'.format(i) for i in range(dual_length * n_tot*4)),
+            5,
+            ','.join('CONV(params[{}])'.format(i) for i in range(5))
+                ) for conf, is_dual, dual_length in sorted(x for x in confs)] +
+            (['\t\tdefault: *out = real128(0.q);']),
         ),
         fill_lm_body,
         )
@@ -3773,6 +3792,7 @@ void %(header)sevaluate_{0}_{1}_mpfr(complex128 moms[], complex128 params[], int
             if FORM_processing_options["cores"] > 1:
                 pool.close()
 
+        # when modifying this, also modify the array length for arb-prec params
         params = copy.deepcopy(params)
         params['mUV'] = 'params[0]'
         params['mu'] = 'params[1]'
@@ -4129,7 +4149,7 @@ return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
             for fpath in glob_module.glob(pjoin(root_output_path,split_file_name_template)):
                 os.remove(fpath)
             open(pjoin(root_output_path, source_code_name),'w').write(''.join(
-                ['// Source post-processed and split into the following files: [%s,]'%source_code_name,]+raw_source
+                ['// Source post-processed and split into the following files: [%s,]'%source_code_name,]+[l for l in raw_source if l != '//NOSPLIT\n']
             ))
             return [source_code_name,]
 
@@ -4309,7 +4329,7 @@ return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
         else:
             shutil.copy(pjoin('Templates','makefile_user_opts_default.inc'), pjoin(TMP_FORM, 'makefile_user_opts.inc'))
 
-        for n in ('mpcomplex.h', 'mpreal.h', 'dual.h', 'dualt2.h', 'dualkt2.h', 'dualt3.h', 'dualkt3.h', 'dualklt3.h'):
+        for n in ('mppp::complex.h', 'real.h', 'dual.h', 'dualt2.h', 'dualkt2.h', 'dualt3.h', 'dualkt3.h', 'dualklt3.h'):
             shutil.copy(n, pjoin(TMP_FORM, n))
         Path(pjoin(TMP_OUTPUT, 'lib')).mkdir(parents=True, exist_ok=True)
         FORMProcessor.compile(TMP_FORM)
@@ -4384,7 +4404,6 @@ class FORMProcessor(object):
             'yukawab': self.model['parameter_dict']['mdl_yb'].real / math.sqrt(2.),
             'ghhh': 6. * self.model['parameter_dict']['mdl_lam'].real,
             'vev': self.model['parameter_dict']['mdl_vev'].real,
-            'pi': 'M_PI',
             'cw': self.model['parameter_dict']['mdl_cw'].real,
             'sw': self.model['parameter_dict']['mdl_sw'].real,
             'sw2': self.model['parameter_dict']['mdl_sw2'].real,

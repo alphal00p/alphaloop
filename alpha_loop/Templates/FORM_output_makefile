@@ -11,7 +11,7 @@ OPTIMIZATION_LVL_f128 = 0
 include makefile_user_opts.inc
 
 ifdef ARB_PREC
-	EXTRA_ARGS=-lmpfr -lgmp $(USER_OPTS_ARB_PREC)
+	EXTRA_ARGS=-lmpfr -lgmp -lmpc $(USER_OPTS_ARB_PREC)
 else
 	EXTRA_ARGS= $(USER_OPTS)
 endif

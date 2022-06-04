@@ -61,7 +61,17 @@ mod form_integrand {
         ) where
             Self: std::marker::Sized;
 
-        fn get_integrand_mpfr(
+        fn get_integrand_ltd_mpfr(
+            api_container: &FORMIntegrandCallSignature,
+            p: &[Self],
+            params: &[Self],
+            conf: usize,
+            prec: usize,
+            res: &mut [Self],
+        ) where
+            Self: std::marker::Sized;
+
+        fn get_integrand_pf_mpfr(
             api_container: &FORMIntegrandCallSignature,
             p: &[Self],
             params: &[Self],
@@ -111,7 +121,18 @@ mod form_integrand {
             }
         }
 
-        fn get_integrand_mpfr(
+        fn get_integrand_ltd_mpfr(
+            _api_container: &FORMIntegrandCallSignature,
+            _p: &[f64],
+            _params: &[f64],
+            _conf: usize,
+            _prec: usize,
+            _res: &mut [f64],
+        ) {
+            unimplemented!("MPFR is only supported in f128 mode")
+        }
+
+        fn get_integrand_pf_mpfr(
             _api_container: &FORMIntegrandCallSignature,
             _p: &[f64],
             _params: &[f64],
@@ -155,14 +176,35 @@ mod form_integrand {
                     eval(
                         &p[0] as *const f128::f128,
                         &params[0] as *const f128::f128,
-                        conf as i32,
+                        conf as libc::c_int,
                         &mut res[0] as *mut f128::f128,
                     );
                 }
             }
         }
 
-        fn get_integrand_mpfr(
+        fn get_integrand_ltd_mpfr(
+            api_container: &FORMIntegrandCallSignature,
+            p: &[f128::f128],
+            params: &[f128::f128],
+            conf: usize,
+            prec: usize,
+            res: &mut [f128::f128],
+        ) {
+            unsafe {
+                if let Some(eval) = api_container.evaluate_ltd_mpfr {
+                    eval(
+                        &p[0] as *const f128::f128,
+                        &params[0] as *const f128::f128,
+                        conf as i32,
+                        prec as i32,
+                        &mut res[0] as *mut f128::f128,
+                    );
+                }
+            }
+        }
+
+        fn get_integrand_pf_mpfr(
             api_container: &FORMIntegrandCallSignature,
             p: &[f128::f128],
             params: &[f128::f128],
@@ -244,6 +286,9 @@ pub struct FORMIntegrandCallSignature {
     #[serde(skip_deserializing)]
     pub evaluate_ltd_f128: Option<unsafe extern "C" fn(*const f128, *const f128, c_int, *mut f128)>,
     #[serde(skip_deserializing)]
+    pub evaluate_ltd_mpfr:
+        Option<unsafe extern "C" fn(*const f128, *const f128, c_int, c_int, *mut f128)>,
+    #[serde(skip_deserializing)]
     pub evaluate_pf_mpfr:
         Option<unsafe extern "C" fn(*const f128, *const f128, c_int, c_int, *mut f128)>,
     #[serde(default)]
@@ -277,6 +322,14 @@ impl FORMIntegrandCallSignature {
                 .as_ref()
                 .unwrap()
                 .symbol(&format!("evaluate_PF_{}_f128", self.id))
+        }
+        .ok();
+
+        self.evaluate_ltd_mpfr = unsafe {
+            self.form_integrand
+                .as_ref()
+                .unwrap()
+                .symbol(&format!("evaluate_LTD_{}_mpfr", self.id))
         }
         .ok();
 
@@ -328,6 +381,7 @@ impl Clone for FORMIntegrandCallSignature {
             evaluate_ltd: self.evaluate_ltd.clone(),
             evaluate_pf_f128: self.evaluate_pf_f128.clone(),
             evaluate_ltd_f128: self.evaluate_ltd_f128.clone(),
+            evaluate_ltd_mpfr: self.evaluate_ltd_mpfr.clone(),
             evaluate_pf_mpfr: self.evaluate_pf_mpfr.clone(),
             prec: self.prec,
             extra_calls: self.extra_calls.clone(),
@@ -2243,7 +2297,6 @@ impl SquaredTopology {
             (0..self.n_loops).map(|_| LorentzVector::new()).collect();
         let mut k_def: SmallVec<[LorentzVector<Complex<D>>; MAX_SG_LOOP]> =
             (0..self.n_loops).map(|_| LorentzVector::new()).collect();
-        // note: written into through ffi, could give some trouble on Mac if it is on the stack, for some reason
         let mut result_buffer = [T::zero(); MAX_DUAL_SIZE * 2];
 
         let t_prop_power = cutkosky_cuts.cuts.last().unwrap().power;
@@ -2767,14 +2820,30 @@ impl SquaredTopology {
                     }
 
                     match self.settings.cross_section.integrand_type {
-                        // TODO: mpfr
-                        IntegrandType::LTD => T::get_integrand_ltd(
-                            call_signature,
-                            &cache.momenta,
-                            &cache.params,
-                            conf,
-                            &mut result_buffer,
-                        ),
+                        IntegrandType::LTD => {
+                            if call_signature.prec == 0
+                                || call_signature.prec == 16
+                                || call_signature.prec == 32
+                            {
+                                T::get_integrand_ltd(
+                                    call_signature,
+                                    &cache.momenta,
+                                    &cache.params,
+                                    conf,
+                                    &mut result_buffer,
+                                )
+                            } else {
+                                T::get_integrand_ltd_mpfr(
+                                    call_signature,
+                                    &cache.momenta,
+                                    &cache.params,
+                                    conf,
+                                    // precision is given in bits, so multiply by log(10)/log(2)
+                                    (call_signature.prec as f64 * 3.3219280948873624) as usize,
+                                    &mut result_buffer,
+                                )
+                            }
+                        }
                         IntegrandType::PF => {
                             if call_signature.prec == 0
                                 || call_signature.prec == 16
@@ -2788,12 +2857,13 @@ impl SquaredTopology {
                                     &mut result_buffer,
                                 )
                             } else {
-                                T::get_integrand_mpfr(
+                                T::get_integrand_pf_mpfr(
                                     call_signature,
                                     &cache.momenta,
                                     &cache.params,
                                     conf,
-                                    call_signature.prec,
+                                    // precision is given in bits, so multiply by log(10)/log(2)
+                                    (call_signature.prec as f64 * 3.3219280948873624) as usize,
                                     &mut result_buffer,
                                 )
                             }

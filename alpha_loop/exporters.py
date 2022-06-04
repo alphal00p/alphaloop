@@ -352,7 +352,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                     pjoin(FORM_output_path, 'Makefile'))
 
-            for n in ('mpcomplex.h', 'mpreal.h', 'dual.h', 'dualt2.h', 'dualkt2.h', 'dualt3.h', 'dualkt3.h', 'dualklt3.h'):
+            for n in ('dual.h', 'dualt2.h', 'dualkt2.h', 'dualt3.h', 'dualkt3.h', 'dualklt3.h'):
                 shutil.copy(pjoin(plugin_path, n), pjoin(self.dir_path,'FORM', n))
             if os.path.isfile(pjoin(plugin_path,'Templates','makefile_user_opts.inc')):
                 shutil.copy(pjoin(plugin_path,'Templates','makefile_user_opts.inc'), pjoin(self.dir_path,'FORM', 'makefile_user_opts.inc'))
@@ -1368,7 +1368,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
             shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                     pjoin(self.dir_path,'FORM', 'Makefile'))
-            for n in ('mpcomplex.h', 'mpreal.h', 'dual.h', 'dualt2.h', 'dualkt2.h', 'dualt3.h', 'dualkt3.h', 'dualklt3.h'):
+            for n in ('dual.h', 'dualt2.h', 'dualkt2.h', 'dualt3.h', 'dualkt3.h', 'dualklt3.h'):
                 shutil.copy(pjoin(plugin_path, n), pjoin(self.dir_path,'FORM', n))
             if os.path.isfile(pjoin(plugin_path,'Templates','makefile_user_opts.inc')):
                 shutil.copy(pjoin(plugin_path,'Templates','makefile_user_opts.inc'), pjoin(self.dir_path,'FORM', 'makefile_user_opts.inc'))
@@ -1835,7 +1835,7 @@ class LUScalarTopologyExporter(QGRAFExporter):
         # Compile
         shutil.copy(pjoin(plugin_path, 'Templates', 'FORM_output_makefile'), 
                     pjoin(FORM_output_path, 'Makefile'))
-        for n in ('mpcomplex.h', 'mpreal.h', 'dual.h', 'dualt2.h', 'dualkt2.h', 'dualt3.h', 'dualkt3.h', 'dualklt3.h'):
+        for n in ('dual.h', 'dualt2.h', 'dualkt2.h', 'dualt3.h', 'dualkt3.h', 'dualklt3.h'):
             shutil.copy(pjoin(plugin_path, n), pjoin(self.dir_path,'FORM', n))
         if os.path.isfile(pjoin(plugin_path,'Templates','makefile_user_opts.inc')):
             shutil.copy(pjoin(plugin_path,'Templates','makefile_user_opts.inc'), pjoin(self.dir_path,'FORM', 'makefile_user_opts.inc'))
