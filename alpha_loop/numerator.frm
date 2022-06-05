@@ -1439,17 +1439,31 @@ B xsplit,xorig;
     id xorig = 1;
 
     .sort:ltd;
+* TODO: do per cut so that the invd array will not have zeroed entries
     argtoextrasymbol tonumber, den;
     #define denstart "`extrasymbols_'"
     .sort:invd-creation;
     #do i = {`denstart'+1},`extrasymbols_'
         id den(`i') = invd{`i'-`denstart'-1};
+
+        #do j = 1,`diagcount'
+            #define HASINVD`i'IN`j' "0"
+            if (expression(diag`j') && count(invd{`i'-`denstart'-1}, 1)) redefine HASINVD`i'IN`j' "1";
+        #enddo
     #enddo
-    #if `denstart' < `extrasymbols_'
-        Multiply ellipsoids(<invd0,extrasymbol_({`denstart'+1})>,...,<invd{`extrasymbols_'-`denstart'-1},extrasymbol_(`extrasymbols_')>);
-    #else
-        Multiply ellipsoids;
-    #endif
+    .sort:invd-collect;
+
+    #do j = 1,`diagcount'
+        if (expression(diag`j'));
+            Multiply ellipsoids;
+            #do i = {`denstart'+1},`extrasymbols_'
+                #if `HASINVD`i'IN`j''
+                    Multiply ellipsoids(invd{`i'-`denstart'-1}, extrasymbol_(`i'));
+                #endif
+            #enddo
+        endif;
+        chainin ellipsoids;
+    #enddo
 
     B allenergies, ellipsoids,conf,tder,constants,pi;
     .sort:ltd-num-0;
