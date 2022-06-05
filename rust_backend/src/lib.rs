@@ -517,6 +517,7 @@ pub struct StabilityCheckSettings {
     pub relative_precision: f64,
     pub escalate_for_large_weight_threshold: f64,
     pub minimal_precision_to_skip_further_checks: f64,
+    pub accepted_radius_range_in_x_space: (f64, f64),
 }
 
 fn default_as_false() -> bool {

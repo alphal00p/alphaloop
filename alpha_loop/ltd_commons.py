@@ -166,7 +166,8 @@ hyperparameters = HyperParameters({
                 'relative_precision': 10.0,
                 # force an upgrade when a new weight is this threshold times the current maximum weight
                 'escalate_for_large_weight_threshold': 0.8,
-                'minimal_precision_to_skip_further_checks': 999.0
+                'minimal_precision_to_skip_further_checks': 999.0,
+                'accepted_radius_range_in_x_space': [0, 0.9]
             },
             {            
                 'n_samples': 3,
@@ -174,7 +175,8 @@ hyperparameters = HyperParameters({
                 'use_pf': True,
                 'relative_precision': 5.0,
                 'escalate_for_large_weight_threshold': 0.8,
-                'minimal_precision_to_skip_further_checks': 999.0
+                'minimal_precision_to_skip_further_checks': 999.0,
+                'accepted_radius_range_in_x_space': [0, 1]
             },
             {
                 'n_samples': 3,
@@ -182,7 +184,8 @@ hyperparameters = HyperParameters({
                 'use_pf': True,
                 'relative_precision': 8.0,
                 'escalate_for_large_weight_threshold': -1.,
-                'minimal_precision_to_skip_further_checks': 999.0
+                'minimal_precision_to_skip_further_checks': 999.0,
+                'accepted_radius_range_in_x_space': [0, 1]
             }
         ],
         'res_file_prefix'       :   '',

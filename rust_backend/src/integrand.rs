@@ -458,6 +458,18 @@ impl<I: IntegrandImplementation> Integrand<I> {
             // clear events when there is instability
             event_manager.clear(false);
 
+            if x.to_flat().chunks(3).any(|v| {
+                v[0] < stability_check.accepted_radius_range_in_x_space.0
+                    || v[0] > stability_check.accepted_radius_range_in_x_space.1
+            }) {
+                if self.settings.general.debug > 1 {
+                    println!("Skipping stability check at level {} since radius is outside accepted range", level);
+                }
+
+                self.integrand_statistics.unstable_point_count[level] += 1;
+                continue;
+            }
+
             for t in &mut self.topologies {
                 t.set_partial_fractioning(stability_check.use_pf);
             }
