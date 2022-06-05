@@ -31,6 +31,6 @@ wget https://github.com/bluescarni/mppp/archive/refs/tags/v0.26.tar.gz
 tar -xvf v0.26.tar.gz
 rm v0.26.tar.gz
 cd mppp-0.26
-cmake -DMPPP_WITH_QUADMATH=y -DMPPP_WITH_MPFR=y .
+cmake -DMPPP_WITH_QUADMATH=y -DMPPP_WITH_MPFR=y -DMPPP_WITH_MPC=y .
 make -j4
 sudo make install
