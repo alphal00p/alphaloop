@@ -3214,6 +3214,7 @@ class FORMSuperGraphList(list):
 #include "dualkt3.h"
 #include "dualklt3.h"
 #include <mp++/complex128.hpp>
+#include <numbers>
 
 using namespace std;
 using namespace std::complex_literals;
@@ -3575,7 +3576,8 @@ const std::complex<double> I{ 0.0, 1.0 };
                                     diag_pattern.sub(r'diag_\1_f128(lm, params, E, invd)', main_code_f128)
                                 )
 
-                                main_code_mpfr = main_code.replace('pi', 'real(mppp::const_pi(prec))').replace('complex<double>', 'mppp::complex')
+                                # main_code_mpfr = main_code.replace('pi', 'real(mppp::const_pi(prec))').replace('complex<double>', 'mppp::complex')
+                                main_code_mpfr = main_code.replace('pi', 'mppp::real_pi(prec)').replace('complex<double>', 'mppp::complex')
                                 main_code_mpfr = float_pattern.sub(r'mppp::real(real128(\1q), prec)', main_code_mpfr) # TODO: use string instead?
                                 main_code_mpfr = main_code_mpfr.replace('(lm,', '_mpfr(lm,').replace('invd)', 'invd, prec)') # patch forest
                                 main_code_mpfr = re.sub(r'\*out =([^;]*);', '*out = ({})'.format(dual_base_type_f128) + r'(\1);', main_code_mpfr)
