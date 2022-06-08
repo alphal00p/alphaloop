@@ -428,14 +428,21 @@ class SuperGraph(dict):
         return '\n'.join(res_str)
 
     def show_timing_statistics(self):
-        if ('DERIVED_timing_profile_f64' not in self) and ('DERIVED_timing_profile_f128' not in self):
-            return "No timing profile information available."
 
         res = []
-        for precision in ['f64','f128']:
+
+        all_precisions_available = []
+        for entry in self:
+            if entry.startswith('DERIVED_timing_profile_'):
+                all_precisions_available.append(entry[23:])
+        all_precisions_available.sort(key=lambda el: tuple([0 if el.split('_')[0]=='f64' else (1 if el.split('_')[0]=='f128' else int(el.split('_')[0])) ]+el.split('_')[1:]))
+        if len(all_precisions_available)==0:
+            return "No timing profile information available."
+
+        for precision in all_precisions_available:
             if 'DERIVED_timing_profile_%s'%precision not in self:
                 continue
-            res.append(('Statistics for %s precision:'%precision,''))
+            res.append(('Statistics for %s:'%(precision.replace('_',' ')),''))
             res.append(('-'*len(res[-1][0]),''))
             res.append(('Timing for overall evaluate','%.3f ms'%(self['DERIVED_timing_profile_%s'%precision])))
             sorted_cut_evaluations = sorted(
@@ -1776,6 +1783,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     timing_profile_parser.add_argument("-t","--time", dest='time', type=float, default=5.0,
                     help='target evaluation time per profile, in seconds.')
     timing_profile_parser.add_argument(
+        "-prec", "--precision", type=int, dest="precision", default=32,
+        help="Arithmetic floating point precision to use when running 'f128' higher precision."+
+        "\nWhen setting this differently to default (32), you must make sure to have generated the process with arb prec support.")
+    timing_profile_parser.add_argument(
+        "-ltd", "--use_ltd", action="store_true", dest="use_ltd", default=False,
+        help="Profile the LTD implementation instead of the cLTD one (requires ltd output enabled during generation).")
+    timing_profile_parser.add_argument(
         "-f", "--f128", action="store_true", dest="f128", default=False,
         help="Enable timing profile of the f128 output too.")
     def help_timing_profile(self):
@@ -1819,12 +1833,14 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         self.hyperparameters['General']['stability_checks'][0]['relative_precision']=1.0e-99
         self.hyperparameters['General']['stability_checks'][0]['escalate_for_large_weight_threshold']=-1.0
         self.hyperparameters['General']['stability_checks'][0]['minimal_precision_to_skip_further_checks']=1.0e-99
+        self.hyperparameters['General']['stability_checks'][0]['accepted_radius_range_in_x_space']=[0., 1.]
+        self.hyperparameters['General']['stability_checks'][0]['use_pf']=(not args.use_ltd)
 
         rust_workers = {SG_name: alphaLoopRunInterface.get_rust_worker( SG_name, self.hyperparameters, pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder), thread_safe=False ) for SG_name in selected_SGs}
         if args.f128:
             hyperparameters_backup=copy.deepcopy(self.hyperparameters)
             for entry in self.hyperparameters['General']['stability_checks']:
-                entry['prec'] = 32
+                entry['prec'] = args.precision
             rust_workers_f128 = {SG_name: alphaLoopRunInterface.get_rust_worker( SG_name, self.hyperparameters, pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder), thread_safe=False ) for SG_name in selected_SGs}
             self.hyperparameters = hyperparameters_backup
 
@@ -1851,9 +1867,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     rust_worker_f128 = rust_workers_f128[SG_name]
                 SG = self.all_supergraphs[SG_name]
                 E_cm = SG.get_E_cm(self.hyperparameters)
-                funcs_to_test = [('f64', rust_worker.evaluate_integrand)]
+                funcs_to_test = [('f64'+('_with_LTD' if args.use_ltd else '_with_cLTD'), rust_worker.evaluate_integrand)]
                 if args.f128:
-                    funcs_to_test.append(('f128', rust_worker_f128.evaluate_integrand))
+                    funcs_to_test.append(( ('f128' if args.precision==32 else '%d_digits'%args.precision)+('_with_LTD' if args.use_ltd else '_with_cLTD'), rust_worker_f128.evaluate_integrand))
                 for precision, rust_function in funcs_to_test:
                     if args.n_points == 0:
                         t_start = time.time()
@@ -1872,9 +1888,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                 
                 for cut_ID, cut in enumerate(SG['cutkosky_cuts']):
                     bar.update(cut=(cut_ID+1))
-                    funcs_to_test = [('f64', rust_worker.get_scaling, rust_worker.evaluate_cut)]
+                    funcs_to_test = [('f64'+('_with_LTD' if args.use_ltd else '_with_cLTD'), rust_worker.get_scaling, rust_worker.evaluate_cut)]
                     if args.f128:
-                        funcs_to_test.append(('f128', rust_worker.get_scaling, rust_worker.evaluate_cut_f128))
+                        funcs_to_test.append((('f128' if args.precision==32 else '%d_digits'%args.precision)+('_with_LTD' if args.use_ltd else '_with_cLTD'), rust_worker_f128.get_scaling, rust_worker_f128.evaluate_cut_f128))
                     for precision, get_scaling_function, cut_evaluate_function in funcs_to_test:
                         if args.n_points == 0:
                             t_start = time.time()
@@ -2583,7 +2599,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         SG_failed = 0
 
         with progressbar.ProgressBar(
-                prefix=("IR profiling. E-surface intersection: {variables.intersection} {variables.i_comb}/{variables.n_comb} {variables.passed}\u2713, {variables.failed}\u2717, SGs: {variables.SG_passed}\u2713, {variables.SG_failed}\u2717, SG: {variables.SG_name} "), 
+                prefix=("Deformation profiling. E-surface intersection: {variables.intersection} {variables.i_comb}/{variables.n_comb} {variables.passed}\u2713, {variables.failed}\u2717, SGs: {variables.SG_passed}\u2713, {variables.SG_failed}\u2717, SG: {variables.SG_name} "), 
                 max_value=len(selected_SGs),variables={
                     'intersection': 'N/A', 'passed': 0, 'failed': 0, 'SG_name': 'N/A', 'i_comb': 0, 'n_comb': 0, 'SG_passed': 0, 'SG_failed': 0
                 }
@@ -3128,6 +3144,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='set the minimal dod tolerance (default=%(default)s)')
     ir_profile_parser.add_argument("--plots", dest='plots', type=str, nargs='?', default=None,
                     help='Specify a file to produce plots in.')
+    ir_profile_parser.add_argument(
+        "-prec", "--precision", type=int, dest="precision", default=32,
+        help="Arithmetic floating point precision to use when running 'f128' higher precision."+
+        "\nWhen setting this differently to default (32), you must make sure to have generated the process with arb prec support.")
     ir_profile_parser.add_argument(
         "-f", "--f128", action="store_true", dest="f128", default=False,
         help="Perfom the IR profile using f128 arithmetics.")
@@ -3744,7 +3764,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if args.f128 or not args.no_f128:
             hyperparameters_backup=copy.deepcopy(self.hyperparameters)
             for entry in self.hyperparameters['General']['stability_checks']:
-                entry['prec'] = 32
+                entry['prec'] = args.precision
             rust_workers_f128 = {SG_name: (alphaLoopRunInterface.get_rust_worker( SG_name, self.hyperparameters, pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder), thread_safe=False ) if args.cores==1 else copy.deepcopy(self.hyperparameters)) for SG_name in selected_SGs}
             self.hyperparameters = hyperparameters_backup
 
@@ -4306,6 +4326,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
     uv_profile_parser.add_argument("--plots", dest='plots', type=str, nargs='?', default=None,
                     help='Specify a file to produce plots in.')
     uv_profile_parser.add_argument(
+        "-prec", "--precision", type=int, dest="precision", default=32,
+        help="Arithmetic floating point precision to use when running 'f128' higher precision."+
+        "\nWhen setting this differently to default (32), you must make sure to have generated the process with arb prec support.")
+    uv_profile_parser.add_argument(
         "-f", "--f128", action="store_true", dest="f128", default=False,
         help="Perfom the UV profile using f128 arithmetics.")
     uv_profile_parser.add_argument(
@@ -4557,7 +4581,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
         if args.f128 or not args.no_f128:
             hyperparameters_backup=copy.deepcopy(self.hyperparameters)
             for entry in self.hyperparameters['General']['stability_checks']:
-                entry['prec'] = 32
+                entry['prec'] = args.precision
             rust_workers_f128 = {SG_name: alphaLoopRunInterface.get_rust_worker( SG_name, self.hyperparameters, pjoin(self.dir_path, self._run_workspace_folder), pjoin(self.dir_path, self._rust_inputs_folder), thread_safe=False ) for SG_name in selected_SGs}
             self.hyperparameters = hyperparameters_backup
         rust_workers_no_f128 = {SG_name: None for SG_name in selected_SGs}
