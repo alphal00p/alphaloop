@@ -1284,25 +1284,43 @@ B xsplit,xorig;
     L rest = Fltd[1];
     L diagorig = Fltd[xorig];
 
-* split compressed numerator per diag as well, as they may have different energy dependence
+* split compressed numerator per diag, as they may have different energy dependence
+* create new expressions per bracket as the bracket content may be too large to fit in a term
     B conf,tder,cmb,diag;
-    .sort;
+    .sort:diagorig-splitoff-1;
     Hide rest;
-    collect f; * let's hope this works for large expressions!
+    Keep brackets;
 
-    repeat id f(x?)*diag(?a) = f(x*diag(?a));
+    putinside f;
+    argtoextrasymbol tonumber f;
+    #define bracketstart "`extrasymbols_'"
+    B+ f;
+    .sort:diagorig-splitoff-2;
+    #define bracketend "`extrasymbols_'"
+    #do i ={`bracketstart'+1},`bracketend'
+        L diagorig`i' = diagorig[f(`i')]*extrasymbol_(`i');
+    #enddo
 
-    argument f;
-        id diag(?a) = diag(?a,1);
-        id p1?.p2? = dot(p1,p2,p1.p2);
-        argument dot,3;
-            Multiply replace_(<p1,ps1>,...,<p40,ps40>,<c1,cs1>,...,<c40,cs40>);
-        endargument;
+    id f?{conf,cmb,tder}(?a) = 1;
+    id diag(?a) = diag(?a,1);
+    id p1?.p2? = dot(p1,p2,p1.p2);
+    argument dot,3;
+        Multiply replace_(<p1,ps1>,...,<p40,ps40>,<c1,cs1>,...,<c40,cs40>);
     endargument;
-    id f(x?) = diag(x,-1); * tag compressed numerator
-    .sort
+    .sort:diagorig-splitoff-3;
+    Hide diagorig{`bracketstart'+1},...,diagorig`bracketend';
+
+    #if {`bracketstart'+1} <= `bracketend'
+        L diagorig = <extrasymbol_({`bracketstart'+1})*f(diag({`bracketstart'+1}),-1)>+...+<extrasymbol_(`bracketend')*f(diag(`bracketend'),-1)>;
+    #else
+        L diagorig =  0;
+    #endif
+
+    id diag(?a) = 1; * remove the diagram from the bracket
+    id f(?a) = diag(?a);
+    .sort:diagorig-splitoff-4;
     UnHide Fltd,forestltd1,...,forestltd`forestcount';
-    .sort
+    .sort:diagorig-splitoff-5;
     Drop rest, diagorig;
     L Fltd = rest + diagorig;
     .sort:ltd-forest-copy;
@@ -1312,15 +1330,18 @@ B xsplit,xorig;
     id f(?a) = diag(?a);
     argtoextrasymbol tonumber,diag,1;
     #redefine diagstart "`extrasymbols_'"
-
     .sort:diag-1;
+    Drop diagorig{`bracketstart'+1},...,diagorig`bracketend';
     #redefine diagend "`extrasymbols_'"
     #do ext={`diagstart'+1},`diagend'
         L diag{`ext'-`diagstart'} = extrasymbol_(`ext');
     #enddo
     #define diagcount "{`diagend'-`diagstart'}"
 
-    id diag(x?,-1,y?) = x*y*xorig;
+    #do i ={`bracketstart'+1},`bracketend'
+        id diag(diag(`i'),-1,y?) = diagorig`i'*y*xorig;
+    #enddo
+
     id diag(x?) = diag(x-`diagstart'+`forestcount');
     id diag(xcut?,x2?,?a,x3?) = diag(?a)*ltdtopo(x2)*x3*conf(-1,xcut,-1);
     id cmb(?a) = replace_(?a);

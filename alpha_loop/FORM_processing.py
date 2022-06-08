@@ -4234,7 +4234,7 @@ return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
                 else:
                     i_file += 1
 
-        split_file_name_re = re.compile(r"^integrand_.*_s(\d+)_.*\.c$")
+        split_file_name_re = re.compile(r"^integrand_.*_s(\d+)_.*\.(c|cpp)$")
         # Clear out any additional file that may have existed from a previous run
         split_file_name_template = '%s%s%s'%('_'.join(source_code_name_split[:-1]), '_s*_', source_code_name_split[-1])
         for fpath in glob_module.glob(pjoin(root_output_path,split_file_name_template)):
