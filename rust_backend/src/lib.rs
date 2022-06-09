@@ -1051,6 +1051,17 @@ impl PythonCrossSection {
         _scaling_jac: f64,
         _diagram_set: Option<usize>,
     ) -> PyResult<(f64, f64)> {
+        let (use_pf, prec) = self
+            .squared_topology
+            .settings
+            .general
+            .stability_checks
+            .first()
+            .map(|sc| (sc.use_pf, sc.prec))
+            .unwrap();
+        self.squared_topology.set_partial_fractioning(use_pf);
+        self.squared_topology.set_precision(prec);
+
         let external_momenta: ArrayVec<[LorentzVector<float>; MAX_LOOP]> = self
             .squared_topology
             .external_momenta
@@ -1151,6 +1162,17 @@ impl PythonCrossSection {
         _scaling_jac: f64,
         _diagram_set: Option<usize>,
     ) -> PyResult<(f64, f64)> {
+        let (use_pf, prec) = self
+            .squared_topology
+            .settings
+            .general
+            .stability_checks
+            .last()
+            .map(|sc| (sc.use_pf, sc.prec))
+            .unwrap();
+        self.squared_topology.set_partial_fractioning(use_pf);
+        self.squared_topology.set_precision(prec);
+
         let mut moms: ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP + 4]> = ArrayVec::new();
         for l in loop_momenta {
             moms.push(l.cast());

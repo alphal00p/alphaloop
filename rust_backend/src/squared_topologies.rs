@@ -1907,6 +1907,20 @@ impl SquaredTopology {
         Ok(squared_topo)
     }
 
+    pub fn set_partial_fractioning(&mut self, enable: bool) {
+        if enable {
+            self.settings.cross_section.integrand_type = IntegrandType::PF;
+        } else {
+            self.settings.cross_section.integrand_type = IntegrandType::LTD;
+        }
+    }
+
+    pub fn set_precision(&mut self, prec: usize) {
+        if let Some(cs) = self.form_integrand.call_signature.as_mut() {
+            cs.prec = prec;
+        }
+    }
+
     fn evaluate_signature<T: RealNumberLike + FromPrimitive, U: RealNumberLike + FromPrimitive>(
         signature: &(Vec<i8>, Vec<i8>),
         external_momenta: &[LorentzVector<T>],
@@ -3131,11 +3145,7 @@ impl IntegrandImplementation for SquaredTopologySet {
 
     fn set_partial_fractioning(&mut self, enable: bool) {
         for t in self.topologies.iter_mut() {
-            if enable {
-                t.settings.cross_section.integrand_type = IntegrandType::PF;
-            } else {
-                t.settings.cross_section.integrand_type = IntegrandType::LTD;
-            }
+            t.set_partial_fractioning(enable);
         }
     }
 
@@ -3251,9 +3261,7 @@ impl IntegrandImplementation for SquaredTopologySet {
     #[inline]
     fn set_precision(&mut self, prec: usize) {
         for t in &mut self.topologies {
-            if let Some(cs) = t.form_integrand.call_signature.as_mut() {
-                cs.prec = prec;
-            }
+            t.set_precision(prec);
         }
     }
 }
