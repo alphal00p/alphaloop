@@ -568,7 +568,6 @@ pub struct GeneralSettings {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(default)]
 pub struct IntegratorSettings {
     pub internal_parallelization: bool,
     pub dashboard: bool,

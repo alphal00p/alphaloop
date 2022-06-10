@@ -3458,7 +3458,7 @@ const std::complex<double> I{ 0.0, 1.0 };
 
                                 for j in range(0, len(d), 2):
                                     denom_index = int(d[j][4:]) # strip invd prefix
-                                    denom_instr = '1./({})'.format(energy_pattern.sub(r'E[\1]', lm_pattern.sub(r'lm[\1]', int_pattern.sub(r'\1.', d[j+1]))))
+                                    denom_instr = '1./({})'.format(energy_pattern.sub(r'E[\1]', lm_pattern.sub(r'lm[\1]', int_pattern.sub(r'\1.', square_pattern.sub(r'\1*\1', d[j+1])))))
                                     assert((cut_id, denom_index) not in propagators_per_cut or propagators_per_cut[(cut_id, denom_index)] == denom_instr)
                                     propagators_per_cut[(cut_id, denom_index)] = denom_instr
 
@@ -3547,7 +3547,7 @@ const std::complex<double> I{ 0.0, 1.0 };
                                 if len(temp_vars) == 0:
                                     # if generating in format C mode, construct the forests only once
                                     forests = list(sorted(set(forest_pattern.findall(conf_sec))))
-
+                                
                                 # generate the code for the energies and invds
                                 max_energy = max((eid + 1 for (cid, eid) in energies_per_cut if cid == cut_id), default=0)
                                 energies = [('0' if not dual_num_mode else '{}()'.format(dual_base_type)) if (cut_id, jj) not in energies_per_cut else energies_per_cut[(cut_id, jj)] for jj in range(max_energy)]

@@ -233,7 +233,7 @@ hyperparameters = HyperParameters({
         'n_new'             :   100000,
         'n_min'             :   2,
         'flatness'          :   50.,
-        'max_pass'          :   5,
+        'maxpass'          :   5,
         'maxchisq'          :   0.,
         'mindeviation'      :   0.025,
     },
