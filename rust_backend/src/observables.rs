@@ -7,7 +7,7 @@ use crate::{
 use itertools::Itertools;
 use libc::{c_double, c_int, c_void};
 use lorentz_vector::LorentzVector;
-use num::Complex;
+use num::{Complex, ToPrimitive};
 use smallvec::SmallVec;
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -204,10 +204,10 @@ impl EventManager {
 
     pub fn add_event<T: FloatLike>(
         &mut self,
-        orig_incoming_momenta: &[LorentzVector<f64>],
+        orig_incoming_momenta: &[LorentzVector<f128::f128>],
         cut_momenta: &[LorentzVector<T>],
         cut_info: &[CutkoskyCut],
-        rot_matrix: &[[f64; 3]; 3],
+        rot_matrix: &[[f128::f128; 3]; 3],
     ) -> bool {
         if !self.track_events && self.event_selector.is_empty() {
             return true;
@@ -217,12 +217,15 @@ impl EventManager {
 
         // rotate all momenta with the inverse of the rotation matrix
         for e in orig_incoming_momenta {
-            incoming_momenta.push(LorentzVector::from_args(
-                e.t,
-                rot_matrix[0][0] * e.x + rot_matrix[1][0] * e.y + rot_matrix[2][0] * e.z,
-                rot_matrix[0][1] * e.x + rot_matrix[1][1] * e.y + rot_matrix[2][1] * e.z,
-                rot_matrix[0][2] * e.x + rot_matrix[1][2] * e.y + rot_matrix[2][2] * e.z,
-            ));
+            incoming_momenta.push(
+                LorentzVector::from_args(
+                    e.t,
+                    rot_matrix[0][0] * e.x + rot_matrix[1][0] * e.y + rot_matrix[2][0] * e.z,
+                    rot_matrix[0][1] * e.x + rot_matrix[1][1] * e.y + rot_matrix[2][1] * e.z,
+                    rot_matrix[0][2] * e.x + rot_matrix[1][2] * e.y + rot_matrix[2][2] * e.z,
+                )
+                .cast(),
+            );
         }
 
         let mut outgoing_momenta = SmallVec::new();
@@ -231,12 +234,21 @@ impl EventManager {
             // make sure all momenta are outgoing
             let e = cut_mom.cast::<f64>() * cut.sign as f64;
 
-            outgoing_momenta.push(LorentzVector::from_args(
-                e.t,
-                rot_matrix[0][0] * e.x + rot_matrix[1][0] * e.y + rot_matrix[2][0] * e.z,
-                rot_matrix[0][1] * e.x + rot_matrix[1][1] * e.y + rot_matrix[2][1] * e.z,
-                rot_matrix[0][2] * e.x + rot_matrix[1][2] * e.y + rot_matrix[2][2] * e.z,
-            ));
+            outgoing_momenta.push(
+                LorentzVector::from_args(
+                    e.t,
+                    rot_matrix[0][0].to_f64().unwrap() * e.x
+                        + rot_matrix[1][0].to_f64().unwrap() * e.y
+                        + rot_matrix[2][0].to_f64().unwrap() * e.z,
+                    rot_matrix[0][1].to_f64().unwrap() * e.x
+                        + rot_matrix[1][1].to_f64().unwrap() * e.y
+                        + rot_matrix[2][1].to_f64().unwrap() * e.z,
+                    rot_matrix[0][2].to_f64().unwrap() * e.x
+                        + rot_matrix[1][2].to_f64().unwrap() * e.y
+                        + rot_matrix[2][2].to_f64().unwrap() * e.z,
+                )
+                .cast(),
+            );
             final_state_particle_ids.push(cut.particle_id);
         }
 

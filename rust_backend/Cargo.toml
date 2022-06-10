@@ -14,7 +14,6 @@ lto = "thin"
 [features]
 higher_loops = []
 python_api = ["pyo3", "havana/python_bindings", "lorentz_vector/pyo3_support"]
-use_f128 = []
 use_mpi = ["mpi"]
 
 [lib]

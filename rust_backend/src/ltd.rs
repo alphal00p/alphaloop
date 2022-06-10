@@ -3,7 +3,7 @@ use crate::topologies::{
 };
 use crate::utils::Signum;
 use crate::{
-    float, AdditiveMode, DeformationStrategy, ExpansionCheckStrategy, FloatLike, IRHandling,
+    AdditiveMode, DeformationStrategy, ExpansionCheckStrategy, FloatLike, IRHandling,
     OverallDeformationScaling, ParameterizationMapping, ParameterizationMode, PoleCheckStrategy,
     Settings, MAX_LOOP,
 };
@@ -12,7 +12,7 @@ use itertools::Itertools;
 use lorentz_vector::LorentzVector;
 use num::Complex;
 use num_traits::ops::inv::Inv;
-use num_traits::{Float, FloatConst, FromPrimitive, NumCast, One, Pow, Signed, Zero};
+use num_traits::{Float, FloatConst, NumCast, One, Pow, Signed, Zero};
 
 use crate::utils;
 
@@ -29,9 +29,9 @@ impl Topology {
 
         // set the identity rotation matrix
         self.rotation_matrix = [
-            [float::one(), float::zero(), float::zero()],
-            [float::zero(), float::one(), float::zero()],
-            [float::zero(), float::zero(), float::one()],
+            [f64::one(), f64::zero(), f64::zero()],
+            [f64::zero(), f64::one(), f64::zero()],
+            [f64::zero(), f64::zero(), f64::one()],
         ];
 
         // copy the signature to the propagators
@@ -168,16 +168,13 @@ impl Topology {
             // find all ellipsoids per cut option by expressing each propagator in terms of
             // the cut momenta
             for (cut_option_index, cut_option) in cut_options.iter().enumerate() {
-                let mut cut_shift: Vec<LorentzVector<float>> = vec![]; // qs of cut
+                let mut cut_shift: Vec<LorentzVector<f64>> = vec![]; // qs of cut
                 let mut cut_mass = vec![];
                 for (cut, ll) in cut_option.iter().zip_eq(self.loop_lines.iter()) {
                     if let Cut::NegativeCut(cut_prop_index) | Cut::PositiveCut(cut_prop_index) = cut
                     {
                         cut_shift.push(ll.propagators[*cut_prop_index].q.cast());
-                        cut_mass.push(
-                            float::from_f64(ll.propagators[*cut_prop_index].m_squared.sqrt())
-                                .unwrap(),
-                        );
+                        cut_mass.push(ll.propagators[*cut_prop_index].m_squared.sqrt());
                     }
                 }
 
@@ -199,7 +196,7 @@ impl Topology {
                             continue;
                         }
 
-                        let mut surface_shift: LorentzVector<float> = onshell_prop.q.cast();
+                        let mut surface_shift: LorentzVector<f64> = onshell_prop.q.cast();
                         for (&sign, q) in sig_ll_in_cb.iter().zip_eq(cut_shift.iter()) {
                             surface_shift -= q.multiply_sign(sign);
                         }
@@ -212,12 +209,12 @@ impl Topology {
                             }
                         }
 
-                        let mut cut_mass_sum = float::zero();
+                        let mut cut_mass_sum = 0.;
                         for (ss, mass) in surface_signs.iter().zip_eq(cut_mass.iter()) {
                             cut_mass_sum += mass.multiply_sign(*ss);
                         }
 
-                        let surface_mass = float::from_f64(onshell_prop.m_squared.sqrt()).unwrap();
+                        let surface_mass = onshell_prop.m_squared.sqrt();
 
                         let group = self.surfaces.len(); // every surface is in a different group at first
                         let surface_sign_sum = surface_signs.iter().sum::<i8>();
@@ -241,12 +238,12 @@ impl Topology {
                                 if external_momenta_set {
                                     if surface_shift.square()
                                         - (cut_mass_sum.abs() + surface_mass).powi(2)
-                                        >= Into::<float>::into(-1e-13 * self.e_cm_squared)
-                                        && surface_shift.t.multiply_sign(delta_sign) < float::zero()
+                                        >= Into::<f64>::into(-1e-13 * self.e_cm_squared)
+                                        && surface_shift.t.multiply_sign(delta_sign) < 0.
                                     {
                                         if surface_shift.square()
                                             - (cut_mass_sum.abs() + surface_mass).powi(2)
-                                            < Into::<float>::into(1e-10 * self.e_cm_squared)
+                                            < Into::<f64>::into(1e-10 * self.e_cm_squared)
                                         {
                                             is_pinch = true;
                                         }
@@ -305,10 +302,10 @@ impl Topology {
                                     (1, 1) => {
                                         surface_shift.square()
                                             - (surface_mass - cut_mass_sum.abs()).powi(2)
-                                            <= Into::<float>::into(-1e-13 * self.e_cm_squared)
+                                            <= Into::<f64>::into(-1e-13 * self.e_cm_squared)
                                     }
                                     (1, _) | (_, 1) => {
-                                        let mut eval = float::zero();
+                                        let mut eval = 0.;
                                         for (&ss, mass) in
                                             surface_signs.iter().zip_eq(cut_mass.iter())
                                         {
@@ -328,19 +325,19 @@ impl Topology {
                                             || neg_surface_signs_count == 1 && delta_sign == -1
                                         {
                                             eval += (surface_shift.spatial_squared()
-                                                + Into::<float>::into(onshell_prop.m_squared))
+                                                + Into::<f64>::into(onshell_prop.m_squared))
                                             .sqrt()
                                             .multiply_sign(delta_sign);
                                         } else {
-                                            eval += Into::<float>::into(onshell_prop.m_squared)
+                                            eval += Into::<f64>::into(onshell_prop.m_squared)
                                                 .sqrt()
                                                 .multiply_sign(delta_sign);
                                         }
 
                                         eval += surface_shift.t;
 
-                                        pos_surface_signs_count == 1 && eval > float::zero()
-                                            || neg_surface_signs_count == 1 && eval < float::zero()
+                                        pos_surface_signs_count == 1 && eval > 0.
+                                            || neg_surface_signs_count == 1 && eval < 0.
                                     }
                                     _ => true,
                                 } {
@@ -506,12 +503,12 @@ impl Topology {
             }
 
             // determine the shift
-            let mut surface_shift: LorentzVector<float> = self.loop_lines[s.onshell_ll_index]
+            let mut surface_shift: LorentzVector<f64> = self.loop_lines[s.onshell_ll_index]
                 .propagators[s.onshell_prop_index]
                 .q
                 .cast();
 
-            let mut mass_sum: float = self.loop_lines[s.onshell_ll_index].propagators
+            let mut mass_sum: f64 = self.loop_lines[s.onshell_ll_index].propagators
                 [s.onshell_prop_index]
                 .m_squared
                 .sqrt()
@@ -522,7 +519,7 @@ impl Topology {
                 if let Cut::NegativeCut(cut_prop_index) | Cut::PositiveCut(cut_prop_index) = cut {
                     if s.sig_ll_in_cb[cut_index] != 0 {
                         mass_sum +=
-                            Into::<float>::into(ll.propagators[*cut_prop_index].m_squared.sqrt());
+                            Into::<f64>::into(ll.propagators[*cut_prop_index].m_squared.sqrt());
                         surface_shift -= ll.propagators[*cut_prop_index]
                             .q
                             .cast()
@@ -541,8 +538,8 @@ impl Topology {
             let mut is_pinch = false;
             let size = surface_shift.square() - mass_sum.powi(2);
 
-            if size >= Into::<float>::into(-1e-13 * self.e_cm_squared)
-                && surface_shift.t.multiply_sign(s.delta_sign) < float::zero()
+            if size >= Into::<f64>::into(-1e-13 * self.e_cm_squared)
+                && surface_shift.t.multiply_sign(s.delta_sign) < 0.
             {
                 if self.settings.general.debug > 0 {
                     if size > 1e-8 * self.e_cm_squared
@@ -553,7 +550,7 @@ impl Topology {
                     }
                 }
 
-                if size < Into::<float>::into(1e-8 * self.e_cm_squared) {
+                if size < Into::<f64>::into(1e-8 * self.e_cm_squared) {
                     is_pinch = true;
                 }
             } else {
@@ -617,7 +614,7 @@ impl Topology {
                 // now test if the source is equal to the shift of the propagators
                 for (ll_index, prop_index) in &d_lim.excluded_propagators {
                     // determine the sum of sources using the signature
-                    let mut source_sum: LorentzVector<float> = LorentzVector::default();
+                    let mut source_sum: LorentzVector<f64> = LorentzVector::default();
                     for (sign, source) in self.loop_lines[*ll_index]
                         .signature
                         .iter()
@@ -626,7 +623,7 @@ impl Topology {
                         source_sum += source.multiply_sign(*sign);
                     }
 
-                    let diff: LorentzVector<float> =
+                    let diff: LorentzVector<f64> =
                         source_sum + self.loop_lines[*ll_index].propagators[*prop_index].q;
 
                     if diff.spatial_squared() > 1e-10 * self.e_cm_squared {
@@ -679,24 +676,26 @@ impl Topology {
     /// Map a vector in the unit hypercube to the infinite hypercube.
     /// Also compute the Jacobian.
     pub fn parameterize<T: FloatLike>(
-        x: &[f64],
-        e_cm_squared: f64,
+        x: &[T],
+        e_cm_squared: T,
         loop_index: usize,
         settings: &Settings,
     ) -> ([T; 3], T) {
-        let e_cm = Into::<T>::into(e_cm_squared).sqrt()
-            * Into::<T>::into(settings.parameterization.shifts[loop_index].0);
+        let e_cm =
+            e_cm_squared.sqrt() * Into::<T>::into(settings.parameterization.shifts[loop_index].0);
         let mut l_space = [T::zero(); 3];
         let mut jac = T::one();
 
         // rescale the input to the desired range
-        let mut x_r = [0.; 3];
+        let mut x_r = [T::zero(); 3];
         for (xd, xi, &(lo, hi)) in izip!(
             &mut x_r,
             x,
             &settings.parameterization.input_rescaling[loop_index]
         ) {
-            *xd = lo + xi * (hi - lo);
+            let lo = Into::<T>::into(lo);
+            let hi = Into::<T>::into(hi);
+            *xd = lo + *xi * (hi - lo);
             jac *= Into::<T>::into(hi - lo);
         }
 
@@ -704,14 +703,14 @@ impl Topology {
             ParameterizationMode::Cartesian => match settings.parameterization.mapping {
                 ParameterizationMapping::Log => {
                     for i in 0..3 {
-                        let x = Into::<T>::into(x_r[i]);
+                        let x = x_r[i];
                         l_space[i] = e_cm * (x / (T::one() - x)).ln();
                         jac *= e_cm / (x - x * x);
                     }
                 }
                 ParameterizationMapping::Linear => {
                     for i in 0..3 {
-                        let x = Into::<T>::into(x_r[i]);
+                        let x = x_r[i];
                         l_space[i] = e_cm * (T::one() / (T::one() - x) - T::one() / x);
                         jac *= e_cm
                             * (T::one() / (x * x) + T::one() / ((T::one() - x) * (T::one() - x)));
@@ -722,7 +721,7 @@ impl Topology {
                 let radius = match settings.parameterization.mapping {
                     ParameterizationMapping::Log => {
                         // r = e_cm * ln(1 + b*x/(1-x))
-                        let x = Into::<T>::into(x_r[0]);
+                        let x = x_r[0];
                         let b = Into::<T>::into(settings.parameterization.b);
                         let radius = e_cm * (T::one() + b * x / (T::one() - x)).ln();
                         jac *= e_cm * b / (T::one() - x) / (T::one() + x * (b - T::one()));
@@ -732,16 +731,15 @@ impl Topology {
                     ParameterizationMapping::Linear => {
                         // r = e_cm * b * x/(1-x)
                         let b = Into::<T>::into(settings.parameterization.b);
-                        let radius = e_cm * b * Into::<T>::into(x_r[0])
-                            / (T::one() - Into::<T>::into(x_r[0]));
+                        let radius = e_cm * b * x_r[0] / (T::one() - x_r[0]);
                         jac *= <T as num_traits::Float>::powi(e_cm * b + radius, 2) / e_cm / b;
                         radius
                     }
                 };
-                let phi = Into::<T>::into(2.) * <T as FloatConst>::PI() * Into::<T>::into(x_r[1]);
+                let phi = Into::<T>::into(2.) * <T as FloatConst>::PI() * x_r[1];
                 jac *= Into::<T>::into(2.) * <T as FloatConst>::PI();
 
-                let cos_theta = -T::one() + Into::<T>::into(2.) * Into::<T>::into(x_r[2]); // out of range
+                let cos_theta = -T::one() + Into::<T>::into(2.) * x_r[2]; // out of range
                 jac *= Into::<T>::into(2.);
                 let sin_theta = (T::one() - cos_theta * cos_theta).sqrt();
 
@@ -763,7 +761,7 @@ impl Topology {
 
     pub fn inv_parametrize<T: FloatLike>(
         mom: &LorentzVector<T>,
-        e_cm_squared: f64,
+        e_cm_squared: T,
         loop_index: usize,
         settings: &Settings,
     ) -> ([T; 3], T) {
@@ -772,8 +770,8 @@ impl Topology {
         }
 
         let mut jac = T::one();
-        let e_cm = Into::<T>::into(e_cm_squared).sqrt()
-            * Into::<T>::into(settings.parameterization.shifts[loop_index].0);
+        let e_cm =
+            e_cm_squared.sqrt() * Into::<T>::into(settings.parameterization.shifts[loop_index].0);
 
         let x: T = mom.x - e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].1);
         let y: T = mom.y - e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].2);

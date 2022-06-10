@@ -1,8 +1,9 @@
 use crate::dashboard::{StatusUpdate, StatusUpdateSender};
 use crate::utils;
-use crate::{float, FloatLike, Settings, MAX_LOOP};
+use crate::{FloatLike, Settings, MAX_LOOP};
 use color_eyre::{Help, Report};
 use eyre::WrapErr;
+use f128::f128;
 use hyperdual::Hyperdual;
 use itertools::Itertools;
 use lorentz_vector::LorentzVector;
@@ -41,7 +42,7 @@ pub struct Surface {
     pub delta_sign: i8,
     pub sig_ll_in_cb: Vec<i8>,
     pub signs: Vec<i8>,
-    pub shift: LorentzVector<float>,
+    pub shift: LorentzVector<f64>,
     pub id: Vec<((usize, usize), i8, i8)>,
     pub massless: bool,
 }
@@ -362,8 +363,8 @@ impl<T: FloatLike> CacheSelector<T, 19> for LTDCache<T> {
 
 #[derive(Default)]
 pub struct LTDCacheAllPrecisions {
-    float_cache: LTDCache<float>,
-    quad_cache: LTDCache<f128::f128>,
+    float_cache: LTDCache<f64>,
+    quad_cache: LTDCache<f128>,
 }
 
 impl LTDCacheAllPrecisions {
@@ -379,16 +380,16 @@ pub trait CachePrecisionSelector<T: FloatLike> {
     fn get(&mut self) -> &mut LTDCache<T>;
 }
 
-impl CachePrecisionSelector<float> for LTDCacheAllPrecisions {
+impl CachePrecisionSelector<f64> for LTDCacheAllPrecisions {
     #[inline]
-    fn get(&mut self) -> &mut LTDCache<float> {
+    fn get(&mut self) -> &mut LTDCache<f64> {
         &mut self.float_cache
     }
 }
 
-impl CachePrecisionSelector<f128::f128> for LTDCacheAllPrecisions {
+impl CachePrecisionSelector<f128> for LTDCacheAllPrecisions {
     #[inline]
-    fn get(&mut self) -> &mut LTDCache<f128::f128> {
+    fn get(&mut self) -> &mut LTDCache<f128> {
         &mut self.quad_cache
     }
 }
@@ -444,7 +445,7 @@ pub struct Topology {
     #[serde(default, skip_deserializing)]
     pub all_ellipsoid_surfaces: Vec<Surface>,
     #[serde(skip_deserializing)]
-    pub rotation_matrix: [[float; 3]; 3],
+    pub rotation_matrix: [[f64; 3]; 3],
     #[serde(default)]
     pub fixed_deformation: Vec<FixedDeformationLimit>,
     pub constant_deformation: Option<ConstantDeformation>,
@@ -1088,7 +1089,7 @@ impl Topology {
                 for (var_index, &v) in focus.signature.iter().enumerate() {
                     if v != 0 {
                         p.a_dense[row_counter * width + 3 * p.var_map[var_index] + dir_index] =
-                            Into::<float>::into(-v);
+                            Into::<f64>::into(-v);
 
                         if minimize && rad_lm == var_index && rad_dir == dir_index {
                             p.a_dense[row_counter * width + 3 * var_count] =

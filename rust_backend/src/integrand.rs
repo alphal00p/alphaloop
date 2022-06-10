@@ -1,7 +1,7 @@
 use crate::dashboard::{StatusUpdate, StatusUpdateSender};
 use crate::observables::EventManager;
 use crate::squared_topologies::MAX_SG_LOOP;
-use crate::{float, IntegratedPhase, Settings};
+use crate::{IntegratedPhase, Settings};
 use f128::f128;
 use havana::{Grid, Sample};
 use num::Complex;
@@ -52,12 +52,12 @@ pub trait IntegrandImplementation: Clone {
 
     fn create_grid(&self) -> Grid;
 
-    fn evaluate_float<'a>(
+    fn evaluate_f64<'a>(
         &mut self,
         x: IntegrandSample<'a>,
         cache: &mut Self::Cache,
         events: Option<&mut EventManager>,
-    ) -> Complex<float>;
+    ) -> Complex<f64>;
 
     fn evaluate_f128<'a>(
         &mut self,
@@ -394,7 +394,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
         }
     }
 
-    check_stability_precision!(check_stability_float, evaluate_float, float);
+    check_stability_precision!(check_stability_float, evaluate_f64, f64);
     check_stability_precision!(check_stability_quad, evaluate_f128, f128);
 
     pub fn merge_statistics(&mut self, other: &mut Integrand<I>) {
@@ -415,7 +415,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
     }
 
     /// Evalute a point generated from the Monte Carlo generator with `weight` and current iteration number `iter`.
-    pub fn evaluate(&mut self, x: IntegrandSample<'_>, weight: f64, iter: usize) -> Complex<float> {
+    pub fn evaluate(&mut self, x: IntegrandSample<'_>, weight: f64, iter: usize) -> Complex<f64> {
         let start_time = Instant::now(); // time the evaluation
 
         if self.cur_iter != iter {

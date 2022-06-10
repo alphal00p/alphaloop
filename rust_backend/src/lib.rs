@@ -12,6 +12,7 @@ use dualt2::Dualt2;
 use dualt3::Dualt3;
 #[cfg(feature = "python_api")]
 use hyperdual::Hyperdual;
+use num::ToPrimitive;
 #[cfg(feature = "python_api")]
 use pyo3::prelude::*;
 #[cfg(feature = "python_api")]
@@ -22,8 +23,6 @@ use color_eyre::{Help, Report};
 use eyre::WrapErr;
 
 use lorentz_vector::{Field, RealNumberLike};
-#[cfg(feature = "python_api")]
-use num_traits::ToPrimitive;
 use num_traits::{Float, FloatConst, FromPrimitive, Num, Signed};
 use utils::Signum;
 
@@ -32,15 +31,38 @@ pub const MAX_LOOP: usize = 4;
 #[cfg(feature = "higher_loops")]
 pub const MAX_LOOP: usize = 6;
 
-#[allow(non_camel_case_types)]
-#[cfg(feature = "use_f128")]
-pub type float = f128::f128;
-#[allow(non_camel_case_types)]
-#[cfg(not(feature = "use_f128"))]
-pub type float = f64;
+pub trait FloatConvertFrom<U> {
+    fn convert_from(x: &U) -> Self;
+}
+
+impl FloatConvertFrom<f64> for f64 {
+    fn convert_from(x: &f64) -> f64 {
+        *x
+    }
+}
+
+impl FloatConvertFrom<f128::f128> for f64 {
+    fn convert_from(x: &f128::f128) -> f64 {
+        (*x).to_f64().unwrap()
+    }
+}
+
+impl FloatConvertFrom<f128::f128> for f128::f128 {
+    fn convert_from(x: &f128::f128) -> f128::f128 {
+        *x
+    }
+}
+
+impl FloatConvertFrom<f64> for f128::f128 {
+    fn convert_from(x: &f64) -> f128::f128 {
+        f128::f128::from_f64(*x).unwrap()
+    }
+}
 
 pub trait FloatLike:
     From<f64>
+    + FloatConvertFrom<f64>
+    + FloatConvertFrom<f128::f128>
     + Num
     + FromPrimitive
     + Float
@@ -992,7 +1014,7 @@ impl PythonCrossSection {
         loop_momenta: Vec<LorentzVector<f64>>,
         cut_index: usize,
     ) -> PyResult<Option<((f64, f64), (f64, f64))>> {
-        let incoming_energy = self.squared_topology.external_momenta
+        let incoming_energy: f128::f128 = self.squared_topology.external_momenta
             [..self.squared_topology.n_incoming_momenta]
             .iter()
             .map(|m| m.t)
@@ -1016,7 +1038,7 @@ impl PythonCrossSection {
             cutkosky_cuts,
             &ext,
             &moms[..self.squared_topology.n_loops],
-            f128::f128::from_f64(incoming_energy).unwrap(),
+            incoming_energy,
             self.squared_topology.settings.general.debug,
         );
 
@@ -1062,7 +1084,7 @@ impl PythonCrossSection {
         self.squared_topology.set_partial_fractioning(use_pf);
         self.squared_topology.set_precision(prec);
 
-        let external_momenta: ArrayVec<[LorentzVector<float>; MAX_LOOP]> = self
+        let external_momenta: ArrayVec<[LorentzVector<f64>; MAX_LOOP]> = self
             .squared_topology
             .external_momenta
             .iter()
@@ -1299,7 +1321,7 @@ impl PythonCrossSection {
         loop_index: usize,
         e_cm_squared: f64,
     ) -> PyResult<(f64, f64, f64, f64)> {
-        let (x, jac) = topologies::Topology::parameterize::<float>(
+        let (x, jac) = topologies::Topology::parameterize::<f64>(
             &x,
             e_cm_squared,
             loop_index,
@@ -1319,6 +1341,12 @@ impl PythonCrossSection {
         loop_index: usize,
         e_cm_squared: f64,
     ) -> PyResult<(f64, f64, f64, f64)> {
+        let x: Vec<_> = x
+            .iter()
+            .map(|v| f128::f128::from_f64(*v).unwrap())
+            .collect();
+        let e_cm_squared = f128::f128::from_f64(e_cm_squared).unwrap();
+
         let (x, jac) = topologies::Topology::parameterize::<f128::f128>(
             &x,
             e_cm_squared,
@@ -1339,7 +1367,7 @@ impl PythonCrossSection {
         loop_index: usize,
         e_cm_squared: f64,
     ) -> PyResult<(f64, f64, f64, f64)> {
-        let (x, jac) = topologies::Topology::inv_parametrize::<float>(
+        let (x, jac) = topologies::Topology::inv_parametrize::<f64>(
             &loop_momentum,
             e_cm_squared,
             loop_index,
@@ -1359,6 +1387,8 @@ impl PythonCrossSection {
         loop_index: usize,
         e_cm_squared: f64,
     ) -> PyResult<(f64, f64, f64, f64)> {
+        let e_cm_squared = f128::f128::from_f64(e_cm_squared).unwrap();
+
         let (x, jac) = topologies::Topology::inv_parametrize::<f128::f128>(
             &loop_momentum.cast(),
             e_cm_squared,
