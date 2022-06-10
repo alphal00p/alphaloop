@@ -5,7 +5,7 @@ use crate::{IntegratedPhase, Settings};
 use f128::f128;
 use havana::{Grid, Sample};
 use num::Complex;
-use num_traits::{Float, FromPrimitive, NumCast, ToPrimitive, Zero};
+use num_traits::{Float, FromPrimitive, ToPrimitive, Zero};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
@@ -327,13 +327,13 @@ macro_rules! check_stability_precision {
             if !result_rot.is_finite()
                 || !min.is_finite()
                 || !max.is_finite()
-                || d < NumCast::from(relative_precision).unwrap()
-                || diff > NumCast::from(self.settings.general.absolute_precision).unwrap() {
+                || d < Into::<$ty>::into(relative_precision)
+                || diff > Into::<$ty>::into(self.settings.general.absolute_precision) {
                 break;
             }
 
             // if the first point is very stable, we stop further samples
-            if rot_index == 0 && result_rot.is_finite() && d > NumCast::from(minimal_precision_to_skip_further_checks).unwrap() {
+            if rot_index == 0 && result_rot.is_finite() && d > Into::<$ty>::into(minimal_precision_to_skip_further_checks) {
                 break;
             }
         }
@@ -556,10 +556,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
                 event_manager.clear(true); // throw away all events and treat them as rejected
                 result = Complex::default();
             } else {
-                if stable_digits
-                    < NumCast::from(self.settings.general.minimal_precision_for_returning_result)
-                        .unwrap()
-                {
+                if stable_digits < self.settings.general.minimal_precision_for_returning_result {
                     self.status_update_sender
                         .send(StatusUpdate::Message(format!(
                             "Unstable point {:?}: {:.5e}",

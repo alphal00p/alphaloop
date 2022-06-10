@@ -22,7 +22,7 @@ use libc::{c_double, c_int};
 use lorentz_vector::{Field, LorentzVector, RealNumberLike};
 use nalgebra::Scalar;
 use num::Complex;
-use num_traits::{Float, FloatConst, FromPrimitive, Inv, NumCast, One, ToPrimitive, Zero};
+use num_traits::{Float, FloatConst, FromPrimitive, Inv, One, ToPrimitive, Zero};
 use rand::Rng;
 use serde::Deserialize;
 use smallvec::SmallVec;
@@ -856,15 +856,15 @@ impl SquaredTopologySet {
             let rot = &self.rotation_matrix;
             k_channel[i] = LorentzVector::from_args(
                 l_energy,
-                <T as NumCast>::from(rot[0][0]).unwrap() * l_space[0]
-                    + <T as NumCast>::from(rot[0][1]).unwrap() * l_space[1]
-                    + <T as NumCast>::from(rot[0][2]).unwrap() * l_space[2],
-                <T as NumCast>::from(rot[1][0]).unwrap() * l_space[0]
-                    + <T as NumCast>::from(rot[1][1]).unwrap() * l_space[1]
-                    + <T as NumCast>::from(rot[1][2]).unwrap() * l_space[2],
-                <T as NumCast>::from(rot[2][0]).unwrap() * l_space[0]
-                    + <T as NumCast>::from(rot[2][1]).unwrap() * l_space[1]
-                    + <T as NumCast>::from(rot[2][2]).unwrap() * l_space[2],
+                T::convert_from(&rot[0][0]) * l_space[0]
+                    + T::convert_from(&rot[0][1]) * l_space[1]
+                    + T::convert_from(&rot[0][2]) * l_space[2],
+                T::convert_from(&rot[1][0]) * l_space[0]
+                    + T::convert_from(&rot[1][1]) * l_space[1]
+                    + T::convert_from(&rot[1][2]) * l_space[2],
+                T::convert_from(&rot[2][0]) * l_space[0]
+                    + T::convert_from(&rot[2][1]) * l_space[1]
+                    + T::convert_from(&rot[2][2]) * l_space[2],
             );
         }
 
@@ -923,15 +923,15 @@ impl SquaredTopologySet {
                         // undo the rotation
                         let rotated = LorentzVector::from_args(
                             T::zero(),
-                            <T as NumCast>::from(rot[0][0]).unwrap() * k_other_channel[i].x
-                                + <T as NumCast>::from(rot[1][0]).unwrap() * k_other_channel[i].y
-                                + <T as NumCast>::from(rot[2][0]).unwrap() * k_other_channel[i].z,
-                            <T as NumCast>::from(rot[0][1]).unwrap() * k_other_channel[i].x
-                                + <T as NumCast>::from(rot[1][1]).unwrap() * k_other_channel[i].y
-                                + <T as NumCast>::from(rot[2][1]).unwrap() * k_other_channel[i].z,
-                            <T as NumCast>::from(rot[0][2]).unwrap() * k_other_channel[i].x
-                                + <T as NumCast>::from(rot[1][2]).unwrap() * k_other_channel[i].y
-                                + <T as NumCast>::from(rot[2][2]).unwrap() * k_other_channel[i].z,
+                            T::convert_from(&rot[0][0]) * k_other_channel[i].x
+                                + T::convert_from(&rot[1][0]) * k_other_channel[i].y
+                                + T::convert_from(&rot[2][0]) * k_other_channel[i].z,
+                            T::convert_from(&rot[0][1]) * k_other_channel[i].x
+                                + T::convert_from(&rot[1][1]) * k_other_channel[i].y
+                                + T::convert_from(&rot[2][1]) * k_other_channel[i].z,
+                            T::convert_from(&rot[0][2]) * k_other_channel[i].x
+                                + T::convert_from(&rot[1][2]) * k_other_channel[i].y
+                                + T::convert_from(&rot[2][2]) * k_other_channel[i].z,
                         );
                         if self.settings.general.multi_channeling_alpha < 0. {
                             Topology::inv_parametrize(
@@ -1150,15 +1150,15 @@ impl SquaredTopologySet {
             let rot = &self.rotation_matrix;
             k[i] = LorentzVector::from_args(
                 l_energy,
-                <T as NumCast>::from(rot[0][0]).unwrap() * l_space[0]
-                    + <T as NumCast>::from(rot[0][1]).unwrap() * l_space[1]
-                    + <T as NumCast>::from(rot[0][2]).unwrap() * l_space[2],
-                <T as NumCast>::from(rot[1][0]).unwrap() * l_space[0]
-                    + <T as NumCast>::from(rot[1][1]).unwrap() * l_space[1]
-                    + <T as NumCast>::from(rot[1][2]).unwrap() * l_space[2],
-                <T as NumCast>::from(rot[2][0]).unwrap() * l_space[0]
-                    + <T as NumCast>::from(rot[2][1]).unwrap() * l_space[1]
-                    + <T as NumCast>::from(rot[2][2]).unwrap() * l_space[2],
+                T::convert_from(&rot[0][0]) * l_space[0]
+                    + T::convert_from(&rot[0][1]) * l_space[1]
+                    + T::convert_from(&rot[0][2]) * l_space[2],
+                T::convert_from(&rot[1][0]) * l_space[0]
+                    + T::convert_from(&rot[1][1]) * l_space[1]
+                    + T::convert_from(&rot[1][2]) * l_space[2],
+                T::convert_from(&rot[2][0]) * l_space[0]
+                    + T::convert_from(&rot[2][1]) * l_space[1]
+                    + T::convert_from(&rot[2][2]) * l_space[2],
             );
             jac_para *= jac;
             para_jacs[i] = jac_para;
@@ -3017,9 +3017,8 @@ impl SquaredTopology {
 
     /// Create a rotated version of this squared topology. The axis needs to be normalized.
     fn rotate(&self, angle: f128, axis: (f128, f128, f128)) -> SquaredTopology {
-        let cos_t = angle.cos();
-        let sin_t = angle.sin();
-        let cos_t_bar = f128::one() - angle.cos();
+        let (sin_t, cos_t) = angle.sin_cos();
+        let cos_t_bar = f128::one() - cos_t;
 
         let rot_matrix: [[f128; 3]; 3] = [
             [

@@ -12,7 +12,7 @@ use itertools::Itertools;
 use lorentz_vector::LorentzVector;
 use num::Complex;
 use num_traits::ops::inv::Inv;
-use num_traits::{Float, FloatConst, NumCast, One, Pow, Signed, Zero};
+use num_traits::{Float, FloatConst, One, Pow, Signed, Zero};
 
 use crate::utils;
 
@@ -1337,7 +1337,7 @@ impl Topology {
                 // compute the postive cut energy
                 let q: LorentzVector<T> = ll.propagators[i].q.cast();
                 let energy = ((mom + q).spatial_squared()
-                    + <T as NumCast>::from(ll.propagators[i].m_squared).unwrap())
+                    + Into::<T>::into(ll.propagators[i].m_squared))
                 .sqrt();
 
                 res += energy.multiply_sign(surf.signs[cut_index]);
@@ -1355,12 +1355,10 @@ impl Topology {
         }
 
         let q: LorentzVector<T> = onshell_prop.q.cast();
-        let energy = ((mom + q).spatial_squared()
-            + <T as NumCast>::from(onshell_prop.m_squared).unwrap())
-        .sqrt();
+        let energy = ((mom + q).spatial_squared() + Into::<T>::into(onshell_prop.m_squared)).sqrt();
 
         res += energy.multiply_sign(surf.delta_sign);
-        res += <T as NumCast>::from(surf.shift.t).unwrap();
+        res += Into::<T>::into(surf.shift.t);
         res
     }
 
@@ -1482,8 +1480,9 @@ impl Topology {
 
         let mut source_scaling = Hyperdual::<T, N>::zero();
         if self.settings.deformation.fixed.source_dampening_factor > 0. {
-            let aij: Hyperdual<T, N> =
-                NumCast::from(self.settings.deformation.fixed.source_dampening_factor).unwrap();
+            let aij: Hyperdual<T, N> = Hyperdual::from_real(Into::<T>::into(
+                self.settings.deformation.fixed.source_dampening_factor,
+            ));
 
             for (surf1_index, surf1) in self.surfaces.iter().enumerate() {
                 for (surf2_index, surf2) in self.surfaces.iter().enumerate() {
@@ -1515,7 +1514,7 @@ impl Topology {
                 let lambda = Hyperdual::<T, N>::one();
                 // TODO: index
                 /*if i < self.settings.deformation.lambdas.len() {
-                    lambda = NumCast::from(self.settings.deformation.lambdas[i]).unwrap();
+                    lambda = Into::<T>::into(self.settings.deformation.lambdas[i]);
                 }*/
 
                 if self.settings.general.debug > 2 {
@@ -1953,7 +1952,9 @@ impl Topology {
                 cache,
             )
         } else {
-            NumCast::from(self.settings.deformation.scaling.lambda.abs()).unwrap()
+            Hyperdual::from_real(Into::<T>::into(
+                self.settings.deformation.scaling.lambda.abs(),
+            ))
         };
 
         cache.overall_lambda = lambda.real();
