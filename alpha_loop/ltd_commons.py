@@ -271,7 +271,7 @@ hyperparameters = HyperParameters({
             'expansion_threshold'       : -0.3,
             'branch_cut_check'          : True,
             # take the branch cut lambda to a higher power to dampen faster around focal points
-            'branch_cut_alpha'          : 1.0,
+            'branch_cut_alpha'          : 2.0,
             # The two branchcut M parameters below allow the argument of the square roots
             # to visit all four complex quadrants while still never crossing a branchcut
             'branch_cut_m'              : -1.0,
@@ -280,7 +280,7 @@ hyperparameters = HyperParameters({
             'source_branch_cut_multiplier' : 0.8,
             # the strategy can be none, real_solution (the old method), exact (for 1 loop), and tangent_check
             'pole_check_strategy'       : 'real_solution',
-            'soft_dampening_power'      : 1.5,
+            'soft_dampening_power'      : 1.0,
             'theta_r_out'               : 10.,
             'theta_r_in'                : 10.,
             'theta_c'                   : 10.,
