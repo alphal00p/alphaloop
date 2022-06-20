@@ -115,6 +115,8 @@ pub struct Scaling {
     pub expansion_check_strategy: ExpansionCheckStrategy,
     pub pole_check_strategy: PoleCheckStrategy,
     pub soft_dampening_power: f64,
+    pub soft_dampening_m: f64,
+    pub pinch_dampening_m: f64,
     pub theta_r_out: f64,
     pub theta_r_in: f64,
     pub theta_c: f64,

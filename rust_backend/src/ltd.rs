@@ -1150,7 +1150,9 @@ impl Topology {
                         ));
 
                         let dampening = Into::<T>::into(lambda_max) * t
-                            / (t + Into::<T>::into(self.settings.deformation.fixed.m_ij.powi(2)));
+                            / (t + Into::<T>::into(
+                                self.settings.deformation.scaling.soft_dampening_m.powi(2),
+                            ));
 
                         if dampening * dampening < lambda_sq.real() {
                             lambda_sq = Hyperdual::from_real(dampening * dampening);
@@ -1165,9 +1167,6 @@ impl Topology {
             && self.settings.deformation.fixed.dampen_on_pinch_after_lambda
             && !self.fixed_deformation.is_empty()
         {
-            let mij_min_sq = Into::<T>::into(self.compute_min_mij().powi(2));
-            let mij_sq =
-                Into::<T>::into(self.settings.deformation.fixed.m_ij.abs().powi(2)) * mij_min_sq;
             for (surf_index, s) in self.surfaces.iter().enumerate() {
                 if (s.surface_type != SurfaceType::Pinch
                     && s.surface_type != SurfaceType::Ellipsoid)
@@ -1193,7 +1192,10 @@ impl Topology {
                         self.settings.deformation.fixed.pinch_dampening_alpha,
                     ));
 
-                let sup = t / (t + mij_sq) * Into::<T>::into(lambda_max);
+                let sup =
+                    t / (t + Into::<T>::into(
+                        self.settings.deformation.scaling.pinch_dampening_m.powi(2),
+                    )) * Into::<T>::into(lambda_max);
 
                 if sup * sup < lambda_sq {
                     lambda_sq = sup * sup;

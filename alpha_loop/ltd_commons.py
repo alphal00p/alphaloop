@@ -281,6 +281,8 @@ hyperparameters = HyperParameters({
             # the strategy can be none, real_solution (the old method), exact (for 1 loop), and tangent_check
             'pole_check_strategy'       : 'real_solution',
             'soft_dampening_power'      : 1.0,
+            'soft_dampening_m'          : 0.069,
+            'pinch_dampening_m'         : 0.069,
             'theta_r_out'               : 10.,
             'theta_r_in'                : 10.,
             'theta_c'                   : 10.,
