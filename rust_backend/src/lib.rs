@@ -1305,13 +1305,103 @@ impl PythonCrossSection {
     #[args(diagram_set = "None")]
     fn get_cut_deformation(
         &mut self,
-        _loop_momenta: Vec<LorentzVector<f64>>,
-        _cut_index: usize,
+        loop_momenta: Vec<LorentzVector<f64>>,
+        cut_index: usize,
+        scaling: f64,
         _diagram_set: Option<usize>,
-    ) -> PyResult<Vec<LorentzVector<Complex<f64>>>> {
-        Err(pyo3::exceptions::PyAssertionError::new_err(
-            "Not implemented",
-        ))
+    ) -> PyResult<(Vec<LorentzVector<Complex<f64>>>, (f64, f64))> {
+        let external_momenta: ArrayVec<[LorentzVector<f64>; MAX_LOOP]> = self
+            .squared_topology
+            .external_momenta
+            .iter()
+            .map(|m| m.map(|c| c.into()))
+            .collect();
+
+        let mut def_jacobian = Complex::default();
+        let mut deformation = vec![LorentzVector::default(); self.squared_topology.n_loops];
+
+        let raised_cut_powers: ArrayVec<[usize; MAX_LOOP + 4]> =
+            self.squared_topology.cutkosky_cuts[cut_index]
+                .cuts
+                .iter()
+                .filter(|cc| cc.power > 1)
+                .map(|cc| cc.power)
+                .collect();
+
+        match &raised_cut_powers[..] {
+            [] => self.squared_topology.evaluate_cut::<f64, f64>(
+                &loop_momenta,
+                &external_momenta,
+                &mut self.caches,
+                &mut Some(&mut self.integrand.event_manager),
+                cut_index,
+                scaling,
+                Some((&mut deformation, &mut def_jacobian)),
+            ),
+            [2] => self
+                .squared_topology
+                .evaluate_cut::<f64, Hyperdual<f64, 2>>(
+                    &loop_momenta,
+                    &external_momenta,
+                    &mut self.caches,
+                    &mut Some(&mut self.integrand.event_manager),
+                    cut_index,
+                    scaling,
+                    Some((&mut deformation, &mut def_jacobian)),
+                ),
+            [3] => self.squared_topology.evaluate_cut::<f64, Dualt2<f64>>(
+                &loop_momenta,
+                &external_momenta,
+                &mut self.caches,
+                &mut Some(&mut self.integrand.event_manager),
+                cut_index,
+                scaling,
+                Some((&mut deformation, &mut def_jacobian)),
+            ),
+            [2, 2] => self.squared_topology.evaluate_cut::<f64, Dualkt2<f64>>(
+                &loop_momenta,
+                &external_momenta,
+                &mut self.caches,
+                &mut Some(&mut self.integrand.event_manager),
+                cut_index,
+                scaling,
+                Some((&mut deformation, &mut def_jacobian)),
+            ),
+            [4] => self.squared_topology.evaluate_cut::<f64, Dualt3<f64>>(
+                &loop_momenta,
+                &external_momenta,
+                &mut self.caches,
+                &mut Some(&mut self.integrand.event_manager),
+                cut_index,
+                scaling,
+                Some((&mut deformation, &mut def_jacobian)),
+            ),
+            [2, 3] => self.squared_topology.evaluate_cut::<f64, Dualkt3<f64>>(
+                &loop_momenta,
+                &external_momenta,
+                &mut self.caches,
+                &mut Some(&mut self.integrand.event_manager),
+                cut_index,
+                scaling,
+                Some((&mut deformation, &mut def_jacobian)),
+            ),
+            [2, 2, 2] => self.squared_topology.evaluate_cut::<f64, Dualklt3<f64>>(
+                &loop_momenta,
+                &external_momenta,
+                &mut self.caches,
+                &mut Some(&mut self.integrand.event_manager),
+                cut_index,
+                scaling,
+                Some((&mut deformation, &mut def_jacobian)),
+            ),
+            _ => {
+                return Err(pyo3::exceptions::PyValueError::new_err(
+                    "No scaling could be obtained",
+                ));
+            }
+        };
+
+        Ok((deformation, (def_jacobian.re, def_jacobian.im)))
     }
 
     fn parameterize(

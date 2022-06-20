@@ -69,7 +69,7 @@ impl Topology {
     pub fn print_surface(&self, index: usize, s: &Surface) {
         print!("Surface {}: ", index);
         for ((ll, pp), e_sign, _) in &s.id {
-            print!("{}sqrt((", if *e_sign > 0 { "+" } else { "-" });
+            print!("{}|(", if *e_sign > 0 { "+" } else { "-" });
             let prop = &self.loop_lines[*ll].propagators[*pp];
             // get the loop momentum
             for (i, sig) in prop.signature.iter().enumerate() {
@@ -77,13 +77,19 @@ impl Topology {
                     print!("{}k{}", if *sig > 0 { "+" } else { "-" }, i);
                 }
             }
-            print!("+({},{},{}))^2", prop.q.x, prop.q.y, prop.q.z);
+            if prop.q.x != 0. || prop.q.y != 0. || prop.q.z != 0. {
+                print!("+({},{},{})", prop.q.x, prop.q.y, prop.q.z);
+            }
 
-            print!("+{})", prop.m_squared);
+            print!(")^2");
+
+            if prop.m_squared != 0. {
+                print!("+{}", prop.m_squared);
+            }
+            print!("|");
         }
         println!(
-            "#{}: {:+} exists={} type={:?}",
-            index,
+            "{:+} exists={} type={:?}",
             s.shift.t.multiply_sign(s.delta_sign),
             s.exists,
             s.surface_type
@@ -1636,8 +1642,11 @@ impl Topology {
                 // skip the SCS check if foci overlap or if the surfaces are on different loop lines
                 let mut num_overlap = 0;
                 let mut loop_line_overlap = false;
+                let mut massive = false;
                 for foc1 in &ellipsoid_list[i].foci {
+                    massive |= foc1.m_squared > 0.;
                     for foc2 in &ellipsoid_list[j].foci {
+                        massive |= foc2.m_squared > 0.;
                         if foc1
                             .signature
                             .iter()
@@ -1654,8 +1663,9 @@ impl Topology {
 
                 let mut focus_overlap = false;
                 if !loop_line_overlap
-                    || (num_overlap + 1 >= ellipsoid_list[i].foci.len()
-                        && num_overlap + 1 >= ellipsoid_list[j].foci.len())
+                    || !massive
+                        && (num_overlap + 1 >= ellipsoid_list[i].foci.len()
+                            && num_overlap + 1 >= ellipsoid_list[j].foci.len())
                 {
                     self.socp_problem.pair_overlap_matrix[i * ellipsoid_list.len() + j] = true;
                     self.socp_problem.pair_overlap_matrix[j * ellipsoid_list.len() + i] = true;

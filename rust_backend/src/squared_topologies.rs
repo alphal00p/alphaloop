@@ -2283,7 +2283,7 @@ impl SquaredTopology {
         event_manager: &mut Option<&mut EventManager>,
         cut_index: usize,
         scaling: T,
-        selected_diagram_set: Option<usize>,
+        mut deformation: Option<(&mut [LorentzVector<Complex<T>>], &mut Complex<T>)>,
     ) -> Complex<T> {
         let scaling = *D::from_real(scaling).set_t(T::one());
 
@@ -2597,12 +2597,6 @@ impl SquaredTopology {
                 continue;
             }
 
-            if let Some(sid) = selected_diagram_set {
-                if sid != diagram_set.id {
-                    continue;
-                }
-            }
-
             let do_deformation = self.settings.general.deformation_strategy
                 == DeformationStrategy::Fixed
                 && (diag_set_index == 0
@@ -2762,6 +2756,12 @@ impl SquaredTopology {
                             lm.map(|x| Complex::new(x, D::zero()))
                                 + kappa.map(|x| Complex::new(D::zero(), x.into()))
                         };
+
+                        if let Some((store_kappa, _)) = deformation.as_mut() {
+                            store_kappa[k_def_index] = k_def[k_def_index]
+                                .map(|x| Complex::new(x.re.get_real(), x.im.get_real()));
+                        }
+
                         k_def_index += 1;
                     }
 
@@ -2773,6 +2773,11 @@ impl SquaredTopology {
                 } else {
                     k_def_index += subgraph.n_loops;
                 }
+            }
+
+            if let Some((_, store_jac)) = deformation {
+                *store_jac = def_jacobian;
+                return Complex::zero(); // early return
             }
 
             if !self
