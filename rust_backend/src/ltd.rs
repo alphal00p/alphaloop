@@ -1143,19 +1143,28 @@ impl Topology {
                     let info = &mut cache.cut_info[p.id];
 
                     if info.m_sq.real() == T::zero() {
-                        let t = (info.real_energy.real() * info.real_energy.real()
-                            / Into::<T>::into(self.e_cm_squared))
-                        .powf(Into::<T>::into(
-                            self.settings.deformation.scaling.soft_dampening_power,
-                        ));
+                        let t = info.spatial_and_mass_sq / info.kappa_sq
+                            * (info.spatial_and_mass_sq / Into::<T>::into(self.e_cm_squared)).powf(
+                                Hyperdual::from_real(
+                                    Into::<T>::into(
+                                        self.settings.deformation.scaling.soft_dampening_power,
+                                    ) - T::one(),
+                                ),
+                            );
 
-                        let dampening = Into::<T>::into(lambda_max) * t
-                            / (t + Into::<T>::into(
+                        // soft dampening without using kappa
+                        /*let t = (info.spatial_and_mass_sq / Into::<T>::into(self.e_cm_squared))
+                        .powf(Hyperdual::from_real(Into::<T>::into(
+                            self.settings.deformation.scaling.soft_dampening_power,
+                        )));*/
+
+                        let dampening =
+                            t / (t + Into::<T>::into(
                                 self.settings.deformation.scaling.soft_dampening_m.powi(2),
-                            ));
+                            )) * Into::<T>::into(lambda_max);
 
                         if dampening * dampening < lambda_sq.real() {
-                            lambda_sq = Hyperdual::from_real(dampening * dampening);
+                            lambda_sq = dampening * dampening;
                         }
                     }
                 }
@@ -1573,7 +1582,7 @@ impl Topology {
                         }
                     } else {
                         let sup = t / (t + mij_sq);
-                        s *= sup;
+                        s = s.min(sup);
                         sup
                     };
 
