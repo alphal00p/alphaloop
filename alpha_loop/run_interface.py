@@ -160,13 +160,13 @@ class RunHyperparameters(HyperParameters):
             'Deformation.fixed.pinch_dampening_alpha'       : 2.0,
             'Deformation.fixed.pinch_dampening_k_com'       : 1.0,
             'Deformation.fixed.pinch_dampening_k_shift'     : 0.0,
-            'Deformation.scaling.branch_cut_alpha'          : 2.0,
-            'Deformation.scaling.soft_dampening_power'      : 1.0,
+            'Deformation.scaling.branch_cut_alpha'          : 1.0,
+            'Deformation.scaling.soft_dampening_power'      : 1.5,
             'Deformation.fixed.dampen_on_pinch'             : True,
             'Deformation.fixed.dampen_on_pinch_after_lambda': True,
             'Deformation.overall_scaling'                   : 'constant',
-            'Deformation.overall_scaling_constant'          : 10.0,
-            'Deformation.scaling.lambda'                    : 10.0,
+            'Deformation.overall_scaling_constant'          : 1.0,
+            'Deformation.scaling.lambda'                    : 1.0,
             'CrossSection.inherit_deformation_for_uv_counterterm' : False,
 
             'General.stability_checks'                      : [

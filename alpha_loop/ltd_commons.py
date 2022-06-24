@@ -242,7 +242,7 @@ hyperparameters = HyperParameters({
         # can be constant, linear, sigmoid, or exp_dampening
         'overall_scaling' : 'constant',
         # fraction of e_cm used for scaling
-        'overall_scaling_constant'  : 10.0,
+        'overall_scaling_constant'  : 1.0,
         # A negative number indicates this normalisation is disabled
         # A positive number indicate the value to use in the T function for this normalisation strategy
         'normalize_on_E_surfaces_m' : -1.0,
@@ -253,7 +253,7 @@ hyperparameters = HyperParameters({
         'scaling'   :   {
             # positive value: maximum lambda in auto scaling
             # negative value: no auto scaling, lambda is set to abs(lambda)
-            'lambda'                    : 10.0,
+            'lambda'                    : 1.0,
             # sigma=0 means normal min. sigma large decreases steepness
             'softmin_sigma'             : 0.0,
             # The expansion check strategy can either be
@@ -271,7 +271,7 @@ hyperparameters = HyperParameters({
             'expansion_threshold'       : -0.3,
             'branch_cut_check'          : True,
             # take the branch cut lambda to a higher power to dampen faster around focal points
-            'branch_cut_alpha'          : 2.0,
+            'branch_cut_alpha'          : 1.0,
             # The two branchcut M parameters below allow the argument of the square roots
             # to visit all four complex quadrants while still never crossing a branchcut
             'branch_cut_m'              : -1.0,
@@ -280,7 +280,7 @@ hyperparameters = HyperParameters({
             'source_branch_cut_multiplier' : 0.8,
             # the strategy can be none, real_solution (the old method), exact (for 1 loop), and tangent_check
             'pole_check_strategy'       : 'real_solution',
-            'soft_dampening_power'      : 1.0,
+            'soft_dampening_power'      : 1.5,
             'soft_dampening_m'          : 0.069,
             'pinch_dampening_m'         : 0.069,
             'theta_r_out'               : 10.,
