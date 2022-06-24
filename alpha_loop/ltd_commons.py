@@ -307,7 +307,7 @@ hyperparameters = HyperParameters({
             'dampen_on_pinch': True,
             # dampen the deformation on pinches (if dampen_on_pinch is set) after the lambda scaling
             'dampen_on_pinch_after_lambda': True,
-            'pinch_dampening_alpha': 2.0,
+            'pinch_dampening_alpha': 1.0,
             'pinch_dampening_k_com': 1.,
             'pinch_dampening_k_shift': 0.,
             # Specify a strategy to veto small problematic regions close to IR singularities

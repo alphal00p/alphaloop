@@ -197,7 +197,7 @@ impl<T: FloatLike, const N: usize> Default for CutInfo<T, N> {
 /// A cache for objects needed during LTD computation
 pub struct LTDCacheI<T: FloatLike, const N: usize> {
     pub ellipsoid_eval: Vec<Option<Hyperdual<T, N>>>,
-    pub ellipsoid_normal_norm_eval: Vec<Option<Hyperdual<T, N>>>,
+    pub ellipsoid_normal_norm_sq_eval: Vec<Option<Hyperdual<T, N>>>,
     pub deform_dirs: Vec<LorentzVector<Hyperdual<T, N>>>,
     pub non_empty_cuts: Vec<(usize, usize)>,
     pub deformation_jacobian: Vec<Complex<T>>,
@@ -210,7 +210,7 @@ impl<T: FloatLike, const N: usize> Default for LTDCacheI<T, N> {
     fn default() -> LTDCacheI<T, N> {
         LTDCacheI {
             ellipsoid_eval: vec![],
-            ellipsoid_normal_norm_eval: vec![],
+            ellipsoid_normal_norm_sq_eval: vec![],
             deform_dirs: vec![],
             non_empty_cuts: vec![],
             deformation_jacobian: vec![],
@@ -225,7 +225,7 @@ impl<T: FloatLike, const N: usize> LTDCacheI<T, N> {
     fn new(num_loops: usize, num_surfaces: usize, num_propagators: usize) -> LTDCacheI<T, N> {
         LTDCacheI {
             ellipsoid_eval: vec![None; num_surfaces],
-            ellipsoid_normal_norm_eval: vec![None; num_surfaces],
+            ellipsoid_normal_norm_sq_eval: vec![None; num_surfaces],
             deform_dirs: vec![LorentzVector::default(); num_surfaces * num_loops],
             non_empty_cuts: vec![(0, 0); num_surfaces],
             deformation_jacobian: vec![Complex::default(); 9 * num_loops * num_loops],

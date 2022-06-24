@@ -1185,19 +1185,20 @@ impl Topology {
                     continue;
                 }
 
-                let e = cache.ellipsoid_eval[surf_index].unwrap().powi(2)
-                    + cache.ellipsoid_normal_norm_eval[surf_index]
-                        .unwrap()
-                        .powi(2);
                 let n = Into::<T>::into(self.surfaces[surf_index].shift.t.powi(2));
 
-                let t = (e
+                let e = (
+                    cache.ellipsoid_eval[surf_index].unwrap().powi(2)
                     / (Into::<T>::into(
                         self.settings.deformation.fixed.pinch_dampening_k_com * self.e_cm_squared,
                     ) + Into::<T>::into(
                         self.settings.deformation.fixed.pinch_dampening_k_shift,
                     ) * n))
-                    .pow(Into::<T>::into(
+                    + cache.ellipsoid_normal_norm_sq_eval[surf_index]
+                        .unwrap()
+                        .powi(2);
+
+                let t = e.sqrt().pow(Into::<T>::into(
                         self.settings.deformation.fixed.pinch_dampening_alpha,
                     ));
 
@@ -1486,7 +1487,7 @@ impl Topology {
             }
 
             cache.ellipsoid_eval[i] = Some(cut_energy);
-            cache.ellipsoid_normal_norm_eval[i] = Some(norm_der);
+            cache.ellipsoid_normal_norm_sq_eval[i] = Some(norm_der);
         }
 
         let mut source_scaling = Hyperdual::<T, N>::zero();

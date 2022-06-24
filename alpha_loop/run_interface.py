@@ -157,7 +157,7 @@ class RunHyperparameters(HyperParameters):
             'CrossSection.NormalisingFunction.name'         : 'left_right_exponential',
             'CrossSection.NormalisingFunction.center'       : 1.0,
             'CrossSection.NormalisingFunction.spread'       : 1.0,
-            'Deformation.fixed.pinch_dampening_alpha'       : 2.0,
+            'Deformation.fixed.pinch_dampening_alpha'       : 1.0,
             'Deformation.fixed.pinch_dampening_k_com'       : 1.0,
             'Deformation.fixed.pinch_dampening_k_shift'     : 0.0,
             'Deformation.scaling.branch_cut_alpha'          : 1.0,
