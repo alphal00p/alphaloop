@@ -12,6 +12,13 @@ import sys
 sys.path.insert(0,pjoin(root_path,os.path.pardir))
 
 from LTD.ltd_utils import TopologyGenerator
+from cff_generator import cFF_Analyser
+
+import logging
+FORMAT = '%(asctime)s %(message)s'
+logging.basicConfig(format=FORMAT)
+logger = logging.getLogger('TOPT_LTD')
+logger.setLevel(logging.INFO)
 
 class TOPTLTDException(Exception):
     pass
@@ -23,6 +30,7 @@ class TOPTLTD_Analyser(object):
     _MERGE_TERMS = True
     _CAS = 'form' # Other option is 'sympy'
     _FORM_PATH = None
+    _SPLIT_ORIENTATIONS = True
 
     def __init__(self, internal_edges, external_edges, name):
         self.ie = list(internal_edges)
@@ -56,6 +64,13 @@ class TOPTLTD_Analyser(object):
         self.loop_momentum_bases = self.topo.loop_momentum_bases()
         self.topo.generate_momentum_flow( loop_momenta = self.loop_momentum_bases[0] )
         self.signature_map = self.topo.get_signature_map()
+        # This will be generated when needed.
+        self.connected_cluster_to_e_surface_map = None
+        self.e_surface_to_connected_cluster_map = None
+
+        # Cache the map from E_surf in the OS energy representation to the node representation
+        # when generating the expression
+        self.E_surf_to_node_repr_dict = {}
 
     def generate_orientation(self, topt_ordering):
 
@@ -89,7 +104,7 @@ class TOPTLTD_Analyser(object):
         return topt_orientations
 
     def get_E_surfaces_for_topt_ordering(self, t):
-
+        
         past_vertices = []
         accumulated_shifts = []
         accumulated_energies = []
@@ -97,6 +112,10 @@ class TOPTLTD_Analyser(object):
         # Do not add the E-surface embedding the whole graph:
         for internal_vertex in t[:-1]:
             accumulated_shifts.extend([i_ee for _,_,i_ee in self.ev[internal_vertex]])
+            # Account for energy-momentum conservation
+            while all(ext in accumulated_shifts for ext in range(len(self.ee))):
+                for ext in range(len(self.ee)):
+                    del accumulated_shifts[accumulated_shifts.index(ext)]
             for connected_vertex, o, i_e in self.ie_map[internal_vertex]:
                 if connected_vertex in past_vertices:
                     try:
@@ -108,6 +127,14 @@ class TOPTLTD_Analyser(object):
                     accumulated_energies.append(i_e)
             past_vertices.append(internal_vertex)
             E_surfaces.append( (tuple(sorted(accumulated_energies)),tuple(sorted(accumulated_shifts))) )
+
+            if E_surfaces[-1] not in self.E_surf_to_node_repr_dict:
+                # Canonicalise the node representation by always picking the one with the lowest internal vertex id
+                if self.iv[0] in past_vertices:
+                    self.E_surf_to_node_repr_dict[E_surfaces[-1]] = set(past_vertices)
+                else:
+                    self.E_surf_to_node_repr_dict[E_surfaces[-1]] = set(self.iv)-set(past_vertices)
+
             #E_surfaces.append( (tuple(sorted(accumulated_energies)), tuple([]) ) )
 
         return tuple(E_surfaces)
@@ -164,7 +191,9 @@ class TOPTLTD_Analyser(object):
             return topt_terms
 
         Es = ['E%d'%i for i in range(len(self.ie))]
-        ps = ['p%d'%i for i in range(len(self.ev))]
+        #ps = ['p%d'%i for i in range(len(self.ee))]
+        ps = ['p%d'%i for i in range(len(self.ee)-1)]
+        ps.append( '(-%s)'%('-'.join(ps[i_e] for i_e in range(len(self.ee)-1))) )
         etas = {}
         for num, denom in topt_terms:
             for E_surf in denom:
@@ -258,12 +287,17 @@ id markerRes*NumTracker(y?)*TestRes(?a) = TestRes(?a);
                 if len(non_common_e_surfs) != 2:
                     continue
                 # Make sure the same edge does not appear twice in the merged term
-                if len(set(non_common_e_surfs[0][0]).intersection(set(non_common_e_surfs[1][0])))>0 or len(set(non_common_e_surfs[0][1]).intersection(set(non_common_e_surfs[1][1])))>0:
+                if len(set(non_common_e_surfs[0][0]).intersection(set(non_common_e_surfs[1][0])))>0:
                     continue
-
-                merged_e_surf_in_num = ( tuple(sorted(list(non_common_e_surfs[0][0])+list(non_common_e_surfs[1][0]))),
-                                         tuple(sorted(list(non_common_e_surfs[0][1])+list(non_common_e_surfs[1][1])))  )
                 
+                merged_OSEs = tuple(sorted(list(non_common_e_surfs[0][0])+list(non_common_e_surfs[1][0])))
+                merged_externals = list(non_common_e_surfs[0][1])+list(non_common_e_surfs[1][1])
+                # Account for energy-momentum conservation
+                while all(ext in merged_externals for ext in range(len(self.ee))):
+                    for ext in range(len(self.ee)):
+                        del merged_externals[merged_externals.index(ext)]
+                merged_externals = tuple(sorted(merged_externals))
+                merged_e_surf_in_num = ( merged_OSEs, merged_externals )
                 common_e_surfs = list(a[1].intersection(b[1]))
                 if merged_e_surf_in_num in common_e_surfs:
                     topt_terms[:] = [ [ 1, (set(common_e_surfs) - {merged_e_surf_in_num,}).union(set(non_common_e_surfs)) ] ] + [ t for i_t, t in enumerate(topt_terms) if i_t not in [i_a, i_b] ]
@@ -272,10 +306,9 @@ id markerRes*NumTracker(y?)*TestRes(?a) = TestRes(?a);
                     continue
             else:
                 break
-
         return topt_terms
 
-    def merge_topt_terms_helper(self, args):
+    def merge_topt_terms_helper(self, args, **opts):
 
         orientation, topt_terms = args
 
@@ -286,17 +319,17 @@ id markerRes*NumTracker(y?)*TestRes(?a) = TestRes(?a);
         if self._MERGE_TERMS:
             if self._ALLOW_NUMERATORS_WHEN_SIMPLIFYING_TOPT_TERMS:
                 if self._CAS == 'sympy':
-                    numerator_and_E_surfaces_per_term = self.merge_topt_terms_with_numerators_sympy(numerator_and_E_surfaces_per_term)
+                    numerator_and_E_surfaces_per_term = self.merge_topt_terms_with_numerators_sympy(numerator_and_E_surfaces_per_term,**opts)
                 else:
-                    numerator_and_E_surfaces_per_term = self.merge_topt_terms_with_numerators_form(numerator_and_E_surfaces_per_term)
+                    numerator_and_E_surfaces_per_term = self.merge_topt_terms_with_numerators_form(numerator_and_E_surfaces_per_term,**opts)
             else:
-                numerator_and_E_surfaces_per_term = self.merge_topt_terms_without_numerators(numerator_and_E_surfaces_per_term)#, debug=(orientation==(-1, 1, -1, 1)))
+                numerator_and_E_surfaces_per_term = self.merge_topt_terms_without_numerators(numerator_and_E_surfaces_per_term,**opts)#, debug=(orientation==(-1, 1, -1, 1)))
         return orientation, tuple( ( nE[0], tuple(sorted(list(nE[1]))) ) for nE in numerator_and_E_surfaces_per_term )
 
     def process_topt_terms(self, topt_terms):
 
         processed_terms = {}
-        print("Processing TOPT terms on %d CPUS and %sconsidering numerators for merging..."%(self._N_CPUS, 'NOT ' if not self._ALLOW_NUMERATORS_WHEN_SIMPLIFYING_TOPT_TERMS else ''))
+        logger.info("Processing TOPT terms on %d CPUS and %sconsidering numerators for merging..."%(self._N_CPUS, 'NOT ' if not self._ALLOW_NUMERATORS_WHEN_SIMPLIFYING_TOPT_TERMS else ''))
         
         if self._CAS=='form' and self._MERGE_TERMS and self._ALLOW_NUMERATORS_WHEN_SIMPLIFYING_TOPT_TERMS and not os.path.isfile(os.path.join(root_path,'form.set')):
             with open(os.path.join(root_path,'form.set'),'w') as f:
@@ -314,11 +347,11 @@ SubTermsInSmall=10M""")
                     print("Processing orientation #%d/%d"%(len(processed_terms),len(topt_terms)),end='\r')
         else:
             for o, t in topt_terms.items():
-                #if o != (-1, 1, -1, 1, -1, 1, -1):
+                #if o != (-1, 1, 1, -1, 1, -1, -1):
                 #    continue
-                orientation, merged_terms = self.merge_topt_terms_helper([o,t])
+                orientation, merged_terms = self.merge_topt_terms_helper([o,t])#,debug=True)
                 processed_terms[orientation] = merged_terms
-                #print("Processing orientation #%d/%d"%(len(processed_terms),len(topt_terms)),end='\r')
+                #logger.info("Processing orientation #%d/%d"%(len(processed_terms),len(topt_terms)),end='\r')
         return processed_terms
 
     def generate_mathematica_cFF_code(self, topt_ltd_terms):
@@ -389,7 +422,7 @@ Total[Table[
 ,{t,terms}
 ];
 
-( (Complex[0, -1])^(%(n_loops)d) / ((Times@@Table[2*OSE[ie],{ie,0,NInternalEdges-1}])/.OSEReplacement) )*Total[ResPerOrientations]
+( (Complex[0, -1])^(%(n_loops)d) / ((Times@@Table[-2*OSE[ie],{ie,0,NInternalEdges-1}])/.OSEReplacement) )*Total[ResPerOrientations]
 
 ];
 
@@ -433,9 +466,15 @@ Print["%(name)sRepresentationsRatio = ", N[%(name)scFFNum/%(name)scLTDNum,40]//F
         )
 
         return \
-"""cLTDPATH="<PASTE_HERE_YOUR_CLTD_PATH>"(*"/Users/vjhirsch/HEP_programs/cLTD/cLTD.m"*);
+"""(* Loading of the cLTD package *)
+
+cLTDPATH="<PASTE_HERE_YOUR_CLTD_PATH>"(*"/Users/vjhirsch/HEP_programs/cLTD/cLTD.m"*);
 FORMPATH="<PASTE_HERE_YOUR_FORM_PATH>"(*"/Users/vjhirsch/HEP_programs/form/bin/form"*);
 Get[cLTDPATH];
+
+
+(* cLTD representation *)
+
 %(name)scLTD = cLTD[%(MM_props)s, loopmom -> {%(MM_loopmoms)s}, EvalAll -> True, "FORMpath" -> FORMPATH];
 RNSeed=1;
 RN = Table[Prime[i]/Prime[i+1],{i,RNSeed,%(max_rndm)d+RNSeed-1}];
@@ -460,22 +499,27 @@ Print["%(name)scLTDNum = ", N[%(name)scLTDNum,40]//FullForm];
 
         # Create all topt orderings
         topt_terms = self.get_topt_terms()
-        print("Original TOPT expression has %d orientations and %d terms, with a maximum of %d terms per orientation."%(
+
+        if not self._SPLIT_ORIENTATIONS:
+            logger.info("Merging all orientations within a single list of terms that will be merged. This *will* induce finite differences of numerators then!")
+            topt_terms = {(0,) : sum(list(topt_terms.values()),[])}
+
+        logger.info("Original TOPT expression has %d orientations and %d terms, with a maximum of %d terms per orientation."%(
             len(topt_terms.keys()), sum(len(v) for v in topt_terms.values()), max(len(v) for v in topt_terms.values())
         ))
 
         # Now merge TOPT terms
         processed_topt_terms = self.process_topt_terms(topt_terms)
-        print("After merging, the TOPT-LTD expression has %d orientations and %d terms, with a maximum of %d terms per orientation."%(
+        logger.info("After merging, the TOPT-LTD expression has %d orientations and %d terms, with a maximum of %d terms per orientation."%(
             len(processed_topt_terms.keys()), sum(len(v) for v in processed_topt_terms.values()), max(len(v) for v in processed_topt_terms.values())
         ))
 
         analysis['topt_ltd_terms'] = sorted( list(processed_topt_terms.items()), key=lambda el: el[0] )
 
-        print("Maximal number of square roots in E-surfaces in the denominator of any term: %d"%(
+        logger.info("Maximal number of square roots in E-surfaces in the denominator of any term: %d"%(
             max( max( max(len(d[0]) for d in denom) for num, denom in t) for o,t in analysis['topt_ltd_terms'] )
         ))
-        print("Maximal number of E-surfaces in the denominator of any term: %d"%(
+        logger.info("Maximal number of E-surfaces in the denominator of any term: %d"%(
             max( max( len(denom) for num, denom in t) for o,t in analysis['topt_ltd_terms'] )
         ))
 
@@ -483,12 +527,213 @@ Print["%(name)scLTDNum = ", N[%(name)scLTDNum,40]//FullForm];
 
         return analysis
 
+    def span_graph_from_node(self, seed_node, veto_edges):
+
+        current_graph = { seed_node }
+        for i_e, (a,b) in enumerate(self.ie):
+            if i_e in veto_edges:
+                continue
+            if seed_node==a:
+                current_graph = current_graph.union(self.span_graph_from_node(b, veto_edges+[i_e,]))
+            elif seed_node==b:
+                current_graph = current_graph.union(self.span_graph_from_node(a, veto_edges+[i_e,]))
+        return current_graph
+
+    def convert_E_surface_into_node_representation(self, E_surface):
+        
+        if self.e_surface_to_connected_cluster_map is not None and E_surface[0] in self.e_surface_to_connected_cluster_map:
+            return self.e_surface_to_connected_cluster_map[ E_surface[0] ]
+
+        DEBUG_THIS_FUNCTION = False
+
+        if (E_surface not in self.E_surf_to_node_repr_dict) or DEBUG_THIS_FUNCTION:
+
+            #raise TOPTLTDException("E-surface '%s' was never encountered."%str(E_surface))
+
+            # We need to generate it and add it to the cache then
+            # Pick the first edge being cut and explore all nodes accessible from either side.
+            # The sum must cover the whole graph
+            node_representation = []
+            complete_left_graph, complete_right_graph = {}, {}
+            for i_OSE, OSE in enumerate(E_surface[0]):
+                seed_node_left, seed_node_right = self.ie[OSE]
+                left_graph = self.span_graph_from_node(seed_node_left, list(E_surface[0]))
+                right_graph = self.span_graph_from_node(seed_node_right, list(E_surface[0]))
+                if left_graph.intersection(right_graph) != set([]):
+                        raise TOPTLTDException("The E-surface %s does not separate two disconnected regions."%str(E_surface))
+                if min(left_graph) > min(right_graph):
+                    left_graph, right_graph = right_graph, left_graph
+
+                if i_OSE == 0:
+                    complete_left_graph, complete_right_graph = left_graph, right_graph
+                    if left_graph.union(right_graph) == set(self.iv):
+                        node_representation.append( tuple(sorted(list(left_graph))) )
+                        break
+                    else:
+                        node_representation.extend( [ tuple(sorted(list(left_graph))), tuple(sorted(list(right_graph))) ] )
+                else:
+                    node_representation.extend( [ tuple(sorted(list(left_graph))), tuple(sorted(list(right_graph))) ] )
+
+                    complete_left_graph = complete_left_graph.union(left_graph)
+                    complete_right_graph = complete_right_graph.union(right_graph)
+
+            if complete_left_graph.union(complete_right_graph) != set(self.iv):
+                raise TOPTLTDException("Summing both sides of E-surface %s does not span the whole graph."%str(E_surface))
+
+            node_representation = tuple(sorted(list(set(node_representation))))
+
+            if DEBUG_THIS_FUNCTION and E_surface in self.E_surf_to_node_repr_dict:
+                if node_representation != self.E_surf_to_node_repr_dict[E_surface]:
+                    raise TOPTLTDException("Inconsistent reconstruction of the node representation of E-surface %s:\n Reconstructed: %s\n Original: %s"%(
+                        str(E_surface), str(node_representation), str(self.E_surf_to_node_repr_dict[E_surface])
+                    ))
+            self.E_surf_to_node_repr_dict[E_surface] = node_representation
+
+        return self.E_surf_to_node_repr_dict[E_surface]
+
+    def generate_connected_cluster_to_e_surface_map(self, cff_analysis, canonicalise = True):
+
+        connected_cluster_to_e_surface_map = {}
+
+        connected_clusters = cff_analysis['connected_clusters']
+        
+        for cc in connected_clusters:
+            OSEs = []
+            for node in cc:
+                for other_end, _, i_e in self.ie_map[node]:
+                    if other_end not in cc:
+                        OSEs.append(i_e)
+            nodes = set(list(cc))
+            if canonicalise:
+                # Canonicalize the list of not by taking whichever complement has the smallest node id in it.
+                if self.iv[0] not in nodes:
+                    nodes = set(self.iv)-nodes
+            connected_cluster_to_e_surface_map[ ( tuple( nodes ),) ] = tuple(set(list(OSEs)))
+
+
+        return connected_cluster_to_e_surface_map
+
+    def is_a_cFF(self, family):
+
+        # First check that the intersection of any two subset of the family is either one of the subset or the empty set
+        for i, a in enumerate(family):
+            for b in family[i+1:]:
+                if a.intersection(b) not in [a,b,set([])]:
+                    return False
+
+        # Then check that no set can be written as the union of any number of other sets.
+        all_possible_unions = []
+        for n_subsets in range(2,len(family)):
+            for comb in itertools.combinations(family,n_subsets):
+                if set().union(*comb) not in comb:
+                    all_possible_unions.append(set().union(*comb))
+
+        for f in family:
+            if f in all_possible_unions:
+                return False
+
+        return True
+
+    def test_cff_property(self, topt_analysis, cff_analysis, verbosity=1, full_analysis=False):
+        
+        # Generate the map from connected cluster to e surface
+        self.connected_cluster_to_e_surface_map = self.generate_connected_cluster_to_e_surface_map(cff_analysis, canonicalise=False)
+        self.e_surface_to_connected_cluster_map = { v : k for k,v in self.connected_cluster_to_e_surface_map.items() }
+
+        E_surfaces_violating_connected_cluster = []
+        families_violating_cFF = []
+        distinct_E_surfaces = set([])
+        n_topt_ltd_terms = 0
+        for o, terms in topt_analysis['topt_ltd_terms']:
+            for num, etas in terms:
+                n_topt_ltd_terms += 1
+                if any(eta[0] not in self.e_surface_to_connected_cluster_map for eta in etas):
+                    E_surfaces_violating_connected_cluster.extend( [ eta for eta in etas if eta[0] not in self.e_surface_to_connected_cluster_map ] )
+                    continue
+                else:
+                    for eta in etas:
+                        distinct_E_surfaces.add(self.e_surface_to_connected_cluster_map[eta[0]])
+                potential_cFF = tuple([ set(self.e_surface_to_connected_cluster_map[eta[0]][0]) for eta in etas ])
+                if not self.is_a_cFF(potential_cFF):
+                    families_violating_cFF.append(potential_cFF)
+
+        if len(E_surfaces_violating_connected_cluster) == 0:
+            logger.info("ALL %d distinct E-surfaces in denominators correspond to a connected cluster."%len(distinct_E_surfaces))
+        else:
+            logger.info("The following %d E-surfaces%s do *not* correspond to a connected cluster: ( edge representation | node representation )\n%s%s"%(
+                len(E_surfaces_violating_connected_cluster), ' (showing first three)' if verbosity <= 1 else '',
+                '\n'.join( '%s | %s'%( str(eta), str(self.convert_E_surface_into_node_representation(eta)) ) for eta in 
+                (E_surfaces_violating_connected_cluster[:3] if verbosity<=1 else E_surfaces_violating_connected_cluster) ),
+                '\n[...]' if verbosity <= 1 and len(E_surfaces_violating_connected_cluster)>3 else ''
+                )
+            )
+
+        if len(families_violating_cFF) == 0:
+            logger.info("ALL E-surfaces in denominators of the %d TOPT LTD terms correspond to a cross-free family."%n_topt_ltd_terms)
+        else:
+            logger.info("The following %d families%s do *not* correspond to cross-free-family: ( node representation non canonicalised )\n%s%s"%(
+                len(families_violating_cFF), ' (showing first three)' if verbosity <= 1 else '',
+                '\n'.join( '%s'%( str(tuple([ tuple(sorted(list(es))) for es in family ])) ) for family in 
+                (families_violating_cFF[:3] if verbosity<=1 else families_violating_cFF) ),
+                '\n[...]' if verbosity <= 1 and len(families_violating_cFF)>3 else ''
+                )
+            )
+
+        if not full_analysis:
+            return
+
+        # Generate the map from connected cluster to e surface
+        self.connected_cluster_to_e_surface_map = self.generate_connected_cluster_to_e_surface_map(cff_analysis, canonicalise=True)
+        self.e_surface_to_connected_cluster_map = { v : k for k,v in self.connected_cluster_to_e_surface_map.items() }
+
+        # First, canonicalise each cFF by making sure the node representation is the one containing the lowest vertex id
+        cFF = [ tuple(sorted( list( ( tuple(sorted(list(eta if self.iv[0] in eta else set(self.iv)-eta))), ) for eta in eta_list) )) for eta_list in cff_analysis['cross_free_family'] ] 
+        # cFF not canonicalised
+        cFF_not_canonicalised = [ tuple(sorted( list( ( tuple(sorted(list(eta))), ) for eta in eta_list) )) for eta_list in cff_analysis['cross_free_family'] ]
+
+        # for acFF in cFF:
+        #     print(acFF)
+        # stop
+        cFF_encountered = []
+
+        etas_violating_cff = []
+        for o, terms in topt_analysis['topt_ltd_terms']:
+            for num, etas in terms:
+
+                esurf_structure = tuple(sorted([ self.convert_E_surface_into_node_representation(eta) for eta in etas ]))
+                try:
+                    cFF_index = cFF.index(esurf_structure)
+                    cFF_encountered.append(cFF_index)
+                except ValueError:
+                    etas_violating_cff.append( etas )
+
+        if len(etas_violating_cff) > 1:
+            logger.info("There are %d denominator configurations *not* satisfying the cross-free family condition."%len(etas_violating_cff))
+            logger.info(("They are ( edge representation | node representation ):\n%s%s" if verbosity > 1 else "The first three are ( edge representation | node representation ):\n%s%s")%(
+                '\n'.join( '%s | %s'% (str(etas),str(tuple([ self.convert_E_surface_into_node_representation(eta) for eta in etas]))) for etas in (etas_violating_cff[:3] if verbosity <= 1 else etas_violating_cff)),
+                '\n[...]' if verbosity <= 1 else ''
+            ))
+        else:
+            logger.info("ALL TOPT LTD denominator configurations satisfy the cross-free family condition!")
+
+        logger.info("There is a total of %d possible cross-free families, and %d of them were found in the TOPT LTD expression."%(
+            len(cFF), len(cFF_encountered)
+        ))
+        cFF_not_encountered = [ a_cFF for i_cFF, a_cFF in enumerate(cFF_not_canonicalised) if i_cFF not in cFF_encountered ]
+        logger.info("The following%s cross-free-families were unaccounted for (in the node representation):\n%s%s"%(
+            ' (first at most three)' if verbosity <= 1 else '',
+            '\n'.join(
+                str(a_cFF) for a_cFF in ( cFF_not_encountered if verbosity > 1 else cFF_not_encountered[:3] )
+            ),
+            '\n[...]' if verbosity <= 1 else '',
+        ))
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="""Compute the cross-free family LTD representation of a graph and analyses thresholds.""")
     requiredNamed = parser.add_argument_group('required named arguments')
 
-    parser.add_argument('--topology', '-t', dest='topology', type=str, default='box', choices=('box','double-box','pentagon'),
+    parser.add_argument('--topology', '-t', dest='topology', type=str, default='box', choices=('box','double-box','pentagon','fishnet2x2'),
                         help='Specify the topology to run (default: %(default)s).')
 
     parser.add_argument('--cas', '-cas', dest='cas', type=str, default='form', choices=('form','sympy'),
@@ -503,7 +748,7 @@ if __name__ == '__main__':
     parser.add_argument('--no_merge_terms', '-nm', dest='merge_terms', action='store_false', default=True,
                         help='Whether to merge terms with same orientation at all (default: %(default)s).')
 
-    parser.add_argument('--verbosity', '-v', dest='verbosity', type=int, default=2,
+    parser.add_argument('--verbosity', '-v', dest='verbosity', type=int, default=1,
                         help='verbosity (default: %(default)s).')
 
     parser.add_argument('--codes', '-c', dest='n_cores', type=int, default=None,
@@ -511,6 +756,15 @@ if __name__ == '__main__':
 
     parser.add_argument('--form_path', '-fp', dest='form_path', type=str, default=None,
                         help='Specify FORM path, make sure to have a form.set file there with MaxTermsize=1M at least (default: automatic).')
+
+    parser.add_argument('--no_output_mathematica', '-nom', dest='output_mathematica', action='store_false', default=True,
+                        help='Disable the generation of the mathematica code (default: %(default)s).')
+
+    parser.add_argument('--no_split_contributions_per_orientation', '-nso', dest='split_orientations', action='store_false', default=True,
+                        help='Disable  (default: automatically runs on all available).')
+
+    parser.add_argument('--full_cff_analysis', '-f', dest='full_cff_analysis', action='store_true', default=False,
+                        help='Enable a full cff analysis (default: %(default)s).')
 
     args = parser.parse_args()
 
@@ -520,17 +774,26 @@ if __name__ == '__main__':
         internal_edges=((1,2),(2,3),(3,4),(4,1))
         external_edges=((101,1),(102,2),(103,3),(104,4))
         TOPTLTD_analyser = TOPTLTD_Analyser(internal_edges, external_edges, args.topology)
+        cff_analyzer = cFF_Analyser(internal_edges, external_edges)
 
     if args.topology=='pentagon':
         internal_edges=((1,2),(2,3),(3,4),(4,5),(5,1))
         external_edges=((101,1),(102,2),(103,3),(104,4),(105,5))
         TOPTLTD_analyser = TOPTLTD_Analyser(internal_edges, external_edges, args.topology)
+        cff_analyzer = cFF_Analyser(internal_edges, external_edges)
 
     if args.topology=='double-box':
         internal_edges=((1,2),(2,3),(3,4),(4,5),(5,6),(6,1),(3,6))
         external_edges=((11,1),(22,2),(44,4),(55,5))
         TOPTLTD_analyser = TOPTLTD_Analyser(internal_edges, external_edges, args.topology)
-    
+        cff_analyzer = cFF_Analyser(internal_edges, external_edges)
+
+    if args.topology=='fishnet2x2':
+        internal_edges=((1,2),(2,3),(3,9),(9,4),(4,5),(5,6),(6,7),(7,1),(7,8),(8,9),(2,8),(8,5))
+        external_edges=((11,1),(22,3),(33,4),(44,6))
+        TOPTLTD_analyser = TOPTLTD_Analyser(internal_edges, external_edges, args.topology)
+        cff_analyzer = cFF_Analyser(internal_edges, external_edges)
+
     if args.consider_numerator:
         TOPTLTD_analyser._ALLOW_NUMERATORS_WHEN_SIMPLIFYING_TOPT_TERMS = True
     if args.not_consider_numerator:
@@ -544,19 +807,22 @@ if __name__ == '__main__':
     if args.n_cores is not None:
         TOPTLTD_analyser._N_CPUS = args.n_cores
 
-#    my_f4=cross_f([1,2,3,4,5,6],[[1,2],[2,3],[3,4],[4,5],[5,6],[6,1],[3,6]],[[1,11],[2,22],[4,44],[5,55]])        
-#    my_f4.print_family("edges")
+    TOPTLTD_analyser._SPLIT_ORIENTATIONS = args.split_orientations
 
-    analysis = TOPTLTD_analyser.analyze()
+    topt_analysis = TOPTLTD_analyser.analyze()
     if args.verbosity >= 3:
-        print("TOPT LTD Terms:\n")
-        pprint(analysis['topt_ltd_terms'])
-    if args.verbosity >= 2:
+        logger.info("TOPT LTD Terms:\n%s"%pformat(topt_analysis['topt_ltd_terms']))
+    if args.output_mathematica:
         mm_filename = pjoin(root_path,'%s_mathematica_comparison.m'%(args.topology.replace('-','_')))
-        print("Writing results in a Mathematica notebook named '%s'."%mm_filename)
+        logger.info("Writing results in a Mathematica notebook named '%s'."%mm_filename)
         with open(mm_filename,'w') as f:
-            f.write('\n(* cLTD representation *)\n\n%s\n\n(* cFF representation *)\n\n%s'%(
-                analysis['cLTD_mathematica']
+            f.write('%s\n\n(* cFF representation *)\n\n%s'%(
+                topt_analysis['cLTD_mathematica']
                 ,
-                analysis['cFF_mathematica']
+                topt_analysis['cFF_mathematica']
             ))
+
+    #print(cff_analyzer.is_completing_a_family([{1, 2},{1, 2, 3, 5, 6}], {3, 5, 6}))
+    cff_analysis = cff_analyzer.analyze(args.full_cff_analysis)
+
+    TOPTLTD_analyser.test_cff_property(topt_analysis, cff_analysis, args.verbosity, args.full_cff_analysis)
