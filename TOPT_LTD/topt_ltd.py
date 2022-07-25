@@ -148,12 +148,15 @@ class TOPTLTD_Analyser(object):
 
         Es = sp.Matrix(len(self.ie)+1,1, lambda i,j: sp.Symbol('E%d' % (i)))
         ps = sp.Matrix(len(self.ev)+1,1, lambda i,j: sp.Symbol('p%d' % (i)))
+        psToSubst = [ ps[i_e] for i_e in range(len(self.ee)-1) ]
+        psToSubst.append( -sum(ps[i_e] for i_e in range(len(self.ee)-1)) )
+
         etas = {}
         for num, denom in topt_terms:
             for E_surf in denom:
                 if E_surf not in etas:
                     etas[E_surf] = (sum(Es[i_e] for i_e in E_surf[0]) if len(E_surf[0])>0 else 0) + \
-                                (sum(ps[i_e] for i_e in E_surf[1]) if len(E_surf[1])>0 else 0)
+                                (sum(psToSubst[i_e] for i_e in E_surf[1]) if len(E_surf[1])>0 else 0)
 
         numerator = 0
         for num, denom in topt_terms:
@@ -181,7 +184,9 @@ class TOPTLTD_Analyser(object):
         # etaVars = sp.Matrix(len(denominator)+1,1, lambda i,j: sp.Symbol('eta_%d' % (i)))
         # numerator = sum( c*etaVars[i_c] for i_c, c in enumerate(coefs) ) + remainder
 
-        return [ [ numerator.expand(), set(denominator) ], ]
+        num = ( numerator.expand(), tuple([t[0][1][0] for t in topt_terms]) ) 
+
+        return [ [ num, set(denominator) ], ]
 
     def merge_topt_terms_with_numerators_form(self, topt_terms, **opts):
         
@@ -264,7 +269,7 @@ id markerRes*NumTracker(y?)*TestRes(?a) = TestRes(?a);
                 f.write(FORM_code)
                 num = f.read('Num')
                 surviving_eta_indices = [int(i_str) for i_str in f.read('Res')[8:-1].split(',')]
-                numerator = num
+                numerator = ( num, tuple([t[0][1][0] for t in topt_terms]) ) 
                 denominator = [sorted_etas[i][0] for i in surviving_eta_indices]
             except form.formlink.FormError as e:
                 print("Error when running FORM.\nError:\n%s\nFORM code:\n%s"%(str(e),FORM_code))
@@ -277,9 +282,40 @@ id markerRes*NumTracker(y?)*TestRes(?a) = TestRes(?a);
 
     def merge_topt_terms_without_numerators(self, topt_terms, debug=False):
         
+        orderings_representatives = { orderings: orderings[0] for (num, orderings), terms in topt_terms}
+
         while(len(topt_terms) > 1):
             
-            for i_a, i_b in itertools.combinations( list(range(len(topt_terms))), 2 ):
+            all_combinations = list(itertools.combinations( list(range(len(topt_terms))), 2 ))
+
+            # Optimise the sorting of the next step
+            # all_combinations = []
+            # topt_terms.sort(key=lambda el: el[0][1])
+            # for i_a in range(len(topt_terms)):
+            #     for i_b in range(len(topt_terms)-1,i_a,-1):
+            #         a, b = topt_terms[i_a], topt_terms[i_b]
+            #         non_common_e_surfs =  list(a[1].symmetric_difference(b[1]))
+            #         if len(non_common_e_surfs) != 2:
+            #             continue
+            #         # Make sure the same edge does not appear twice in the merged term
+            #         if len(set(non_common_e_surfs[0][0]).intersection(set(non_common_e_surfs[1][0])))>0:
+            #             continue
+            #         all_combinations.append( (i_a, i_b) )
+
+            # # Now sort the combinations by exploring those orderings with the least number of matching first indices.
+            # def get_index_of_first_different_element(listA, listB):
+            #     for i,(a,b) in enumerate(zip(listA,listB)):
+            #         if a!=b:
+            #             return i
+            #     return len(listA)+1
+            # all_combinations.sort(key = lambda el: get_index_of_first_different_element( 
+            #     orderings_representatives[topt_terms[el[0]][0][1]], 
+            #     orderings_representatives[topt_terms[el[1]][0][1]],
+            # ) ,reverse=True)
+
+
+            possible_cancellations = []
+            for i_a, i_b in all_combinations:
                 a, b = topt_terms[i_a], topt_terms[i_b]
                 if len(a[1])!=len(b[1]):
                     raise TOPTLTDException("All terms generated in merge_topt_terms_with_numerators should have the same number of E-surfaces in the denominator.")
@@ -300,12 +336,43 @@ id markerRes*NumTracker(y?)*TestRes(?a) = TestRes(?a);
                 merged_e_surf_in_num = ( merged_OSEs, merged_externals )
                 common_e_surfs = list(a[1].intersection(b[1]))
                 if merged_e_surf_in_num in common_e_surfs:
-                    topt_terms[:] = [ [ 1, (set(common_e_surfs) - {merged_e_surf_in_num,}).union(set(non_common_e_surfs)) ] ] + [ t for i_t, t in enumerate(topt_terms) if i_t not in [i_a, i_b] ]
-                    break
-                else:
-                    continue
-            else:
+                    possible_cancellations.append( (merged_e_surf_in_num,common_e_surfs,non_common_e_surfs,(i_a, i_b)) )
+                    # Add the ordering representative for the merged term
+                    orderings_representatives[ tuple(list(a[0][1])+list(b[0][1])) ] = min( list(a[0][1])+list(b[0][1]) )
+                    # Uncomment below to always apply the first cancellation found. This will yield a worse structure!!
+                    #break
+
+            if len(possible_cancellations) == 0:
                 break
+
+            # if len(possible_cancellations) > 1:
+            #     for i_pc, ( merged_e_surf_in_num,common_e_surfs,non_common_e_surfs,(i_a, i_b) ) in enumerate(possible_cancellations):
+            #         print("Possible cancellation #%d:"%i_pc)
+            #         print("   merged_e_surf_in_num              = %s"%str(merged_e_surf_in_num))
+            #         print("   common_e_surfs                    = %s"%str(common_e_surfs))
+            #         print("   non_common_e_surfs                = %s"%str(non_common_e_surfs))
+            #         print("   i_a, i_b, ordering_a, ordering_b  = %d, %d, %s, %s"%(i_a, i_b, str(topt_terms[i_a][0][1]), str(topt_terms[i_b][0][1])))
+            #     stop
+
+            # Pick the cancellation that corresponds to merging terms with orderings 
+            cancellation_index_to_apply = 0
+            current_first_index_differing = len(self.iv)
+            for i_cancellation, (merged_e_surf_in_num,common_e_surfs,non_common_e_surfs,(i_a, i_b)) in enumerate(possible_cancellations):
+                # Check what is the first index that
+                this_first_index_differing = None
+                for i_index, (v1, v2) in enumerate(zip(orderings_representatives[topt_terms[i_a][0][1]], orderings_representatives[topt_terms[i_b][0][1]] )):
+                    if v1!=v2:
+                        this_first_index_differing = i_index
+                        break
+                if this_first_index_differing is None:
+                    this_first_index_differing = -1
+                if this_first_index_differing < current_first_index_differing:
+                    current_first_index_differing = this_first_index_differing
+                    cancellation_index_to_apply = i_cancellation
+
+            merged_e_surf_in_num,common_e_surfs,non_common_e_surfs,(i_a, i_b) = possible_cancellations[cancellation_index_to_apply]
+            topt_terms[:] = [ [ (1, tuple(list(topt_terms[i_a][0][1])+list(topt_terms[i_b][0][1])) ) , (set(common_e_surfs) - {merged_e_surf_in_num,}).union(set(non_common_e_surfs)) ] ] + [ t for i_t, t in enumerate(topt_terms) if i_t not in [i_a, i_b] ]
+          
         return topt_terms
 
     def merge_topt_terms_helper(self, args, **opts):
@@ -313,7 +380,7 @@ id markerRes*NumTracker(y?)*TestRes(?a) = TestRes(?a);
         orientation, topt_terms = args
 
         # Store the on-shell energy polynomial in the numerator and list of E-surfaces (linear polynomials) in the denominator.
-        numerator_and_E_surfaces_per_term = [ [ 1, set(self.get_E_surfaces_for_topt_ordering(t)) ] for t in topt_terms ]
+        numerator_and_E_surfaces_per_term = [ [ (1, (tuple(t),) ), set(self.get_E_surfaces_for_topt_ordering(t)) ] for t in topt_terms ]
 
         # Iteratively merge terms
         if self._MERGE_TERMS:
@@ -376,8 +443,12 @@ SubTermsInSmall=10M""")
             '<|"Orientation"->%s,"Terms"->{%s}|>'%(
                 '{%s}'%(','.join('%d'%i for i in tlt[0])),
                 ','.join('%s'%(
-                '<|"Num"->(%s),"Esurfs"->%s|>'%(
-                    re.sub(r'p(\d+)',r'p\1E',re.sub(r'E(\d+)',r'OSE[\1]',str(t[0]))),
+                '<|"Num"->(%s),"Orderings"->(%s),"Esurfs"->%s|>'%(
+                    re.sub(r'p(\d+)',r'p\1E',re.sub(r'E(\d+)',r'OSE[\1]',str(t[0][0]))),
+                    '{%s}'%(','.join(
+                        '{%s}'%(','.join( '%d'%o for o in ordering )
+                        ) for ordering in t[0][1]
+                    )),
                     '{%s}'%(','.join(
                         '<|"OSE"->{%s},"shifts"->{%s}|>'%(
                             ','.join('%d'%i_e for i_e in eta[0]),
@@ -608,7 +679,7 @@ Print["%(name)scLTDNum = ", N[%(name)scLTDNum,40]//FullForm];
                 # Canonicalize the list of not by taking whichever complement has the smallest node id in it.
                 if self.iv[0] not in nodes:
                     nodes = set(self.iv)-nodes
-            connected_cluster_to_e_surface_map[ ( tuple( nodes ),) ] = tuple(set(list(OSEs)))
+            connected_cluster_to_e_surface_map[ ( tuple( sorted(list(nodes)) ),) ] = tuple(sorted(list(set(list(OSEs)))))
 
 
         return connected_cluster_to_e_surface_map
@@ -636,24 +707,26 @@ Print["%(name)scLTDNum = ", N[%(name)scLTDNum,40]//FullForm];
 
     def test_cff_property(self, topt_analysis, cff_analysis, verbosity=1, full_analysis=False):
         
-        # Generate the map from connected cluster to e surface
-        self.connected_cluster_to_e_surface_map = self.generate_connected_cluster_to_e_surface_map(cff_analysis, canonicalise=False)
-        self.e_surface_to_connected_cluster_map = { v : k for k,v in self.connected_cluster_to_e_surface_map.items() }
-
         E_surfaces_violating_connected_cluster = []
         families_violating_cFF = []
         distinct_E_surfaces = set([])
         n_topt_ltd_terms = 0
+        first_shown = False
         for o, terms in topt_analysis['topt_ltd_terms']:
             for num, etas in terms:
                 n_topt_ltd_terms += 1
-                if any(eta[0] not in self.e_surface_to_connected_cluster_map for eta in etas):
-                    E_surfaces_violating_connected_cluster.extend( [ eta for eta in etas if eta[0] not in self.e_surface_to_connected_cluster_map ] )
+                if any(eta[0] not in self.e_surface_to_connected_cluster_map_non_canonicalised for eta in etas):
+                    E_surfaces_violating_connected_cluster.extend( [ eta for eta in etas if eta[0] not in self.e_surface_to_connected_cluster_map_non_canonicalised ] )
+                    if not first_shown:
+                        first_shown = True
+                        logger.info("The following E-surface is violating the connected cluster constraints:  %s | %s"%( 
+                            str(E_surfaces_violating_connected_cluster[0]), str(self.convert_E_surface_into_node_representation(E_surfaces_violating_connected_cluster[0])) ))
+                        logger.info("It appeared in orientation %s with the following terms:\n%s"%(o, '\n'.join( pformat(t) for t in terms )))
                     continue
                 else:
                     for eta in etas:
-                        distinct_E_surfaces.add(self.e_surface_to_connected_cluster_map[eta[0]])
-                potential_cFF = tuple([ set(self.e_surface_to_connected_cluster_map[eta[0]][0]) for eta in etas ])
+                        distinct_E_surfaces.add(self.e_surface_to_connected_cluster_map_non_canonicalised[eta[0]])
+                potential_cFF = tuple([ set(self.e_surface_to_connected_cluster_map_non_canonicalised[eta[0]][0]) for eta in etas ])
                 if not self.is_a_cFF(potential_cFF):
                     families_violating_cFF.append(potential_cFF)
 
@@ -681,10 +754,6 @@ Print["%(name)scLTDNum = ", N[%(name)scLTDNum,40]//FullForm];
 
         if not full_analysis:
             return
-
-        # Generate the map from connected cluster to e surface
-        self.connected_cluster_to_e_surface_map = self.generate_connected_cluster_to_e_surface_map(cff_analysis, canonicalise=True)
-        self.e_surface_to_connected_cluster_map = { v : k for k,v in self.connected_cluster_to_e_surface_map.items() }
 
         # First, canonicalise each cFF by making sure the node representation is the one containing the lowest vertex id
         cFF = [ tuple(sorted( list( ( tuple(sorted(list(eta if self.iv[0] in eta else set(self.iv)-eta))), ) for eta in eta_list) )) for eta_list in cff_analysis['cross_free_family'] ] 
@@ -733,7 +802,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="""Compute the cross-free family LTD representation of a graph and analyses thresholds.""")
     requiredNamed = parser.add_argument_group('required named arguments')
 
-    parser.add_argument('--topology', '-t', dest='topology', type=str, default='box', choices=('box','double-box','pentagon','fishnet2x2'),
+    parser.add_argument('--topology', '-t', dest='topology', type=str, default='box', choices=('box','double-box','pentagon','fishnet2x2','triple-box'),
                         help='Specify the topology to run (default: %(default)s).')
 
     parser.add_argument('--cas', '-cas', dest='cas', type=str, default='form', choices=('form','sympy'),
@@ -756,6 +825,12 @@ if __name__ == '__main__':
 
     parser.add_argument('--form_path', '-fp', dest='form_path', type=str, default=None,
                         help='Specify FORM path, make sure to have a form.set file there with MaxTermsize=1M at least (default: automatic).')
+
+    parser.add_argument('--no_save_load_results', '-nslr', dest='save_load_results', action='store_false', default=True,
+                        help='Disable the saving and loading of results on file  (default: save and loads results into a file named after the topology).')
+
+    parser.add_argument('--clean', '-cl', dest='clean', action='store_true', default=False,
+                        help='Remove all results file so that they are not recycled (default: %(default)s).')
 
     parser.add_argument('--no_output_mathematica', '-nom', dest='output_mathematica', action='store_false', default=True,
                         help='Disable the generation of the mathematica code (default: %(default)s).')
@@ -788,6 +863,12 @@ if __name__ == '__main__':
         TOPTLTD_analyser = TOPTLTD_Analyser(internal_edges, external_edges, args.topology)
         cff_analyzer = cFF_Analyser(internal_edges, external_edges)
 
+    if args.topology=='triple-box':
+        internal_edges=((1,2),(2,3),(3,4),(4,5),(5,6),(6,7),(7,8),(8,1),(8,3),(7,4))
+        external_edges=((11,1),(22,2),(33,5),(44,6))
+        TOPTLTD_analyser = TOPTLTD_Analyser(internal_edges, external_edges, args.topology)
+        cff_analyzer = cFF_Analyser(internal_edges, external_edges)
+
     if args.topology=='fishnet2x2':
         internal_edges=((1,2),(2,3),(3,9),(9,4),(4,5),(5,6),(6,7),(7,1),(7,8),(8,9),(2,8),(8,5))
         external_edges=((11,1),(22,3),(33,4),(44,6))
@@ -809,7 +890,50 @@ if __name__ == '__main__':
 
     TOPTLTD_analyser._SPLIT_ORIENTATIONS = args.split_orientations
 
-    topt_analysis = TOPTLTD_analyser.analyze()
+    save_load_filename = pjoin(root_path,'%s_cff_analysis_result.txt'%(args.topology.replace('-','_')))
+    if args.clean and os.path.isfile(save_load_filename):
+        logger.info("Removing all results file '%s'."%save_load_filename)
+        os.remove(save_load_filename)
+
+    if (not args.save_load_results) or (not os.path.isfile(save_load_filename)):
+        cff_analysis = cff_analyzer.analyze(args.full_cff_analysis)
+    else:
+        try:
+            logger.info("Recycling cFF analysis results from file '%s'."%save_load_filename)
+            cff_analysis = eval(open(save_load_filename,'r').read())
+        except Exception as e:
+            raise TOPTLTD_analyser("An exception occurred when recycling results from file '%s'. Exception: %s"%(save_load_filename, str(e)))
+    
+    if args.save_load_results and (not os.path.isfile(save_load_filename)):
+        with open(save_load_filename,'w') as f:
+            f.write(pformat(cff_analysis))
+        logger.info("Raw cFF analysis results written to file '%s'."%save_load_filename)
+
+    # Generate the map from connected cluster to e surface with the clusters non-canonicalised
+    TOPTLTD_analyser.connected_cluster_to_e_surface_map_non_canonicalised = TOPTLTD_analyser.generate_connected_cluster_to_e_surface_map(cff_analysis, canonicalise=False)
+    TOPTLTD_analyser.e_surface_to_connected_cluster_map_non_canonicalised = { v : k for k,v in TOPTLTD_analyser.connected_cluster_to_e_surface_map_non_canonicalised.items() }
+    # Same, but canonicalised this time.
+    TOPTLTD_analyser.connected_cluster_to_e_surface_map = TOPTLTD_analyser.generate_connected_cluster_to_e_surface_map(cff_analysis, canonicalise=True)
+    TOPTLTD_analyser.e_surface_to_connected_cluster_map = { v : k for k,v in TOPTLTD_analyser.connected_cluster_to_e_surface_map.items() }
+
+    save_load_filename = pjoin(root_path,'%s_topt_analysis_result.txt'%(args.topology.replace('-','_')))
+    if args.clean and os.path.isfile(save_load_filename):
+        logger.info("Removing all results file '%s'."%save_load_filename)
+        os.remove(save_load_filename)
+    if (not args.save_load_results) or (not os.path.isfile(save_load_filename)):
+        topt_analysis = TOPTLTD_analyser.analyze()
+    else:
+        try:
+            logger.info("Recycling TOPT results from file '%s'."%save_load_filename)
+            topt_analysis = eval(open(save_load_filename,'r').read())
+        except Exception as e:
+            raise TOPTLTDException("An exception occurred when recycling results from file '%s'. Exception: %s"%(save_load_filename, str(e)))
+    
+    if args.save_load_results and (not os.path.isfile(save_load_filename)):
+        with open(save_load_filename,'w') as f:
+            f.write(pformat(topt_analysis))
+        logger.info("Raw TOPT results written to file '%s'."%save_load_filename)
+
     if args.verbosity >= 3:
         logger.info("TOPT LTD Terms:\n%s"%pformat(topt_analysis['topt_ltd_terms']))
     if args.output_mathematica:
@@ -822,7 +946,7 @@ if __name__ == '__main__':
                 topt_analysis['cFF_mathematica']
             ))
 
+    # Code for debugging features can be placed here
     #print(cff_analyzer.is_completing_a_family([{1, 2},{1, 2, 3, 5, 6}], {3, 5, 6}))
-    cff_analysis = cff_analyzer.analyze(args.full_cff_analysis)
 
     TOPTLTD_analyser.test_cff_property(topt_analysis, cff_analysis, args.verbosity, args.full_cff_analysis)

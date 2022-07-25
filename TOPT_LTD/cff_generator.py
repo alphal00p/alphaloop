@@ -127,9 +127,8 @@ class cFF_Analyser(object):
         connected_clusters = self.get_connected_clusters()
 
         # Now filter clusters that leave a complement that is not connected
-        # WRONG THIS DOES NOT WORK
         filtered_connected_clusters = connected_clusters
-        #filtered_connected_clusters = self.enforce_connected_completement(connected_clusters)
+        filtered_connected_clusters = self.enforce_connected_completement(connected_clusters)
 
         # Now take all combinations of v-1 number of connected clusters that have either full or no intersections with other ones.
         filtered_connected_clusters = [set(c) for c in filtered_connected_clusters]
