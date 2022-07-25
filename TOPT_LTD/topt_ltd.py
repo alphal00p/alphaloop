@@ -473,7 +473,7 @@ SubTermsInSmall=10M""")
         repl_dict['n_internal_edges'] = len(self.ie)
         repl_dict['n_loops'] = self.topo.n_loops
         return \
-"""%(name)sTOPTLTDTerms = {%(topt_ltd_terms)s};
+"""%(name)sTOPTLTDTerms = Import[NotebookDirectory[]<>"%(name)s_expression.m"];
 ComputeOSEReplacement[k_,p_]:={
 %(topt_OSE_replacement)s
 };
@@ -501,7 +501,7 @@ Total[Table[
 Print["%(name)scLTDNum = ", N[%(name)scLTDNum,40]//FullForm];
 Print["%(name)scFFNum = ", N[%(name)scFFNum,40]//FullForm];
 Print["%(name)sRepresentationsRatio = ", N[%(name)scFFNum/%(name)scLTDNum,40]//FullForm];
-"""%repl_dict
+"""%repl_dict, "{%(topt_ltd_terms)s}"%repl_dict, "%(name)s"%repl_dict
 
     def generate_mathematica_cLTD_code(self):
 
@@ -563,7 +563,9 @@ Print["%(name)scLTDNum = ", N[%(name)scLTDNum,40]//FullForm];
         analysis = {
             'topt_ltd_terms' : [],
             'cLTD_mathematica' : None,
-            'cFF_mathematica' : None,
+            'cFF_mathematica_evaluator' : None,
+            'cFF_mathematica_expression' : None,
+            'cFF_mathematica_basename' : None
         }
 
         analysis['cLTD_mathematica'] = self.generate_mathematica_cLTD_code()
@@ -594,7 +596,8 @@ Print["%(name)scLTDNum = ", N[%(name)scLTDNum,40]//FullForm];
             max( max( len(denom) for num, denom in t) for o,t in analysis['topt_ltd_terms'] )
         ))
 
-        analysis['cFF_mathematica'] = self.generate_mathematica_cFF_code(analysis['topt_ltd_terms'])
+        analysis['cFF_mathematica_evaluator'], analysis['cFF_mathematica_expression'], analysis['cFF_mathematica_basename'] = \
+            self.generate_mathematica_cFF_code(analysis['topt_ltd_terms'])
 
         return analysis
 
@@ -937,14 +940,16 @@ if __name__ == '__main__':
     if args.verbosity >= 3:
         logger.info("TOPT LTD Terms:\n%s"%pformat(topt_analysis['topt_ltd_terms']))
     if args.output_mathematica:
-        mm_filename = pjoin(root_path,'%s_mathematica_comparison.m'%(args.topology.replace('-','_')))
+        mm_filename = pjoin(root_path,'%s_mathematica_comparison.m'%(topt_analysis['cFF_mathematica_basename']))
         logger.info("Writing results in a Mathematica notebook named '%s'."%mm_filename)
         with open(mm_filename,'w') as f:
             f.write('%s\n\n(* cFF representation *)\n\n%s'%(
                 topt_analysis['cLTD_mathematica']
                 ,
-                topt_analysis['cFF_mathematica']
+                topt_analysis['cFF_mathematica_evaluator']
             ))
+        with open(pjoin(root_path,'%s_expression.m'%(topt_analysis['cFF_mathematica_basename'])),'w') as f:
+            f.write(topt_analysis['cFF_mathematica_expression'])
 
     # Code for debugging features can be placed here
     #print(cff_analyzer.is_completing_a_family([{1, 2},{1, 2, 3, 5, 6}], {3, 5, 6}))
