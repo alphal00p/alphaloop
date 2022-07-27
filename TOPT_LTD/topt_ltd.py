@@ -280,13 +280,421 @@ id markerRes*NumTracker(y?)*TestRes(?a) = TestRes(?a);
 
         return [ [ numerator, set(denominator) ], ]
 
-    def merge_topt_terms_without_numerators(self, topt_terms, debug=False):
-        
+    def merge_topt_terms_without_numerators(self, *args, **opts):
+        #return self.OLD_merge_topt_terms_without_numerators(*args, **opts)
+        return self.NEW_merge_topt_terms_without_numerators(*args, **opts)
+        #return self.Esurf_merge_topt_terms_without_numerators(*args, **opts)
+        #return self.SIMPLE_merge_topt_terms_without_numerators(*args, **opts)
+
+
+    def Esurf_merge_topt_terms_without_numerators(self, topt_terms, debug=False):
+
+        topt_terms = sorted(topt_terms, key=lambda t: t[0][1][0])
+
         orderings_representatives = { orderings: orderings[0] for (num, orderings), terms in topt_terms}
+
+        def get_index_of_first_different_element(listA, listB):
+            for i,(a,b) in enumerate(zip(listA,listB)):
+                if a!=b:
+                    return i
+            return -1
+
+        def ordering_metric(ts,merged_e_surf_in_num,common_e_surfs,non_common_e_surfs):
+            res = max(
+                get_index_of_first_different_element( orderings_representatives[t_i[0][1]], orderings_representatives[t_j[0][1]] )
+                for t_i, t_j in itertools.combinations(ts,2)
+            )
+
+        def get_index_of_first_different_element(listA, listB):
+            for i,(a,b) in enumerate(zip(listA,listB)):
+                if a!=b:
+                    return i
+            return -1
+
+        possible_cancellations = {}
+        n_merged_performed = 0
+
+        for n_terms_to_combine in range(2, len(self.ie) ):
+            print("Now doing n_terms_to_combine = %d"%n_terms_to_combine)
+            print("Current max square roots in any E-surf: %s"%max( max( len(d[0]) for d in list(t[1])) for t in topt_terms if t is not None))
+            new_term_ids = None
+
+            while True:
+
+                # Now update the list of all combinations to explore
+                all_combinations = [ c for c in sorted(list(itertools.combinations( list(range(len(topt_terms))), n_terms_to_combine ))) 
+                                     if (new_term_ids is None or any(i in c for i in new_term_ids)) and not any(topt_terms[i] is None for i in c) ]
+                print("Now studying the following %d combinations."%len(all_combinations))
+                for c in all_combinations:
+                    terms = [topt_terms[i][1] for i in c]
+                    if len(set([len(t) for t in terms]))>1:
+                        raise TOPTLTDException("All terms generated in merge_topt_terms_with_numerators should have the same number of E-surfaces in the denominator.")
+                    
+                    common_e_surfs = set.intersection(*terms)
+                    non_common_e_surfs = [t.symmetric_difference(common_e_surfs) for t in terms]
+                    if any( len(nces)!=1 for nces in non_common_e_surfs ):
+                        continue
+                    flatten_all_nces = [list(nces)[0] for nces in non_common_e_surfs]
+
+                    # Make sure the same edge does not appear twice in the merged term
+                    if len(set.intersection(*[set(nce[0]) for nce in flatten_all_nces]))>1:
+                        continue
+                    
+                    merged_OSEs = tuple(sorted(sum([list(nce[0]) for nce in flatten_all_nces],[])))
+                    merged_externals = sum([list(nce[1]) for nce in flatten_all_nces],[])
+                    # Account for energy-momentum conservation
+                    while all(ext in merged_externals for ext in range(len(self.ee))):
+                        for ext in range(len(self.ee)):
+                            del merged_externals[merged_externals.index(ext)]
+                    merged_externals = tuple(sorted(merged_externals))
+                    merged_e_surf_in_num = ( merged_OSEs, merged_externals )
+                    if merged_e_surf_in_num in common_e_surfs:
+                        # Add the ordering representative for the merged term
+                        orderings_representatives[ tuple(sum([list(topt_terms[c_i][0][1]) for c_i in c],[])) ] = min( [topt_terms[c_i][0][1] for c_i in c] )
+                        metric = ordering_metric( [topt_terms[i] for i in c], merged_e_surf_in_num,common_e_surfs, set(flatten_all_nces) )
+                        if metric in possible_cancellations:
+                            #possible_cancellations[ metric ].append( (merged_e_surf_in_num,common_e_surfs,non_common_e_surfs,(i_a, i_b)) )
+                            possible_cancellations[ metric ].insert( 0, (merged_e_surf_in_num,common_e_surfs, set(flatten_all_nces),c ) )
+                        else:
+                            possible_cancellations[ metric ] = [ ( merged_e_surf_in_num, common_e_surfs, set(flatten_all_nces),c ), ]
+
+                if len(possible_cancellations) == 0:
+                    print("No possible cancellations possible at this stage.")
+                    break
+
+                flatten_possible_cancellations = sorted([ v_i for v in possible_cancellations.values() for v_i in v ], key=lambda el: el[-1])
+                print("A total of %d possible cancellations found."%len(flatten_possible_cancellations))
+                if n_terms_to_combine>2:
+                    stop
+                cancellations_per_e_surface = {}
+                for c in flatten_possible_cancellations:
+                    if c[0] in cancellations_per_e_surface:
+                        cancellations_per_e_surface[c[0]].append(c)
+                    else:
+                        cancellations_per_e_surface[c[0]] = [c,]
+
+                E_surf_to_cancel = sorted(list(cancellations_per_e_surface.keys()),key=lambda k: (len(k[0]),k[0]))[0]
+
+                print("E_surf_to_cancel=%s"%str(E_surf_to_cancel))
+                selected_merges = [ cancellations_per_e_surface[E_surf_to_cancel][0],]
+                # selected_merges = cancellations_per_e_surface[E_surf_to_cancel]
+                # topt_term_ids_merged = sum([list(m[-1]) for m in selected_merges],[])
+                # appears_more_than_once = [(c,topt_term_ids_merged.count(c)) for c in set(topt_term_ids_merged) if topt_term_ids_merged.count(c)>1]
+                # if len(appears_more_than_once)>0:
+                #     logger.error("The merges involved are:\n%s"%('\n'.join(
+                #         '%s -> merged_e_surf_in_numA = %s, non_common_e_surfsA=%s, common_e_surfsA=%s'%(
+                #             str(merged_ids), str(merged_e_surf_in_numA), str(non_common_e_surfsA), str(common_e_surfsA)
+                #         )
+                #         for merged_e_surf_in_numA, common_e_surfsA, non_common_e_surfsA, merged_ids in flatten_possible_cancellations
+                #         if merged_e_surf_in_numA==E_surf_to_cancel and appears_more_than_once[0][0] in merged_ids
+                #     )))
+                #     terms = set(sum([list(c[-1]) for c in flatten_possible_cancellations if c[0]==E_surf_to_cancel and appears_more_than_once[0][0] in c[-1]],[]))
+                #     logger.error("The terms involved are:\n%s"%(
+                #         '\n'.join('#%d -> %s'%( i_t, str(sorted(list(topt_terms[i_t][1]))) ) for i_t in sorted(list(terms)))
+                #     ))
+                #     raise TOPTLTDException("One same E-surface cancellation involves the same topt term #%s more than once (%d times)."%(appears_more_than_once[0][0], appears_more_than_once[0][1]))
+                
+                new_term_ids = []
+                for selected_merge in selected_merges:
+
+                    merged_e_surf_in_num,common_e_surfs,non_common_e_surfs,merged_ids = selected_merge
+
+                    n_merged_performed += 1
+                    # print("NEW #%d: Performing merge of the following terms (ordering_metric= %s ): { %s -> %s | %s -> %s }, E-surface removed = %s"%(n_merged_performed, lowest_first_index_differing, 
+                    #     topt_terms[i_a][0][1], orderings_representatives[ topt_terms[i_a][0][1] ],
+                    #     topt_terms[i_b][0][1], orderings_representatives[ topt_terms[i_b][0][1] ],
+                    #     merged_e_surf_in_num
+                    # ))
+                    topt_terms[merged_ids[0]] = [ (1, tuple(sum([list(topt_terms[i][0][1]) for i in merged_ids],[])) ) , (set(common_e_surfs) - {merged_e_surf_in_num,}).union(set(non_common_e_surfs)) ]
+                    new_term_ids.append(merged_ids[0])
+                    for i in merged_ids[1:]:
+                        topt_terms[i] = None
+                    # Also remove from possible_cancellations all cancellations now invalidated by this merge, that include the merge itself.
+                    for k, v in list(possible_cancellations.items()):
+                        possible_cancellations[k] = [ c for c in v if not any(i in c[-1] for i in merged_ids) ]
+                        if len(possible_cancellations[k]) == 0:
+                            del possible_cancellations[k]
+
+        return [t for t in topt_terms if t is not None]
+
+    def NEW_merge_topt_terms_without_numerators(self, topt_terms, debug=False):
+        
+        topt_terms = sorted(topt_terms, key=lambda t: t[0][1][0])
+        node_map = { v : i for i, v in enumerate(topt_terms[0][0][1][0]) }
+        inv_node_map = {v : k for k, v in node_map.items()}
+        topt_terms = [ [(n, (tuple([node_map[o_i] for o_i in o[0]]),)), t ] for (n, o), t in topt_terms]
+
+        orderings_representatives = { orderings: orderings[0] for (num, orderings), terms in topt_terms}
+
+        def get_index_of_first_different_element(listA, listB):
+            for i,(a,b) in enumerate(zip(listA,listB)):
+                if a!=b:
+                    return i
+            return -1
+
+        def get_permutations(listA,listB):
+            if listA == listB:
+                return tuple([])
+            permutations = []
+            permuted_listA = list(listA)
+            target_listB = list(listB)
+            while permuted_listA!=listB:
+                for i,(a,b) in enumerate(zip(permuted_listA,target_listB)):
+                    if a!=b:
+                        index_in_A = permuted_listA.index(b)
+                        permutations.append( (i,index_in_A) if i < index_in_A else (index_in_A, i)  )
+                        permuted_listA[i], permuted_listA[index_in_A] = b, a
+                        break
+                else:
+                    return tuple(permutations)
+
+
+        def ordering_metric(a,b,merged_e_surf_in_num,common_e_surfs,non_common_e_surfs):
+            
+            return -len(get_permutations( orderings_representatives[a[0][1]], orderings_representatives[b[0][1]] ))
+
+#            res = get_index_of_first_different_element( orderings_representatives[a[0][1]], orderings_representatives[b[0][1]] )
+            
+            # res = min(
+            #     get_index_of_first_different_element( a[0][1][i_a], b[0][1][i_b] )
+            #     for i_a in range(len(a[0][1])) for i_b in range(len(b[0][1]))
+            # )
+            #perms = get_permutations( orderings_representatives[a[0][1]], orderings_representatives[b[0][1]] )
+            #perms = tuple(sorted([p[1]-p[0] for p in perms], reverse=True))
+            #return ( -len(perms), 1 )
+
+#            perms = tuple(sorted(list(get_permutations( orderings_representatives[a[0][1]], orderings_representatives[b[0][1]] )), reverse=False))
+
+            # perms = min(
+            #     tuple(sorted(list(get_permutations( a[0][1][i_a], b[0][1][i_b] )), reverse=True))
+            #     for i_a in range(len(a[0][1])) for i_b in range(len(b[0][1]))
+            # )
+            # perms = tuple(sorted([
+            #     tuple(sorted(list(get_permutations( a[0][1][i_a], b[0][1][i_b] )), reverse=True))
+            #     for i_a in range(len(a[0][1])) for i_b in range(len(b[0][1]))
+            # ],reverse=True))
+
+#            res = (0,tuple([])) if len(perms)==0 else (-len(perms), tuple([p[1]-p[0] for p in perms]))
+            #res = (-len(perms),perms)
+            
+            #print( orderings_representatives[a[0][1]], orderings_representatives[b[0][1]], res)
+
+            #return ( res, -max(len(a[0][1]), len(b[0][1])) )
+            #return ( res, -len(merged_e_surf_in_num[0]) )
+            #return -len(merged_e_surf_in_num[0])
+            #return res
+            #return ( -len(merged_e_surf_in_num[0]), res )
+
+            # indices_in_merged_e_surface = sum([list(self.ie[i_e]) for i_e in merged_e_surf_in_num[0]],[])
+            # res = max( 
+            #     max( max(ordering.index(i) for i in indices_in_merged_e_surface) for ordering in a[0][1] ),
+            #     max( max(ordering.index(i) for i in indices_in_merged_e_surface) for ordering in b[0][1] )
+            # )
+
+            #return ( -len(merged_e_surf_in_num[0]), min(merged_e_surf_in_num[0]) )
+
+            return res
+
+        all_combinations = None
+        possible_cancellations = {}
+        n_merged_performed = 0
+
+        while(len(topt_terms) > 1):
+            
+            if all_combinations is None:
+                all_combinations = list(itertools.combinations( list(range(len(topt_terms))), 2 ))
+
+            for i_a, i_b in all_combinations:
+                a, b = topt_terms[i_a], topt_terms[i_b]
+                if len(a[1])!=len(b[1]):
+                    raise TOPTLTDException("All terms generated in merge_topt_terms_with_numerators should have the same number of E-surfaces in the denominator.")
+                non_common_e_surfs =  list(a[1].symmetric_difference(b[1]))
+                if len(non_common_e_surfs) != 2:
+                    continue
+                # Make sure the same edge does not appear twice in the merged term
+                if len(set(non_common_e_surfs[0][0]).intersection(set(non_common_e_surfs[1][0])))>0:
+                    continue
+                
+                merged_OSEs = tuple(sorted(list(non_common_e_surfs[0][0])+list(non_common_e_surfs[1][0])))
+                merged_externals = list(non_common_e_surfs[0][1])+list(non_common_e_surfs[1][1])
+                # Account for energy-momentum conservation
+                while all(ext in merged_externals for ext in range(len(self.ee))):
+                    for ext in range(len(self.ee)):
+                        del merged_externals[merged_externals.index(ext)]
+                merged_externals = tuple(sorted(merged_externals))
+                merged_e_surf_in_num = ( merged_OSEs, merged_externals )
+                common_e_surfs = list(a[1].intersection(b[1]))
+                if merged_e_surf_in_num in common_e_surfs:
+                    # Add the ordering representative for the merged term
+                    orderings_representatives[ tuple(list(a[0][1])+list(b[0][1])) ] = max( list(a[0][1])+list(b[0][1]) )
+                    metric = ordering_metric(a,b,merged_e_surf_in_num,common_e_surfs,non_common_e_surfs)
+                    if metric in possible_cancellations:
+                        #possible_cancellations[ metric ].append( (merged_e_surf_in_num,common_e_surfs,non_common_e_surfs,(i_a, i_b)) )
+                        possible_cancellations[ metric ].insert( 0, (merged_e_surf_in_num,common_e_surfs,non_common_e_surfs,(i_a, i_b)) )
+                    else:
+                        possible_cancellations[ metric ] = [ ( merged_e_surf_in_num, common_e_surfs, non_common_e_surfs,(i_a, i_b) ), ]
+
+            if len(possible_cancellations) == 0:
+                break
+
+            # Pick the cancellation that corresponds to merging terms with orderings
+            lowest_first_index_differing = min(list(possible_cancellations.keys()))
+            selected_merges = [ possible_cancellations[lowest_first_index_differing][0], ]
+
+            #flatten_possible_cancellations = sorted([ v_i for v in possible_cancellations.values() for v_i in v ], key=lambda el: el[-1])
+            # selected_merge = None
+            # def does_merge_prevent_other_merger(mA, mB):
+            #     merged_e_surf_in_numA, common_e_surfsA, non_common_e_surfsA, (i_aA, i_bA) = mA
+            #     merged_e_surf_in_numB, common_e_surfsB, non_common_e_surfsB, (i_aB, i_bB) = mB
+            #     if i_aB not in (i_aA, i_bA) and i_bB not in (i_aA, i_bA):
+            #         return False
+            #     # if any(eta[0] == merged_e_surf_in_numA[0] for eta in non_common_e_surfsB):
+            #     #     return True
+            #     return True
+            # for i_c1, c1 in enumerate(flatten_possible_cancellations):
+            #     for i_c2, c2 in enumerate(flatten_possible_cancellations):
+            #         if i_c1 == i_c2:
+            #             continue
+            #         # if c1[0][0] in self.e_surface_to_connected_cluster_map:
+            #         #     break
+            #         if does_merge_prevent_other_merger(c1, c2):
+            #             break
+            #     else:
+            #         selected_merge = c1
+            #         break
+            # if selected_merge is None:
+            #     logger.error("Cannot find a merge that would not invalidate another possible merge.")
+            #     logger.error("Remaining options are as follows:\n%s"%('\n'.join(
+            #         '(%d, %d) -> merged_e_surf_in_numA = %s, non_common_e_surfsA=%s, common_e_surfsA=%s'%(
+            #             i_aA, i_bA, str(merged_e_surf_in_numA), str(non_common_e_surfsA), str(common_e_surfsA)
+            #         )
+            #         for merged_e_surf_in_numA, common_e_surfsA, non_common_e_surfsA, (i_aA, i_bA) in flatten_possible_cancellations
+            #     )))
+            #     raise TOPTLTDException("Cannot find a merge that would not invalidate another possible merge.")
+            # selected_merges = [selected_merge,]
+
+            # cancellations_per_e_surface = {}
+            # for c in flatten_possible_cancellations:
+            #     if c[0] in cancellations_per_e_surface:
+            #         cancellations_per_e_surface[c[0]].append(c)
+            #     else:
+            #         cancellations_per_e_surface[c[0]] = [c,]
+
+            # E_surf_to_cancel = sorted(list(cancellations_per_e_surface.keys()),key=lambda k: (len(k[0]),k[0]))[0]
+
+            # print("E_surf_to_cancel=%s"%str(E_surf_to_cancel))
+            # selected_merges = cancellations_per_e_surface[E_surf_to_cancel]
+            # ttt = sum([list(m[-1]) for m in selected_merges],[])
+            # appears_more_than_once = [(c,ttt.count(c)) for c in set(ttt) if ttt.count(c)>1]
+            # if len(appears_more_than_once)>0:
+            #     logger.error("The merges involved are:\n%s"%('\n'.join(
+            #         '(%d, %d) -> merged_e_surf_in_numA = %s, non_common_e_surfsA=%s, common_e_surfsA=%s'%(
+            #             i_aA, i_bA, str(merged_e_surf_in_numA), str(non_common_e_surfsA), str(common_e_surfsA)
+            #         )
+            #         for merged_e_surf_in_numA, common_e_surfsA, non_common_e_surfsA, (i_aA, i_bA) in flatten_possible_cancellations
+            #         if merged_e_surf_in_numA==E_surf_to_cancel and appears_more_than_once[0][0] in (i_aA, i_bA)
+            #     )))
+            #     terms = set(sum([list(c[-1]) for c in flatten_possible_cancellations if c[0]==E_surf_to_cancel and appears_more_than_once[0][0] in c[-1]],[]))
+            #     logger.error("The terms involved are:\n%s"%(
+            #         '\n'.join('#%d -> %s'%( i_t, str(sorted(list(topt_terms[i_t][1]))) ) for i_t in sorted(list(terms)))
+            #     ))
+            #     raise TOPTLTDException("One same E-surface cancellation involves the same topt term #%s more than once (%d times)."%(appears_more_than_once[0][0], appears_more_than_once[0][1]))
+            
+            all_combinations = []
+            for selected_merge in selected_merges:
+
+                merged_e_surf_in_num,common_e_surfs,non_common_e_surfs,(i_a, i_b) = selected_merge
+
+                n_merged_performed += 1
+                #print('Currently at merge #%d'%n_merged_performed, end='\r')
+                # print("NEW #%d: Performing merge of the following terms (ordering_metric= %s ): { %s -> %s | %s -> %s }, E-surface removed = %s"%(n_merged_performed, lowest_first_index_differing, 
+                #     topt_terms[i_a][0][1], orderings_representatives[ topt_terms[i_a][0][1] ],
+                #     topt_terms[i_b][0][1], orderings_representatives[ topt_terms[i_b][0][1] ],
+                #     merged_e_surf_in_num
+                # ))
+                topt_terms[i_a] = [ (1, tuple(list(topt_terms[i_a][0][1])+list(topt_terms[i_b][0][1])) ) , (set(common_e_surfs) - {merged_e_surf_in_num,}).union(set(non_common_e_surfs)) ]
+                topt_terms[i_b] = None
+                # Also remove from possible_cancellations all cancellations now invalidated by this merge, that include the merge itself.
+                for k, v in list(possible_cancellations.items()):
+                    possible_cancellations[k] = [ c for c in v if (i_a not in c[-1] and i_b not in c[-1]) ]
+                    if len(possible_cancellations[k]) == 0:
+                        del possible_cancellations[k]
+                # Now update the list of all combinations to explore
+                all_combinations.extend([ tuple(sorted([i_a, j])) for j in range(len(topt_terms)) if j!=i_a and topt_terms[j] is not None ])
+            all_combinations = sorted([(i_a, i_b) for i_a, i_b in set(all_combinations) if topt_terms[i_a] is not None and topt_terms[i_b] is not None ])
+
+        return [ ( (t[0][0], tuple([tuple([inv_node_map[o_i] for o_i in ordering]) for ordering in t[0][1]])), t[1] ) for t in topt_terms if t is not None]
+
+        # [t for t in topt_terms if t is not None]
+
+    def SIMPLE_merge_topt_terms_without_numerators(self, topt_terms, debug=False):
+
+        topt_terms = sorted(topt_terms, key=lambda t: t[0][1][0])
+        topt_terms_per_merge_level = { 1 : list(topt_terms) }
+        n_merged_performed = 0
 
         while(len(topt_terms) > 1):
             
             all_combinations = list(itertools.combinations( list(range(len(topt_terms))), 2 ))
+
+            cancellation_to_apply = None
+            for i_a, i_b in all_combinations:
+                a, b = topt_terms[i_a], topt_terms[i_b]
+                if len(a[1])!=len(b[1]):
+                    raise TOPTLTDException("All terms generated in merge_topt_terms_with_numerators should have the same number of E-surfaces in the denominator.")
+                non_common_e_surfs =  list(a[1].symmetric_difference(b[1]))
+                if len(non_common_e_surfs) != 2:
+                    continue
+                # Make sure the same edge does not appear twice in the merged term
+                if len(set(non_common_e_surfs[0][0]).intersection(set(non_common_e_surfs[1][0])))>0:
+                    continue
+                
+                merged_OSEs = tuple(sorted(list(non_common_e_surfs[0][0])+list(non_common_e_surfs[1][0])))
+                merged_externals = list(non_common_e_surfs[0][1])+list(non_common_e_surfs[1][1])
+                # Account for energy-momentum conservation
+                while all(ext in merged_externals for ext in range(len(self.ee))):
+                    for ext in range(len(self.ee)):
+                        del merged_externals[merged_externals.index(ext)]
+                merged_externals = tuple(sorted(merged_externals))
+                merged_e_surf_in_num = ( merged_OSEs, merged_externals )
+                common_e_surfs = list(a[1].intersection(b[1]))
+                if merged_e_surf_in_num in common_e_surfs:
+                    cancellation_to_apply = (merged_e_surf_in_num,common_e_surfs,non_common_e_surfs,(i_a, i_b))
+                    break
+
+            if cancellation_to_apply is None:
+                break
+            
+            merged_e_surf_in_num,common_e_surfs,non_common_e_surfs,(i_a, i_b) = cancellation_to_apply
+            n_merged_performed += 1
+            # print("SIMPLE #%d: Performing merge of the following terms: { %s -> %s | %s -> %s }"%(n_merged_performed, 
+            #     topt_terms[i_a][0][1], topt_terms[i_a][0][1],
+            #     topt_terms[i_b][0][1], topt_terms[i_b][0][1]
+            # ))
+            new_term = [ (1, tuple(sorted(list(topt_terms[i_a][0][1])+list(topt_terms[i_b][0][1]))) ) , (set(common_e_surfs) - {merged_e_surf_in_num,}).union(set(non_common_e_surfs)) ]
+            topt_terms_per_merge_level[len(topt_terms[i_a][0][1])].remove(topt_terms[i_a])
+            topt_terms_per_merge_level[len(topt_terms[i_b][0][1])].remove(topt_terms[i_b])
+            if len(new_term[0][1]) in topt_terms_per_merge_level:
+                #topt_terms_per_merge_level[len(new_term[0][1])].insert(0,new_term)
+                topt_terms_per_merge_level[len(new_term[0][1])].append(new_term)
+            else:
+                topt_terms_per_merge_level[len(new_term[0][1])] = [ new_term, ]
+            topt_terms[:] = sum([
+                sorted(topt_terms_per_merge_level[merge_level],key=lambda t: t[0][1])
+                for merge_level in sorted(list(topt_terms_per_merge_level.keys()), reverse=True)],[])
+            #topt_terms[:] = sorted([new_term,]+[t for i_t, t in enumerate(topt_terms) if i_t not in (i_a, i_b)])
+          
+        return topt_terms
+
+    def OLD_merge_topt_terms_without_numerators(self, topt_terms, debug=False):
+        
+        orderings_representatives = { orderings: orderings[0] for (num, orderings), terms in topt_terms}
+
+        n_merged_performed = 0
+        while(len(topt_terms) > 1):
+            
+            all_combinations = list(itertools.combinations( list(range(len(topt_terms))), 2 ))
+            #print("Current max square roots in any E-surf: %s"%max( max( len(d[0]) for d in list(t[1])) for t in topt_terms if t is not None))
 
             # Optimise the sorting of the next step
             # all_combinations = []
@@ -371,6 +779,11 @@ id markerRes*NumTracker(y?)*TestRes(?a) = TestRes(?a);
                     cancellation_index_to_apply = i_cancellation
 
             merged_e_surf_in_num,common_e_surfs,non_common_e_surfs,(i_a, i_b) = possible_cancellations[cancellation_index_to_apply]
+            n_merged_performed += 1
+            # print("OLD #%d: Performing merge of the following terms (ordering_metric= %s ): { %s -> %s | %s -> %s }"%(n_merged_performed, current_first_index_differing, 
+            #     topt_terms[i_a][0][1], orderings_representatives[ topt_terms[i_a][0][1] ],
+            #     topt_terms[i_b][0][1], orderings_representatives[ topt_terms[i_b][0][1] ]
+            # ))
             topt_terms[:] = [ [ (1, tuple(list(topt_terms[i_a][0][1])+list(topt_terms[i_b][0][1])) ) , (set(common_e_surfs) - {merged_e_surf_in_num,}).union(set(non_common_e_surfs)) ] ] + [ t for i_t, t in enumerate(topt_terms) if i_t not in [i_a, i_b] ]
           
         return topt_terms
@@ -405,6 +818,23 @@ id markerRes*NumTracker(y?)*TestRes(?a) = TestRes(?a);
 WorkSpace=5G
 SmallSize=5G
 SubTermsInSmall=10M""")
+
+        # orientations_to_consider = [ sorted(list(topt_terms.keys()))[5], ]
+        #orientations_to_consider = sorted(list(topt_terms.keys()))[:1000]
+        # orientations_to_consider = [
+        #     (-1, -1, -1, 1, -1, 1, -1, 1, 1, -1, 1, -1),
+        #     (-1, 1, -1, 1, -1, 1, -1, 1, 1, -1, 1, -1),
+        #     (-1, -1, -1, -1, 1, 1, -1, 1, 1, -1, 1, -1),
+        #     (-1, -1, -1, -1, 1, -1, 1, -1, -1, 1, -1, 1)
+        # ]
+        # orientations_to_consider = [
+        #     (-1, 1, -1, 1, -1, 1)
+        # ]
+        # orientations_to_consider = [
+        #     (-1, -1, -1, 1, -1, 1, -1, 1, 1, -1, -1, -1, 1),
+        # ]
+        orientations_to_consider = None
+        topt_terms = ({ o : topt_terms[o] for o in orientations_to_consider } if orientations_to_consider is not None else topt_terms)
 
         if self._N_CPUS > 1:
             with multiprocessing.Pool(self._N_CPUS) as p:
@@ -546,7 +976,7 @@ Get[cLTDPATH];
 
 (* cLTD representation *)
 
-%(name)scLTD = cLTD[%(MM_props)s, loopmom -> {%(MM_loopmoms)s}, EvalAll -> True, "FORMpath" -> FORMPATH];
+%(name)scLTD = cLTD[%(MM_props)s, NoNumerator -> True, loopmom -> {%(MM_loopmoms)s}, EvalAll -> True, "FORMpath" -> FORMPATH];
 RNSeed=1;
 RN = Table[Prime[i]/Prime[i+1],{i,RNSeed,%(max_rndm)d+RNSeed-1}];
 NumericalSample={
@@ -555,6 +985,8 @@ NumericalSample={
 %(ext_energies)s
 };
 NumericalSample=Join[NumericalSample,({%(mom_conservation)s}/.NumericalSample)];
+(* Uncomment the line below to avoid exact arithmetic until the very end *)
+(*NumericalSample = N[NumericalSample,40];*)
 %(name)scLTDNum = ((%(name)scLTD[[1]]/.%(energy_repl)s)/.(%(name)scLTD[[2]]/.NumericalSample))/.NumericalSample;
 Print["%(name)scLTDNum = ", N[%(name)scLTDNum,40]//FullForm];
 """%repl_dict
@@ -583,21 +1015,8 @@ Print["%(name)scLTDNum = ", N[%(name)scLTDNum,40]//FullForm];
 
         # Now merge TOPT terms
         processed_topt_terms = self.process_topt_terms(topt_terms)
-        logger.info("After merging, the TOPT-LTD expression has %d orientations and %d terms, with a maximum of %d terms per orientation."%(
-            len(processed_topt_terms.keys()), sum(len(v) for v in processed_topt_terms.values()), max(len(v) for v in processed_topt_terms.values())
-        ))
 
         analysis['topt_ltd_terms'] = sorted( list(processed_topt_terms.items()), key=lambda el: el[0] )
-
-        logger.info("Maximal number of square roots in E-surfaces in the denominator of any term: %d"%(
-            max( max( max(len(d[0]) for d in denom) for num, denom in t) for o,t in analysis['topt_ltd_terms'] )
-        ))
-        logger.info("Maximal number of E-surfaces in the denominator of any term: %d"%(
-            max( max( len(denom) for num, denom in t) for o,t in analysis['topt_ltd_terms'] )
-        ))
-
-        analysis['cFF_mathematica_evaluator'], analysis['cFF_mathematica_expression'], analysis['cFF_mathematica_basename'] = \
-            self.generate_mathematica_cFF_code(analysis['topt_ltd_terms'])
 
         return analysis
 
@@ -708,6 +1127,19 @@ Print["%(name)scLTDNum = ", N[%(name)scLTDNum,40]//FullForm];
 
         return True
 
+    def print_statistics(self, topt_analysis, cff_analysis):
+        
+        logger.info("After merging, the TOPT-LTD expression has %d orientations and %d terms, with a maximum of %d terms per orientation."%(
+            len(topt_analysis['topt_ltd_terms']), sum(len(v[1]) for v in topt_analysis['topt_ltd_terms']), max(len(v[1]) for v in topt_analysis['topt_ltd_terms'])
+        ))
+        
+        logger.info("Maximal number of square roots in E-surfaces in the denominator of any term: %d"%(
+            max( max( max(len(d[0]) for d in denom) for num, denom in t) for o,t in topt_analysis['topt_ltd_terms'] )
+        ))
+        logger.info("Maximal number of E-surfaces in the denominator of any term: %d"%(
+            max( max( len(denom) for num, denom in t) for o,t in topt_analysis['topt_ltd_terms'] )
+        ))
+
     def test_cff_property(self, topt_analysis, cff_analysis, verbosity=1, full_analysis=False):
         
         E_surfaces_violating_connected_cluster = []
@@ -715,30 +1147,36 @@ Print["%(name)scLTDNum = ", N[%(name)scLTDNum,40]//FullForm];
         distinct_E_surfaces = set([])
         n_topt_ltd_terms = 0
         first_shown = False
+        failed_orientations = []
         for o, terms in topt_analysis['topt_ltd_terms']:
+            orientation_failed = False
             for num, etas in terms:
                 n_topt_ltd_terms += 1
                 if any(eta[0] not in self.e_surface_to_connected_cluster_map_non_canonicalised for eta in etas):
-                    E_surfaces_violating_connected_cluster.extend( [ eta for eta in etas if eta[0] not in self.e_surface_to_connected_cluster_map_non_canonicalised ] )
+                    orientation_failed = True
+                    E_surfaces_violating_connected_cluster.extend([ (o, eta) for eta in etas if eta[0] not in self.e_surface_to_connected_cluster_map_non_canonicalised ] )
                     if not first_shown:
                         first_shown = True
-                        logger.info("The following E-surface is violating the connected cluster constraints:  %s | %s"%( 
-                            str(E_surfaces_violating_connected_cluster[0]), str(self.convert_E_surface_into_node_representation(E_surfaces_violating_connected_cluster[0])) ))
-                        logger.info("It appeared in orientation %s with the following terms:\n%s"%(o, '\n'.join( pformat(t) for t in terms )))
+                        # logger.info("The following E-surface is violating the connected cluster constraints:  %s | %s"%( 
+                        #     str(E_surfaces_violating_connected_cluster[0]), str(self.convert_E_surface_into_node_representation(E_surfaces_violating_connected_cluster[0])) ))
+                        # logger.info("It appeared in orientation %s with the following terms:\n%s"%(o, '\n'.join( pformat(t) for t in terms )))
                     continue
                 else:
                     for eta in etas:
                         distinct_E_surfaces.add(self.e_surface_to_connected_cluster_map_non_canonicalised[eta[0]])
                 potential_cFF = tuple([ set(self.e_surface_to_connected_cluster_map_non_canonicalised[eta[0]][0]) for eta in etas ])
                 if not self.is_a_cFF(potential_cFF):
+                    orientation_failed = True
                     families_violating_cFF.append(potential_cFF)
-
+            if orientation_failed:
+                failed_orientations.append(o)
+            
         if len(E_surfaces_violating_connected_cluster) == 0:
             logger.info("ALL %d distinct E-surfaces in denominators correspond to a connected cluster."%len(distinct_E_surfaces))
         else:
             logger.info("The following %d E-surfaces%s do *not* correspond to a connected cluster: ( edge representation | node representation )\n%s%s"%(
                 len(E_surfaces_violating_connected_cluster), ' (showing first three)' if verbosity <= 1 else '',
-                '\n'.join( '%s | %s'%( str(eta), str(self.convert_E_surface_into_node_representation(eta)) ) for eta in 
+                '\n'.join( '%s | %s | %s'%( str(o), str(eta), str(self.convert_E_surface_into_node_representation(eta)) ) for o, eta in 
                 (E_surfaces_violating_connected_cluster[:3] if verbosity<=1 else E_surfaces_violating_connected_cluster) ),
                 '\n[...]' if verbosity <= 1 and len(E_surfaces_violating_connected_cluster)>3 else ''
                 )
@@ -754,6 +1192,15 @@ Print["%(name)scLTDNum = ", N[%(name)scLTDNum,40]//FullForm];
                 '\n[...]' if verbosity <= 1 and len(families_violating_cFF)>3 else ''
                 )
             )
+
+        if len(failed_orientations) > 0:
+            logger.info("The following %d orientations failed tests%s:\n%s%s"%(
+                len(failed_orientations), 
+                ' (showing first three)' if verbosity <= 1 else '',
+                '\n'.join( '%s'%str(failed_orientation) for failed_orientation in 
+                (failed_orientations[:3] if verbosity<=1 else failed_orientations) ),
+                '\n[...]' if verbosity <= 1 and len(failed_orientations)>3 else ''
+            ))
 
         if not full_analysis:
             return
@@ -805,7 +1252,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="""Compute the cross-free family LTD representation of a graph and analyses thresholds.""")
     requiredNamed = parser.add_argument_group('required named arguments')
 
-    parser.add_argument('--topology', '-t', dest='topology', type=str, default='box', choices=('box','double-box','pentagon','fishnet2x2','triple-box'),
+    parser.add_argument('--topology', '-t', dest='topology', type=str, default='box', choices=('box','double-box','pentagon','fishnet2x2','triple-box','hexagon','heptagon','fishnet2x2NO4P'),
                         help='Specify the topology to run (default: %(default)s).')
 
     parser.add_argument('--cas', '-cas', dest='cas', type=str, default='form', choices=('form','sympy'),
@@ -860,6 +1307,18 @@ if __name__ == '__main__':
         TOPTLTD_analyser = TOPTLTD_Analyser(internal_edges, external_edges, args.topology)
         cff_analyzer = cFF_Analyser(internal_edges, external_edges)
 
+    if args.topology=='hexagon':
+        internal_edges=((1,2),(2,3),(3,4),(4,5),(5,6),(6,1))
+        external_edges=((101,1),(102,2),(103,3),(104,4),(105,5),(106,6))
+        TOPTLTD_analyser = TOPTLTD_Analyser(internal_edges, external_edges, args.topology)
+        cff_analyzer = cFF_Analyser(internal_edges, external_edges)
+
+    if args.topology=='heptagon':
+        internal_edges=((1,2),(2,3),(3,4),(4,5),(5,6),(6,7),(7,1))
+        external_edges=((101,1),(102,2),(103,3),(104,4),(105,5),(106,6),(107,7))
+        TOPTLTD_analyser = TOPTLTD_Analyser(internal_edges, external_edges, args.topology)
+        cff_analyzer = cFF_Analyser(internal_edges, external_edges)
+
     if args.topology=='double-box':
         internal_edges=((1,2),(2,3),(3,4),(4,5),(5,6),(6,1),(3,6))
         external_edges=((11,1),(22,2),(44,4),(55,5))
@@ -874,6 +1333,12 @@ if __name__ == '__main__':
 
     if args.topology=='fishnet2x2':
         internal_edges=((1,2),(2,3),(3,9),(9,4),(4,5),(5,6),(6,7),(7,1),(7,8),(8,9),(2,8),(8,5))
+        external_edges=((11,1),(22,3),(33,4),(44,6))
+        TOPTLTD_analyser = TOPTLTD_Analyser(internal_edges, external_edges, args.topology)
+        cff_analyzer = cFF_Analyser(internal_edges, external_edges)
+
+    if args.topology=='fishnet2x2NO4P':
+        internal_edges=((1,2),(2,3),(3,9),(9,4),(4,5),(5,6),(6,7),(7,1),(7,10),(8,9),(2,8),(10,5),(8,10))
         external_edges=((11,1),(22,3),(33,4),(44,6))
         TOPTLTD_analyser = TOPTLTD_Analyser(internal_edges, external_edges, args.topology)
         cff_analyzer = cFF_Analyser(internal_edges, external_edges)
@@ -936,10 +1401,14 @@ if __name__ == '__main__':
         with open(save_load_filename,'w') as f:
             f.write(pformat(topt_analysis))
         logger.info("Raw TOPT results written to file '%s'."%save_load_filename)
+    
+    TOPTLTD_analyser.print_statistics(topt_analysis, cff_analysis)
 
     if args.verbosity >= 3:
         logger.info("TOPT LTD Terms:\n%s"%pformat(topt_analysis['topt_ltd_terms']))
     if args.output_mathematica:
+        topt_analysis['cFF_mathematica_evaluator'], topt_analysis['cFF_mathematica_expression'], topt_analysis['cFF_mathematica_basename'] = \
+            TOPTLTD_analyser.generate_mathematica_cFF_code(topt_analysis['topt_ltd_terms'])
         mm_filename = pjoin(root_path,'%s_mathematica_comparison.m'%(topt_analysis['cFF_mathematica_basename']))
         logger.info("Writing results in a Mathematica notebook named '%s'."%mm_filename)
         with open(mm_filename,'w') as f:
