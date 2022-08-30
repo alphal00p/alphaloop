@@ -419,13 +419,6 @@ id markerRes*NumTracker(y?)*TestRes(?a) = TestRes(?a);
 
     def NEW_merge_topt_terms_without_numerators(self, topt_terms, debug=False):
         
-        topt_terms = sorted(topt_terms, key=lambda t: t[0][1][0])
-        node_map = { v : i for i, v in enumerate(topt_terms[0][0][1][0]) }
-        inv_node_map = {v : k for k, v in node_map.items()}
-        topt_terms = [ [(n, (tuple([node_map[o_i] for o_i in o[0]]),)), t ] for (n, o), t in topt_terms]
-
-        orderings_representatives = { orderings: orderings[0] for (num, orderings), terms in topt_terms}
-
         def get_index_of_first_different_element(listA, listB):
             for i,(a,b) in enumerate(zip(listA,listB)):
                 if a!=b:
@@ -448,6 +441,16 @@ id markerRes*NumTracker(y?)*TestRes(?a) = TestRes(?a);
                 else:
                     return tuple(permutations)
 
+        #topt_terms = sorted(topt_terms, key=lambda t: t[0][1][0])
+        node_map = { v : i for i, v in enumerate(topt_terms[0][0][1][0]) }
+        inv_node_map = {v : k for k, v in node_map.items()}
+        topt_terms = [ [(n, (tuple([node_map[o_i] for o_i in o[0]]),)), t ] for (n, o), t in topt_terms]
+        # One try if there are still some fail here is to order the terms so as to have the maximal number of perms w.r.t first (i.e. 0,1,2,3...)
+        # Still not clear what the tie breaker needs to be though
+        # defining_term = topt_terms[0]
+        # topt_terms = sorted(topt_terms, key=lambda t:  len(get_permutations( defining_term[0][1][0], t[0][1][0] )) )
+
+        orderings_representatives = { orderings: orderings[0] for (num, orderings), terms in topt_terms}
 
         def ordering_metric(a,b,merged_e_surf_in_num,common_e_surfs,non_common_e_surfs):
             
@@ -832,6 +835,9 @@ SubTermsInSmall=10M""")
         # ]
         # orientations_to_consider = [
         #     (-1, -1, -1, 1, -1, 1, -1, 1, 1, -1, -1, -1, 1),
+        # ]
+        # orientations_to_consider = [
+        #     (-1, 1, -1, -1, 1, -1, 1, -1, -1, -1, 1, 1, -1),
         # ]
         orientations_to_consider = None
         topt_terms = ({ o : topt_terms[o] for o in orientations_to_consider } if orientations_to_consider is not None else topt_terms)

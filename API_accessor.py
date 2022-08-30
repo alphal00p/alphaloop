@@ -61,7 +61,8 @@ if not _CALLED_FROM_MATHEMATICA:
 
     try:
         # Import the rust bindings
-        from ltd import LTD, CrossSection
+        #from ltd import LTD, CrossSection
+        from ltd import CrossSection
     except ImportError:
         print("ERROR: Could not import the rust back-end 'ltd' module. Compile it first with:"
             " ./make_lib from within the pyNLoop directory.")
@@ -71,6 +72,8 @@ if not _CALLED_FROM_MATHEMATICA:
     _MODEs.append(args.mode)
 
     if args.mode=='LTD':
+        print("ERROR: LTD functionality deprecated.")
+        raise
         rust_instance = LTD(
             settings_file = pjoin(root_path, args.hyperparameter_path),
             topology_file = pjoin(root_path, args.topologies_path),
@@ -110,7 +113,8 @@ def API_initialise(
     
     try:
         # Import the rust bindings
-        from ltd import LTD, CrossSection
+        #from ltd import LTD, CrossSection
+        from ltd import CrossSection
     except ImportError as e:
         print("PYTHONPATH:\n%s"%str(sys.path))
         print("DYLD_LIBRARY_PATH:\n%s"%os.environ.get('DYLD_LIBRARY_PATH',''))
