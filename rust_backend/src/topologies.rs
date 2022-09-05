@@ -200,7 +200,6 @@ pub struct LTDCacheI<T: FloatLike, const N: usize> {
     pub ellipsoid_normal_norm_sq_eval: Vec<Option<Hyperdual<T, N>>>,
     pub deform_dirs: Vec<LorentzVector<Hyperdual<T, N>>>,
     pub non_empty_cuts: Vec<(usize, usize)>,
-    pub deformation_jacobian: Vec<Complex<T>>,
     pub cut_energies: Vec<Hyperdual<T, N>>,
     pub cut_info: Vec<CutInfo<T, N>>,
     pub computed_cut_ll: Vec<usize>,
@@ -213,7 +212,6 @@ impl<T: FloatLike, const N: usize> Default for LTDCacheI<T, N> {
             ellipsoid_normal_norm_sq_eval: vec![],
             deform_dirs: vec![],
             non_empty_cuts: vec![],
-            deformation_jacobian: vec![],
             cut_energies: vec![],
             cut_info: vec![],
             computed_cut_ll: vec![],
@@ -228,7 +226,6 @@ impl<T: FloatLike, const N: usize> LTDCacheI<T, N> {
             ellipsoid_normal_norm_sq_eval: vec![None; num_surfaces],
             deform_dirs: vec![LorentzVector::default(); num_surfaces * num_loops],
             non_empty_cuts: vec![(0, 0); num_surfaces],
-            deformation_jacobian: vec![Complex::default(); 9 * num_loops * num_loops],
             cut_energies: vec![Hyperdual::default(); num_propagators],
             cut_info: vec![CutInfo::default(); num_propagators],
             computed_cut_ll: vec![0; num_propagators],
@@ -255,6 +252,7 @@ pub struct LTDCache<T: FloatLike> {
     pub overall_lambda: T, // used to log the minimum
     pub propagators_eval: Vec<Complex<T>>,
     pub propagator_powers: Vec<usize>,
+    pub deformation_jacobian_matrix: Vec<Complex<T>>,
 }
 
 impl<T: FloatLike> LTDCache<T> {
@@ -282,6 +280,7 @@ impl<T: FloatLike> LTDCache<T> {
             overall_lambda: T::zero(),
             propagators_eval: vec![Complex::zero(); num_propagators],
             propagator_powers: vec![1; num_propagators],
+            deformation_jacobian_matrix: vec![],
         }
     }
 }
@@ -583,6 +582,7 @@ impl Topology {
     pub fn determine_ellipsoid_overlap_structure(
         &mut self,
         update_excluded_surfaces: bool,
+        include_subspaces: bool,
     ) -> Vec<FixedDeformationLimit> {
         if self.settings.general.debug > 1 {
             println!("Determining overlap structure for {}", self.name);
@@ -860,6 +860,10 @@ impl Topology {
                 deformation_per_overlap: overlap,
                 excluded_propagators: subspace.2.clone(),
             });
+
+            if !include_subspaces {
+                break;
+            }
         }
 
         mem::swap(&mut subspaces, &mut self.subspaces);

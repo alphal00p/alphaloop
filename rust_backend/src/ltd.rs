@@ -486,7 +486,7 @@ impl Topology {
 
         if external_momenta_set {
             if self.settings.general.derive_overlap_structure {
-                self.fixed_deformation = self.determine_ellipsoid_overlap_structure(true);
+                self.fixed_deformation = self.determine_ellipsoid_overlap_structure(true, true);
             }
             self.check_fixed_deformation();
         }
@@ -1132,7 +1132,7 @@ impl Topology {
         }
 
         // dampen on soft points
-        if self.settings.deformation.scaling.soft_dampening_power > 0. {
+        /*if self.settings.deformation.scaling.soft_dampening_power > 0. {
             for ll in &self.loop_lines {
                 // skip loop lines without loop dependence
                 if ll.signature.iter().all(|&x| x == 0) {
@@ -1187,8 +1187,7 @@ impl Topology {
 
                 let n = Into::<T>::into(self.surfaces[surf_index].shift.t.powi(2));
 
-                let e = (
-                    cache.ellipsoid_eval[surf_index].unwrap().powi(2)
+                let e = (cache.ellipsoid_eval[surf_index].unwrap().powi(2)
                     / (Into::<T>::into(
                         self.settings.deformation.fixed.pinch_dampening_k_com * self.e_cm_squared,
                     ) + Into::<T>::into(
@@ -1199,8 +1198,8 @@ impl Topology {
                         .powi(2);
 
                 let t = e.sqrt().pow(Into::<T>::into(
-                        self.settings.deformation.fixed.pinch_dampening_alpha,
-                    ));
+                    self.settings.deformation.fixed.pinch_dampening_alpha,
+                ));
 
                 let sup =
                     t / (t + Into::<T>::into(
@@ -1211,7 +1210,7 @@ impl Topology {
                     lambda_sq = sup * sup;
                 }
             }
-        }
+        }*/
 
         // Setup a veto region at the intersection of pinched and non-pinched E-surfaces.
         if self.settings.deformation.fixed.ir_handling_strategy != IRHandling::None {
@@ -1849,6 +1848,7 @@ impl Topology {
         &self,
         loop_momenta: &[LorentzVector<Hyperdual<T, N>>],
         cache: &mut LTDCache<T>,
+        compute_jacobian: bool,
     ) -> ([LorentzVector<T>; MAX_LOOP], Complex<T>)
     where
         LTDCache<T>: CacheSelector<T, N>,
@@ -1980,7 +1980,8 @@ impl Topology {
             k.t = Hyperdual::<T, N>::zero(); // make sure we do not have a left-over deformation
         }
 
-        let jac_mat = &mut cache.get_cache_mut().deformation_jacobian;
+        let jac_mat = &mut cache.deformation_jacobian_matrix;
+        jac_mat.resize(9 * self.n_loops * self.n_loops, Complex::zero());
         for i in 0..3 * self.n_loops {
             for j in 0..3 * self.n_loops {
                 // first index: loop momentum, second: xyz, third: dual
@@ -1990,12 +1991,18 @@ impl Topology {
             jac_mat[i * 3 * self.n_loops + i] += Complex::one();
         }
 
-        let jac = utils::determinant(jac_mat, 3 * self.n_loops);
+        let jac = if compute_jacobian {
+            utils::determinant(jac_mat, 3 * self.n_loops)
+        } else {
+            Complex::zero()
+        };
+
         // take the real part
         let mut r = [LorentzVector::default(); MAX_LOOP];
         for (rr, k) in r[..self.n_loops].iter_mut().zip_eq(&kappas[..self.n_loops]) {
             *rr = k.real();
         }
+
         (r, jac)
     }
 
@@ -2003,6 +2010,7 @@ impl Topology {
         &self,
         loop_momenta: &[LorentzVector<T>],
         cache: &mut LTDCache<T>,
+        compute_jacobian: bool,
     ) -> ([LorentzVector<T>; MAX_LOOP], Complex<T>) {
         if DeformationStrategy::None == self.settings.general.deformation_strategy
             || self.n_loops == 0
@@ -2020,7 +2028,7 @@ impl Topology {
                     r[0][i + 1][i + 1] = T::one();
                 }
 
-                return self.deform_generic(&r[..self.n_loops], cache);
+                return self.deform_generic(&r[..self.n_loops], cache, compute_jacobian);
             }
             2 => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
@@ -2031,7 +2039,7 @@ impl Topology {
                     r[0][i + 1][i + 1] = T::one();
                     r[1][i + 1][i + 4] = T::one();
                 }
-                return self.deform_generic(&r[..self.n_loops], cache);
+                return self.deform_generic(&r[..self.n_loops], cache, compute_jacobian);
             }
             _ => {}
         };
@@ -2049,7 +2057,7 @@ impl Topology {
                     r[1][i + 1][i + 4] = T::one();
                     r[2][i + 1][i + 7] = T::one();
                 }
-                return self.deform_generic(&r[..self.n_loops], cache);
+                return self.deform_generic(&r[..self.n_loops], cache, compute_jacobian);
             }
             4 => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
@@ -2060,7 +2068,7 @@ impl Topology {
                         r[j][i + 1][i + 1 + j * 3] = T::one();
                     }
                 }
-                return self.deform_generic(&r[..self.n_loops], cache);
+                return self.deform_generic(&r[..self.n_loops], cache, compute_jacobian);
             }
             5 => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
@@ -2071,7 +2079,7 @@ impl Topology {
                         r[j][i + 1][i + 1 + j * 3] = T::one();
                     }
                 }
-                return self.deform_generic(&r[..self.n_loops], cache);
+                return self.deform_generic(&r[..self.n_loops], cache, compute_jacobian);
             }
             6 => {
                 let mut r = [LorentzVector::default(); MAX_LOOP];
@@ -2082,7 +2090,7 @@ impl Topology {
                         r[j][i + 1][i + 1 + j * 3] = T::one();
                     }
                 }
-                return self.deform_generic(&r[..self.n_loops], cache);
+                return self.deform_generic(&r[..self.n_loops], cache, compute_jacobian);
             }
             _ => {}
         }
