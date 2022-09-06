@@ -436,9 +436,20 @@ class SquaredTopologyGenerator:
             'default_fixed_cut_momenta': [[], []] if self.default_kinematics is None else self.default_kinematics,
             'topo': self.loop_topo.to_flat_format(),
             'topo_edges' : [ list(e)+[ (self.topo.powers[e[0]] if i not in self.topo.ext else 0), ]
-                                for i, e in enumerate(self.topo.edge_map_lin) ],
-            'edge_PDGs' : [[k,v] for k,v in self.particle_ids.items()],
-            'edge_signatures' : self.topo.get_signature_map(),
+                                for i, e in enumerate(self.topo.edge_map_lin) ],  # TODO: deprecate
+            'edge_PDGs' : [[k,v] for k,v in self.particle_ids.items()],  # TODO: deprecate
+            'edge_signatures' : self.topo.get_signature_map(), # TODO: deprecate
+            'propagators': [
+                {
+                    'name': name,
+                    'PDG': self.particle_ids[name] if name in self.particle_ids else 0,
+                    'signature': self.topo.get_signature_map()[name],
+                    'm_squared': self.masses[name]**2 if name in self.masses else 0.,
+                    'vertices': (v1, v2),
+                    'power': self.topo.powers[name] if name in self.topo.powers else 1,
+                }
+                for i, (name, v1, v2) in enumerate(self.topo.edge_map_lin) if i not in self.topo.ext
+            ],
             'FORM_integrand': self.FORM_integrand,
             # UNCOMMENT the entry below in order to output the information necessary for handling self-energies.
             #'subgraphs_info' : self.subgraphs_info,

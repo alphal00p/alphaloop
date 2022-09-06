@@ -412,6 +412,17 @@ pub struct MultiChannelingBasis {
 }
 
 #[derive(Clone, Deserialize)]
+pub struct Propagator {
+    pub name: String,
+    #[serde(rename = "PDG")]
+    pub pdg: isize,
+    pub signature: (Vec<i8>, Vec<i8>),
+    pub m_squared: f64,
+    pub vertices: (usize, usize),
+    pub power: usize,
+}
+
+#[derive(Clone, Deserialize)]
 pub struct SquaredTopology {
     pub name: String,
     pub n_loops: usize,
@@ -441,7 +452,7 @@ pub struct SquaredTopology {
     pub form_integrand: FORMIntegrand,
     #[serde(skip_deserializing)]
     pub is_stability_check_topo: bool,
-    pub edge_signatures: Vec<(String, (Vec<i8>, Vec<i8>))>,
+    pub propagators: Vec<Propagator>,
 }
 
 #[derive(Clone)]
@@ -2672,7 +2683,7 @@ impl SquaredTopology {
 
         let diagram_set = &self.cutkosky_cuts[cut_index].diagram_sets[0];
 
-        let mat_row_length = 3 * (self.n_loops - n_cuts + 1);
+        let mat_row_length = 3 * (self.n_loops + 1 - n_cuts);
         if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
             // reset jacobian matrix
             cache.deformation_jacobian_matrix.clear();
@@ -2683,7 +2694,7 @@ impl SquaredTopology {
             def_jacobian = Complex::one();
         }
 
-        let free_loops = self.n_loops - n_cuts + 1;
+        let free_loops = self.n_loops + 1 - n_cuts;
 
         // determine the cut momentum basis where every non-cut momentum has a dual
         let mut cut_momenta_deformation_dual: SmallVec<
@@ -2716,15 +2727,18 @@ impl SquaredTopology {
         let mat = diagram_set.cb_to_lmb.as_ref().unwrap();
 
         // determine the soft dampening factor
-        for (_, sig) in &self.edge_signatures {
-            // TODO: filter massive propagators
-            let mut momentum = utils::evaluate_signature(&sig.1, &external_momenta)
+        for p in &self.propagators {
+            if p.m_squared > 0. {
+                continue;
+            }
+
+            let mut momentum = utils::evaluate_signature(&p.signature.1, &external_momenta)
                 .map(|x| Hyperdual::from_real(x));
 
             for i in 0..self.n_loops {
                 for j in 0..self.n_loops {
                     // note: transposed matrix
-                    match mat[i + j * self.n_loops] * sig.0[j] {
+                    match mat[i + j * self.n_loops] * p.signature.0[j] {
                         0 => {}
                         s @ 1 | s @ -1 => {
                             let mut mom = cut_momenta_deformation_dual[i];
@@ -2868,7 +2882,7 @@ impl SquaredTopology {
 
             // add the contributions of the subgraph to the jacobian matrix, including the global dampening
             if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
-                let mat_index = k_def_index - n_cuts + 1;
+                let mat_index = k_def_index + 1 - n_cuts;
                 let sg_jac = std::mem::take(&mut subgraph_cache.deformation_jacobian_matrix);
 
                 // get x and y offset
