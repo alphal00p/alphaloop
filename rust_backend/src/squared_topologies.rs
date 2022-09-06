@@ -2882,17 +2882,30 @@ impl SquaredTopology {
 
             // add the contributions of the subgraph to the jacobian matrix, including the global dampening
             if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
-                let mat_index = k_def_index + 1 - n_cuts;
+                let mom_index = k_def_index + 1 - n_cuts;
                 let sg_jac = std::mem::take(&mut subgraph_cache.deformation_jacobian_matrix);
 
                 // get x and y offset
-                let yoffset = mat_index * mat_row_length;
-                let xoffset = mat_index * 3;
+                let yoffset = mom_index * 3 * mat_row_length;
+                let xoffset = mom_index * 3;
 
                 for i in 0..3 * subgraph.n_loops {
+                    // set cross terms
+                    for j in 0..mat_row_length {
+                        if j < xoffset || j > xoffset + 3 * subgraph.n_loops {
+                            let val = Complex::new(T::zero(), kappas[i / 3][i % 3 + 1] * dampening_factor[1 + j]);
+
+                            if diagram_info.conjugate_deformation {
+                                cache.deformation_jacobian_matrix[yoffset + i * mat_row_length + j] = -val;
+                            } else {
+                                cache.deformation_jacobian_matrix[yoffset + i * mat_row_length + j] = val;
+                            }
+                        }
+                    }
+
                     for j in 0..3 * subgraph.n_loops {
                         let dest = &mut cache.deformation_jacobian_matrix
-                            [yoffset + xoffset + i * 3 * subgraph.n_loops + j];
+                            [yoffset + xoffset + i * mat_row_length + j];
 
                         *dest = sg_jac[i * 3 * subgraph.n_loops + j];
                         if i == j {
@@ -2904,7 +2917,7 @@ impl SquaredTopology {
                         // add derivatives of the global dampening
                         *dest += Complex::new(
                             T::zero(),
-                            kappas[i / 3][i % 3 + 1] * dampening_factor[1 + mat_index * 3 + j],
+                            kappas[i / 3][i % 3 + 1] * dampening_factor[1 + mom_index * 3 + j],
                         );
 
                         if diagram_info.conjugate_deformation {
@@ -2916,6 +2929,8 @@ impl SquaredTopology {
                         }
                     }
                 }
+
+                //std::mem::swap(&mut sg_jac, &mut subgraph_cache.deformation_jacobian_matrix); // TODO
             }
 
             for (lm, kappa) in subgraph_loop_momenta[..subgraph.n_loops]
