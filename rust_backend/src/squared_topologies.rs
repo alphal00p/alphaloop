@@ -411,7 +411,7 @@ pub struct MultiChannelingBasis {
     pub signatures: Vec<(Vec<i8>, Vec<i8>)>,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Propagator {
     pub name: String,
     #[serde(rename = "PDG")]
@@ -2761,10 +2761,11 @@ impl SquaredTopology {
                 }
             }
 
-            let t = momentum.spatial_squared()
-                / T::convert_from(&self.e_cm_squared).powf(Into::<T>::into(
+            let t = (momentum.spatial_squared() / T::convert_from(&self.e_cm_squared)).powf(
+                Hyperdual::from_real(Into::<T>::into(
                     self.settings.deformation.scaling.soft_dampening_power,
-                ));
+                )),
+            );
 
             let dampening = t
                 / (t + Into::<T>::into(self.settings.deformation.scaling.soft_dampening_m.powi(2)));
@@ -2793,7 +2794,9 @@ impl SquaredTopology {
                             for ii in 0..self.n_loops {
                                 for jj in 0..self.n_loops {
                                     // note: transposed matrix
-                                    match mat[ii + jj * 3] * collinear_edge.signature.0[jj] {
+                                    match mat[ii + jj * self.n_loops]
+                                        * collinear_edge.signature.0[jj]
+                                    {
                                         0 => {}
                                         s @ 1 | s @ -1 => {
                                             let mut mom = cut_momenta_deformation_dual[ii];
@@ -2875,7 +2878,7 @@ impl SquaredTopology {
                     .map(|c| c.map(|x| x.get_real()))
                     .collect();
 
-                subgraph.deform(&s, subgraph_cache, true).0
+                subgraph.deform(&s, subgraph_cache, false).0
             } else {
                 [LorentzVector::default(); crate::MAX_LOOP]
             };
@@ -2893,12 +2896,17 @@ impl SquaredTopology {
                     // set cross terms
                     for j in 0..mat_row_length {
                         if j < xoffset || j > xoffset + 3 * subgraph.n_loops {
-                            let val = Complex::new(T::zero(), kappas[i / 3][i % 3 + 1] * dampening_factor[1 + j]);
+                            let val = Complex::new(
+                                T::zero(),
+                                kappas[i / 3][i % 3 + 1] * dampening_factor[1 + j],
+                            );
 
                             if diagram_info.conjugate_deformation {
-                                cache.deformation_jacobian_matrix[yoffset + i * mat_row_length + j] = -val;
+                                cache.deformation_jacobian_matrix
+                                    [yoffset + i * mat_row_length + j] = -val;
                             } else {
-                                cache.deformation_jacobian_matrix[yoffset + i * mat_row_length + j] = val;
+                                cache.deformation_jacobian_matrix
+                                    [yoffset + i * mat_row_length + j] = val;
                             }
                         }
                     }
@@ -2930,7 +2938,9 @@ impl SquaredTopology {
                     }
                 }
 
-                //std::mem::swap(&mut sg_jac, &mut subgraph_cache.deformation_jacobian_matrix); // TODO
+                cache
+                    .get_topology_cache(cut_index, 0, diagram_index)
+                    .deformation_jacobian_matrix = sg_jac;
             }
 
             for (lm, kappa) in subgraph_loop_momenta[..subgraph.n_loops]
