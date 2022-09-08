@@ -2951,10 +2951,10 @@ impl SquaredTopology {
                 k_def[k_def_index] = if diagram_info.conjugate_deformation {
                     // take the complex conjugate of the deformation
                     lm.map(|x| Complex::new(x, D::zero()))
-                        - kappa.map(|x| Complex::new(D::zero(), x.into()))
+                        - kappa.map(|x| Complex::new(D::zero(), (x * dampening_factor[0]).into()))
                 } else {
                     lm.map(|x| Complex::new(x, D::zero()))
-                        + kappa.map(|x| Complex::new(D::zero(), x.into()))
+                        + kappa.map(|x| Complex::new(D::zero(), (x * dampening_factor[0]).into()))
                 };
 
                 if let Some((store_kappa, _)) = deformation.as_mut() {
