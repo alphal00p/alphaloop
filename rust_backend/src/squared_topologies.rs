@@ -2728,7 +2728,7 @@ impl SquaredTopology {
         if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
             // determine the soft dampening factor
             for p in &self.propagators {
-                if p.m_squared > 0. {
+                if p.m_squared > 0. || p.signature.0.iter().all(|s| *s == 0) {
                     continue;
                 }
 
