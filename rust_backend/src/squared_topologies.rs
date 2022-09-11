@@ -2781,6 +2781,8 @@ impl SquaredTopology {
                     if i > j {
                         if c1.cuts.iter().any(|cc| c2.cuts.contains(cc)) {
                             let mut surface_eval = Hyperdual::zero();
+                            let mut pos_norm_sum = Hyperdual::zero();
+                            let mut momentum_sum = LorentzVector::default();
                             for (diff_sign, collinear_edge) in c1
                                 .cuts
                                 .iter()
@@ -2836,20 +2838,32 @@ impl SquaredTopology {
                                     }
                                 }
 
+                                let d = momentum.spatial_distance();
                                 if collinear_edge.sign * diff_sign == 1 {
-                                    surface_eval += momentum.spatial_distance();
+                                    surface_eval += d;
+                                    pos_norm_sum += d;
+                                    momentum_sum += momentum;
                                 } else {
-                                    surface_eval -= momentum.spatial_distance();
+                                    surface_eval -= d;
                                 }
                             }
 
                             // TODO: normalize by the size the line segment?
-                            let e = surface_eval * surface_eval
+                            let eta = surface_eval * surface_eval
                                 / (Into::<T>::into(
                                     self.settings.deformation.fixed.pinch_dampening_k_com,
                                 ) * T::convert_from(&self.e_cm_squared));
 
-                            let t = e.sqrt().powf(Hyperdual::from_real(Into::<T>::into(
+                            let existence_condition =
+                                pos_norm_sum - &momentum_sum.spatial_distance();
+                            let gamma = existence_condition * existence_condition
+                                / (Into::<T>::into(
+                                    self.settings.deformation.fixed.pinch_dampening_k_com,
+                                ) * T::convert_from(&self.e_cm_squared));
+
+                            let t = eta.sqrt().powf(Hyperdual::from_real(Into::<T>::into(
+                                self.settings.deformation.fixed.pinch_dampening_alpha,
+                            ))) + gamma.sqrt().powf(Hyperdual::from_real(Into::<T>::into(
                                 self.settings.deformation.fixed.pinch_dampening_alpha,
                             )));
 
