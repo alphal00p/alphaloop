@@ -659,7 +659,7 @@ class AdvancedIntegrand(integrands.VirtualIntegrand):
             all_channels_added_so_far = []
             for i_channel, channel in enumerate(self.SG['SG_multichannel_info']):
                 # Ignore left-side vs right-side cut and only take the left-side representative
-                if self.external_phase_space_generation_type == 'flat' and channel_info['side']!='left':
+                if self.external_phase_space_generation_type == 'flat' and channel['side']!='left':
                     continue
                 edge_names_in_basis = []
                 # First add the momenta from the Cutkosky cut. Prefer to select vector bosons as independent momenta

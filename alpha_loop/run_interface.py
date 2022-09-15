@@ -428,15 +428,20 @@ class SuperGraph(dict):
                 res_str.append('%s%s%s'%(Colours.BLUE,k,Colours.END))
         return '\n'.join(res_str)
 
-    def show_timing_statistics(self):
-
-        res = []
-
+    def get_available_timing_results(self):
         all_precisions_available = []
         for entry in self:
             if entry.startswith('DERIVED_timing_profile_'):
                 all_precisions_available.append(entry[23:])
         all_precisions_available.sort(key=lambda el: tuple([0 if el.split('_')[0]=='f64' else (1 if el.split('_')[0]=='f128' else int(el.split('_')[0])) ]+el.split('_')[1:]))
+        return all_precisions_available
+
+    def show_timing_statistics(self):
+
+        res = []
+
+        all_precisions_available = self.get_available_timing_results()
+
         if len(all_precisions_available)==0:
             return "No timing profile information available."
 
@@ -1558,7 +1563,11 @@ class SuperGraphCollection(dict):
     def show_timing_statistics(self):
 
         res = []
-        for precision in ['f64','f128']:
+        all_timings_available = sorted(list(set.intersection(*[set(SG.get_available_timing_results()) for SG_name,SG in self.items()])),
+            key=lambda el: tuple([0 if el.split('_')[0]=='f64' else (1 if el.split('_')[0]=='f128' else int(el.split('_')[0])) ]+el.split('_')[1:]))
+        if len(all_timings_available)==0:
+            return "No timing profile information available."
+        for precision in all_timings_available:
             all_SG_times = sorted([
                 (SG_name,SG['DERIVED_timing_profile_%s'%precision]) for SG_name,SG in self.items()
                 if 'DERIVED_timing_profile_%s'%precision in SG
@@ -1569,7 +1578,7 @@ class SuperGraphCollection(dict):
             ],key=lambda el: el[1])
             if len(all_SG_times)==0:
                 continue
-            res.append(('Overall statistics for %s precision:'%precision,''))
+            res.append(('Overall statistics for %s precision and %d supergraphs:'%(precision,len(all_SG_times)),''))
             res.append(('-'*len(res[-1][0]),''))
             res.append(('Summed timing for overall evaluate','%.3f ms'%sum(t[1] for t in all_SG_times)))
             res.append(('Summed timing for summed evaluate cuts','%.3f ms'%sum(t[1] for t in all_SG_summed_times)))

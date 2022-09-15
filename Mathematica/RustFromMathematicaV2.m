@@ -215,13 +215,13 @@ Res=ExternalEvaluate[hook,<|"Command"->"API_get_deformation","Arguments"->{False
 
 
 (* ::Input::GetCrossSectionDeformation:: *)
-RFM$GetCrossSectionDeformation[hook_,CutID_,RealMomenta_,OptionsPattern[{DEBUG->False,DiagramSet->-1}]]:=Module[
+RFM$GetCrossSectionDeformation[hook_, CutID_, scalingFactor_, RealMomenta_,OptionsPattern[{DEBUG->False,DiagramSet->-1}]]:=Module[
 {Res},
 
-Res=ExternalEvaluate[hook,<|"Command"->"API_get_deformation","Arguments"->{False,RealMomenta,CutID,OptionValue[DiagramSet]}|>];
+Res=ExternalEvaluate[hook,<|"Command"->"API_get_deformation","Arguments"->{False,RealMomenta,CutID,OptionValue[DiagramSet],scalingFactor}|>];
 
 (* Return *)
-<|"DeformedMomenta"->Res["deformed_momenta"]|>
+<|"DeformedMomenta"->Res["deformed_momenta"],"DeformationJacobian"->Res["deformation_jacobian"]|>
 ]
 
 

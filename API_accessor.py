@@ -149,7 +149,7 @@ def API_is_alive():
 def API_exit():
     sys.exit(1)
 
-def API_get_deformation(f128_mode, momenta_input, cut_ID=None, diagram_set_ID=-1):
+def API_get_deformation(f128_mode, momenta_input, cut_ID=None, diagram_set_ID=-1,scaling=1.0):
     if _MODEs[0]=='LTD':
         kappas, jac_re, jac_im = rust_instances[-1].deform(momenta_input)
         return {'jac':jac_re+jac_im*1j, 'kappas':kappas}
@@ -157,8 +157,8 @@ def API_get_deformation(f128_mode, momenta_input, cut_ID=None, diagram_set_ID=-1
         call_opts = {}
         if diagram_set_ID >= 0:
             call_opts['diagram_set'] = diagram_set_ID
-        deformed_momenta = rust_instances[-1].get_cut_deformation(momenta_input, cut_ID, **call_opts)
-        return {'deformed_momenta':deformed_momenta}
+        deformed_momenta, (def_jac_re, def_jac_im) = rust_instances[-1].get_cut_deformation(momenta_input, cut_ID, scaling, **call_opts)
+        return {'deformed_momenta':deformed_momenta, 'deformation_jacobian':(def_jac_re+def_jac_im*1j)}
 
 def API_parameterize(f128_mode, loop_index, e_cm, xs):
     if f128_mode:

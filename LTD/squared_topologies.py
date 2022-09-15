@@ -309,7 +309,7 @@ class SquaredTopologyGenerator:
                                 # same mass, such that raising a power in the loop line yields a unique topology
                                 if d['derivatives'] > 0 and d['derivatives'] < uv_sg['taylor_order']:
                                     if any(len(set(masses[p.name] for p in ll.propagators)) > 1 for ll in loop_topo.loop_lines):
-                                        raise AssertionError('WARNING: In supergraph %s not all propagators have the same mass in a loop line for the derivative soft CT graph %s' % (sg_name, str(uv_sg['graph'].edge_map_lin)))
+                                        raise AssertionError('WARNING: In supergraph %s not all propagators have the same mass in a loop line for the derivative soft CT graph %s' % (self.name, str(uv_sg['graph'].edge_map_lin)))
 
                                 d['loop_topo_orig_mass'] = copy.deepcopy(loop_topo)
                                 # do not drop the shift for the 0th order of the on-shell expansion
