@@ -886,7 +886,7 @@ impl Observable for Jet1PTObservable {
             writeln!(f, "##& xmin & xmax & central value & dy &\n").unwrap();
             writeln!(
                 f,
-                "<histogram> {} \"j1 pT |X_AXIS@LIN |Y_AXIS@LOG |TYPE@LOALPHALOOP\"",
+                "<histogram> {} \"j1 pT |X_AXIS@LIN |Y_AXIS@LOG |TYPE@AL\"",
                 self.bins.len()
             )
             .unwrap();
@@ -1016,7 +1016,7 @@ impl Observable for AFBObservable {
             writeln!(f, "##& xmin & xmax & central value & dy &\n").unwrap();
             writeln!(
                 f,
-                "<histogram> {} \"Angular distribution |X_AXIS@LIN |Y_AXIS@LOG |TYPE@LOALPHALOOP\"",
+                "<histogram> {} \"Angular distribution |X_AXIS@LIN |Y_AXIS@LOG |TYPE@AL\"",
                 self.bins.len()
             )
             .unwrap();
@@ -1180,7 +1180,7 @@ impl Observable for SingleParticleObservable {
             writeln!(f, "##& xmin & xmax & central value & dy &\n").unwrap();
             writeln!(
                 f,
-                "<histogram> {} \"{} |X_AXIS@{} |Y_AXIS@{} |TYPE@ALPHALOOP\"",
+                "<histogram> {} \"{} |X_AXIS@{} |Y_AXIS@{} |TYPE@AL\"",
                 self.bins.len(),
                 title,
                 x_axis_mode,
