@@ -584,6 +584,69 @@ class TopologyGenerator(object):
 
         return list(sorted(cutkosky_cuts))
 
+
+    def find_thresholds(self, fuse_repeated_edges=False, masses=None):
+        if not self.spanning_trees:
+            accum = []
+            tree = {self.edges[0][0]}
+
+            spanning_trees = []
+            seen_state = set()
+            self.generate_spanning_trees(spanning_trees, tree=tree, accum=accum, seen_state=seen_state)
+            if accum == []:
+                self.spanning_trees = spanning_trees
+        else:
+            spanning_trees = self.spanning_trees
+
+        cutkosky_cuts = set()
+        cut_momenta_options = set()
+
+        # add tadpoles to the spanning tree edge
+        # TODO: add higher-loop tadpole edges as well
+        spanning_trees = copy.deepcopy(spanning_trees)
+        for spanning_tree in spanning_trees:
+            for i,e in enumerate(self.edge_map_lin):
+                if len(set(e[1:])) == 1:
+                    spanning_tree.append(i)
+
+        duplicate_edges = defaultdict(list)
+        if fuse_repeated_edges:
+            # only allow one edge with a given momentum to be outside of the spanning tree
+            for ei, (prop, eml) in enumerate(zip(self.propagators, self.edge_map_lin)):
+                if ei not in self.ext:
+                    sig = (masses[eml[0]], tuple(sorted([tuple(prop), tuple((x[0], not x[1]) for x in prop)])))
+                    duplicate_edges[sig].append(ei)
+
+            spanning_trees = [s for s in spanning_trees if all(len(set(s) & set(d)) == len(d) or set(s) & set(d) == set(d[1:]) for d in duplicate_edges.values() if len(d) > 1)]
+
+        for spanning_tree in spanning_trees:
+            # now select the extra cut, which needs to have a loop dependence
+            for edge_index in spanning_tree:
+                if edge_index in self.ext or all(i in self.ext for i, _ in self.propagators[edge_index]) or any(edge_index in d[1:] for d in duplicate_edges.values()):
+                    continue
+
+                cut_momenta_options.add(tuple(sorted(set(spanning_tree) - {edge_index})))
+                
+        thresholds = []
+        for cut_momenta in cut_momenta_options:
+            cut_momenta_set = set(cut_momenta)
+
+            cut_tree = TopologyGenerator([e for i, e in enumerate(self.edge_map_lin) if i in cut_momenta_set])
+            sub_tree_indices = []
+            cut_tree.generate_spanning_trees(sub_tree_indices, tree={cut_tree.edges[0][0]} if len(cut_tree.edges) > 0 else {})
+            sub_tree = TopologyGenerator([cut_tree.edge_map_lin[i] for i in sub_tree_indices[0]])
+
+            # identify which of the n+1 cuts are the cuts that separate the original diagram in two
+            cutkosky_cut = tuple(sorted(cutkosky_edge for cutkosky_edge in set(self.edge_map_lin).difference(set(cut_tree.edge_map_lin))
+                    if len(set(sub_tree.vertices) & set([cutkosky_edge[1], cutkosky_edge[2]]))==1))
+
+            thresholds.append(([c[0] for c in cutkosky_cut], 
+                [(sub_tree.edge_map_lin[sub_tree.edge_name_map[self.edge_map_lin[e][0]]][0], 
+                1 if sub_tree.vertices.count(sub_tree.edge_map_lin[sub_tree.edge_name_map[self.edge_map_lin[e][0]]][1]) == 1 else -1) 
+                    for e in self.ext if self.edge_map_lin[e][0] in sub_tree.edge_name_map]))
+
+        return list(sorted(thresholds))
+
     def split_graph(self, cutkosky_cut, incoming_momenta):
         """Split the graph in two using a cutkosky cut. The first has the incoming momenta, and the second the outgoing."""
         cut_tree = TopologyGenerator([e for e in self.edge_map_lin if e[0] not in cutkosky_cut])

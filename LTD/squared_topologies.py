@@ -244,7 +244,13 @@ class SquaredTopologyGenerator:
 
                 # construct the forest matrix that maps the amplitude momenta in the cmb
                 # to ones suitable for the spinney
+                lmb_offset = len(c) - 1
                 for i, diag_info in enumerate(diag_set['diagram_info']):
+                    amp_loops = diag_info['uv'][0]['remaining_graph'].n_loops
+
+                    diag_info['n_loops'] = amp_loops
+                    diag_info['propagators'] = []
+                    diag_info['thresholds'] = []
                     for uv_structure in diag_info['uv']:
                         # create the LTD representation of the derived UV graph
                         forest_to_lmb = []
@@ -291,6 +297,70 @@ class SquaredTopologyGenerator:
 
                                 if di == 0:
                                     forest_to_lmb.extend([x[0] for x in loop_mom_map])
+
+                                    # strip external momenta for the graph and compute all propagators and thresholds
+                                    new_edges = [e for i, e in enumerate(d['graph'].edge_map_lin) if i not in d['graph'].ext]
+                                    stripped_topo = TopologyGenerator(new_edges)
+                                    stripped_topo.inherit_loop_momentum_basis(self.topo)
+                                    sigs = stripped_topo.get_signature_map()
+
+                                    # construct all propagators of the amplitude
+                                    new_props = []
+                                    for e, v1, v2 in new_edges:
+                                        lmb_sig = numpy.array([0]*self.topo.n_loops, dtype=int)
+                                        for lm, s in zip(loop_mom_map, sigs[e][0]):
+                                            lmb_sig += s * numpy.array(lm[0], dtype=int)
+
+                                        cmb_sig = [int(x) for x in lmb_to_cb_matrix.T @ lmb_sig]
+                                        assert(all(s == 0 for s in cmb_sig[len(c) - 1:lmb_offset]) and all(s == 0 for s in cmb_sig[lmb_offset + amp_loops:]))
+
+                                        amp_sig = numpy.array(cmb_sig[lmb_offset:lmb_offset + amp_loops], dtype=int)
+
+                                        if all(s == 0 for s in amp_sig):
+                                            continue
+                                    
+                                        ext_shift_in_cmb = (numpy.array(list(cmb_sig[:lmb_offset]) + [0]*amp_loops + list(cmb_sig[lmb_offset + amp_loops:]), dtype=int),
+                                                sum(-numpy.array(cc['signature'][1], dtype=int) * s for s, cc in zip(cmb_sig, c[:-1])))
+
+                                        for uv in (False, True):
+                                            new_prop = {
+                                                'name': e,
+                                                'id': -1,
+                                                'lmb_sig': (lmb_sig.tolist(), [0]*len(self.topo.ext)),
+                                                'amp_sig': amp_sig.tolist(),
+                                                'amp_shift_in_lmb_sig': tuple(x.tolist() for x in ext_shift_in_cmb),
+                                                'mass': masses[e],
+                                                'uv': uv,
+                                            }
+                                            new_props.append(new_prop)
+                                            for p in diag_info['propagators']:
+                                                # TODO: check for an overall sign too
+                                                if (p['lmb_sig'], p['amp_sig'], p['amp_shift_in_lmb_sig'], p['mass'], p['uv']) == \
+                                                    (new_prop['lmb_sig'], new_prop['amp_sig'], new_prop['amp_shift_in_lmb_sig'], new_prop['mass'], new_prop['uv']):
+                                                    new_prop['id'] = p['id']
+                                                    break
+                                            else:
+                                                new_prop['id'] = len(diag_info['propagators'])
+                                                diag_info['propagators'].append(new_prop)
+
+                                    # construct all thresholds
+                                    thresholds = stripped_topo.find_thresholds(fuse_repeated_edges=True, masses=masses)
+                                    for t in thresholds:
+                                        foci_no_uv = [next(p['id'] for p in new_props if p['name'] == f and not p['uv']) for f in t[0]]
+                                        foci_uv = [next(p['id'] for p in new_props if p['name'] == f and p['uv']) for f in t[0]]
+                                        shift = ([0]*self.topo.n_loops, [0]*len(self.topo.ext))
+
+                                        if uv_subgraph['onshell']:
+                                            threshold = {'foci': foci_no_uv, 'shift_in_lmb_sig': shift, 'mass_shift': masses[uv_subgraph['onshell'][0]]}
+                                            if threshold not in diag_info['thresholds']: diag_info['thresholds'].append(threshold)
+                                        else:
+                                            # not needed when dod = 0
+                                            if len(uv_subgraph['derived_graphs']) > 1:
+                                                threshold = {'foci': foci_no_uv, 'shift_in_lmb_sig': shift, 'mass_shift': 0.}
+                                                if threshold not in diag_info['thresholds']: diag_info['thresholds'].append(threshold)
+
+                                        threshold = {'foci': foci_uv, 'shift_in_lmb_sig': shift, 'mass_shift': 0.}
+                                        if threshold not in diag_info['thresholds']: diag_info['thresholds'].append(threshold)
 
                                 # note: the shift map signs may get swapped when edges switch orientation
                                 # the basis_shift_map should be unaffected since defining edges are not swapped
@@ -401,6 +471,56 @@ class SquaredTopologyGenerator:
 
                             uv_subgraph['integrated_ct_bubble_graph'] = loop_topo
 
+                        new_props = []
+                        for e, v1, v2 in uv_structure['remaining_graph'].edge_map_lin:
+                            lmb_sig = edge_map[e]
+                            cmb_sig = [int(x) for x in lmb_to_cb_matrix.T @ Matrix(lmb_sig[0])]
+                            assert(all(s == 0 for s in cmb_sig[len(c) - 1:lmb_offset]) and all(s == 0 for s in cmb_sig[lmb_offset + amp_loops:]))
+
+                            amp_sig = numpy.array(cmb_sig[lmb_offset:lmb_offset + amp_loops], dtype=int)
+
+                            if all(s == 0 for s in amp_sig):
+                                continue
+                           
+                            ext_shift_in_cmb = (numpy.array(list(cmb_sig[:lmb_offset]) + [0]*amp_loops + list(cmb_sig[lmb_offset + amp_loops:]), dtype=int),
+                                    sum(-numpy.array(cc['signature'][1], dtype=int) * s for s, cc in zip(cmb_sig, c[:-1])) + numpy.array(lmb_sig[1], dtype=int))
+
+                            new_prop = {
+                                'name': e,
+                                'id': -1,
+                                'lmb_sig': tuple(edge_map[e]),
+                                'amp_sig': amp_sig.tolist(),
+                                'amp_shift_in_lmb_sig': tuple(x.tolist() for x in ext_shift_in_cmb),
+                                'mass': masses[e],
+                                'uv': False,
+                            }
+
+                            new_props.append(new_prop)
+                            for p in diag_info['propagators']:
+                                if (p['lmb_sig'], p['amp_sig'], p['amp_shift_in_lmb_sig'], p['mass'], p['uv']) == \
+                                    (new_prop['lmb_sig'], new_prop['amp_sig'], new_prop['amp_shift_in_lmb_sig'], new_prop['mass'], new_prop['uv']):
+                                    new_prop['id'] = p['id']
+                                    break
+                            else:
+                                new_prop['id'] = len(diag_info['propagators'])
+                                diag_info['propagators'].append(new_prop)
+
+                        # construct all thresholds
+                        thresholds = uv_structure['remaining_graph'].find_thresholds(fuse_repeated_edges=True, masses=masses)
+                        for ii, t in enumerate(thresholds):
+                            foci = [next(p['id'] for p in new_props if p['name'] == f) for f in t[0]]
+
+                            lm_shift = numpy.array([0]*self.topo.n_loops, dtype=int)
+                            ext_shift = numpy.array([0]*len(self.topo.ext), dtype=int)
+                            for mom, sign in t[1]:
+                                sig = edge_map[mom]
+                                lm_shift += sign * numpy.array(sig[0], dtype=int)
+                                ext_shift += sign * numpy.array(sig[1], dtype=int)
+
+                            threshold = {'foci': foci, 'shift_in_lmb_sig': (lm_shift.tolist(), ext_shift.tolist()), 'mass_shift': 0.}
+                            if threshold not in diag_info['thresholds']:
+                                diag_info['thresholds'].append(threshold)
+
                         forest_to_lmb.extend([x[0] for x in uv_structure['remaining_graph_loop_topo'].loop_momentum_map])
 
                         if forest_to_lmb != []:
@@ -423,6 +543,7 @@ class SquaredTopologyGenerator:
                         if uv_structure['remaining_graph'].n_loops == 0 and len(uv_structure['uv_subgraphs']) > 0:
                             pure_forest_counter += 1
 
+                    lmb_offset += amp_loops
             self.cuts.append(cut_info)
 
     def export(self, output_path, model=None, include_integration_channel_info=False, optimize_channels=False):
@@ -474,6 +595,9 @@ class SquaredTopologyGenerator:
                             'diagram_info': [{
                                 'graph': diag['uv'][0]['remaining_graph_loop_topo'].to_flat_format(),
                                 'conjugate_deformation': diag['conjugate_deformation'],
+                                'n_loops': diag['n_loops'],
+                                'propagators': diag['propagators'],
+                                'thresholds': diag['thresholds'],
                             } for diag in diag_set['diagram_info']],
                             'cb_to_lmb': diag_set['cb_to_lmb']
                         }
