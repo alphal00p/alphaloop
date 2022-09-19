@@ -11,6 +11,7 @@ use num::{Complex, ToPrimitive};
 use smallvec::SmallVec;
 use std::fs::File;
 use std::io::{BufWriter, Write};
+use std::path::Path;
 
 mod fjcore {
     use libc::{c_double, c_int, c_void};
@@ -168,6 +169,24 @@ impl EventManager {
                             settings.write_to_file,
                             settings.filename.clone(),
                         )));
+                    }
+                }
+                ObservableSettings::SingleParticleObservable(settings) => {
+                    if track_events {
+                        observables.push(Observables::SingleParticle(
+                            SingleParticleObservable::new(
+                                settings.x_min,
+                                settings.x_max,
+                                settings.n_bins,
+                                settings.write_to_file,
+                                settings.filename.clone(),
+                                settings.quantity,
+                                settings.pdgs.clone(),
+                                settings.log_obs,
+                                settings.log_x_axis,
+                                settings.log_y_axis,
+                            ),
+                        ));
                     }
                 }
             }
@@ -638,6 +657,7 @@ pub enum Observables {
     CrossSection(CrossSectionObservable),
     Jet1PT(Jet1PTObservable),
     AFB(AFBObservable),
+    SingleParticle(SingleParticleObservable),
 }
 
 impl Observables {
@@ -648,6 +668,7 @@ impl Observables {
             CrossSection(o) => o.process_event_group(event, integrator_weight),
             Jet1PT(o) => o.process_event_group(event, integrator_weight),
             AFB(o) => o.process_event_group(event, integrator_weight),
+            SingleParticle(o) => o.process_event_group(event, integrator_weight),
         }
     }
 
@@ -658,6 +679,7 @@ impl Observables {
             (CrossSection(o1), CrossSection(o2)) => o1.merge_samples(o2),
             (Jet1PT(o1), Jet1PT(o2)) => o1.merge_samples(o2),
             (AFB(o1), AFB(o2)) => o1.merge_samples(o2),
+            (SingleParticle(o1), SingleParticle(o2)) => o1.merge_samples(o2),
             (o1, o2) => panic!(
                 "Cannot merge observables of different types: {:?} vs {:?}",
                 o1, o2
@@ -673,6 +695,7 @@ impl Observables {
             CrossSection(o) => o.update_result(total_events),
             Jet1PT(o) => o.update_result(total_events),
             AFB(o) => o.update_result(total_events),
+            SingleParticle(o) => o.update_result(total_events),
         }
     }
 }
@@ -995,6 +1018,173 @@ impl Observable for AFBObservable {
                 f,
                 "<histogram> {} \"Angular distribution |X_AXIS@LIN |Y_AXIS@LOG |TYPE@LOALPHALOOP\"",
                 self.bins.len()
+            )
+            .unwrap();
+
+            for (i, b) in self.bins.iter().enumerate() {
+                let c1 = (self.x_max - self.x_min) * i as f64 / self.bins.len() as f64 + self.x_min;
+                let c2 = (self.x_max - self.x_min) * (i + 1) as f64 / self.bins.len() as f64
+                    + self.x_min;
+
+                writeln!(
+                    f,
+                    "  {:.8e}   {:.8e}   {:.8e}   {:.8e}",
+                    c1, c2, b.avg, b.err,
+                )
+                .unwrap();
+            }
+
+            writeln!(f, "<\\histogram>").unwrap();
+        } else {
+            for (i, b) in self.bins.iter().enumerate() {
+                let c1 = (self.x_max - self.x_min) * i as f64 / self.bins.len() as f64 + self.x_min;
+                let c2 = (self.x_max - self.x_min) * (i + 1) as f64 / self.bins.len() as f64;
+                println!("{}={}: {} +/ {}", c1, c2, b.avg, b.err,);
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SingleParticleObservable {
+    x_min: f64,
+    x_max: f64,
+    event_accumulator: Vec<(isize, f64)>,
+    bins: Vec<AverageAndErrorAccumulator>,
+    write_to_file: bool,
+    filename: String,
+    num_events: usize,
+    quantity: FilterQuantity,
+    pdgs: Vec<isize>,
+    log_obs: bool,
+    log_x_axis: bool,
+    log_y_axis: bool,
+}
+
+impl SingleParticleObservable {
+    pub fn new(
+        x_min: f64,
+        x_max: f64,
+        num_bins: usize,
+        write_to_file: bool,
+        filename: String,
+        quantity: FilterQuantity,
+        pdgs: Vec<isize>,
+        log_obs: bool,
+        log_x_axis: bool,
+        log_y_axis: bool,
+    ) -> SingleParticleObservable {
+        SingleParticleObservable {
+            x_min,
+            x_max,
+            event_accumulator: Vec::with_capacity(20),
+            bins: vec![AverageAndErrorAccumulator::default(); num_bins],
+            write_to_file,
+            filename,
+            num_events: 0,
+            quantity,
+            pdgs,
+            log_obs,
+            log_x_axis,
+            log_y_axis,
+        }
+    }
+}
+
+impl Observable for SingleParticleObservable {
+    fn process_event_group(&mut self, events: &[Event], integrator_weight: f64) {
+        // add events in a correlated manner such that cancellations are realized in the error
+        self.event_accumulator.clear();
+        for e in events {
+            let pin = e.kinematic_configuration.0[1];
+
+            let pout_iter = e
+                .final_state_particle_ids
+                .iter()
+                .zip(&e.kinematic_configuration.1)
+                .filter(|(id, _mom)| self.pdgs.contains(*id))
+                .map(|(_, mom)| *mom);
+
+            for pout in pout_iter {
+                let mut obs_evaluated = match self.quantity {
+                    FilterQuantity::CosThetaP => {
+                        pin.spatial_dot(&pout) / (pin.spatial_distance() * pout.spatial_distance())
+                    }
+                    FilterQuantity::Energy => pout.t,
+                    FilterQuantity::PT => pout.pt(),
+                };
+                if self.log_obs {
+                    obs_evaluated = obs_evaluated.log10();
+                }
+                let index = ((obs_evaluated - self.x_min) / (self.x_max - self.x_min)
+                    * self.bins.len() as f64) as isize;
+
+                if index >= 0 && index < self.bins.len() as isize {
+                    let mut new = true;
+                    for i in self.event_accumulator.iter_mut() {
+                        if i.0 == index {
+                            *i = (index, i.1 + e.integrand.re * integrator_weight);
+                            new = false;
+                            break;
+                        }
+                    }
+                    if new {
+                        self.event_accumulator
+                            .push((index, e.integrand.re * integrator_weight));
+                    }
+                }
+            }
+        }
+
+        for i in &self.event_accumulator {
+            self.bins[i.0 as usize].add_sample(i.1);
+        }
+    }
+
+    fn merge_samples(&mut self, other: &mut SingleParticleObservable) {
+        // TODO: check if bins are compatible?
+        for (b, bo) in self.bins.iter_mut().zip_eq(&mut other.bins) {
+            b.merge_samples(bo);
+        }
+    }
+
+    fn update_result(&mut self, total_events: usize) {
+        let diff = total_events - self.num_events;
+        self.num_events = total_events;
+
+        // rescale the entries in each bin by the number of samples
+        // per bin over the complete number of events (including rejected) ones
+        // this is not the same as recaling the average after recombining
+        // with previous iterations
+        for b in &mut self.bins {
+            let scaling = b.num_samples as f64 / diff as f64;
+            b.sum *= scaling;
+            b.sum_sq *= scaling * scaling;
+            b.update_iter();
+        }
+
+        //let title = format!("{}({})", self.quantity, self.pdgs.iter().map(|&pdg| pdg.to_string()).join(",") );
+        let title = format!(
+            "{}",
+            Path::new(&self.filename)
+                .file_stem()
+                .unwrap()
+                .to_str()
+                .unwrap()
+        );
+        let x_axis_mode = if self.log_x_axis { "LOG" } else { "LIN" };
+        let y_axis_mode = if self.log_y_axis { "LOG" } else { "LIN" };
+        if self.write_to_file {
+            let mut f =
+                BufWriter::new(File::create(&self.filename).expect("Could not create HwU file"));
+            writeln!(f, "##& xmin & xmax & central value & dy &\n").unwrap();
+            writeln!(
+                f,
+                "<histogram> {} \"{} |X_AXIS@{} |Y_AXIS@{} |TYPE@ALPHALOOP\"",
+                self.bins.len(),
+                title,
+                x_axis_mode,
+                y_axis_mode
             )
             .unwrap();
 

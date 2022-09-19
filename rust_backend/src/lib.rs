@@ -495,6 +495,33 @@ pub struct AFBSettings {
 
 #[derive(Debug, Clone, Deserialize)]
 #[allow(non_snake_case)]
+pub struct SingleParticleObservableSettings {
+    pub x_min: f64,
+    pub x_max: f64,
+    pub n_bins: usize,
+    #[serde(default = "default_true")]
+    pub write_to_file: bool,
+    #[serde(default = "default_false")]
+    pub log_obs: bool,
+    #[serde(default = "default_false")]
+    pub log_x_axis: bool,
+    #[serde(default = "default_true")]
+    pub log_y_axis: bool,
+    pub filename: String,
+    pub pdgs: Vec<isize>,
+    pub quantity: FilterQuantity
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_false() -> bool {
+    false
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[allow(non_snake_case)]
 pub struct RangeFilterSettings {
     pub pdgs: Vec<isize>,
     pub filter: FilterQuantity,
@@ -506,10 +533,26 @@ pub struct RangeFilterSettings {
 pub enum FilterQuantity {
     #[serde(rename = "E")]
     Energy,
-    #[serde(rename = "CosThetaP")]
+    #[serde(rename = "CosTheta")]
     CosThetaP,
-    #[serde(rename = "pT")]
+    #[serde(rename = "PT")]
     PT,
+}
+
+impl fmt::Display for FilterQuantity {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            FilterQuantity::Energy => {
+                write!(f, "Energy")
+            }
+            FilterQuantity::CosThetaP => {
+                write!(f, "CosTheta")
+            }
+            FilterQuantity::PT => {
+                write!(f, "Pt")
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -528,6 +571,8 @@ pub enum PhaseSpaceSelectorSettings {
 pub enum ObservableSettings {
     #[serde(rename = "jet1pt")]
     Jet1PT(Jet1PTSettings),
+    #[serde(rename = "one_particle_obs")]
+    SingleParticleObservable(SingleParticleObservableSettings),
     AFB(AFBSettings),
     #[serde(rename = "cross_section")]
     CrossSection,
