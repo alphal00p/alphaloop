@@ -80,16 +80,16 @@ impl FloatLike for f64 {}
 impl FloatLike for f128::f128 {}
 
 pub mod dashboard;
+pub mod deformation;
 pub mod dualklt3;
 pub mod dualkt2;
 pub mod dualkt3;
 pub mod dualt2;
 pub mod dualt3;
 pub mod integrand;
-pub mod ltd;
 pub mod observables;
+pub mod overlap;
 pub mod squared_topologies;
-pub mod topologies;
 pub mod utils;
 
 #[cfg(feature = "python_api")]
@@ -124,8 +124,6 @@ pub struct Scaling {
 
 #[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
 pub enum DeformationStrategy {
-    #[serde(rename = "constant")]
-    Constant,
     #[serde(rename = "fixed")]
     Fixed,
     #[serde(rename = "none")]
@@ -236,7 +234,6 @@ impl Default for OverallDeformationScaling {
 impl From<&str> for DeformationStrategy {
     fn from(s: &str) -> Self {
         match s {
-            "constant" => DeformationStrategy::Constant,
             "fixed" => DeformationStrategy::Fixed,
             "none" => DeformationStrategy::None,
             _ => panic!("Unknown deformation strategy {}", s),
@@ -338,7 +335,6 @@ impl Default for NormalisingFunction {
 impl fmt::Display for DeformationStrategy {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            DeformationStrategy::Constant => write!(f, "constant"),
             DeformationStrategy::Fixed => write!(f, "fixed"),
             DeformationStrategy::None => write!(f, "none"),
         }
@@ -390,8 +386,6 @@ pub struct DeformationFixedSettings {
     pub use_heuristic_centers: bool,
     pub local: bool,
     pub a_ijs: Vec<f64>,
-    pub dampen_on_pinch: bool,
-    pub dampen_on_pinch_after_lambda: bool,
     pub pinch_dampening_alpha: f64,
     pub pinch_dampening_k_com: f64,
     pub pinch_dampening_k_shift: f64,
@@ -406,7 +400,6 @@ pub struct DeformationFixedSettings {
     pub ir_beta_pinch: f64,
     pub normalize_per_source: bool,
     pub normalisation_of_subspace_components: bool,
-    pub source_dampening_factor: f64,
     pub maximize_radius: bool,
 }
 
@@ -509,7 +502,7 @@ pub struct SingleParticleObservableSettings {
     pub log_y_axis: bool,
     pub filename: String,
     pub pdgs: Vec<isize>,
-    pub quantity: FilterQuantity
+    pub quantity: FilterQuantity,
 }
 
 fn default_true() -> bool {
@@ -734,17 +727,14 @@ pub struct CrossSectionSettings {
     pub do_rescaling: bool,
     #[serde(rename = "NormalisingFunction")]
     pub normalising_function: NormalisingFunctionSettings,
-    pub inherit_deformation_for_uv_counterterm: bool,
     pub integrand_type: IntegrandType,
     pub compare_with_additional_topologies: bool,
     pub m_uv_sq: f64,
     pub mu_r_sq: f64,
     pub gs: f64,
     pub small_mass_sq: f64,
-    pub uv_cutoff_scale_sq: f64,
     pub incoming_momenta: Vec<LorentzVector<f64>>,
     pub fixed_cut_momenta: Vec<LorentzVector<f64>>,
-    pub sum_diagram_sets: bool,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -1457,7 +1447,7 @@ impl PythonCrossSection {
         loop_index: usize,
         e_cm_squared: f64,
     ) -> PyResult<(f64, f64, f64, f64)> {
-        let (x, jac) = topologies::Topology::parameterize::<f64>(
+        let (x, jac) = utils::parameterize::<f64>(
             &x,
             e_cm_squared,
             loop_index,
@@ -1483,7 +1473,7 @@ impl PythonCrossSection {
             .collect();
         let e_cm_squared = f128::f128::from_f64(e_cm_squared).unwrap();
 
-        let (x, jac) = topologies::Topology::parameterize::<f128::f128>(
+        let (x, jac) = utils::parameterize::<f128::f128>(
             &x,
             e_cm_squared,
             loop_index,
@@ -1503,7 +1493,7 @@ impl PythonCrossSection {
         loop_index: usize,
         e_cm_squared: f64,
     ) -> PyResult<(f64, f64, f64, f64)> {
-        let (x, jac) = topologies::Topology::inv_parametrize::<f64>(
+        let (x, jac) = utils::inv_parametrize::<f64>(
             &loop_momentum,
             e_cm_squared,
             loop_index,
@@ -1525,7 +1515,7 @@ impl PythonCrossSection {
     ) -> PyResult<(f64, f64, f64, f64)> {
         let e_cm_squared = f128::f128::from_f64(e_cm_squared).unwrap();
 
-        let (x, jac) = topologies::Topology::inv_parametrize::<f128::f128>(
+        let (x, jac) = utils::inv_parametrize::<f128::f128>(
             &loop_momentum.cast(),
             e_cm_squared,
             loop_index,

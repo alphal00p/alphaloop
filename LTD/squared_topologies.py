@@ -117,13 +117,10 @@ class SquaredTopologyGenerator:
                         'sign': c[1],
                         'power': cut_powers[c[0]] }
                     for c in cutkosky_cut],
-                'diagram_sets': [{
-                        'diagram_info': [{
-                            'graph':  g,
-                            'conjugate_deformation': g.conjugate,
-                        } for g in graphs]
-                    }
-                ]
+                'diagram_info': [{
+                    'graph':  g,
+                    'conjugate_deformation': g.conjugate,
+                } for g in graphs]
             }
 
             cut_infos.append(cut_info)
@@ -133,6 +130,7 @@ class SquaredTopologyGenerator:
         uv_representative_graphs = {}
 
         for cutkosky_cut, cut_info in zip(cutkosky_cuts, cut_infos):
+            
             c = cut_info['cuts']
 
             # determine the signature of the cuts
@@ -142,317 +140,231 @@ class SquaredTopologyGenerator:
 
             cut_name = tuple(a['edge'] for a in c)
 
-            for diag_set in cut_info['diagram_sets']:
-                # add the uv structure to the diagram
-                for i, diag_info in enumerate(diag_set['diagram_info']):
-                    diag_info['graph'].inherit_loop_momentum_basis(self.topo)
+            # add the uv structure to the diagram
+            for i, diag_info in enumerate(cut_info['diagram_info']):
+                diag_info['graph'].inherit_loop_momentum_basis(self.topo)
 
-                    vw = {v: vertex_weights[v] if v in vertex_weights else 0 for e in diag_info['graph'].edge_map_lin for v in e[1:]}
-                    ew = {e: edge_weights[e] if e in edge_weights else -2 for e, _, _ in diag_info['graph'].edge_map_lin}
-                    
-                    uv_limits = diag_info['graph'].construct_uv_limits(vw, ew, particle_ids=particle_ids,
-                                UV_min_dod_to_subtract=self.generation_options.get('UV_min_dod_to_subtract',0), sg_name=self.name)
+                vw = {v: vertex_weights[v] if v in vertex_weights else 0 for e in diag_info['graph'].edge_map_lin for v in e[1:]}
+                ew = {e: edge_weights[e] if e in edge_weights else -2 for e, _, _ in diag_info['graph'].edge_map_lin}
+                
+                uv_limits = diag_info['graph'].construct_uv_limits(vw, ew, particle_ids=particle_ids,
+                            UV_min_dod_to_subtract=self.generation_options.get('UV_min_dod_to_subtract',0), sg_name=self.name)
 
-                    subgraph_counter = {}
-                    for uv_limit in uv_limits:
-                        for uv_sg in uv_limit['uv_subgraphs']:
-                            subgraph_internal_edges = [e[0] for i, e in enumerate(uv_sg['graph'].edge_map_lin) if i not in uv_sg['graph'].ext]
+                subgraph_counter = {}
+                for uv_limit in uv_limits:
+                    for uv_sg in uv_limit['uv_subgraphs']:
+                        subgraph_internal_edges = [e[0] for i, e in enumerate(uv_sg['graph'].edge_map_lin) if i not in uv_sg['graph'].ext]
 
-                            uv_sg['onshell'] = None
-                            if len(uv_sg['graph'].edge_map_lin) - len(subgraph_internal_edges) == 2:
-                                ext_edge = uv_sg['graph'].edge_map_lin[uv_sg['graph'].ext[0]][0]
-                                if masses[ext_edge] > 0.:
-                                    uv_sg['onshell'] = [uv_sg['graph'].edge_map_lin[i][0] for i in uv_sg['graph'].ext]
+                        uv_sg['onshell'] = None
+                        if len(uv_sg['graph'].edge_map_lin) - len(subgraph_internal_edges) == 2:
+                            ext_edge = uv_sg['graph'].edge_map_lin[uv_sg['graph'].ext[0]][0]
+                            if masses[ext_edge] > 0.:
+                                uv_sg['onshell'] = [uv_sg['graph'].edge_map_lin[i][0] for i in uv_sg['graph'].ext]
 
-                        # give every subdiagram a globally unique id
-                        for uv_sg in uv_limit['uv_subgraphs']:
-                            r = tuple(uv_sg['subgraph_momenta'])
-                            if r in subgraph_counter:
-                                uv_sg['first_occurrence_id'] = subgraph_counter[r]
-                            else:
-                                uv_sg['first_occurrence_id'] = graph_counter
-                                subgraph_counter[r] = graph_counter
+                    # give every subdiagram a globally unique id
+                    for uv_sg in uv_limit['uv_subgraphs']:
+                        r = tuple(uv_sg['subgraph_momenta'])
+                        if r in subgraph_counter:
+                            uv_sg['first_occurrence_id'] = subgraph_counter[r]
+                        else:
+                            uv_sg['first_occurrence_id'] = graph_counter
+                            subgraph_counter[r] = graph_counter
 
-                            uv_sg['id'] = graph_counter
-                            graph_counter += 1
-
-                            uv_sg['integrated_ct_id'] = graph_counter
-                            graph_counter += 1
-
-                            for dgi, dg in enumerate(uv_sg['derived_graphs']):
-                                dg['id'] = graph_counter
-                                graph_counter += 1
-
-                                if dg['derivatives'] < uv_sg['taylor_order']:
-                                    dg['soft_ct_id'] = graph_counter
-                                    graph_counter += 1
-
-                                    if uv_sg['onshell']:
-                                        dg['onshell_ct_id'] = graph_counter
-                                        graph_counter += 1
-                        uv_limit['remaining_graph_id'] = graph_counter
+                        uv_sg['id'] = graph_counter
                         graph_counter += 1
 
-                    diag_info.pop('graph')
-                    diag_info['uv'] = [{
-                        'uv_subgraphs': uv_limit['uv_subgraphs'],
-                        'uv_spinney': [[list(g), dod] for g, dod in uv_limit['spinney']],
-                        'uv_vertices': [x for x in uv_limit['uv_vertices']],
-                        'uv_propagators': [m for g, _ in uv_limit['spinney'] for m in g],
-                        'remaining_graph': uv_limit['remaining_graph'],
-                        'remaining_graph_id' : uv_limit['remaining_graph_id'],
-                    } for uv_limit in uv_limits]
+                        uv_sg['integrated_ct_id'] = graph_counter
+                        graph_counter += 1
 
-                diag_set['id'] = diagram_set_counter
-                diagram_set_counter += 1
+                        for dgi, dg in enumerate(uv_sg['derived_graphs']):
+                            dg['id'] = graph_counter
+                            graph_counter += 1
 
-                # construct a matrix from the cut basis to the loop momentum basis
-                # this is useful if the numerator is specified in the loop momentum basis
-                # the matrix will be padded with the loop momentum maps
-                cut_to_lmb = [ cut_edge['signature'][0] for cut_edge in c[:-1]]
+                            if dg['derivatives'] < uv_sg['taylor_order']:
+                                dg['soft_ct_id'] = graph_counter
+                                graph_counter += 1
 
-                for i, diag_info in enumerate(diag_set['diagram_info']):
-                    for uv_structure in diag_info['uv']:
-                        # create the loop topo of the remaing graph
-                        (loop_mom_map, shift_map) = self.topo.build_proto_topology(uv_structure['remaining_graph'], c, skip_shift=False)
+                                if uv_sg['onshell']:
+                                    dg['onshell_ct_id'] = graph_counter
+                                    graph_counter += 1
+                    uv_limit['remaining_graph_id'] = graph_counter
+                    graph_counter += 1
 
-                        if uv_structure['uv_spinney'] == []:
-                            cut_to_lmb.extend([x[0] for x in loop_mom_map])
+                diag_info.pop('graph')
+                diag_info['uv'] = [{
+                    'uv_subgraphs': uv_limit['uv_subgraphs'],
+                    'uv_spinney': [[list(g), dod] for g, dod in uv_limit['spinney']],
+                    'uv_vertices': [x for x in uv_limit['uv_vertices']],
+                    'uv_propagators': [m for g, _ in uv_limit['spinney'] for m in g],
+                    'remaining_graph': uv_limit['remaining_graph'],
+                    'remaining_graph_id' : uv_limit['remaining_graph_id'],
+                } for uv_limit in uv_limits]
 
-                        uv_structure['remaining_graph_loop_topo'] = uv_structure['remaining_graph'].create_loop_topology(name + '_' + ''.join(cut_name) + '_' + str(i),
-                            # provide dummy external momenta
-                            ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
-                            fixed_deformation=False,
-                            mass_map=masses,
-                            loop_momentum_map=loop_mom_map,
-                            shift_map=shift_map,
-                            check_external_momenta_names=False,
-                            analytic_result=0)
-                        uv_structure['remaining_graph_loop_topo'].external_kinematics = []
+            cut_info['id'] = diagram_set_counter
+            diagram_set_counter += 1
 
-                lmb_to_cb_matrix = Matrix(cut_to_lmb)
-                # The edge #i of the LMB may not always carry k_i but sometimes -k_i.
-                # This is supported by adjusting the cb to lmb rotation matrix to be applied
-                # before calling the numerator.
-                if self.loop_momenta_signs is not None:
-                    assert(len(self.loop_momenta_signs)==len(cut_to_lmb[0]))
-                    assert(all(abs(s)==1 for s in self.loop_momenta_signs))
-                    lmb_to_cb_matrix = lmb_to_cb_matrix*diag(*[int(s) for s in self.loop_momenta_signs])
-                lmb_to_cb_matrix = lmb_to_cb_matrix**-1
+            # construct a matrix from the cut basis to the loop momentum basis
+            # this is useful if the numerator is specified in the loop momentum basis
+            # the matrix will be padded with the loop momentum maps
+            cut_to_lmb = [ cut_edge['signature'][0] for cut_edge in c[:-1]]
 
-                diag_set['cb_to_lmb'] = [int(x) for x in lmb_to_cb_matrix]
+            for i, diag_info in enumerate(cut_info['diagram_info']):
+                for uv_structure in diag_info['uv']:
+                    # create the loop topo of the remaing graph
+                    (loop_mom_map, shift_map) = self.topo.build_proto_topology(uv_structure['remaining_graph'], c, skip_shift=False)
 
-                # construct the forest matrix that maps the amplitude momenta in the cmb
-                # to ones suitable for the spinney
-                lmb_offset = len(c) - 1
-                for i, diag_info in enumerate(diag_set['diagram_info']):
-                    amp_loops = diag_info['uv'][0]['remaining_graph'].n_loops
+                    if uv_structure['uv_spinney'] == []:
+                        cut_to_lmb.extend([x[0] for x in loop_mom_map])
 
-                    diag_info['n_loops'] = amp_loops
-                    diag_info['propagators'] = []
-                    diag_info['thresholds'] = []
-                    for uv_structure in diag_info['uv']:
-                        # create the LTD representation of the derived UV graph
-                        forest_to_lmb = []
-                        for uv_subgraph in uv_structure['uv_subgraphs']:
-                            for di, d in enumerate(uv_subgraph['derived_graphs']):
-                                (loop_mom_map, shift_map) = self.topo.build_proto_topology(d['graph'], c, skip_shift=True)
+                    uv_structure['remaining_graph_loop_topo'] = uv_structure['remaining_graph'].create_loop_topology(name + '_' + ''.join(cut_name) + '_' + str(i),
+                        # provide dummy external momenta
+                        ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
+                        fixed_deformation=False,
+                        mass_map=masses,
+                        loop_momentum_map=loop_mom_map,
+                        shift_map=shift_map,
+                        check_external_momenta_names=False,
+                        analytic_result=0)
+                    uv_structure['remaining_graph_loop_topo'].external_kinematics = []
 
-                                if len(uv_structure['uv_subgraphs']) > 1:
-                                    # get the representative graph and map the LTD basis momenta to this representation
-                                    rg, rg_lmmm = uv_representative_graphs[tuple(uv_subgraph['full_subgraph_momenta'])]
-                                    sm = rg.get_signature_map()
-                                    # get the signature of the LTD basis momenta in the basis of the representative
-                                    ltd_mom_sig = [sm[d['graph'].edge_map_lin[e][0]] for e in d['graph'].loop_momenta]
+            lmb_to_cb_matrix = Matrix(cut_to_lmb)
+            # The edge #i of the LMB may not always carry k_i but sometimes -k_i.
+            # This is supported by adjusting the cb to lmb rotation matrix to be applied
+            # before calling the numerator.
+            if self.loop_momenta_signs is not None:
+                assert(len(self.loop_momenta_signs)==len(cut_to_lmb[0]))
+                assert(all(abs(s)==1 for s in self.loop_momenta_signs))
+                lmb_to_cb_matrix = lmb_to_cb_matrix*diag(*[int(s) for s in self.loop_momenta_signs])
+            cb_to_lmb_matrix = lmb_to_cb_matrix**-1
 
-                                    basis_shift_map = []
-                                    loop_mom_map = [] # overwrite the generated loop momentum map
-                                    for lmb_sig, shift_sig in ltd_mom_sig:
-                                        # construct the loop momentum part that should not get expanded
-                                        lmc = numpy.array([0]*self.topo.n_loops, dtype=int)
-                                        for sign, (rg_lmb_sig, rg_shift_sig) in zip(lmb_sig, rg_lmmm):
-                                            assert(all(s == 0 for s in rg_shift_sig))
-                                            lmc += sign * numpy.array(rg_lmb_sig)
-                                        loop_mom_map.append((lmc, [0]*len(self.topo.ext)))
+            cut_info['lmb_to_cb'] = [int(x) for x in lmb_to_cb_matrix]
+            cut_info['cb_to_lmb'] = [int(x) for x in cb_to_lmb_matrix]
 
-                                        # construct the shift part that will get expanded
-                                        # it is split between loop momenta external to the subgraph
-                                        # and the external momenta of the supergraph
-                                        lm_shift = numpy.array([0]*self.topo.n_loops, dtype=int)
-                                        ext_shift = numpy.array([0]*len(self.topo.ext), dtype=int)
+            # construct the forest matrix that maps the amplitude momenta in the cmb
+            # to ones suitable for the spinney
+            lmb_offset = len(c) - 1
+            for i, diag_info in enumerate(cut_info['diagram_info']):
+                amp_loops = diag_info['uv'][0]['remaining_graph'].n_loops
 
-                                        assert(len(shift_sig) == len(rg.ext))
-                                        for sign, ext in zip(shift_sig, rg.ext):
-                                            # get the lmb dependence of the external edge of the rg graph from the supergraph
-                                            sig = edge_map[rg.edge_map_lin[ext][0]]
-                                            lm_shift += sign * numpy.array(sig[0], dtype=int)
-                                            ext_shift += sign * numpy.array(sig[1], dtype=int)
-                                        basis_shift_map.append((lm_shift, ext_shift))
-                                else:
-                                    # the UV subgraph has no subgraphs of itself and therefore contains at least as many lmb
-                                    # edges as there are loops. We select the basis of this graph, which is a subset of lmb momenta
-                                    # as a representative for all UV subgraphs that involve the same momenta (including subgraph momenta)
-                                    basis_shift_map = [[[0]*len(lmp), shp] for lmp, shp in loop_mom_map] # should be all 0
-                                    uv_representative_graphs[tuple(uv_subgraph['full_subgraph_momenta'])] = (d['graph'], loop_mom_map)
+                diag_info['n_loops'] = amp_loops
+                diag_info['propagators'] = []
+                diag_info['thresholds'] = []
+                for uv_structure in diag_info['uv']:
+                    # create the LTD representation of the derived UV graph
+                    forest_to_lmb = []
+                    for uv_subgraph in uv_structure['uv_subgraphs']:
+                        for di, d in enumerate(uv_subgraph['derived_graphs']):
+                            (loop_mom_map, shift_map) = self.topo.build_proto_topology(d['graph'], c, skip_shift=True)
 
-                                if di == 0:
-                                    forest_to_lmb.extend([x[0] for x in loop_mom_map])
+                            if len(uv_structure['uv_subgraphs']) > 1:
+                                # get the representative graph and map the LTD basis momenta to this representation
+                                rg, rg_lmmm = uv_representative_graphs[tuple(uv_subgraph['full_subgraph_momenta'])]
+                                sm = rg.get_signature_map()
+                                # get the signature of the LTD basis momenta in the basis of the representative
+                                ltd_mom_sig = [sm[d['graph'].edge_map_lin[e][0]] for e in d['graph'].loop_momenta]
 
-                                    # strip external momenta for the graph and compute all propagators and thresholds
-                                    new_edges = [e for i, e in enumerate(d['graph'].edge_map_lin) if i not in d['graph'].ext]
-                                    stripped_topo = TopologyGenerator(new_edges)
-                                    stripped_topo.inherit_loop_momentum_basis(self.topo)
-                                    sigs = stripped_topo.get_signature_map()
+                                basis_shift_map = []
+                                loop_mom_map = [] # overwrite the generated loop momentum map
+                                for lmb_sig, shift_sig in ltd_mom_sig:
+                                    # construct the loop momentum part that should not get expanded
+                                    lmc = numpy.array([0]*self.topo.n_loops, dtype=int)
+                                    for sign, (rg_lmb_sig, rg_shift_sig) in zip(lmb_sig, rg_lmmm):
+                                        assert(all(s == 0 for s in rg_shift_sig))
+                                        lmc += sign * numpy.array(rg_lmb_sig)
+                                    loop_mom_map.append((lmc, [0]*len(self.topo.ext)))
 
-                                    # construct all propagators of the amplitude
-                                    new_props = []
-                                    for e, v1, v2 in new_edges:
-                                        lmb_sig = numpy.array([0]*self.topo.n_loops, dtype=int)
-                                        for lm, s in zip(loop_mom_map, sigs[e][0]):
-                                            lmb_sig += s * numpy.array(lm[0], dtype=int)
+                                    # construct the shift part that will get expanded
+                                    # it is split between loop momenta external to the subgraph
+                                    # and the external momenta of the supergraph
+                                    lm_shift = numpy.array([0]*self.topo.n_loops, dtype=int)
+                                    ext_shift = numpy.array([0]*len(self.topo.ext), dtype=int)
 
-                                        cmb_sig = [int(x) for x in lmb_to_cb_matrix.T @ lmb_sig]
-                                        assert(all(s == 0 for s in cmb_sig[len(c) - 1:lmb_offset]) and all(s == 0 for s in cmb_sig[lmb_offset + amp_loops:]))
+                                    assert(len(shift_sig) == len(rg.ext))
+                                    for sign, ext in zip(shift_sig, rg.ext):
+                                        # get the lmb dependence of the external edge of the rg graph from the supergraph
+                                        sig = edge_map[rg.edge_map_lin[ext][0]]
+                                        lm_shift += sign * numpy.array(sig[0], dtype=int)
+                                        ext_shift += sign * numpy.array(sig[1], dtype=int)
+                                    basis_shift_map.append((lm_shift, ext_shift))
+                            else:
+                                # the UV subgraph has no subgraphs of itself and therefore contains at least as many lmb
+                                # edges as there are loops. We select the basis of this graph, which is a subset of lmb momenta
+                                # as a representative for all UV subgraphs that involve the same momenta (including subgraph momenta)
+                                basis_shift_map = [[[0]*len(lmp), shp] for lmp, shp in loop_mom_map] # should be all 0
+                                uv_representative_graphs[tuple(uv_subgraph['full_subgraph_momenta'])] = (d['graph'], loop_mom_map)
 
-                                        amp_sig = numpy.array(cmb_sig[lmb_offset:lmb_offset + amp_loops], dtype=int)
+                            if di == 0:
+                                forest_to_lmb.extend([x[0] for x in loop_mom_map])
 
-                                        if all(s == 0 for s in amp_sig):
-                                            continue
-                                    
-                                        ext_shift_in_cmb = (numpy.array(list(cmb_sig[:lmb_offset]) + [0]*amp_loops + list(cmb_sig[lmb_offset + amp_loops:]), dtype=int),
-                                                sum(-numpy.array(cc['signature'][1], dtype=int) * s for s, cc in zip(cmb_sig, c[:-1])))
+                                # strip external momenta for the graph and compute all propagators and thresholds
+                                new_edges = [e for i, e in enumerate(d['graph'].edge_map_lin) if i not in d['graph'].ext]
+                                stripped_topo = TopologyGenerator(new_edges)
+                                stripped_topo.inherit_loop_momentum_basis(self.topo)
+                                sigs = stripped_topo.get_signature_map()
 
-                                        for uv in (False, True):
-                                            new_prop = {
-                                                'name': e,
-                                                'id': -1,
-                                                'lmb_sig': (lmb_sig.tolist(), [0]*len(self.topo.ext)),
-                                                'amp_sig': amp_sig.tolist(),
-                                                'amp_shift_in_lmb_sig': tuple(x.tolist() for x in ext_shift_in_cmb),
-                                                'mass': masses[e],
-                                                'uv': uv,
-                                            }
-                                            new_props.append(new_prop)
-                                            for p in diag_info['propagators']:
-                                                # TODO: check for an overall sign too
-                                                if (p['lmb_sig'], p['amp_sig'], p['amp_shift_in_lmb_sig'], p['mass'], p['uv']) == \
-                                                    (new_prop['lmb_sig'], new_prop['amp_sig'], new_prop['amp_shift_in_lmb_sig'], new_prop['mass'], new_prop['uv']):
-                                                    new_prop['id'] = p['id']
-                                                    break
-                                            else:
-                                                new_prop['id'] = len(diag_info['propagators'])
-                                                diag_info['propagators'].append(new_prop)
+                                # construct all propagators of the amplitude
+                                new_props = []
+                                for e, v1, v2 in new_edges:
+                                    lmb_sig = numpy.array([0]*self.topo.n_loops, dtype=int)
+                                    for lm, s in zip(loop_mom_map, sigs[e][0]):
+                                        lmb_sig += s * numpy.array(lm[0], dtype=int)
 
-                                    # construct all thresholds
-                                    thresholds = stripped_topo.find_thresholds(fuse_repeated_edges=True, masses=masses)
-                                    for t in thresholds:
-                                        foci_no_uv = [next(p['id'] for p in new_props if p['name'] == f and not p['uv']) for f in t[0]]
-                                        foci_uv = [next(p['id'] for p in new_props if p['name'] == f and p['uv']) for f in t[0]]
-                                        shift = ([0]*self.topo.n_loops, [0]*len(self.topo.ext))
+                                    cmb_sig = [int(x) for x in cb_to_lmb_matrix.T @ lmb_sig]
+                                    assert(all(s == 0 for s in cmb_sig[len(c) - 1:lmb_offset]) and all(s == 0 for s in cmb_sig[lmb_offset + amp_loops:]))
 
-                                        if uv_subgraph['onshell']:
-                                            threshold = {'foci': foci_no_uv, 'shift_in_lmb_sig': shift, 'mass_shift': masses[uv_subgraph['onshell'][0]]}
+                                    amp_sig = numpy.array(cmb_sig[lmb_offset:lmb_offset + amp_loops], dtype=int)
+
+                                    if all(s == 0 for s in amp_sig):
+                                        continue
+                                
+                                    ext_shift_in_cmb = (numpy.array(list(cmb_sig[:lmb_offset]) + [0]*amp_loops + list(cmb_sig[lmb_offset + amp_loops:]), dtype=int),
+                                            sum(-numpy.array(cc['signature'][1], dtype=int) * s for s, cc in zip(cmb_sig, c[:-1])))
+
+                                    for uv in (False, True):
+                                        new_prop = {
+                                            'name': e,
+                                            'id': -1,
+                                            'lmb_sig': (lmb_sig.tolist(), [0]*len(self.topo.ext)),
+                                            'amp_sig': amp_sig.tolist(),
+                                            'amp_shift_in_cmb_sig': tuple(x.tolist() for x in ext_shift_in_cmb),
+                                            'mass': masses[e],
+                                            'uv_mass': uv,
+                                            'uv_only': True,
+                                        }
+                                        neg_sig = ([-x for x in lmb_sig], [0]*len(self.topo.ext))
+                                        new_props.append(new_prop)
+                                        for p in diag_info['propagators']:
+                                            if (p['lmb_sig'] == new_prop['lmb_sig'] or p['lmb_sig'] == neg_sig) and p['mass'] == new_prop['mass'] and p['uv_mass'] == new_prop['uv_mass']:
+                                                new_prop['id'] = p['id']
+                                                break
+                                        else:
+                                            new_prop['id'] = len(diag_info['propagators'])
+                                            diag_info['propagators'].append(new_prop)
+
+                                # construct all thresholds
+                                thresholds = stripped_topo.find_thresholds(fuse_repeated_edges=False)
+                                for t in thresholds:
+                                    foci_no_uv = [next(p['id'] for p in new_props if p['name'] == f and not p['uv_mass']) for f in t[0]]
+                                    foci_uv = [next(p['id'] for p in new_props if p['name'] == f and p['uv_mass']) for f in t[0]]
+                                    shift = ([0]*self.topo.n_loops, [0]*len(self.topo.ext))
+
+                                    if uv_subgraph['onshell']:
+                                        # TODO: only add when not internal soft! how to check?
+                                        for sign in (1.,-1.):
+                                            threshold = {'foci': foci_no_uv, 'shift_in_lmb_sig': shift, 'mass_shift': sign * masses[uv_subgraph['onshell'][0]]}
                                             if threshold not in diag_info['thresholds']: diag_info['thresholds'].append(threshold)
-                                        else:
-                                            # not needed when dod = 0
-                                            if len(uv_subgraph['derived_graphs']) > 1:
-                                                threshold = {'foci': foci_no_uv, 'shift_in_lmb_sig': shift, 'mass_shift': 0.}
-                                                if threshold not in diag_info['thresholds']: diag_info['thresholds'].append(threshold)
-
-                                        threshold = {'foci': foci_uv, 'shift_in_lmb_sig': shift, 'mass_shift': 0.}
-                                        if threshold not in diag_info['thresholds']: diag_info['thresholds'].append(threshold)
-
-                                # note: the shift map signs may get swapped when edges switch orientation
-                                # the basis_shift_map should be unaffected since defining edges are not swapped
-                                loop_topo = d['graph'].create_loop_topology(name + '_' + ''.join(cut_name) + '_' + str(i),
-                                    # provide dummy external momenta
-                                    ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
-                                    fixed_deformation=False,
-                                    mass_map=masses,
-                                    loop_momentum_map=loop_mom_map,
-                                    shift_map=shift_map,
-                                    check_external_momenta_names=False,
-                                    analytic_result=0)
-                                loop_topo.external_kinematics = []
-
-                                # when soft derivatives have to be taken we require that the propagators of every loop line have the
-                                # same mass, such that raising a power in the loop line yields a unique topology
-                                if d['derivatives'] > 0 and d['derivatives'] < uv_sg['taylor_order']:
-                                    if any(len(set(masses[p.name] for p in ll.propagators)) > 1 for ll in loop_topo.loop_lines):
-                                        raise AssertionError('WARNING: In supergraph %s not all propagators have the same mass in a loop line for the derivative soft CT graph %s' % (self.name, str(uv_sg['graph'].edge_map_lin)))
-
-                                d['loop_topo_orig_mass'] = copy.deepcopy(loop_topo)
-                                # do not drop the shift for the 0th order of the on-shell expansion
-                                if not uv_subgraph['onshell'] or d['derivatives'] > 0:
-                                    for ll in d['loop_topo_orig_mass'].loop_lines:
-                                        for prop in ll.propagators:
-                                            prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
-
-                                # merge equal-mass and equal-shift propagators, needed for LTD derivative treatment
-                                from collections import defaultdict
-                                for ll in d['loop_topo_orig_mass'].loop_lines:
-                                    unique_props = defaultdict(list)
-                                    for p in ll.propagators:
-                                        unique_props[(p.m_squared, (tuple(p.parametric_shift[0]), tuple(p.parametric_shift[1])))].append(p)
-
-                                    for props in unique_props.values():
-                                        for p in props[1:]:
-                                            d['loop_topo_orig_mass'].propagator_map[p.name] = props[0].name
-                                            props[0].power += p.power
-                                        ll.propagators = [p for p in ll.propagators if p not in props[1:]]
-
-                                # take the UV limit of the diagram, add the mass and set the parametric shift to 0
-                                # collect the parametric shifts of the loop lines such that it can be used to Taylor expand
-                                # the UV subgraph
-                                uv_loop_lines = []
-                                for ll in loop_topo.loop_lines:
-                                    derived_ll_power = sum(pp.power for pp in ll.propagators)
-                                    # determine the power of the loop line of the non-derived graph
-                                    orig_ll_power = sum(uv_subgraph['graph'].powers[pp.name]
-                                        + len([1 for _,mn in loop_topo.propagator_map.items() if mn == pp.name])
-                                     for pp in ll.propagators)
-
-                                    if uv_structure['remaining_graph'].n_loops == 0 and len(uv_structure['uv_subgraphs']) > 0 and \
-                                        uv_test == pure_forest_counter:
-                                        # raise every loop line so that it has at least 2 propagators by raising the first prop
-                                        if orig_ll_power == 1:
-                                            prop_pow = 2
-                                        else:
-                                            prop_pow = 1
                                     else:
-                                        prop_pow = 1
+                                        # not needed when dod = 0
+                                        if len(uv_subgraph['derived_graphs']) > 1:
+                                            threshold = {'foci': foci_no_uv, 'shift_in_lmb_sig': shift, 'mass_shift': 0.}
+                                            if threshold not in diag_info['thresholds']: diag_info['thresholds'].append(threshold)
 
-                                    # note: we assume that every propagator has power 1 and that only merging of identical edges raises it
-                                    uv_loop_lines.append((ll.signature, [(p.name, p.parametric_shift,
-                                        (prop_pow if ii == 0 else 1) + len([1 for _,mn in loop_topo.propagator_map.items() if mn == p.name])) for ii, p in enumerate(ll.propagators)], derived_ll_power - orig_ll_power))
+                                    threshold = {'foci': foci_uv, 'shift_in_lmb_sig': shift, 'mass_shift': 0.}
+                                    if threshold not in diag_info['thresholds']: diag_info['thresholds'].append(threshold)
 
-                                    prop = ll.propagators[0]
-                                    prop.uv = True
-                                    prop.m_squared = mu_uv**2
-                                    prop.power = derived_ll_power + prop_pow - 1
-                                    prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
-                                    ll.propagators = [prop]
-
-                                loop_topo.uv_loop_lines = (uv_loop_lines, basis_shift_map)
-
-                                d['loop_topo_orig_mass'].uv_loop_lines = (uv_loop_lines, basis_shift_map)
-                                d['loop_topo'] = loop_topo
-
-                                # check if raised loop lines have a propagator with a shift, otherwise this configuration is impossible
-                                d['skip_pf'] = False
-                                for i, (ll_sig, propagators, raised_power) in enumerate(loop_topo.uv_loop_lines[0]):
-                                    if raised_power > 0 and all(all(s == 0 for s in param_shift[1]) for _, param_shift, _ in propagators):
-                                        if all(all(x == 0 for y in lm_shift for x in y) for s, lm_shift in zip(ll_sig, loop_topo.uv_loop_lines[1]) if s != 0):
-                                            d['skip_pf'] = True
-                                            break
-
-                            #  construct the normalizing tadpole for the integrated UV counterterm
-                            s = uv_subgraph['graph']
-                            lm = [s.edge_map_lin[i][0] for i in uv_subgraph['graph'].loop_momenta]
-                            g_int = TopologyGenerator([(lm, i, i) for i, lm in enumerate(lm)],
-                                powers={lm: 3 for lm in lm})
-                            (loop_mom_map, shift_map) = self.topo.build_proto_topology(g_int, c, skip_shift=True)
-                            loop_topo = g_int.create_loop_topology(name + '_' + ''.join(cut_name) + '_' + str(i) + "_ict",
+                            # note: the shift map signs may get swapped when edges switch orientation
+                            # the basis_shift_map should be unaffected since defining edges are not swapped
+                            loop_topo = d['graph'].create_loop_topology(name + '_' + ''.join(cut_name) + '_' + str(i),
                                 # provide dummy external momenta
                                 ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
                                 fixed_deformation=False,
@@ -461,89 +373,193 @@ class SquaredTopologyGenerator:
                                 shift_map=shift_map,
                                 check_external_momenta_names=False,
                                 analytic_result=0)
-                            for ll in loop_topo.loop_lines:
-                                ll.propagators[0].uv = True
-                                ll.propagators[0].m_squared = mu_uv**2
-                                ll.propagators[0].power = 3
-                                ll.propagators[0].parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
-
                             loop_topo.external_kinematics = []
 
-                            uv_subgraph['integrated_ct_bubble_graph'] = loop_topo
+                            # when soft derivatives have to be taken we require that the propagators of every loop line have the
+                            # same mass, such that raising a power in the loop line yields a unique topology
+                            if d['derivatives'] > 0 and d['derivatives'] < uv_sg['taylor_order']:
+                                if any(len(set(masses[p.name] for p in ll.propagators)) > 1 for ll in loop_topo.loop_lines):
+                                    raise AssertionError('WARNING: In supergraph %s not all propagators have the same mass in a loop line for the derivative soft CT graph %s' % (self.name, str(uv_sg['graph'].edge_map_lin)))
 
-                        new_props = []
-                        for e, v1, v2 in uv_structure['remaining_graph'].edge_map_lin:
-                            lmb_sig = edge_map[e]
-                            cmb_sig = [int(x) for x in lmb_to_cb_matrix.T @ Matrix(lmb_sig[0])]
-                            assert(all(s == 0 for s in cmb_sig[len(c) - 1:lmb_offset]) and all(s == 0 for s in cmb_sig[lmb_offset + amp_loops:]))
+                            d['loop_topo_orig_mass'] = copy.deepcopy(loop_topo)
+                            # do not drop the shift for the 0th order of the on-shell expansion
+                            if not uv_subgraph['onshell'] or d['derivatives'] > 0:
+                                for ll in d['loop_topo_orig_mass'].loop_lines:
+                                    for prop in ll.propagators:
+                                        prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
 
-                            amp_sig = numpy.array(cmb_sig[lmb_offset:lmb_offset + amp_loops], dtype=int)
+                            # merge equal-mass and equal-shift propagators, needed for LTD derivative treatment
+                            from collections import defaultdict
+                            for ll in d['loop_topo_orig_mass'].loop_lines:
+                                unique_props = defaultdict(list)
+                                for p in ll.propagators:
+                                    unique_props[(p.m_squared, (tuple(p.parametric_shift[0]), tuple(p.parametric_shift[1])))].append(p)
 
-                            if all(s == 0 for s in amp_sig):
-                                continue
-                           
-                            ext_shift_in_cmb = (numpy.array(list(cmb_sig[:lmb_offset]) + [0]*amp_loops + list(cmb_sig[lmb_offset + amp_loops:]), dtype=int),
-                                    sum(-numpy.array(cc['signature'][1], dtype=int) * s for s, cc in zip(cmb_sig, c[:-1])) + numpy.array(lmb_sig[1], dtype=int))
+                                for props in unique_props.values():
+                                    for p in props[1:]:
+                                        d['loop_topo_orig_mass'].propagator_map[p.name] = props[0].name
+                                        props[0].power += p.power
+                                    ll.propagators = [p for p in ll.propagators if p not in props[1:]]
 
-                            new_prop = {
-                                'name': e,
-                                'id': -1,
-                                'lmb_sig': tuple(edge_map[e]),
-                                'amp_sig': amp_sig.tolist(),
-                                'amp_shift_in_lmb_sig': tuple(x.tolist() for x in ext_shift_in_cmb),
-                                'mass': masses[e],
-                                'uv': False,
-                            }
+                            # take the UV limit of the diagram, add the mass and set the parametric shift to 0
+                            # collect the parametric shifts of the loop lines such that it can be used to Taylor expand
+                            # the UV subgraph
+                            uv_loop_lines = []
+                            for ll in loop_topo.loop_lines:
+                                derived_ll_power = sum(pp.power for pp in ll.propagators)
+                                # determine the power of the loop line of the non-derived graph
+                                orig_ll_power = sum(uv_subgraph['graph'].powers[pp.name]
+                                    + len([1 for _,mn in loop_topo.propagator_map.items() if mn == pp.name])
+                                    for pp in ll.propagators)
 
-                            new_props.append(new_prop)
-                            for p in diag_info['propagators']:
-                                if (p['lmb_sig'], p['amp_sig'], p['amp_shift_in_lmb_sig'], p['mass'], p['uv']) == \
-                                    (new_prop['lmb_sig'], new_prop['amp_sig'], new_prop['amp_shift_in_lmb_sig'], new_prop['mass'], new_prop['uv']):
-                                    new_prop['id'] = p['id']
-                                    break
-                            else:
-                                new_prop['id'] = len(diag_info['propagators'])
-                                diag_info['propagators'].append(new_prop)
+                                if uv_structure['remaining_graph'].n_loops == 0 and len(uv_structure['uv_subgraphs']) > 0 and \
+                                    uv_test == pure_forest_counter:
+                                    # raise every loop line so that it has at least 2 propagators by raising the first prop
+                                    if orig_ll_power == 1:
+                                        prop_pow = 2
+                                    else:
+                                        prop_pow = 1
+                                else:
+                                    prop_pow = 1
 
-                        # construct all thresholds
-                        thresholds = uv_structure['remaining_graph'].find_thresholds(fuse_repeated_edges=True, masses=masses)
-                        for ii, t in enumerate(thresholds):
-                            foci = [next(p['id'] for p in new_props if p['name'] == f) for f in t[0]]
+                                # note: we assume that every propagator has power 1 and that only merging of identical edges raises it
+                                uv_loop_lines.append((ll.signature, [(p.name, p.parametric_shift,
+                                    (prop_pow if ii == 0 else 1) + len([1 for _,mn in loop_topo.propagator_map.items() if mn == p.name])) for ii, p in enumerate(ll.propagators)], derived_ll_power - orig_ll_power))
 
-                            lm_shift = numpy.array([0]*self.topo.n_loops, dtype=int)
-                            ext_shift = numpy.array([0]*len(self.topo.ext), dtype=int)
-                            for mom, sign in t[1]:
-                                sig = edge_map[mom]
-                                lm_shift += sign * numpy.array(sig[0], dtype=int)
-                                ext_shift += sign * numpy.array(sig[1], dtype=int)
+                                prop = ll.propagators[0]
+                                prop.uv = True
+                                prop.m_squared = mu_uv**2
+                                prop.power = derived_ll_power + prop_pow - 1
+                                prop.parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
+                                ll.propagators = [prop]
 
-                            threshold = {'foci': foci, 'shift_in_lmb_sig': (lm_shift.tolist(), ext_shift.tolist()), 'mass_shift': 0.}
+                            loop_topo.uv_loop_lines = (uv_loop_lines, basis_shift_map)
+
+                            d['loop_topo_orig_mass'].uv_loop_lines = (uv_loop_lines, basis_shift_map)
+                            d['loop_topo'] = loop_topo
+
+                            # check if raised loop lines have a propagator with a shift, otherwise this configuration is impossible
+                            d['skip_pf'] = False
+                            for i, (ll_sig, propagators, raised_power) in enumerate(loop_topo.uv_loop_lines[0]):
+                                if raised_power > 0 and all(all(s == 0 for s in param_shift[1]) for _, param_shift, _ in propagators):
+                                    if all(all(x == 0 for y in lm_shift for x in y) for s, lm_shift in zip(ll_sig, loop_topo.uv_loop_lines[1]) if s != 0):
+                                        d['skip_pf'] = True
+                                        break
+
+                        #  construct the normalizing tadpole for the integrated UV counterterm
+                        s = uv_subgraph['graph']
+                        lm = [s.edge_map_lin[i][0] for i in uv_subgraph['graph'].loop_momenta]
+                        g_int = TopologyGenerator([(lm, i, i) for i, lm in enumerate(lm)],
+                            powers={lm: 3 for lm in lm})
+                        (loop_mom_map, shift_map) = self.topo.build_proto_topology(g_int, c, skip_shift=True)
+                        loop_topo = g_int.create_loop_topology(name + '_' + ''.join(cut_name) + '_' + str(i) + "_ict",
+                            # provide dummy external momenta
+                            ext_mom={edge_name: vectors.LorentzVector([0, 0, 0, 0]) for (edge_name, _, _) in self.topo.edge_map_lin},
+                            fixed_deformation=False,
+                            mass_map=masses,
+                            loop_momentum_map=loop_mom_map,
+                            shift_map=shift_map,
+                            check_external_momenta_names=False,
+                            analytic_result=0)
+                        for ll in loop_topo.loop_lines:
+                            ll.propagators[0].uv = True
+                            ll.propagators[0].m_squared = mu_uv**2
+                            ll.propagators[0].power = 3
+                            ll.propagators[0].parametric_shift = [[0 for _ in c], [0 for _ in range(len(incoming_momentum_names) * 2)]]
+
+                        loop_topo.external_kinematics = []
+
+                        uv_subgraph['integrated_ct_bubble_graph'] = loop_topo
+
+                    new_props = []
+                    for e, v1, v2 in uv_structure['remaining_graph'].edge_map_lin:
+                        lmb_sig = edge_map[e]
+                        cmb_sig = [int(x) for x in cb_to_lmb_matrix.T @ Matrix(lmb_sig[0])]
+                        assert(all(s == 0 for s in cmb_sig[len(c) - 1:lmb_offset]) and all(s == 0 for s in cmb_sig[lmb_offset + amp_loops:]))
+
+                        amp_sig = numpy.array(cmb_sig[lmb_offset:lmb_offset + amp_loops], dtype=int)
+
+                        if all(s == 0 for s in amp_sig):
+                            continue
+                        
+                        ext_shift_in_cmb = [numpy.array(list(cmb_sig[:lmb_offset]) + [0]*amp_loops + list(cmb_sig[lmb_offset + amp_loops:]), dtype=int),
+                                sum(-numpy.array(cc['signature'][1], dtype=int) * s for s, cc in zip(cmb_sig, c[:-1])) + numpy.array(lmb_sig[1], dtype=int)]
+
+                        # simplify ext_shift
+                        ext_shift_in_cmb[1][:len(self.topo.ext) // 2] += ext_shift_in_cmb[1][len(self.topo.ext) // 2:]
+                        ext_shift_in_cmb[1][len(self.topo.ext) // 2:] = [0]*(len(self.topo.ext) // 2)
+
+                        new_prop = {
+                            'name': e,
+                            'id': -1,
+                            'lmb_sig': tuple(edge_map[e]),
+                            'amp_sig': amp_sig.tolist(),
+                            'amp_shift_in_cmb_sig': tuple(x.tolist() for x in ext_shift_in_cmb),
+                            'mass': masses[e],
+                            'uv_mass': False,
+                            'uv_only': False,
+                        }
+
+                        new_props.append(new_prop)
+                        for p in diag_info['propagators']:
+                            # TODO: check for an overall sign too
+                            if (p['lmb_sig'], p['amp_sig'], p['amp_shift_in_cmb_sig'], p['mass'], p['uv_mass']) == \
+                                (new_prop['lmb_sig'], new_prop['amp_sig'], new_prop['amp_shift_in_cmb_sig'], new_prop['mass'], new_prop['uv_mass']):
+                                p['uv_only'] = False # also appears as normal propagator
+                                new_prop['id'] = p['id']
+                                break
+                        else:
+                            new_prop['id'] = len(diag_info['propagators'])
+                            diag_info['propagators'].append(new_prop)
+
+                    # construct all thresholds
+                    thresholds = uv_structure['remaining_graph'].find_thresholds(fuse_repeated_edges=False)
+                    for ii, t in enumerate(thresholds):
+                        foci = [next(p['id'] for p in new_props if p['name'] == f) for f in t[0]]
+
+                        lm_shift = numpy.array([0]*self.topo.n_loops, dtype=int)
+                        ext_shift = numpy.array([0]*len(self.topo.ext), dtype=int)
+                        for mom, sign in t[1]:
+                            sig = edge_map[mom]
+                            lm_shift += sign * numpy.array(sig[0], dtype=int)
+                            ext_shift += sign * numpy.array(sig[1], dtype=int)
+
+                        # simplify ext_shift
+                        ext_shift[:len(self.topo.ext) // 2] += ext_shift[len(self.topo.ext) // 2:]
+                        ext_shift[len(self.topo.ext) // 2:] = [0]*(len(self.topo.ext) // 2)
+
+                        for sign in (1,-1):
+                            threshold = {'foci': foci, 'shift_in_lmb_sig': ((sign * lm_shift).tolist(), (sign * ext_shift).tolist()), 'mass_shift': 0.}
                             if threshold not in diag_info['thresholds']:
                                 diag_info['thresholds'].append(threshold)
 
-                        forest_to_lmb.extend([x[0] for x in uv_structure['remaining_graph_loop_topo'].loop_momentum_map])
+                    forest_to_lmb.extend([x[0] for x in uv_structure['remaining_graph_loop_topo'].loop_momentum_map])
 
-                        if forest_to_lmb != []:
-                            fmb_in_cb = (Matrix(forest_to_lmb) * lmb_to_cb_matrix).tolist()
-                            shift = Matrix([r[:len(c) - 1] for r in fmb_in_cb])
-                            loops = [r[len(c) - 1:] for r in fmb_in_cb]
-                            # filter out all columns with zeroes as these are cmb momenta belonging to another amplitude
-                            loops = [[a for i, a in enumerate(r) if any(b[i] != 0 for b in loops) ] for r in loops]
-                            loopsi = Matrix(loops)**-1
-                            shifti = loopsi * shift
-                            # we use that UV subgraph defining momenta do not have a shift wrt external momenta
-                            remext  = [x[1] for x in uv_structure['remaining_graph_loop_topo'].loop_momentum_map]
-                            extshift = Matrix([[0]*len(self.topo.ext)]*(len(loops)-len(remext)) + remext)
-                            extshiti = loopsi * extshift
+                    if forest_to_lmb != []:
+                        fmb_in_cb = (Matrix(forest_to_lmb) * cb_to_lmb_matrix).tolist()
+                        shift = Matrix([r[:len(c) - 1] for r in fmb_in_cb])
+                        loops = [r[len(c) - 1:] for r in fmb_in_cb]
+                        # filter out all columns with zeroes as these are cmb momenta belonging to another amplitude
+                        loops = [[a for i, a in enumerate(r) if any(b[i] != 0 for b in loops) ] for r in loops]
+                        loopsi = Matrix(loops)**-1
+                        shifti = loopsi * shift
+                        # we use that UV subgraph defining momenta do not have a shift wrt external momenta
+                        remext  = [x[1] for x in uv_structure['remaining_graph_loop_topo'].loop_momentum_map]
+                        extshift = Matrix([[0]*len(self.topo.ext)]*(len(loops)-len(remext)) + remext)
+                        extshiti = loopsi * extshift
 
-                            uv_structure['forest_to_cb_matrix'] = (loopsi.tolist(), shifti.tolist(), extshiti.tolist(), loops, shift.tolist(), extshift.tolist())
-                        else:
-                            uv_structure['forest_to_cb_matrix'] = ([[]], [[]], [[]], [[]], [[]], [[]])
+                        uv_structure['forest_to_cb_matrix'] = (loopsi.tolist(), shifti.tolist(), extshiti.tolist(), loops, shift.tolist(), extshift.tolist())
+                    else:
+                        uv_structure['forest_to_cb_matrix'] = ([[]], [[]], [[]], [[]], [[]], [[]])
 
-                        if uv_structure['remaining_graph'].n_loops == 0 and len(uv_structure['uv_subgraphs']) > 0:
-                            pure_forest_counter += 1
+                    if uv_structure['remaining_graph'].n_loops == 0 and len(uv_structure['uv_subgraphs']) > 0:
+                        pure_forest_counter += 1
 
-                    lmb_offset += amp_loops
+                
+                for i, t in enumerate(diag_info['thresholds']):
+                    t['id'] = i
+
+                lmb_offset += amp_loops
             self.cuts.append(cut_info)
 
     def export(self, output_path, model=None, include_integration_channel_info=False, optimize_channels=False):
@@ -589,19 +605,16 @@ class SquaredTopologyGenerator:
                         }
                         for cut_edge in cuts['cuts']
                     ],
-                    'diagram_sets': [
-                        {
-                            'id': diag_set['id'],
-                            'diagram_info': [{
-                                'graph': diag['uv'][0]['remaining_graph_loop_topo'].to_flat_format(),
-                                'conjugate_deformation': diag['conjugate_deformation'],
-                                'n_loops': diag['n_loops'],
-                                'propagators': diag['propagators'],
-                                'thresholds': diag['thresholds'],
-                            } for diag in diag_set['diagram_info']],
-                            'cb_to_lmb': diag_set['cb_to_lmb']
-                        }
-                    for diag_set in cuts['diagram_sets']]
+                    'id': cuts['id'],
+                    'amplitudes': [{
+                        'graph': diag['uv'][0]['remaining_graph_loop_topo'].to_flat_format(),
+                        'conjugate_deformation': diag['conjugate_deformation'],
+                        'n_loops': diag['n_loops'],
+                        'propagators': diag['propagators'],
+                        'thresholds': diag['thresholds'],
+                    } for diag in cuts['diagram_info']],
+                    'lmb_to_cb': cuts['lmb_to_cb'],
+                    'cb_to_lmb': cuts['cb_to_lmb']     
                 }
 
                 for cuts in self.cuts

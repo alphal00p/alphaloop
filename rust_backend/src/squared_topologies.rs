@@ -1,4 +1,5 @@
 use crate::dashboard::{StatusUpdate, StatusUpdateSender};
+use crate::deformation::DeformationCache;
 use crate::dualklt3::Dualklt3;
 use crate::dualkt2::Dualkt2;
 use crate::dualkt3::Dualkt3;
@@ -6,7 +7,7 @@ use crate::dualt2::Dualt2;
 use crate::dualt3::Dualt3;
 use crate::integrand::{IntegrandImplementation, IntegrandSample};
 use crate::observables::EventManager;
-use crate::topologies::{FixedDeformationLimit, LTDCache, SOCPProblem, Topology};
+use crate::overlap::{DeformationOverlap, SOCPProblem};
 use crate::utils;
 use crate::IntegratedPhase;
 use crate::{DeformationStrategy, FloatLike, IntegrandType, NormalisingFunction, Settings};
@@ -238,29 +239,66 @@ pub struct CutkoskyCut {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct CutkoskyCutDiagramInfo {
-    pub graph: Topology,
-    pub conjugate_deformation: bool,
+pub struct Threshold {
+    pub id: usize,
+    pub foci: Vec<usize>,
+    pub shift_in_lmb_sig: (Vec<i8>, Vec<i8>),
+    pub mass_shift: f64,
+    // data computed at runtime
+    #[serde(default)]
+    pub shift: LorentzVector<f64>,
+    #[serde(default)]
+    pub exists: bool,
+    #[serde(default)]
+    pub pinched: bool,
+    #[serde(skip_deserializing)]
+    pub interior_point: Vec<LorentzVector<f64>>,
+    #[serde(skip_deserializing)]
+    pub focal_points: Vec<FocalPoint>, // TODO: rename
+}
+
+// FIXME: rename
+#[derive(Debug, Clone, Deserialize)]
+pub struct Propagator {
+    pub id: usize,
+    pub name: String,
+    pub lmb_sig: (Vec<i8>, Vec<i8>),
+    pub amp_sig: Vec<i8>,
+    pub amp_shift_in_cmb_sig: (Vec<i8>, Vec<i8>),
+    pub mass: f64,
+    pub uv_mass: bool,
+    #[serde(default)]
+    pub shift: LorentzVector<f64>, // computed from signatures
+}
+
+#[derive(Debug, Clone)]
+pub struct FocalPoint {
+    pub id: usize,
+    pub sig: Vec<i8>,
+    pub mass: f64,
+    pub shift: LorentzVector<f64>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct CutkoskyCutDiagramSet {
-    pub id: usize,
-    pub diagram_info: Vec<CutkoskyCutDiagramInfo>,
-    pub cb_to_lmb: Option<Vec<i8>>,
+pub struct DeformationSubgraph {
+    pub conjugate_deformation: bool,
+    pub n_loops: usize,
+    pub propagators: Vec<Propagator>,
+    pub thresholds: Vec<Threshold>,
+    #[serde(skip_deserializing)]
+    pub e_cm_squared: f64,
+    #[serde(default)]
+    pub settings: Settings, // TODO: inherit only part of it?
+    #[serde(skip_deserializing)]
+    pub socp_problem: SOCPProblem,
 }
-
 #[derive(Debug, Clone, Deserialize)]
 pub struct CutkoskyCuts {
     pub cuts: Vec<CutkoskyCut>,
-    pub diagram_sets: Vec<CutkoskyCutDiagramSet>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct MGNumeratorCallSignature {
-    pub left_diagram_id: usize,
-    pub proc_id: usize,
-    pub right_diagram_id: usize,
+    pub id: usize,
+    pub amplitudes: Vec<DeformationSubgraph>,
+    pub lmb_to_cb: Vec<i8>,
+    pub cb_to_lmb: Vec<i8>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -412,7 +450,7 @@ pub struct MultiChannelingBasis {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct Propagator {
+pub struct SupergraphPropagator {
     pub name: String,
     #[serde(rename = "PDG")]
     pub pdg: isize,
@@ -452,7 +490,7 @@ pub struct SquaredTopology {
     pub form_integrand: FORMIntegrand,
     #[serde(skip_deserializing)]
     pub is_stability_check_topo: bool,
-    pub propagators: Vec<Propagator>,
+    pub propagators: Vec<SupergraphPropagator>,
 }
 
 #[derive(Clone)]
@@ -702,42 +740,17 @@ impl SquaredTopologySet {
 
         let mut n_cutkosky_cuts_per_cut_cardinality = HashMap::new();
         let mut n_diagrams_per_loop = HashMap::new();
-        let mut n_ltd_cuts_per_loop = HashMap::new();
 
         for topology in &self.topologies {
             for cutkosky_cuts in &topology.cutkosky_cuts {
                 *n_cutkosky_cuts_per_cut_cardinality
                     .entry(cutkosky_cuts.cuts.len())
                     .or_insert(0) += 1;
-                for diagram_set in &cutkosky_cuts.diagram_sets {
-                    for d_info in &diagram_set.diagram_info {
-                        *n_diagrams_per_loop.entry(d_info.graph.n_loops).or_insert(0) += 1;
-                        *n_ltd_cuts_per_loop.entry(d_info.graph.n_loops).or_insert(0) += d_info
-                            .graph
-                            .ltd_cut_options
-                            .iter()
-                            .map(|v| v.len())
-                            .sum::<usize>()
-                            .max(1);
-                    }
+                for d_info in &cutkosky_cuts.amplitudes {
+                    *n_diagrams_per_loop.entry(d_info.n_loops).or_insert(0) += 1;
                 }
             }
         }
-
-        let mut tmp_vec: Vec<_> = n_ltd_cuts_per_loop.into_iter().collect();
-        let tmp_sum: usize = tmp_vec.iter().map(|(_, v)| *v).sum();
-        tmp_vec.sort_by(|a, b| a.0.cmp(&b.0));
-        status_update_sender
-            .send(StatusUpdate::Message(format!(
-                "Loop count -> number of LTD cuts: {} total: {}",
-                tmp_vec
-                    .iter()
-                    .map(|(k, v)| format!("{}->{}", k, v))
-                    .collect::<Vec<String>>()
-                    .join(", "),
-                tmp_sum
-            )))
-            .unwrap();
 
         let mut tmp_vec: Vec<_> = n_diagrams_per_loop.into_iter().collect();
         let tmp_sum: usize = tmp_vec.iter().map(|(_, v)| *v).sum();
@@ -853,7 +866,7 @@ impl SquaredTopologySet {
                 // set the loop index to i + 1 so that we can also shift k
                 (
                     T::zero(),
-                    Topology::parameterize(
+                    utils::parameterize(
                         &xrot[i * 3..(i + 1) * 3],
                         T::convert_from(&self.e_cm_squared),
                         i,
@@ -947,7 +960,7 @@ impl SquaredTopologySet {
                                 + T::convert_from(&rot[2][2]) * k_other_channel[i].z,
                         );
                         if self.settings.general.multi_channeling_alpha < 0. {
-                            Topology::inv_parametrize(
+                            utils::inv_parametrize(
                                 &rotated,
                                 T::convert_from(&self.e_cm_squared),
                                 i,
@@ -1000,7 +1013,7 @@ impl SquaredTopologySet {
 
                     print!("Point in channel: ");
                     for i in 0..n_loops {
-                        let (x, _) = Topology::inv_parametrize(
+                        let (x, _) = utils::inv_parametrize(
                             &k_lmb[i],
                             T::convert_from(&self.e_cm_squared),
                             i,
@@ -1018,7 +1031,7 @@ impl SquaredTopologySet {
                 // undo the jacobian for unused dimensions
                 let mut jac_correction = T::one();
                 for i in t.n_loops..n_loops {
-                    let (_, jac) = Topology::inv_parametrize(
+                    let (_, jac) = utils::inv_parametrize(
                         &k_lmb[i],
                         T::convert_from(&self.e_cm_squared),
                         i,
@@ -1028,7 +1041,7 @@ impl SquaredTopologySet {
                 }
                 if self.settings.general.multi_channeling_alpha >= 0. {
                     for i in 0..t.n_loops {
-                        let (_, jac) = Topology::inv_parametrize(
+                        let (_, jac) = utils::inv_parametrize(
                             &k_channel[i],
                             T::convert_from(&self.e_cm_squared),
                             i,
@@ -1141,7 +1154,7 @@ impl SquaredTopologySet {
                 // set the loop index to i + 1 so that we can also shift k
                 (
                     T::zero(),
-                    Topology::parameterize(
+                    utils::parameterize(
                         &xrot[i * 3..(i + 1) * 3],
                         T::convert_from(&self.e_cm_squared), // NOTE: taking e_cm from the first graph
                         i,
@@ -1742,10 +1755,10 @@ impl<T: Zero + Copy> DualWrapper<T> for Dualklt3<T> {
 
 #[derive(Default)]
 pub struct SquaredTopologyCache<T: FloatLike> {
-    topology_cache: Vec<Vec<Vec<Vec<LTDCache<T>>>>>,
+    topology_cache: Vec<Vec<Vec<DeformationCache<T>>>>,
     momenta: Vec<T>,
     params: Vec<T>,
-    deformation_vector_cache: Vec<Vec<FixedDeformationLimit>>,
+    deformation_vector_cache: Vec<Vec<DeformationOverlap>>,
     deformation_jacobian_matrix: Vec<Complex<T>>,
     current_supergraph: usize,
     current_deformation_index: usize,
@@ -1753,14 +1766,12 @@ pub struct SquaredTopologyCache<T: FloatLike> {
 
 impl<T: FloatLike> SquaredTopologyCache<T> {
     #[inline]
-    pub fn get_topology_cache(
+    pub fn get_deformation_cache(
         &mut self,
         cut_index: usize,
-        diagram_set_index: usize,
         diagram_index: usize,
-    ) -> &mut LTDCache<T> {
-        &mut self.topology_cache[self.current_supergraph][cut_index][diagram_set_index]
-            [diagram_index]
+    ) -> &mut DeformationCache<T> {
+        &mut self.topology_cache[self.current_supergraph][cut_index][diagram_index]
     }
 }
 
@@ -1805,40 +1816,6 @@ impl SquaredTopology {
             squared_topo.n_loops
         );
 
-        squared_topo.settings = settings.clone();
-        for cutkosky_cuts in &mut squared_topo.cutkosky_cuts {
-            for cut in &mut cutkosky_cuts.cuts {
-                if cut.m_squared == 0. {
-                    cut.m_squared = settings.cross_section.small_mass_sq;
-                }
-            }
-
-            for diagram_set in &mut cutkosky_cuts.diagram_sets {
-                for d in &mut diagram_set.diagram_info {
-                    d.graph.settings = settings.clone();
-                    d.graph.process(false);
-
-                    // update the UV mass
-                    for ll in &mut d.graph.loop_lines {
-                        for p in &mut ll.propagators {
-                            if p.uv {
-                                p.m_squared = settings.cross_section.m_uv_sq;
-                            }
-                            if p.m_squared == 0. {
-                                p.m_squared = settings.cross_section.small_mass_sq;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // overwrite an empty list of fixed cut momenta in the topology settings if there is a default
-        if settings.cross_section.fixed_cut_momenta.is_empty() {
-            squared_topo.settings.cross_section.fixed_cut_momenta =
-                squared_topo.default_fixed_cut_momenta.1.clone();
-        }
-
         // set the external momenta and e_cm
         let incoming_momenta: Vec<_> = if settings.cross_section.incoming_momenta.is_empty() {
             &squared_topo.default_fixed_cut_momenta.0
@@ -1856,6 +1833,46 @@ impl SquaredTopology {
         squared_topo.e_cm_squared = sum_incoming.square().abs();
         squared_topo.external_momenta = incoming_momenta.clone();
         squared_topo.external_momenta.extend(incoming_momenta);
+
+        squared_topo.settings = settings.clone();
+        for cutkosky_cut in &mut squared_topo.cutkosky_cuts {
+            for cut in &mut cutkosky_cut.cuts {
+                if cut.m_squared == 0. {
+                    cut.m_squared = settings.cross_section.small_mass_sq;
+                }
+            }
+
+            for d in &mut cutkosky_cut.amplitudes {
+                if d.n_loops > 0 {
+                    d.socp_problem =
+                        SOCPProblem::new(d.thresholds.len(), d.propagators.len(), d.n_loops);
+                }
+                d.settings = squared_topo.settings.clone();
+                d.e_cm_squared = squared_topo.e_cm_squared.to_f64().unwrap();
+
+                for t in &mut d.thresholds {
+                    for f_id in &t.foci {
+                        let p = &d.propagators[*f_id];
+                        t.focal_points.push(FocalPoint {
+                            id: p.id,
+                            sig: p.amp_sig.clone(),
+                            mass: if p.uv_mass {
+                                settings.cross_section.m_uv_sq.sqrt()
+                            } else {
+                                p.mass
+                            },
+                            shift: LorentzVector::default(),
+                        });
+                    }
+                }
+            }
+        }
+
+        // overwrite an empty list of fixed cut momenta in the topology settings if there is a default
+        if settings.cross_section.fixed_cut_momenta.is_empty() {
+            squared_topo.settings.cross_section.fixed_cut_momenta =
+                squared_topo.default_fixed_cut_momenta.1.clone();
+        }
 
         debug_assert_eq!(
             squared_topo.external_momenta.len(),
@@ -2009,18 +2026,15 @@ impl SquaredTopology {
         self.multi_channeling_channels = multi_channeling_channels;
     }
 
-    pub fn create_caches<T: FloatLike>(&self) -> Vec<Vec<Vec<LTDCache<T>>>> {
+    pub fn create_caches<T: FloatLike>(&self) -> Vec<Vec<DeformationCache<T>>> {
         let mut caches = vec![];
-        for cutkosky_cuts in &self.cutkosky_cuts {
-            let mut lim_cache = vec![];
-            for diagram_set in &cutkosky_cuts.diagram_sets {
-                let mut diag_cache = vec![];
-                for d in &diagram_set.diagram_info {
-                    diag_cache.push(LTDCache::<T>::new(&d.graph));
-                }
-                lim_cache.push(diag_cache);
+        for cutkosky_cut in &self.cutkosky_cuts {
+            let mut diag_cache = vec![];
+            for d in &cutkosky_cut.amplitudes {
+                diag_cache.push(DeformationCache::<T>::new(d));
             }
-            caches.push(lim_cache);
+
+            caches.push(diag_cache);
         }
         caches
     }
@@ -2309,8 +2323,7 @@ impl SquaredTopology {
             (0..n_cuts).map(|_| LorentzVector::new()).collect();
         let mut rescaled_loop_momenta: SmallVec<[LorentzVector<D>; MAX_SG_LOOP]> =
             (0..self.n_loops).map(|_| LorentzVector::new()).collect();
-        let mut subgraph_loop_momenta: SmallVec<[LorentzVector<D>; MAX_SG_LOOP]> =
-            (0..self.n_loops).map(|_| LorentzVector::new()).collect();
+        let mut cmb_momenta: SmallVec<[LorentzVector<D>; MAX_SG_LOOP]> = SmallVec::new();
         let mut k_def: SmallVec<[LorentzVector<Complex<D>>; MAX_SG_LOOP]> =
             (0..self.n_loops).map(|_| LorentzVector::new()).collect();
         let mut result_buffer = [T::zero(); MAX_DUAL_SIZE * 2];
@@ -2499,6 +2512,59 @@ impl SquaredTopology {
             *rlm = lm.convert::<D>() * scaling;
         }
 
+        // for the evaluation of the numerator we need complex loop momenta of the supergraph.
+        // the order is: cut momenta, momenta graph 1, ... graph n
+        for (kd, cut_mom) in k_def[..n_cuts - 1]
+            .iter_mut()
+            .zip(&cut_momenta[..n_cuts - 1])
+        {
+            cmb_momenta.push(*cut_mom);
+            *kd = cut_mom.to_complex(true);
+        }
+
+        // set the energy components
+        for (lmb_index, sig) in self.cutkosky_cuts[cut_index]
+            .cb_to_lmb
+            .chunks(self.n_loops)
+            .enumerate()
+        {
+            rescaled_loop_momenta[lmb_index].t =
+                utils::evaluate_signature(&sig[..n_cuts - 1], &cmb_momenta[..n_cuts - 1]).t;
+            for j in 0..n_cuts - 1 {
+                let shift = utils::evaluate_signature(
+                    &self.cutkosky_cuts[cut_index].cuts[j].signature.1,
+                    &external_momenta[..self.external_momenta.len()],
+                );
+                rescaled_loop_momenta[lmb_index].t -= D::from_real(shift.t);
+            }
+        }
+
+        // determine the cut momentum basis where every non-cut momentum has a dual
+        // TODO: only do when a deformation is needed
+        let mut cut_momenta_deformation_dual: SmallVec<
+            [LorentzVector<Hyperdual<T, { MAX_SG_LOOP * 3 }>>; MAX_SG_LOOP],
+        > = cut_momenta[..n_cuts - 1]
+            .iter()
+            .map(|cm| cm.map(|x| Hyperdual::from_real(x.get_real())))
+            .collect();
+
+        for (dual_index, sig) in self.cutkosky_cuts[cut_index]
+            .lmb_to_cb
+            .chunks(self.n_loops)
+            .skip(n_cuts - 1)
+            .enumerate()
+        {
+            let m = utils::evaluate_signature(sig, &rescaled_loop_momenta[..self.n_loops]);
+
+            cmb_momenta.push(m);
+
+            let mut slm = m.map(|x| Hyperdual::from_real(x.get_real()));
+            slm.x[1 + dual_index * 3] = T::one();
+            slm.y[1 + dual_index * 3 + 1] = T::one();
+            slm.z[1 + dual_index * 3 + 2] = T::one();
+            cut_momenta_deformation_dual.push(slm);
+        }
+
         let mut constants = Complex::one();
 
         constants *= utils::powi(
@@ -2564,17 +2630,8 @@ impl SquaredTopology {
             }
         }
 
-        // for the evaluation of the numerator we need complex loop momenta of the supergraph.
-        // the order is: cut momenta, momenta graph 1, ... graph n
-        for (kd, cut_mom) in k_def[..n_cuts - 1]
-            .iter_mut()
-            .zip(&cut_momenta[..n_cuts - 1])
-        {
-            *kd = cut_mom.to_complex(true);
-        }
-
         // initialize the constants
-        if cache.params.len() != 10 {
+        if cache.params.len() != 8 {
             cache.params = vec![
                 Into::<T>::into(self.settings.cross_section.m_uv_sq).sqrt(),
                 T::zero(),
@@ -2584,8 +2641,6 @@ impl SquaredTopology {
                 T::zero(),
                 Into::<T>::into(self.settings.cross_section.small_mass_sq),
                 T::zero(),
-                Into::<T>::into(self.settings.cross_section.uv_cutoff_scale_sq),
-                T::zero(),
             ];
         }
 
@@ -2593,32 +2648,55 @@ impl SquaredTopology {
         let mut diag_and_num_contributions: Complex<D> = Complex::zero();
         let mut def_jacobian = Complex::one();
 
-        // TODO: deprecate diagram sets
-        let diagram_set = &mut self.cutkosky_cuts[cut_index].diagram_sets[0];
-
-        for diagram_info in &mut diagram_set.diagram_info {
-            let subgraph = &mut diagram_info.graph;
-
+        for (sg_index, subgraph) in self.cutkosky_cuts[cut_index]
+            .amplitudes
+            .iter_mut()
+            .enumerate()
+        {
             if self.settings.general.deformation_strategy != DeformationStrategy::Fixed {
-                subgraph.fixed_deformation.clear();
                 continue;
-            }
-
-            // set the shifts, which are expressed in the cut basis
-            for ll in &mut subgraph.loop_lines {
-                for p in &mut ll.propagators {
-                    p.q = SquaredTopology::evaluate_signature(
-                        &p.parametric_shift,
-                        &external_momenta[..self.external_momenta.len()],
-                        &cut_momenta[..n_cuts],
-                    )
-                    .map(|x| x.to_f64().unwrap());
-                }
             }
 
             subgraph.e_cm_squared = e_cm_sq.to_f64().unwrap();
 
-            subgraph.update_ellipsoids();
+            for p in &mut subgraph.propagators {
+                p.shift = SquaredTopology::evaluate_signature(
+                    &p.amp_shift_in_cmb_sig,
+                    &external_momenta[..self.external_momenta.len()],
+                    &cmb_momenta,
+                )
+                .map(|x| x.to_f64().unwrap());
+            }
+
+            for t in &mut subgraph.thresholds {
+                for (ff, f_id) in t.focal_points.iter_mut().zip(&t.foci) {
+                    ff.shift = subgraph.propagators[*f_id].shift;
+                }
+
+                t.shift = SquaredTopology::evaluate_signature(
+                    &t.shift_in_lmb_sig,
+                    &external_momenta[..self.external_momenta.len()],
+                    &rescaled_loop_momenta[..self.n_loops],
+                )
+                .map(|x| x.to_f64().unwrap());
+                t.shift.t += t.mass_shift;
+
+                let mass_sum: f64 = t.focal_points.iter().map(|f| f.mass).sum();
+                t.pinched = false;
+                t.exists = true;
+                let size = t.shift.square() - mass_sum.powi(2);
+                if size >= Into::<f64>::into(-1e-13 * subgraph.e_cm_squared) && t.shift.t <= 0. {
+                    if size < Into::<f64>::into(1e-8 * subgraph.e_cm_squared) {
+                        t.pinched = true;
+                    }
+                } else {
+                    t.exists = false;
+                }
+
+                if t.exists && !t.pinched {
+                    t.interior_point = t.get_interior_point();
+                }
+            }
 
             // the stability topologies will inherit the sources
             // amplitudes will also inherit the sources when they are computed once
@@ -2626,62 +2704,42 @@ impl SquaredTopology {
                 && (cache.current_deformation_index >= cache.deformation_vector_cache.len()
                     || self.settings.cross_section.fixed_cut_momenta.is_empty())
             {
-                subgraph.fixed_deformation = subgraph.determine_ellipsoid_overlap_structure(
-                    true,
+                let overlap_structure = subgraph.find_overlap_structure(
                     !self.settings.cross_section.fixed_cut_momenta.is_empty(),
                 );
 
                 cache
-                    .deformation_vector_cache
-                    .push(subgraph.fixed_deformation.clone());
+                    .get_deformation_cache(cut_index, sg_index)
+                    .overlap_structure = overlap_structure.clone();
+                cache.deformation_vector_cache.push(overlap_structure);
             } else {
-                subgraph.fixed_deformation =
+                let overlap_structure =
                     cache.deformation_vector_cache[cache.current_deformation_index].clone();
+                let dc = cache.get_deformation_cache(cut_index, sg_index);
+                dc.overlap_structure = overlap_structure;
 
                 // rotate the fixed deformation vectors
                 // FIXME: deformation vectors are given in f64
                 let rot_matrix = &self.rotation_matrix;
-                for d_lim in &mut subgraph.fixed_deformation {
-                    for d in &mut d_lim.deformation_per_overlap {
-                        for source in &mut d.deformation_sources {
-                            let old_x = source.x;
-                            let old_y = source.y;
-                            let old_z = source.z;
-                            source.x = rot_matrix[0][0].to_f64().unwrap() * old_x
-                                + rot_matrix[0][1].to_f64().unwrap() * old_y
-                                + rot_matrix[0][2].to_f64().unwrap() * old_z;
-                            source.y = rot_matrix[1][0].to_f64().unwrap() * old_x
-                                + rot_matrix[1][1].to_f64().unwrap() * old_y
-                                + rot_matrix[1][2].to_f64().unwrap() * old_z;
-                            source.z = rot_matrix[2][0].to_f64().unwrap() * old_x
-                                + rot_matrix[2][1].to_f64().unwrap() * old_y
-                                + rot_matrix[2][2].to_f64().unwrap() * old_z;
-                        }
-                    }
-                }
-
-                // update the excluded surfaces
-                for ex in &mut subgraph.all_excluded_surfaces {
-                    *ex = false;
-                }
-
-                for d_lim in &mut subgraph.fixed_deformation {
-                    for d in &d_lim.deformation_per_overlap {
-                        for surf_id in &d.excluded_surface_indices {
-                            subgraph.all_excluded_surfaces[*surf_id] = true;
-                        }
+                for d in &mut dc.overlap_structure {
+                    for source in &mut d.deformation_sources {
+                        let old_x = source.x;
+                        let old_y = source.y;
+                        let old_z = source.z;
+                        source.x = rot_matrix[0][0].to_f64().unwrap() * old_x
+                            + rot_matrix[0][1].to_f64().unwrap() * old_y
+                            + rot_matrix[0][2].to_f64().unwrap() * old_z;
+                        source.y = rot_matrix[1][0].to_f64().unwrap() * old_x
+                            + rot_matrix[1][1].to_f64().unwrap() * old_y
+                            + rot_matrix[1][2].to_f64().unwrap() * old_z;
+                        source.z = rot_matrix[2][0].to_f64().unwrap() * old_x
+                            + rot_matrix[2][1].to_f64().unwrap() * old_y
+                            + rot_matrix[2][2].to_f64().unwrap() * old_z;
                     }
                 }
             }
             cache.current_deformation_index += 1;
-
-            if self.settings.general.debug > 0 {
-                // check if the overlap structure makes sense
-                subgraph.check_fixed_deformation();
-            }
         }
-
-        let diagram_set = &self.cutkosky_cuts[cut_index].diagram_sets[0];
 
         let free_loops = self.n_loops + 1 - n_cuts;
         let mat_row_length = 3 * free_loops;
@@ -2695,35 +2753,13 @@ impl SquaredTopology {
             def_jacobian = Complex::one();
         }
 
-        // determine the cut momentum basis where every non-cut momentum has a dual
-        let mut cut_momenta_deformation_dual: SmallVec<
+        let mut kappas_all_amps: SmallVec<
             [LorentzVector<Hyperdual<T, { MAX_SG_LOOP * 3 }>>; MAX_SG_LOOP],
-        > = cut_momenta[..n_cuts - 1]
-            .iter()
-            .map(|cm| cm.map(|x| Hyperdual::from_real(x.get_real())))
-            .collect();
-
-        let mut dual_index = 0;
-        for diagram_info in diagram_set.diagram_info.iter() {
-            let subgraph = &diagram_info.graph;
-            for lmm in &subgraph.loop_momentum_map {
-                let m = SquaredTopology::evaluate_signature(
-                    lmm,
-                    &external_momenta[..self.external_momenta.len()],
-                    &rescaled_loop_momenta[..self.n_loops],
-                );
-
-                let mut slm = m.map(|x| Hyperdual::from_real(x.get_real()));
-                slm.x[1 + dual_index * 3] = T::one();
-                slm.y[1 + dual_index * 3 + 1] = T::one();
-                slm.z[1 + dual_index * 3 + 2] = T::one();
-                cut_momenta_deformation_dual.push(slm);
-                dual_index += 1;
-            }
-        }
-
-        let mut dampening_factor: Hyperdual<T, { MAX_SG_LOOP * 3 }> = Hyperdual::one();
-        let mat = diagram_set.cb_to_lmb.as_ref().unwrap();
+        > = SmallVec::new();
+        let mut dampening_factor: Hyperdual<T, { MAX_SG_LOOP * 3 }> = Hyperdual::from_real(
+            Into::<T>::into(self.settings.deformation.scaling.lambda.abs()),
+        );
+        let mat = &self.cutkosky_cuts[cut_index].cb_to_lmb;
 
         if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
             // determine the soft dampening factor
@@ -2838,8 +2874,9 @@ impl SquaredTopology {
                                     }
                                 }
 
-                                let d = momentum.spatial_distance();
-                                if collinear_edge.sign * diff_sign == 1 {
+                                let d: Hyperdual<T, { MAX_SG_LOOP * 3 }> =
+                                    momentum.spatial_distance();
+                                if diff_sign == 1 {
                                     surface_eval += d;
                                     pos_norm_sum += d;
                                     momentum_sum += momentum;
@@ -2856,16 +2893,22 @@ impl SquaredTopology {
 
                             let existence_condition =
                                 pos_norm_sum - &momentum_sum.spatial_distance();
+
                             let gamma = existence_condition * existence_condition
                                 / (Into::<T>::into(
                                     self.settings.deformation.fixed.pinch_dampening_k_com,
                                 ) * T::convert_from(&self.e_cm_squared));
 
-                            let t = eta.sqrt().powf(Hyperdual::from_real(Into::<T>::into(
-                                self.settings.deformation.fixed.pinch_dampening_alpha,
-                            ))) + gamma.sqrt().powf(Hyperdual::from_real(Into::<T>::into(
+                            let mut t = eta.sqrt().powf(Hyperdual::from_real(Into::<T>::into(
                                 self.settings.deformation.fixed.pinch_dampening_alpha,
                             )));
+
+                            if gamma > T::zero() {
+                                // for an exact 0, as happens for 1->N surfaces, the derivatives yield NaN
+                                t += gamma.sqrt().powf(Hyperdual::from_real(Into::<T>::into(
+                                    self.settings.deformation.fixed.pinch_dampening_alpha,
+                                )));
+                            }
 
                             let dampening = t
                                 / (t + Into::<T>::into(
@@ -2881,109 +2924,73 @@ impl SquaredTopology {
 
         // compute the deformation vectors for each subgraph
         let mut k_def_index = n_cuts - 1;
-        let diagram_set = &mut self.cutkosky_cuts[cut_index].diagram_sets[0];
-        for (diagram_index, diagram_info) in diagram_set.diagram_info.iter_mut().enumerate() {
-            let subgraph = &diagram_info.graph;
-            let subgraph_cache = cache.get_topology_cache(cut_index, 0, diagram_index);
+        for (diagram_index, amplitudes) in self.cutkosky_cuts[cut_index]
+            .amplitudes
+            .iter_mut()
+            .enumerate()
+        {
+            let subgraph = &amplitudes;
+            let subgraph_cache = cache.get_deformation_cache(cut_index, diagram_index);
+            let mom_index = k_def_index + 1 - n_cuts;
 
-            // do the loop momentum map, which is expressed in the loop momentum basis
-            // the time component should not matter here
-            for (slm, lmm) in utils::zip_eq(
-                &mut subgraph_loop_momenta[..subgraph.n_loops],
-                &subgraph.loop_momentum_map,
-            ) {
-                *slm = SquaredTopology::evaluate_signature(
-                    lmm,
-                    &external_momenta[..self.external_momenta.len()],
-                    &rescaled_loop_momenta[..self.n_loops],
-                );
-            }
-
-            let kappas = if self.settings.general.deformation_strategy == DeformationStrategy::Fixed
+            if self.settings.general.deformation_strategy == DeformationStrategy::Fixed
+                && subgraph.n_loops > 0
             {
-                let s: SmallVec<[LorentzVector<T>; MAX_SG_LOOP]> = subgraph_loop_momenta
-                    [..subgraph.n_loops]
+                let s: SmallVec<[LorentzVector<T>; MAX_SG_LOOP]> = cmb_momenta
+                    [k_def_index..k_def_index + subgraph.n_loops]
                     .iter()
                     .map(|c| c.map(|x| x.get_real()))
                     .collect();
 
-                subgraph.deform(&s, subgraph_cache, false).0
+                let mut kappas_flat =
+                    vec![T::zero(); amplitudes.n_loops * 3 * (amplitudes.n_loops * 3 + 1)];
+                let mut lambda_flat = vec![T::zero(); amplitudes.n_loops * 3 + 1];
+
+                subgraph.deform(&s, subgraph_cache, (&mut kappas_flat, &mut lambda_flat));
+
+                // upgrade the duals to duals of the joint amplitudes
+                let mut lambda_sg: Hyperdual<T, { MAX_SG_LOOP * 3 }> =
+                    Hyperdual::from_real(lambda_flat[0]);
+
+                lambda_sg.as_mut_slice()
+                    [1 + mom_index * 3..1 + mom_index * 3 + amplitudes.n_loops * 3]
+                    .copy_from_slice(&lambda_flat[1..]);
+                dampening_factor = dampening_factor.min(lambda_sg);
+                dbg!(dampening_factor);
+
+                let dual_len = 1 + amplitudes.n_loops * 3;
+                for i in 0..amplitudes.n_loops {
+                    let mut vs: [Hyperdual<T, { MAX_SG_LOOP * 3 }>; 4] = [Hyperdual::default(); 4];
+                    for j in 0..3 {
+                        vs[j + 1][0] = kappas_flat[i * 3 * dual_len + j * dual_len];
+                        vs[j + 1].as_mut_slice()
+                            [1 + mom_index * 3..1 + mom_index * 3 + amplitudes.n_loops * 3]
+                            .copy_from_slice(
+                                &kappas_flat[i * 3 * dual_len + j * dual_len + 1
+                                    ..i * 3 * dual_len + (j + 1) * dual_len],
+                            );
+                    }
+
+                    let v = LorentzVector::from_slice(&vs);
+                    let kappa = v * dampening_factor;
+                    kappas_all_amps.push(kappa);
+                }
             } else {
-                [LorentzVector::default(); crate::MAX_LOOP]
+                kappas_all_amps.push(LorentzVector::default());
             };
 
-            // add the contributions of the subgraph to the jacobian matrix, including the global dampening
-            if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
-                let mom_index = k_def_index + 1 - n_cuts;
-                let sg_jac = std::mem::take(&mut subgraph_cache.deformation_jacobian_matrix);
-
-                // get x and y offset
-                let yoffset = mom_index * 3 * mat_row_length;
-                let xoffset = mom_index * 3;
-
-                for i in 0..3 * subgraph.n_loops {
-                    // set cross terms
-                    for j in 0..mat_row_length {
-                        if j < xoffset || j > xoffset + 3 * subgraph.n_loops {
-                            let val = Complex::new(
-                                T::zero(),
-                                kappas[i / 3][i % 3 + 1] * dampening_factor[1 + j],
-                            );
-
-                            if diagram_info.conjugate_deformation {
-                                cache.deformation_jacobian_matrix
-                                    [yoffset + i * mat_row_length + j] = -val;
-                            } else {
-                                cache.deformation_jacobian_matrix
-                                    [yoffset + i * mat_row_length + j] = val;
-                            }
-                        }
-                    }
-
-                    for j in 0..3 * subgraph.n_loops {
-                        let dest = &mut cache.deformation_jacobian_matrix
-                            [yoffset + xoffset + i * mat_row_length + j];
-
-                        *dest = sg_jac[i * 3 * subgraph.n_loops + j];
-                        if i == j {
-                            *dest -= Complex::one(); // undo the real part
-                        }
-
-                        *dest *= dampening_factor[0]; // multiply real part
-
-                        // add derivatives of the global dampening
-                        *dest += Complex::new(
-                            T::zero(),
-                            kappas[i / 3][i % 3 + 1] * dampening_factor[1 + mom_index * 3 + j],
-                        );
-
-                        if diagram_info.conjugate_deformation {
-                            *dest = Complex::new(dest.re, -dest.im);
-                        }
-
-                        if i == j {
-                            *dest += Complex::one();
-                        }
-                    }
-                }
-
-                cache
-                    .get_topology_cache(cut_index, 0, diagram_index)
-                    .deformation_jacobian_matrix = sg_jac;
-            }
-
-            for (lm, kappa) in subgraph_loop_momenta[..subgraph.n_loops]
+            for (lm, kappa) in cmb_momenta[k_def_index..k_def_index + subgraph.n_loops]
                 .iter()
-                .zip(&kappas[..subgraph.n_loops])
+                .zip_eq(&kappas_all_amps[mom_index..mom_index + subgraph.n_loops])
             {
-                // FIXME: this kappa needs rescaling
-                k_def[k_def_index] = if diagram_info.conjugate_deformation {
+                // TODO: scale the deformation with t
+                k_def[k_def_index] = if amplitudes.conjugate_deformation {
                     // take the complex conjugate of the deformation
                     lm.map(|x| Complex::new(x, D::zero()))
-                        - kappa.map(|x| Complex::new(D::zero(), (x * dampening_factor[0]).into()))
+                        - kappa.map(|x| Complex::new(D::zero(), x.real().into()))
                 } else {
                     lm.map(|x| Complex::new(x, D::zero()))
-                        + kappa.map(|x| Complex::new(D::zero(), (x * dampening_factor[0]).into()))
+                        + kappa.map(|x| Complex::new(D::zero(), x.real().into()))
                 };
 
                 if let Some((store_kappa, _)) = deformation.as_mut() {
@@ -2996,6 +3003,18 @@ impl SquaredTopology {
         }
 
         if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
+            // construct the Jacobian of the deformation
+            let jac_mat = &mut cache.deformation_jacobian_matrix;
+            jac_mat.resize(9 * free_loops * free_loops, Complex::zero());
+            for i in 0..3 * free_loops {
+                for j in 0..3 * free_loops {
+                    // first index: loop momentum, second: xyz, third: dual
+                    jac_mat[i * 3 * free_loops + j] =
+                        Complex::new(T::zero(), kappas_all_amps[i / 3][i % 3 + 1][j + 1]);
+                }
+                jac_mat[i * 3 * free_loops + i] += Complex::one();
+            }
+
             def_jacobian = utils::determinant(&cache.deformation_jacobian_matrix, 3 * free_loops);
         }
 
@@ -3028,14 +3047,7 @@ impl SquaredTopology {
         {
             let mut res = Complex::default();
 
-            let (d, c) = (
-                call_signature.id,
-                if self.settings.cross_section.sum_diagram_sets {
-                    1000 + cut_index
-                } else {
-                    diagram_set.id
-                },
-            );
+            let (d, c) = (call_signature.id, self.cutkosky_cuts[cut_index].id);
 
             // FIXME: extra_calls not supported atm!
             assert!(call_signature.extra_calls.is_empty());
@@ -3111,7 +3123,10 @@ impl SquaredTopology {
         }
 
         if self.settings.general.debug >= 1 {
-            println!("  | res diagram set {} = {:.16e}", diagram_set.id, res);
+            println!(
+                "  | res C call {} = {:.16e}",
+                self.cutkosky_cuts[cut_index].id, res
+            );
         }
 
         res *= Complex::new(D::from_real(def_jacobian.re), D::from_real(def_jacobian.im));
@@ -3261,10 +3276,8 @@ impl SquaredTopology {
 
         // remove the SOCP problem allocations from the rotated topology as we will always inherit them
         for cc in &mut rotated_topology.cutkosky_cuts {
-            for ds in &mut cc.diagram_sets {
-                for di in &mut ds.diagram_info {
-                    di.graph.socp_problem = SOCPProblem::default();
-                }
+            for di in &mut cc.amplitudes {
+                di.socp_problem = SOCPProblem::default();
             }
         }
 

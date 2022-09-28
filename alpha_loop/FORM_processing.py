@@ -768,7 +768,7 @@ aGraph=%s;
 """%self.get_mathematica_rendering_code(model,FORM_id=FORM_id, lmb_id=lmb_id)
         # Export to PDF in landscape format. One graph per page for now.
         # The 1.2 multiplier accounts for margins
-        MM_code += 'Export["%s.pdf", GraphicsGrid[{{aGraph}}], ImageSize -> {%f, %f}];'%(
+        MM_code += 'Export["%s.pdf", aGraph, ImageSize -> {%f, %f}];'%(
                     file_name,1.25*self._rendering_size[0],1.25*self._rendering_size[1])
         open(pjoin(output_dir,'%s.m'%file_name),'w').write(MM_code)
 
@@ -1553,136 +1553,135 @@ aGraph=%s;
             unique_energies = {}
             unique_propagators = {} # for LTD
 
-            for diag_set in cut['diagram_sets']:
-                # collect all graphs
-                graphs = []
-                for diag_info in diag_set['diagram_info']:
-                    for uv_structure in diag_info['uv']:
-                        signature_offset = 0 # offset in the forest basis
-                        for uv_subgraph in uv_structure['uv_subgraphs']:
-                            if uv_subgraph['first_occurrence_id'] != uv_subgraph['id']:
-                                signature_offset += uv_subgraph['derived_graphs'][0]['loop_topo'].n_loops
+            # collect all graphs
+            graphs = []
+            for diag_info in cut['diagram_info']:
+                for uv_structure in diag_info['uv']:
+                    signature_offset = 0 # offset in the forest basis
+                    for uv_subgraph in uv_structure['uv_subgraphs']:
+                        if uv_subgraph['first_occurrence_id'] != uv_subgraph['id']:
+                            signature_offset += uv_subgraph['derived_graphs'][0]['loop_topo'].n_loops
+                            continue
+
+                        for dg in uv_subgraph['derived_graphs']:
+                            if dg['skip_pf']:
                                 continue
 
-                            for dg in uv_subgraph['derived_graphs']:
-                                if dg['skip_pf']:
-                                    continue
+                            graphs.append((signature_offset, dg['id'], dg['loop_topo'], None))
+                            if 'soft_ct_id' in dg:
+                                massct = (False, uv_subgraph['onshell']) if uv_subgraph['onshell'] is not None else None
+                                graphs.append((signature_offset, dg['soft_ct_id'], dg['loop_topo_orig_mass'], massct))
+                            if 'onshell_ct_id' in dg:
+                                massct = (True, uv_subgraph['onshell']) if uv_subgraph['onshell'] is not None else None
+                                graphs.append((signature_offset, dg['onshell_ct_id'], dg['loop_topo_orig_mass'], massct))
+                        graphs.append((signature_offset, uv_subgraph['integrated_ct_id'], uv_subgraph['integrated_ct_bubble_graph'], None))
+                        signature_offset += uv_subgraph['derived_graphs'][0]['loop_topo'].n_loops
+                    else:
+                        graphs.append((signature_offset, uv_structure['remaining_graph_id'], uv_structure['remaining_graph_loop_topo'], None))
 
-                                graphs.append((signature_offset, dg['id'], dg['loop_topo'], None))
-                                if 'soft_ct_id' in dg:
-                                   massct = (False, uv_subgraph['onshell']) if uv_subgraph['onshell'] is not None else None
-                                   graphs.append((signature_offset, dg['soft_ct_id'], dg['loop_topo_orig_mass'], massct))
-                                if 'onshell_ct_id' in dg:
-                                   massct = (True, uv_subgraph['onshell']) if uv_subgraph['onshell'] is not None else None
-                                   graphs.append((signature_offset, dg['onshell_ct_id'], dg['loop_topo_orig_mass'], massct))
-                            graphs.append((signature_offset, uv_subgraph['integrated_ct_id'], uv_subgraph['integrated_ct_bubble_graph'], None))
-                            signature_offset += uv_subgraph['derived_graphs'][0]['loop_topo'].n_loops
+            for signature_offset, graph_id, g, onshell in graphs:
+                signatures, n_props, energies, constants, shift_map, unique_energy = [], [], [], [], [], []
+                pf_prefactor = ['1']
+                prop_mom_in_lmb = {}
+                prop_id = {}
+
+                on_shell_condition = {}
+                if onshell is not None:
+                    flip_mass_sign, self_energy_ext_edges = onshell
+
+                    # construct the on-shell condition, TODO: check sign
+                    ext_edge = next(ee for ee in self.edges.values() if ee['name'] == self_energy_ext_edges[0])
+                    on_shell_condition[tuple(ext_edge['signature'][0] +
+                        ext_edge['signature'][1] + [0]*len( ext_edge['signature'][1]))] = '{}masses({})'.format('-' if flip_mass_sign else '', ext_edge['PDG'])
+                for li, l in enumerate(g.loop_lines):
+                    is_constant = all(s == 0 for s in l.signature)
+                    if not is_constant:
+                        signatures.append(list(l.signature))
+                        n_props.append(sum(p.power for p in (l.propagators)))
+                    for pi, p in enumerate(l.propagators):
+                        # contruct the momentum in the LMB
+                        # it should be the same as self.edge['momentum'] apart from the UV and the sign
+                        lmp = np.array([0]*topo.topo.n_loops)
+                        for s, v in zip(l.signature, g.loop_momentum_map):
+                            lmp += s * np.array(v[0])
+
+                        if onshell is None:
+                            # transport shift to LMB
+                            shift = np.array([0]*topo.topo.n_loops)
+                            extshift = np.array(p.parametric_shift[1])
+                            for s, c in zip(p.parametric_shift[0], cut['cuts']):
+                                shift += s * np.array(c['signature'][0])
+                                extshift += s * np.array(c['signature'][1])
+                            extshift = np.array(list(extshift[:len(extshift)//2]) + [0]*(len(extshift)//2)) +\
+                                np.array(list(extshift[len(extshift)//2:]) + [0]*(len(extshift)//2))
+                            totalmom = self.momenta_decomposition_to_string((lmp + shift, extshift), True)
                         else:
-                            graphs.append((signature_offset, uv_structure['remaining_graph_id'], uv_structure['remaining_graph_loop_topo'], None))
+                            # for on-shell graphs, the shifts are still in the graph basis
+                            ext_edge_sigs = [next(ee for ee in self.edges.values() if ee['name'] == e)['signature'] for e in self_energy_ext_edges]
+                            shift = np.array([0]*topo.topo.n_loops)
+                            extshift = np.array([0]*len(ext_edge_sigs[0][1]))
+                            for s, c in zip(p.parametric_shift[1], ext_edge_sigs):
+                                shift += s * np.array(c[0])
+                                extshift += s * np.array(c[1])
+                            extshift = np.array(list(extshift) + [0]*len(extshift))
+                            # drop the spatial shift
+                            totalmom = self.momenta_decomposition_to_string((lmp, np.array([0]*len(ext_edge_sigs[0][1]))), True)
 
-                for signature_offset, graph_id, g, onshell in graphs:
-                    signatures, n_props, energies, constants, shift_map, unique_energy = [], [], [], [], [], []
-                    pf_prefactor = ['1']
-                    prop_mom_in_lmb = {}
-                    prop_id = {}
-
-                    on_shell_condition = {}
-                    if onshell is not None:
-                        flip_mass_sign, self_energy_ext_edges = onshell
-
-                        # construct the on-shell condition, TODO: check sign
-                        ext_edge = next(ee for ee in self.edges.values() if ee['name'] == self_energy_ext_edges[0])
-                        on_shell_condition[tuple(ext_edge['signature'][0] +
-                            ext_edge['signature'][1] + [0]*len( ext_edge['signature'][1]))] = '{}masses({})'.format('-' if flip_mass_sign else '', ext_edge['PDG'])
-                    for li, l in enumerate(g.loop_lines):
-                        is_constant = all(s == 0 for s in l.signature)
+                        # recycle energy computations when there are duplicate edges
+                        edge_mass = 'masses({})'.format(next(ee for ee in self.edges.values() if ee['name'] == p.name)['PDG'])
+                        energy_instr = '{},{}'.format(totalmom, edge_mass if not p.uv else 'mUV')
                         if not is_constant:
-                            signatures.append(list(l.signature))
-                            n_props.append(sum(p.power for p in (l.propagators)))
-                        for pi, p in enumerate(l.propagators):
-                            # contruct the momentum in the LMB
-                            # it should be the same as self.edge['momentum'] apart from the UV and the sign
-                            lmp = np.array([0]*topo.topo.n_loops)
-                            for s, v in zip(l.signature, g.loop_momentum_map):
-                                lmp += s * np.array(v[0])
+                            if energy_instr not in unique_energies:
+                                unique_energies[energy_instr] = len(unique_energies)
 
-                            if onshell is None:
-                                # transport shift to LMB
-                                shift = np.array([0]*topo.topo.n_loops)
-                                extshift = np.array(p.parametric_shift[1])
-                                for s, c in zip(p.parametric_shift[0], cut['cuts']):
-                                    shift += s * np.array(c['signature'][0])
-                                    extshift += s * np.array(c['signature'][1])
-                                extshift = np.array(list(extshift[:len(extshift)//2]) + [0]*(len(extshift)//2)) +\
-                                    np.array(list(extshift[len(extshift)//2:]) + [0]*(len(extshift)//2))
-                                totalmom = self.momenta_decomposition_to_string((lmp + shift, extshift), True)
-                            else:
-                                # for on-shell graphs, the shifts are still in the graph basis
-                                ext_edge_sigs = [next(ee for ee in self.edges.values() if ee['name'] == e)['signature'] for e in self_energy_ext_edges]
-                                shift = np.array([0]*topo.topo.n_loops)
-                                extshift = np.array([0]*len(ext_edge_sigs[0][1]))
-                                for s, c in zip(p.parametric_shift[1], ext_edge_sigs):
-                                    shift += s * np.array(c[0])
-                                    extshift += s * np.array(c[1])
-                                extshift = np.array(list(extshift) + [0]*len(extshift))
-                                # drop the spatial shift
-                                totalmom = self.momenta_decomposition_to_string((lmp, np.array([0]*len(ext_edge_sigs[0][1]))), True)
+                            pf_prefactor.append('2*E{}'.format(unique_energies[energy_instr]) if p.power == 1 else '(2*E{})^{}'.format(unique_energies[energy_instr], p.power))
+                            e_str = 'E{},{}'.format(unique_energies[energy_instr], energy_instr)
+                            if e_str not in energies:
+                                energies.append(e_str)
+                            prop_id[(li, pi)] = unique_energies[energy_instr]
+                            prop_mom_in_lmb[unique_energies[energy_instr]] = (lmp, shift, extshift)
 
-                            # recycle energy computations when there are duplicate edges
-                            edge_mass = 'masses({})'.format(next(ee for ee in self.edges.values() if ee['name'] == p.name)['PDG'])
-                            energy_instr = '{},{}'.format(totalmom, edge_mass if not p.uv else 'mUV')
-                            if not is_constant:
-                                if energy_instr not in unique_energies:
-                                    unique_energies[energy_instr] = len(unique_energies)
-
-                                pf_prefactor.append('2*E{}'.format(unique_energies[energy_instr]) if p.power == 1 else '(2*E{})^{}'.format(unique_energies[energy_instr], p.power))
-                                e_str = 'E{},{}'.format(unique_energies[energy_instr], energy_instr)
-                                if e_str not in energies:
-                                    energies.append(e_str)
-                                prop_id[(li, pi)] = unique_energies[energy_instr]
-                                prop_mom_in_lmb[unique_energies[energy_instr]] = (lmp, shift, extshift)
-
-                                for _ in range(p.power):
-                                    shift_map.append(list(shift) + list(extshift))
-                                    unique_energy.append(unique_energies[energy_instr])
-                            else:
-                                for _ in range(p.power):
-                                    constants.append(energy_instr)
-
-                    if integrand_type == "both" or integrand_type == "PF":
-                        pf_prefactor = '*'.join(pf_prefactor)
-
-                        if len(signatures) == 0:
-                            # no loop dependence for this cut
-                            res = '\t1\n'
-                            resden = ''
+                            for _ in range(p.power):
+                                shift_map.append(list(shift) + list(extshift))
+                                unique_energy.append(unique_energies[energy_instr])
                         else:
-                            pf = LTD.partial_fractioning.PartialFractioning(n_props, signatures,
-                                                    name=str(diag_set['id']), shift_map=np.array(shift_map).T,
-                                                    n_sg_loops=topo.topo.n_loops, ltd_index=signature_offset,
-                                                    progress_bar = progress_bar)
-                            pf.shifts_to_externals()
-                            res, used_props = pf.to_FORM(energy_index_map=unique_energy, den_library=den_library, on_shell_conditions=on_shell_condition)
-                            res = '\n'.join(['\t' + l for l in res.split('\n')])
-                            resden = ','.join('invd{},{}'.format(i, d) for i, d in enumerate(den_library) if i in used_props)
+                            for _ in range(p.power):
+                                constants.append(energy_instr)
 
-                        pf_instr = '(2*pi*i_)^{}*constants({})*\n\tallenergies({})*\n\tellipsoids({})*(\n{})'.format(g.n_loops, ','.join(constants + [pf_prefactor]),
-                            ','.join(energies), resden, res)
+                if integrand_type == "both" or integrand_type == "PF":
+                    pf_prefactor = '*'.join(pf_prefactor)
 
-                        if pf_instr not in unique_pf:
-                            integrand_body += 'Fill pftopo({}) = {};\n'.format(len(unique_pf), pf_instr)
+                    if len(signatures) == 0:
+                        # no loop dependence for this cut
+                        res = '\t1\n'
+                        resden = ''
+                    else:
+                        pf = LTD.partial_fractioning.PartialFractioning(n_props, signatures,
+                                                name=str(cut['id']), shift_map=np.array(shift_map).T,
+                                                n_sg_loops=topo.topo.n_loops, ltd_index=signature_offset,
+                                                progress_bar = progress_bar)
+                        pf.shifts_to_externals()
+                        res, used_props = pf.to_FORM(energy_index_map=unique_energy, den_library=den_library, on_shell_conditions=on_shell_condition)
+                        res = '\n'.join(['\t' + l for l in res.split('\n')])
+                        resden = ','.join('invd{},{}'.format(i, d) for i, d in enumerate(den_library) if i in used_props)
 
-                            if integrand_type == "both" or integrand_type == "LTD":
-                                ltd_instr = self.generate_ltd_integrand(g, graph_id, constants, unique_propagators, prop_id, prop_mom_in_lmb,
-                                        energies, on_shell_condition)
-                                ltd_integrand_body += 'Fill ltdtopo({}) = {};\n'.format(len(unique_pf), ltd_instr)
+                    pf_instr = '(2*pi*i_)^{}*constants({})*\n\tallenergies({})*\n\tellipsoids({})*(\n{})'.format(g.n_loops, ','.join(constants + [pf_prefactor]),
+                        ','.join(energies), resden, res)
 
-                            unique_pf[pf_instr] = len(unique_pf)
+                    if pf_instr not in unique_pf:
+                        integrand_body += 'Fill pftopo({}) = {};\n'.format(len(unique_pf), pf_instr)
 
-                        topo_map[graph_id] = unique_pf[pf_instr]
+                        if integrand_type == "both" or integrand_type == "LTD":
+                            ltd_instr = self.generate_ltd_integrand(g, graph_id, constants, unique_propagators, prop_id, prop_mom_in_lmb,
+                                    energies, on_shell_condition)
+                            ltd_integrand_body += 'Fill ltdtopo({}) = {};\n'.format(len(unique_pf), ltd_instr)
+
+                        unique_pf[pf_instr] = len(unique_pf)
+
+                    topo_map[graph_id] = unique_pf[pf_instr]
 
             # the on-shell energy needs to be accessible to construct the input file
-            diag_set['energies'] = unique_energies
+            cut['energies'] = unique_energies
         topo.topo_map = topo_map
 
         if integrand_body != 0:
@@ -1861,236 +1860,235 @@ CTable ltdtopo(0:{});
 
         pure_forest_counter = 0
         for cut_index, cut in enumerate(topo.cuts):
-            for diag_set in cut['diagram_sets']:
-                diag_set_uv_conf = []
-                diag_momenta = []
+            diag_set_uv_conf = []
+            diag_momenta = []
 
-                has_uv = FORM_processing_options['uv_test'] is None
+            has_uv = FORM_processing_options['uv_test'] is None
 
-                n_loops = len(self.edges) - len(self.nodes) + 1
-                cmb_offset = len(cut['cuts']) - 1
-                for diag_info in diag_set['diagram_info']:
-                    # write the entire UV structure as a sum
-                    conf = []
-                    bubble_uv_derivative = ''
-                    for uv_index, uv_structure in enumerate(diag_info['uv']):
-                        forest_element = []
+            n_loops = len(self.edges) - len(self.nodes) + 1
+            cmb_offset = len(cut['cuts']) - 1
+            for diag_info in cut['diagram_info']:
+                # write the entire UV structure as a sum
+                conf = []
+                bubble_uv_derivative = ''
+                for uv_index, uv_structure in enumerate(diag_info['uv']):
+                    forest_element = []
 
-                        if FORM_processing_options['uv_test'] is not None:
-                            if uv_structure['remaining_graph'].n_loops == 0 and len(uv_structure['uv_subgraphs']) > 0:
-                                pure_forest_counter += 1
+                    if FORM_processing_options['uv_test'] is not None:
+                        if uv_structure['remaining_graph'].n_loops == 0 and len(uv_structure['uv_subgraphs']) > 0:
+                            pure_forest_counter += 1
 
-                                if FORM_processing_options['uv_test'] < 0 or FORM_processing_options['uv_test'] == pure_forest_counter - 1:
-                                    conf = []
-                                    has_uv = True
-                                else:
-                                    if uv_index > 0:
-                                        continue
+                            if FORM_processing_options['uv_test'] < 0 or FORM_processing_options['uv_test'] == pure_forest_counter - 1:
+                                conf = []
+                                has_uv = True
                             else:
                                 if uv_index > 0:
                                     continue
-
-                        # construct the map from the cmb/lmb to the forest basis
-                        forest_to_cb = []
-                        for lmb_index, (r, aff, extshift, _, _, _) in enumerate(zip(*uv_structure['forest_to_cb_matrix'])):
-                            if all(x == 0 for x in r):
-                                assert(all(x == 0 for x in aff))
-                                continue
-                            mom = ''.join('{}fmb{}'.format(sign_prefix(a), forest_index + 1) for forest_index, a in enumerate(r) if a != 0)
-                            # the shift should be subtracted
-                            shift = ''
-                            for cmb_index, a in enumerate(aff):
-                                if a == 0:
-                                    continue
-
-                                # also subtract the external momenta
-                                d = self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][cmb_index]['signature'][1]), False, a, True)
-                                shift += '{}c{}{}'.format(sign_prefix(-a), cmb_index + 1, d)
-
-                            shift += self.momenta_decomposition_to_string(([0] * n_loops, extshift), True, -1, True)
-                            m = 'c{},{}{}'.format(lmb_index + cmb_offset + 1, strip_plus(mom), shift)
-                            forest_to_cb.append(m)
-                        if len(forest_to_cb) > 0:
-                            forest_element.append('cbtofmb({})'.format(','.join(forest_to_cb)))
-                        
-                        # only needed for spatial part
-                        cb_to_forest = []
-                        for fmb_index, (_, _, _, r, aff, extshift) in enumerate(zip(*uv_structure['forest_to_cb_matrix'])):
-                            if all(x == 0 for x in r):
-                                assert(all(x == 0 for x in aff))
-                                continue
-                            mom = ''.join('{}cs{}'.format(sign_prefix(a), cmb_index + cmb_offset + 1) for cmb_index, a in enumerate(r) if a != 0)
-                            # the shift should be added
-                            shift = ''
-                            for cmb_index, a in enumerate(aff):
-                                if a == 0:
-                                    continue
-
-                                d = self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][cmb_index]['signature'][1]), False, -a, True).replace('p', 'ps')
-                                shift += '{}cs{}{}'.format(sign_prefix(a), cmb_index + 1, d)
-
-                            shift += self.momenta_decomposition_to_string(([0] * n_loops, extshift), True, 1, True).replace('p', 'ps')
-                            m = 'fmbs{},{}{}'.format(fmb_index + 1, strip_plus(mom), shift)
-                            cb_to_forest.append(m)
-                        if len(cb_to_forest) > 0:                           
-                            forest_element.append('fmbtocb({})'.format(','.join(cb_to_forest)))
-
-                        diag_moms = ','.join(self.momenta_decomposition_to_string(lmm, False) for lmm in uv_structure['remaining_graph_loop_topo'].loop_momentum_map)
-
-                        if diag_moms != '':
-                            forest_element.append('{}diag({},{},{})'.format(bubble_uv_derivative, diag_set['id'], topo.topo_map[uv_structure['remaining_graph_id']], diag_moms))
                         else:
-                            forest_element.append('{}diag({},{})'.format(bubble_uv_derivative, diag_set['id'], topo.topo_map[uv_structure['remaining_graph_id']]))
+                            if uv_index > 0:
+                                continue
 
-                        if uv_index == 0:
-                            if diag_moms != '':
-                                diag_set_uv_conf.append('forestid({},{})'.format(len(uv_forest),diag_moms))
-                            else:
-                                diag_set_uv_conf.append('forestid({})'.format(len(uv_forest)))
+                    # construct the map from the cmb/lmb to the forest basis
+                    forest_to_cb = []
+                    for lmb_index, (r, aff, extshift, _, _, _) in enumerate(zip(*uv_structure['forest_to_cb_matrix'])):
+                        if all(x == 0 for x in r):
+                            assert(all(x == 0 for x in aff))
+                            continue
+                        mom = ''.join('{}fmb{}'.format(sign_prefix(a), forest_index + 1) for forest_index, a in enumerate(r) if a != 0)
+                        # the shift should be subtracted
+                        shift = ''
+                        for cmb_index, a in enumerate(aff):
+                            if a == 0:
+                                continue
 
-                        for uv_subgraph in uv_structure['uv_subgraphs']:
-                            if uv_subgraph['first_occurrence_id'] == uv_subgraph['id']:
-                                for dg in uv_subgraph['derived_graphs']:
-                                    if dg['skip_pf']:
+                            # also subtract the external momenta
+                            d = self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][cmb_index]['signature'][1]), False, a, True)
+                            shift += '{}c{}{}'.format(sign_prefix(-a), cmb_index + 1, d)
+
+                        shift += self.momenta_decomposition_to_string(([0] * n_loops, extshift), True, -1, True)
+                        m = 'c{},{}{}'.format(lmb_index + cmb_offset + 1, strip_plus(mom), shift)
+                        forest_to_cb.append(m)
+                    if len(forest_to_cb) > 0:
+                        forest_element.append('cbtofmb({})'.format(','.join(forest_to_cb)))
+                    
+                    # only needed for spatial part
+                    cb_to_forest = []
+                    for fmb_index, (_, _, _, r, aff, extshift) in enumerate(zip(*uv_structure['forest_to_cb_matrix'])):
+                        if all(x == 0 for x in r):
+                            assert(all(x == 0 for x in aff))
+                            continue
+                        mom = ''.join('{}cs{}'.format(sign_prefix(a), cmb_index + cmb_offset + 1) for cmb_index, a in enumerate(r) if a != 0)
+                        # the shift should be added
+                        shift = ''
+                        for cmb_index, a in enumerate(aff):
+                            if a == 0:
+                                continue
+
+                            d = self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][cmb_index]['signature'][1]), False, -a, True).replace('p', 'ps')
+                            shift += '{}cs{}{}'.format(sign_prefix(a), cmb_index + 1, d)
+
+                        shift += self.momenta_decomposition_to_string(([0] * n_loops, extshift), True, 1, True).replace('p', 'ps')
+                        m = 'fmbs{},{}{}'.format(fmb_index + 1, strip_plus(mom), shift)
+                        cb_to_forest.append(m)
+                    if len(cb_to_forest) > 0:                           
+                        forest_element.append('fmbtocb({})'.format(','.join(cb_to_forest)))
+
+                    diag_moms = ','.join(self.momenta_decomposition_to_string(lmm, False) for lmm in uv_structure['remaining_graph_loop_topo'].loop_momentum_map)
+
+                    if diag_moms != '':
+                        forest_element.append('{}diag({},{},{})'.format(bubble_uv_derivative, cut['id'], topo.topo_map[uv_structure['remaining_graph_id']], diag_moms))
+                    else:
+                        forest_element.append('{}diag({},{})'.format(bubble_uv_derivative, cut['id'], topo.topo_map[uv_structure['remaining_graph_id']]))
+
+                    if uv_index == 0:
+                        if diag_moms != '':
+                            diag_set_uv_conf.append('forestid({},{})'.format(len(uv_forest),diag_moms))
+                        else:
+                            diag_set_uv_conf.append('forestid({})'.format(len(uv_forest)))
+
+                    for uv_subgraph in uv_structure['uv_subgraphs']:
+                        if uv_subgraph['first_occurrence_id'] == uv_subgraph['id']:
+                            for dg in uv_subgraph['derived_graphs']:
+                                if dg['skip_pf']:
+                                    continue
+                                rp = '*'.join('t{}'.format(i) if raised_power == 1 else 't{}^{}'.format(i, raised_power)
+                                        for i, (_,_,raised_power) in enumerate(dg['loop_topo'].uv_loop_lines[0]) if raised_power != 0)
+                                topo_map += '\tid uvtopo({},{},k1?,...,k{}?) = diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
+                                    '1' if rp == '' else rp, dg['graph'].n_loops, cut['id'], topo.topo_map[dg['id']], dg['graph'].n_loops)
+
+                                if 'soft_ct_id' in dg:
+                                    if 'onshell_ct_id' in dg:
+                                        topo_map += '\tid irtopo({},{},k1?,...,k{}?) = (1+gamma0)/2*diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
+                                            '1' if rp == '' else rp, dg['graph'].n_loops, cut['id'], topo.topo_map[dg['soft_ct_id']], dg['graph'].n_loops)
+                                        topo_map += '\tid irtopo({},{},xneg,k1?,...,k{}?) = (1-gamma0)/2*diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
+                                            '1' if rp == '' else rp, dg['graph'].n_loops, cut['id'], topo.topo_map[dg['onshell_ct_id']], dg['graph'].n_loops)
+                                    else:
+                                        topo_map += '\tid irtopo({},{},k1?,...,k{}?) = diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
+                                        '1' if rp == '' else rp, dg['graph'].n_loops, cut['id'], topo.topo_map[dg['soft_ct_id']], dg['graph'].n_loops)
+
+                        # construct the vertex structure of the UV subgraph
+                        # TODO: are the LTD vertices reliable?
+                        uv_loop_graph = uv_subgraph['derived_graphs'][0]['loop_topo'] # all derived graphs have the same topo
+                        uv_diag_moms = ','.join(self.momenta_decomposition_to_string(lmm, False) for lmm in uv_loop_graph.loop_momentum_map)
+                        vertex_structure = []
+                        subgraph_vertices = set(v for ll in uv_loop_graph.loop_lines for v in (ll.start_node, ll.end_node))
+                        for v in subgraph_vertices:
+                            vertex = []
+                            for ll in uv_loop_graph.loop_lines:
+                                for (dv, outgoing) in ((ll.start_node, 1), (ll.end_node, -1)):
+                                    if v != dv:
                                         continue
-                                    rp = '*'.join('t{}'.format(i) if raised_power == 1 else 't{}^{}'.format(i, raised_power)
-                                            for i, (_,_,raised_power) in enumerate(dg['loop_topo'].uv_loop_lines[0]) if raised_power != 0)
-                                    topo_map += '\tid uvtopo({},{},k1?,...,k{}?) = diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
-                                        '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], topo.topo_map[dg['id']], dg['graph'].n_loops)
-
-                                    if 'soft_ct_id' in dg:
-                                        if 'onshell_ct_id' in dg:
-                                            topo_map += '\tid irtopo({},{},k1?,...,k{}?) = (1+gamma0)/2*diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
-                                                '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], topo.topo_map[dg['soft_ct_id']], dg['graph'].n_loops)
-                                            topo_map += '\tid irtopo({},{},xneg,k1?,...,k{}?) = (1-gamma0)/2*diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
-                                                '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], topo.topo_map[dg['onshell_ct_id']], dg['graph'].n_loops)
-                                        else:
-                                            topo_map += '\tid irtopo({},{},k1?,...,k{}?) = diag({},{},k1,...,k{});\n'.format(uv_subgraph['id'],
-                                            '1' if rp == '' else rp, dg['graph'].n_loops, diag_set['id'], topo.topo_map[dg['soft_ct_id']], dg['graph'].n_loops)
-
-                            # construct the vertex structure of the UV subgraph
-                            # TODO: are the LTD vertices reliable?
-                            uv_loop_graph = uv_subgraph['derived_graphs'][0]['loop_topo'] # all derived graphs have the same topo
-                            uv_diag_moms = ','.join(self.momenta_decomposition_to_string(lmm, False) for lmm in uv_loop_graph.loop_momentum_map)
-                            vertex_structure = []
-                            subgraph_vertices = set(v for ll in uv_loop_graph.loop_lines for v in (ll.start_node, ll.end_node))
-                            for v in subgraph_vertices:
-                                vertex = []
-                                for ll in uv_loop_graph.loop_lines:
-                                    for (dv, outgoing) in ((ll.start_node, 1), (ll.end_node, -1)):
-                                        if v != dv:
-                                            continue
-                                        loop_mom_sig = ''
-                                        for s, lmm in zip(ll.signature, uv_loop_graph.loop_momentum_map):
-                                            if s != 0:
-                                                loop_mom_sig += self.momenta_decomposition_to_string(lmm, False, s * outgoing,True)
-                                        vertex.append(strip_plus(loop_mom_sig))
-                                vertex_structure.append('vxs({})'.format(','.join(vertex)))
-
-                            uv_props = []
-                            for i, (ll_sig, propagators, _raised_power) in enumerate(uv_loop_graph.uv_loop_lines[0]):
-                                loop_mom_sig = ''
-                                loop_mom_shift = ''
-                                for s, lmm, lm_shift in zip(ll_sig, uv_loop_graph.loop_momentum_map, uv_loop_graph.uv_loop_lines[1]):
-                                    if s != 0:
-                                        loop_mom_sig += self.momenta_decomposition_to_string(lmm, False, s, True)
-                                        loop_mom_shift += self.momenta_decomposition_to_string(lm_shift, False, s, True)
-
-                                # the parametric shift is given in terms of external momenta of the subgraph
-                                # translate the signature and param_shift to momenta of the supergraph
-                                for (edge_name, param_shift, power) in propagators:
-                                    ext_mom_sig = ''
-                                    edge_mass = 'masses({})'.format(next(ee for ee in self.edges.values() if ee['name'] == edge_name)['PDG'])
-
-                                    if all(s == 0 for s in param_shift[1]):
-                                        for _ in range(power):
-                                            if loop_mom_shift == '':
-                                                uv_props.append('uvprop({},t{},0,{})'.format(strip_plus(loop_mom_sig), i, edge_mass))
-                                            else:
-                                                uv_props.append('uvprop({},t{},{},{})'.format(strip_plus(loop_mom_sig), i, strip_plus(loop_mom_shift), edge_mass))
-                                        continue
-
-                                    ext_mom_sig = ''
-                                    for (ext_index, s) in enumerate(param_shift[1]):
+                                    loop_mom_sig = ''
+                                    for s, lmm in zip(ll.signature, uv_loop_graph.loop_momentum_map):
                                         if s != 0:
-                                            ext_mom = uv_subgraph['graph'].edge_map_lin[uv_subgraph['graph'].ext[ext_index]][0]
-                                            ext_edge = next(ee for ee in self.edges.values() if ee['name'] == ext_mom)
-                                            sig_l, sig_ext = np.array(ext_edge['signature'][0], dtype=int), np.array(ext_edge['signature'][1], dtype=int)
-                                            if ext_mom_sig == '':
-                                                ext_mom_sig = (s * sig_l, s * sig_ext)
-                                            else:
-                                                ext_mom_sig = (ext_mom_sig[0] + s * sig_l, ext_mom_sig[1] + s * sig_ext)
+                                            loop_mom_sig += self.momenta_decomposition_to_string(lmm, False, s * outgoing,True)
+                                    vertex.append(strip_plus(loop_mom_sig))
+                            vertex_structure.append('vxs({})'.format(','.join(vertex)))
 
-                                    ext_mom_sig = (([x for x in ext_mom_sig[0]]), ([x for x in ext_mom_sig[1]]))
-                                    ext_mom_sig = self.momenta_decomposition_to_string(ext_mom_sig, False, 1, True)
+                        uv_props = []
+                        for i, (ll_sig, propagators, _raised_power) in enumerate(uv_loop_graph.uv_loop_lines[0]):
+                            loop_mom_sig = ''
+                            loop_mom_shift = ''
+                            for s, lmm, lm_shift in zip(ll_sig, uv_loop_graph.loop_momentum_map, uv_loop_graph.uv_loop_lines[1]):
+                                if s != 0:
+                                    loop_mom_sig += self.momenta_decomposition_to_string(lmm, False, s, True)
+                                    loop_mom_shift += self.momenta_decomposition_to_string(lm_shift, False, s, True)
 
+                            # the parametric shift is given in terms of external momenta of the subgraph
+                            # translate the signature and param_shift to momenta of the supergraph
+                            for (edge_name, param_shift, power) in propagators:
+                                ext_mom_sig = ''
+                                edge_mass = 'masses({})'.format(next(ee for ee in self.edges.values() if ee['name'] == edge_name)['PDG'])
+
+                                if all(s == 0 for s in param_shift[1]):
                                     for _ in range(power):
-                                        uv_props.append('uvprop({},t{},{},{})'.format(loop_mom_sig, i, strip_plus(loop_mom_shift + ext_mom_sig), edge_mass))
-                            # it could be that there are no propagators with external momentum dependence when pinching duplicate edges
-                            if uv_props == []:
-                                uv_props = ['1']
+                                        if loop_mom_shift == '':
+                                            uv_props.append('uvprop({},t{},0,{})'.format(strip_plus(loop_mom_sig), i, edge_mass))
+                                        else:
+                                            uv_props.append('uvprop({},t{},{},{})'.format(strip_plus(loop_mom_sig), i, strip_plus(loop_mom_shift), edge_mass))
+                                    continue
 
-                            if uv_diag_moms == '':
-                                # should never happen!
-                                logger.warn("No diag moms in UV graph")
-                                uv_diag = 'uvtopo({})'.format(uv_subgraph['first_occurrence_id'])
-                            else:
-                                uv_diag = 'uvtopo({},{})'.format(uv_subgraph['first_occurrence_id'], uv_diag_moms)
+                                ext_mom_sig = ''
+                                for (ext_index, s) in enumerate(param_shift[1]):
+                                    if s != 0:
+                                        ext_mom = uv_subgraph['graph'].edge_map_lin[uv_subgraph['graph'].ext[ext_index]][0]
+                                        ext_edge = next(ee for ee in self.edges.values() if ee['name'] == ext_mom)
+                                        sig_l, sig_ext = np.array(ext_edge['signature'][0], dtype=int), np.array(ext_edge['signature'][1], dtype=int)
+                                        if ext_mom_sig == '':
+                                            ext_mom_sig = (s * sig_l, s * sig_ext)
+                                        else:
+                                            ext_mom_sig = (ext_mom_sig[0] + s * sig_l, ext_mom_sig[1] + s * sig_ext)
 
-                            if uv_subgraph['onshell'] is not None and FORM_processing_options['on_shell_renormalisation']:
-                                ext_edge_sig = next(ee for ee in self.edges.values() if ee['name'] == uv_subgraph['onshell'][0])
-                                totalmom = self.momenta_decomposition_to_string(ext_edge_sig['signature'], False)
-                                uv_diag += '*onshell({},masses({}))'.format(totalmom, ext_edge_sig['PDG'])
+                                ext_mom_sig = (([x for x in ext_mom_sig[0]]), ([x for x in ext_mom_sig[1]]))
+                                ext_mom_sig = self.momenta_decomposition_to_string(ext_mom_sig, False, 1, True)
 
-                            if FORM_processing_options['generate_integrated_UV_CTs']:
-                                uv_diag += '*intuv(1 - {}*diag({},{},{}))'.format('*'.join(vertex_structure), diag_set['id'], topo.topo_map[uv_subgraph['first_occurrence_id'] + 1], uv_diag_moms)
+                                for _ in range(power):
+                                    uv_props.append('uvprop({},t{},{},{})'.format(loop_mom_sig, i, strip_plus(loop_mom_shift + ext_mom_sig), edge_mass))
+                        # it could be that there are no propagators with external momentum dependence when pinching duplicate edges
+                        if uv_props == []:
+                            uv_props = ['1']
 
-                            uv_conf_diag = '-tmax^{}*{}*{}'.format(uv_subgraph['taylor_order'],'*'.join(uv_props),uv_diag)
-                            if uv_conf_diag not in uv_diagrams:
-                                uv_diagrams.append(uv_conf_diag)
+                        if uv_diag_moms == '':
+                            # should never happen!
+                            logger.warn("No diag moms in UV graph")
+                            uv_diag = 'uvtopo({})'.format(uv_subgraph['first_occurrence_id'])
+                        else:
+                            uv_diag = 'uvtopo({},{})'.format(uv_subgraph['first_occurrence_id'], uv_diag_moms)
 
-                            uv_conf = 'uvdiag({})'.format(uv_diagrams.index(uv_conf_diag))
+                        if uv_subgraph['onshell'] is not None and FORM_processing_options['on_shell_renormalisation']:
+                            ext_edge_sig = next(ee for ee in self.edges.values() if ee['name'] == uv_subgraph['onshell'][0])
+                            totalmom = self.momenta_decomposition_to_string(ext_edge_sig['signature'], False)
+                            uv_diag += '*onshell({},masses({}))'.format(totalmom, ext_edge_sig['PDG'])
 
-                            sg_call = 'subgraph({}{},{},{})'.format(uv_subgraph['graph_index'],
-                                (',' if len(uv_subgraph['subgraph_indices']) > 0 else '') + ','.join(str(si) for si in uv_subgraph['subgraph_indices']),
-                                uv_conf, uv_diag_moms)
+                        if FORM_processing_options['generate_integrated_UV_CTs']:
+                            uv_diag += '*intuv(1 - {}*diag({},{},{}))'.format('*'.join(vertex_structure), cut['id'], topo.topo_map[uv_subgraph['first_occurrence_id'] + 1], uv_diag_moms)
 
-                            forest_element.append(sg_call)
+                        uv_conf_diag = '-tmax^{}*{}*{}'.format(uv_subgraph['taylor_order'],'*'.join(uv_props),uv_diag)
+                        if uv_conf_diag not in uv_diagrams:
+                            uv_diagrams.append(uv_conf_diag)
 
-                        conf.append('*'.join(forest_element))
+                        uv_conf = 'uvdiag({})'.format(uv_diagrams.index(uv_conf_diag))
 
-                    cmb_offset += len(diag_info['uv'][0]['forest_to_cb_matrix'][0][0]) # add the amplitude loop count to the cmb start
-                    uv_forest.append('+\n\t'.join(conf))
+                        sg_call = 'subgraph({}{},{},{})'.format(uv_subgraph['graph_index'],
+                            (',' if len(uv_subgraph['subgraph_indices']) > 0 else '') + ','.join(str(si) for si in uv_subgraph['subgraph_indices']),
+                            uv_conf, uv_diag_moms)
 
-                # construct the map from the lmb to the cmb
-                cmb_map = []
-                for i in range(n_loops):
-                    s = ''
-                    for cc, cs in enumerate(diag_set['cb_to_lmb'][i * n_loops:i * n_loops+n_loops]):
-                        if cs != 0:
-                            s += '{}c{}'.format('+' if cs == 1 else '-', cc + 1)
-                            if cc < len(cut['cuts'][:-1]):
-                                # note the sign inversion
-                                s += self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][cc]['signature'][1]), False, -cs, True)
-                    if s[0] == '+':
-                        s = str(s[1:])
-                    cmb_map.append(('k' + str(i + 1), s))
+                        forest_element.append(sg_call)
 
-                cmb_map = 'cmb({})'.format(','.join(d for c in cmb_map for d in c))
+                    conf.append('*'.join(forest_element))
 
-                # store which momenta are LTD momenta
-                conf = 'c0' if n_loops == len(cut['cuts'][:-1]) else ','.join('c' + str(i + 1) for i in range(len(cut['cuts'][:-1]), n_loops) )
+                cmb_offset += len(diag_info['uv'][0]['forest_to_cb_matrix'][0][0]) # add the amplitude loop count to the cmb start
+                uv_forest.append('+\n\t'.join(conf))
 
-                diag_momenta = '' if diag_momenta == [] else '*' + '*'.join(diag_momenta)
-                tder = '*tder({})'.format(','.join(str(c['power']) for c in cut['cuts'] if c['power'] > 1)) if any(c['power'] > 1 for c in cut['cuts']) else ''
-                conf = 'conf({},{},{},{}){}{}'.format(diag_set['id'], cut_index, cmb_map, conf, tder, diag_momenta)
-                if diag_set_uv_conf != []:
-                    conf += '*{}'.format('*'.join(diag_set_uv_conf))
+            # construct the map from the lmb to the cmb
+            cmb_map = []
+            for i in range(n_loops):
+                s = ''
+                for cc, cs in enumerate(cut['cb_to_lmb'][i * n_loops:i * n_loops+n_loops]):
+                    if cs != 0:
+                        s += '{}c{}'.format('+' if cs == 1 else '-', cc + 1)
+                        if cc < len(cut['cuts'][:-1]):
+                            # note the sign inversion
+                            s += self.momenta_decomposition_to_string(([0] * n_loops, cut['cuts'][cc]['signature'][1]), False, -cs, True)
+                if s[0] == '+':
+                    s = str(s[1:])
+                cmb_map.append(('k' + str(i + 1), s))
 
-                if not has_uv:
-                    continue
+            cmb_map = 'cmb({})'.format(','.join(d for c in cmb_map for d in c))
 
-                configurations.append(conf)
+            # store which momenta are LTD momenta
+            conf = 'c0' if n_loops == len(cut['cuts'][:-1]) else ','.join('c' + str(i + 1) for i in range(len(cut['cuts'][:-1]), n_loops) )
+
+            diag_momenta = '' if diag_momenta == [] else '*' + '*'.join(diag_momenta)
+            tder = '*tder({})'.format(','.join(str(c['power']) for c in cut['cuts'] if c['power'] > 1)) if any(c['power'] > 1 for c in cut['cuts']) else ''
+            conf = 'conf({},{},{},{}){}{}'.format(cut['id'], cut_index, cmb_map, conf, tder, diag_momenta)
+            if diag_set_uv_conf != []:
+                conf += '*{}'.format('*'.join(diag_set_uv_conf))
+
+            if not has_uv:
+                continue
+
+            configurations.append(conf)
 
             if len(configurations) > 0:
                 configurations[-1] += '\n'

@@ -3,13 +3,14 @@ use crate::dualkt2::Dualkt2;
 use crate::dualkt3::Dualkt3;
 use crate::dualt2::Dualt2;
 use crate::dualt3::Dualt3;
-use crate::{FloatLike, MAX_LOOP};
+use crate::{FloatLike, ParameterizationMapping, ParameterizationMode, Settings, MAX_LOOP};
 use f128::f128;
 use hyperdual::Hyperdual;
+use itertools::Itertools;
 use lorentz_vector::RealNumberLike;
 use lorentz_vector::{Field, LorentzVector};
 use num::Complex;
-use num_traits::{Float, Num, NumAssign, NumCast};
+use num_traits::{Float, FloatConst, Num, NumAssign, NumCast};
 use num_traits::{Inv, One, Zero};
 use std::cmp::{Ord, Ordering};
 use std::ops::Neg;
@@ -333,7 +334,7 @@ pub fn powi<T: Float + NumAssign>(c: Complex<T>, n: usize) -> Complex<T> {
     c1
 }
 
-pub fn evaluate_signature<T: FloatLike>(
+pub fn evaluate_signature<T: Field>(
     signature: &[i8],
     momenta: &[LorentzVector<T>],
 ) -> LorentzVector<T> {
@@ -465,62 +466,152 @@ pub fn next_combination_with_replacement(state: &mut [usize], max_entry: usize) 
     false
 }
 
-pub mod test_utils {
-    extern crate eyre;
+/// Map a vector in the unit hypercube to the infinite hypercube.
+/// Also compute the Jacobian.
+pub fn parameterize<T: FloatLike>(
+    x: &[T],
+    e_cm_squared: T,
+    loop_index: usize,
+    settings: &Settings,
+) -> ([T; 3], T) {
+    let e_cm =
+        e_cm_squared.sqrt() * Into::<T>::into(settings.parameterization.shifts[loop_index].0);
+    let mut l_space = [T::zero(); 3];
+    let mut jac = T::one();
 
-    use crate::topologies::Topology;
-    use crate::{DeformationStrategy, Settings};
-    use color_eyre::Help;
-    use num::Complex;
-    use num_traits::cast::FromPrimitive;
-    use num_traits::Float;
-    use std::fmt::{Debug, LowerExp};
-
-    pub fn get_test_topology(topology_file: &str, topology_name: &str) -> Topology {
-        // Import settings and disable the deformation
-        let mut settings = Settings::from_file("../../LTD/hyperparameters.yaml").unwrap();
-        settings.general.deformation_strategy = DeformationStrategy::None;
-        settings.general.multi_channeling = false;
-        settings.integrator.dashboard = false;
-
-        // Import topology from folder
-        let mut topologies = Topology::from_file(topology_file, &settings).unwrap();
-        settings.general.topology = topology_name.to_string();
-        topologies
-            .remove(&settings.general.topology)
-            .ok_or_else(|| eyre::eyre!("Could not find topology {}", settings.general.topology))
-            .suggestion("Check if this topology is in the specified topology file.")
-            .unwrap()
+    // rescale the input to the desired range
+    let mut x_r = [T::zero(); 3];
+    for (xd, xi, &(lo, hi)) in izip!(
+        &mut x_r,
+        x,
+        &settings.parameterization.input_rescaling[loop_index]
+    ) {
+        let lo = Into::<T>::into(lo);
+        let hi = Into::<T>::into(hi);
+        *xd = lo + *xi * (hi - lo);
+        jac *= Into::<T>::into(hi - lo);
     }
 
-    pub fn numeriacal_eq<T: Float + FromPrimitive + LowerExp + Debug>(
-        x: Complex<T>,
-        y: Complex<T>,
-    ) -> bool {
-        let cutoff = T::epsilon().powf(T::from_f64(0.75).unwrap());
-        let real_check = if x.re == y.re {
-            true
-        } else {
-            ((x.re - y.re) / x.re) < cutoff
-        };
-        let imag_check = if x.im == y.im {
-            true
-        } else {
-            ((x.im - y.im) / x.im) < cutoff
-        };
+    match settings.parameterization.mode {
+        ParameterizationMode::Cartesian => match settings.parameterization.mapping {
+            ParameterizationMapping::Log => {
+                for i in 0..3 {
+                    let x = x_r[i];
+                    l_space[i] = e_cm * (x / (T::one() - x)).ln();
+                    jac *= e_cm / (x - x * x);
+                }
+            }
+            ParameterizationMapping::Linear => {
+                for i in 0..3 {
+                    let x = x_r[i];
+                    l_space[i] = e_cm * (T::one() / (T::one() - x) - T::one() / x);
+                    jac *=
+                        e_cm * (T::one() / (x * x) + T::one() / ((T::one() - x) * (T::one() - x)));
+                }
+            }
+        },
+        ParameterizationMode::Spherical => {
+            let radius = match settings.parameterization.mapping {
+                ParameterizationMapping::Log => {
+                    // r = e_cm * ln(1 + b*x/(1-x))
+                    let x = x_r[0];
+                    let b = Into::<T>::into(settings.parameterization.b);
+                    let radius = e_cm * (T::one() + b * x / (T::one() - x)).ln();
+                    jac *= e_cm * b / (T::one() - x) / (T::one() + x * (b - T::one()));
 
-        println!(
-            "REAL: {:e} < {:e} ? {}",
-            ((x.re - y.re) / x.re).abs(),
-            cutoff,
-            real_check
-        );
-        println!(
-            "IMAG: {:e} < {:e} ? {}",
-            ((x.im - y.im) / x.im).abs(),
-            cutoff,
-            imag_check
-        );
-        real_check && imag_check
+                    radius
+                }
+                ParameterizationMapping::Linear => {
+                    // r = e_cm * b * x/(1-x)
+                    let b = Into::<T>::into(settings.parameterization.b);
+                    let radius = e_cm * b * x_r[0] / (T::one() - x_r[0]);
+                    jac *= <T as num_traits::Float>::powi(e_cm * b + radius, 2) / e_cm / b;
+                    radius
+                }
+            };
+            let phi = Into::<T>::into(2.) * <T as FloatConst>::PI() * x_r[1];
+            jac *= Into::<T>::into(2.) * <T as FloatConst>::PI();
+
+            let cos_theta = -T::one() + Into::<T>::into(2.) * x_r[2]; // out of range
+            jac *= Into::<T>::into(2.);
+            let sin_theta = (T::one() - cos_theta * cos_theta).sqrt();
+
+            l_space[0] = radius * sin_theta * phi.cos();
+            l_space[1] = radius * sin_theta * phi.sin();
+            l_space[2] = radius * cos_theta;
+
+            jac *= radius * radius; // spherical coord
+        }
     }
+
+    // add a shift such that k=l is harder to be picked up by integrators such as cuhre
+    l_space[0] += e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].1);
+    l_space[1] += e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].2);
+    l_space[2] += e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].3);
+
+    (l_space, jac)
+}
+
+pub fn inv_parametrize<T: FloatLike>(
+    mom: &LorentzVector<T>,
+    e_cm_squared: T,
+    loop_index: usize,
+    settings: &Settings,
+) -> ([T; 3], T) {
+    if settings.parameterization.mode != ParameterizationMode::Spherical {
+        panic!("Inverse mapping is only implemented for spherical coordinates");
+    }
+
+    let mut jac = T::one();
+    let e_cm =
+        e_cm_squared.sqrt() * Into::<T>::into(settings.parameterization.shifts[loop_index].0);
+
+    let x: T = mom.x - e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].1);
+    let y: T = mom.y - e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].2);
+    let z: T = mom.z - e_cm * Into::<T>::into(settings.parameterization.shifts[loop_index].3);
+
+    let k_r_sq = x * x + y * y + z * z;
+    let k_r = k_r_sq.sqrt();
+
+    let x2 = if y < T::zero() {
+        T::one() + Into::<T>::into(0.5) * T::FRAC_1_PI() * T::atan2(y, x)
+    } else {
+        Into::<T>::into(0.5) * T::FRAC_1_PI() * T::atan2(y, x)
+    };
+
+    // cover the degenerate case
+    if k_r_sq.is_zero() {
+        return ([T::zero(), x2, T::zero()], T::zero());
+    }
+
+    let x1 = match settings.parameterization.mapping {
+        ParameterizationMapping::Log => {
+            let b = Into::<T>::into(settings.parameterization.b);
+            let x1 = T::one() - b / (-T::one() + b + (k_r / e_cm).exp());
+            jac /= e_cm * b / (T::one() - x1) / (T::one() + x1 * (b - T::one()));
+            x1
+        }
+        ParameterizationMapping::Linear => {
+            let b = Into::<T>::into(settings.parameterization.b);
+            jac /= <T as num_traits::Float>::powi(e_cm * b + k_r, 2) / e_cm / b;
+            k_r / (e_cm * b + k_r)
+        }
+    };
+
+    let x3 = Into::<T>::into(0.5) * (T::one() + z / k_r);
+
+    jac /= Into::<T>::into(2.) * <T as FloatConst>::PI();
+    jac /= Into::<T>::into(2.);
+    jac /= k_r * k_r;
+
+    let mut x = [x1, x2, x3];
+    for (xi, &(lo, hi)) in x
+        .iter_mut()
+        .zip_eq(&settings.parameterization.input_rescaling[loop_index])
+    {
+        *xi = (*xi - Into::<T>::into(lo)) / Into::<T>::into(hi - lo);
+        jac /= Into::<T>::into(hi - lo);
+    }
+
+    (x, jac)
 }

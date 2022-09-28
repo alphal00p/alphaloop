@@ -375,20 +375,19 @@ class SuperGraph(dict):
     def get_cut_characteristics(self, cut):
 
         n_CC = len(cut['cuts'])
-        n_diag_sets = len(cut['diagram_sets'])
+        n_diag_sets = 1
 
         n_loops_left = 0
         n_loops_right = 0
-        for diag_set in cut['diagram_sets']:
-            sum_n_loops_left = 0
-            sum_n_loops_right = 0
-            for diag_info in diag_set['diagram_info']:
-                if not diag_info['conjugate_deformation']:
-                    sum_n_loops_left += diag_info['graph']['n_loops']
-                else:
-                    sum_n_loops_right += diag_info['graph']['n_loops']
-            n_loops_left = max(n_loops_left,sum_n_loops_left)
-            n_loops_right = max(n_loops_right,sum_n_loops_right)
+        sum_n_loops_left = 0
+        sum_n_loops_right = 0
+        for diag_info in cut['diagram_info']:
+            if not diag_info['conjugate_deformation']:
+                sum_n_loops_left += diag_info['graph']['n_loops']
+            else:
+                sum_n_loops_right += diag_info['graph']['n_loops']
+        n_loops_left = max(n_loops_left,sum_n_loops_left)
+        n_loops_right = max(n_loops_right,sum_n_loops_right)
 
         return {
             'n_loops_left'  : n_loops_left,
@@ -756,10 +755,10 @@ class SuperGraph(dict):
         return '\n'.join(res_str)
 
     def contains_external_selfenergy(self):
-
-        for c in self['cutkosky_cuts']:
-            if any( len(ds['diagram_info'])>2 for ds in c['diagram_sets']):
-                return True
+        print("BROKEN")
+        #for c in self['cutkosky_cuts']:
+        #    if any( len(ds['diagram_info'])>2 for ds in c['diagram_sets']):
+        #        return True
         return False
 
         # Alternative construction:
@@ -786,14 +785,15 @@ class SuperGraph(dict):
         # return False
 
     def contains_internal_selfenergy(self):
+        print("BROKEN")
 
-        for cutkosky_cut in self['cutkosky_cuts']:
-            for diagram_set in cutkosky_cut['diagram_sets']:
-                for i_diag, diag_info in enumerate(diagram_set['diagram_info']):
-                    # Ignore UV diagram sets
-                    if all(not prop['uv'] for ll in diag_info['graph']['loop_lines'] if len(ll['signature'])>0 and not all(s==0 for s in ll['signature']) for prop in ll['propagators']):
-                        if any(prop['power']>1 for ll in diag_info['graph']['loop_lines'] for prop in ll['propagators']):
-                            return True
+        #for cutkosky_cut in self['cutkosky_cuts']:
+        #    for diagram_set in cutkosky_cut['diagram_sets']:
+        #        for i_diag, diag_info in enumerate(diagram_set['diagram_info']):
+        #            # Ignore UV diagram sets
+        #            if all(not prop['uv'] for ll in diag_info['graph']['loop_lines'] if len(ll['signature'])>0 and not all(s==0 for s in ll['signature']) for prop in ll['propagators']):
+        #                if any(prop['power']>1 for ll in diag_info['graph']['loop_lines'] for prop in ll['propagators']):
+        #                    return True
         return False
 
     def contains_selfenergy(self):
@@ -869,28 +869,23 @@ class SuperGraph(dict):
             left_graph_loop_lines = []
             right_graph_loop_lines = []
 
-            for diagram_set in cutkosky_cut['diagram_sets']:
-                found_diag_set = False
-                diags_n_loops = [ diag_info['graph']['n_loops'] for diag_info in diagram_set['diagram_info'] ]
-                for i_diag, diag_info in enumerate(diagram_set['diagram_info']):
-                    # Ignore UV diagram sets
-                    if all(not prop['uv'] for ll in diag_info['graph']['loop_lines'] for prop in ll['propagators']):
-                        found_diag_set = True
-                        # Remove tree propagator loop lines
-                        filtered_loop_lines = [ll for ll in diag_info['graph']['loop_lines'] if not all(lle==0 for lle in ll['signature']) ]
-                        # Embed their signatures within the embedding space of a global signature involving all graphs on that side of the cut.
-                        # meaning if you have a the following three graphs A,B and C on the right side for instance, with one-, three- and two-loops respectively,
-                        # then a loop line signature of C and of the form [1,0], will be mapped to [0,0,0,0,1,0] 
-                        # and a loop-line signature of [0,1,0] of B will be mapped to [0,0,0,1,0,0,0]
-                        for ll in filtered_loop_lines:
-                            ll['signature'] = [0,]*sum(diags_n_loops[:i_diag])+ll['signature']+[0,]*sum(diags_n_loops[i_diag+1:])
-                        if not diag_info['conjugate_deformation']:
-                            left_graph_loop_lines.extend( filtered_loop_lines )
-                        else:
-                            right_graph_loop_lines.extend( filtered_loop_lines )
+            diags_n_loops = [ diag_info['graph']['n_loops'] for diag_info in cutkosky_cut['amplitudes'] ]
+            for i_diag, diag_info in enumerate(cutkosky_cut['amplitudes']):
+                # Ignore UV diagram sets
+                if all(not prop['uv'] for ll in diag_info['graph']['loop_lines'] for prop in ll['propagators']):
+                    # Remove tree propagator loop lines
+                    filtered_loop_lines = [ll for ll in diag_info['graph']['loop_lines'] if not all(lle==0 for lle in ll['signature']) ]
+                    # Embed their signatures within the embedding space of a global signature involving all graphs on that side of the cut.
+                    # meaning if you have a the following three graphs A,B and C on the right side for instance, with one-, three- and two-loops respectively,
+                    # then a loop line signature of C and of the form [1,0], will be mapped to [0,0,0,0,1,0] 
+                    # and a loop-line signature of [0,1,0] of B will be mapped to [0,0,0,1,0,0,0]
+                    for ll in filtered_loop_lines:
+                        ll['signature'] = [0,]*sum(diags_n_loops[:i_diag])+ll['signature']+[0,]*sum(diags_n_loops[i_diag+1:])
+                    if not diag_info['conjugate_deformation']:
+                        left_graph_loop_lines.extend( filtered_loop_lines )
                     else:
-                        break
-                if found_diag_set:
+                        right_graph_loop_lines.extend( filtered_loop_lines )
+                else:
                     break
             
             # We must now build disjoint sets of these propagator to identify which ones need to be shrunk together

@@ -27,8 +27,7 @@ use cuba::{CubaIntegrator, CubaResult, CubaVerbosity};
 use ltd::integrand::IntegrandImplementation;
 use ltd::integrand::{Integrand, IntegrandSample};
 use ltd::squared_topologies::{SquaredTopology, SquaredTopologySet};
-use ltd::topologies::Topology;
-use ltd::{IntegrandType, IntegratedPhase, Integrator, Settings};
+use ltd::{utils, IntegrandType, IntegratedPhase, Integrator, Settings};
 
 use ltd::dashboard::{Dashboard, StatusUpdate, StatusUpdateSender};
 
@@ -865,7 +864,7 @@ fn inspect<'a>(
     if matches.is_present("momentum_space") {
         // map the point back from momentum-space to the unit hypercube
         for (i, x) in pt.chunks_exact_mut(3).enumerate() {
-            let r = Topology::inv_parametrize::<f128::f128>(
+            let r = utils::inv_parametrize::<f128::f128>(
                 &LorentzVector::from_args(0., x[0], x[1], x[2]).cast(),
                 e_cm_squared,
                 i,
