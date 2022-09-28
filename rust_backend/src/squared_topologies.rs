@@ -2311,7 +2311,7 @@ impl SquaredTopology {
         event_manager: &mut Option<&mut EventManager>,
         cut_index: usize,
         scaling: T,
-        mut deformation: Option<(&mut [LorentzVector<Complex<T>>], &mut Complex<T>)>,
+        mut deformation: Option<(&mut [LorentzVector<Complex<T>>], &mut Complex<T>, bool)>,
     ) -> Complex<T> {
         let scaling = *D::from_real(scaling).set_t(T::one());
         let n_cuts = self.cutkosky_cuts[cut_index].cuts.len();
@@ -2993,9 +2993,15 @@ impl SquaredTopology {
                         + kappa.map(|x| Complex::new(D::zero(), x.real().into()))
                 };
 
-                if let Some((store_kappa, _)) = deformation.as_mut() {
-                    store_kappa[k_def_index] =
-                        k_def[k_def_index].map(|x| Complex::new(x.re.get_real(), x.im.get_real()));
+                if let Some((stored_kappa, _, read)) = deformation.as_mut() {
+                    if *read {
+                        k_def[k_def_index] = lm.map(|x| Complex::new(x, D::zero()))
+                            + stored_kappa[k_def_index]
+                                .map(|x| Complex::new(D::zero(), x.im.into()));
+                    } else {
+                        stored_kappa[k_def_index] = k_def[k_def_index]
+                            .map(|x| Complex::new(x.re.get_real(), x.im.get_real()));
+                    }
                 }
 
                 k_def_index += 1;
@@ -3018,9 +3024,13 @@ impl SquaredTopology {
             def_jacobian = utils::determinant(&cache.deformation_jacobian_matrix, 3 * free_loops);
         }
 
-        if let Some((_, store_jac)) = deformation {
-            *store_jac = def_jacobian;
-            return Complex::zero(); // early return
+        if let Some((_, stored_jac, read)) = deformation {
+            if read {
+                def_jacobian = *stored_jac;
+            } else {
+                *stored_jac = def_jacobian;
+                return Complex::zero(); // early return
+            }
         }
 
         cache.momenta.clear();

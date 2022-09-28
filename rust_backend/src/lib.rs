@@ -1100,14 +1100,13 @@ impl PythonCrossSection {
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-    #[args(diagram_set = "None")]
+    #[args(deformation = "None")]
     fn evaluate_cut(
         &mut self,
         loop_momenta: Vec<LorentzVector<f64>>,
         cut_index: usize,
         scaling: f64,
-        _scaling_jac: f64,
-        _diagram_set: Option<usize>,
+        deformation: Option<(Vec<LorentzVector<Complex<f64>>>, (f64, f64))>,
     ) -> PyResult<(f64, f64)> {
         let (use_pf, prec) = self
             .squared_topology
@@ -1135,6 +1134,8 @@ impl PythonCrossSection {
                 .map(|cc| cc.power)
                 .collect();
 
+        let mut d = deformation.map(|d| (d.0, Complex::new(d.1 .0, d.1 .1), true));
+
         let res = match &raised_cut_powers[..] {
             [] => self.squared_topology.evaluate_cut::<f64, f64>(
                 &loop_momenta,
@@ -1143,7 +1144,7 @@ impl PythonCrossSection {
                 &mut Some(&mut self.integrand.event_manager),
                 cut_index,
                 scaling,
-                None,
+                d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
             ),
             [2] => self
                 .squared_topology
@@ -1154,7 +1155,7 @@ impl PythonCrossSection {
                     &mut Some(&mut self.integrand.event_manager),
                     cut_index,
                     scaling,
-                    None,
+                    d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
                 ),
             [3] => self.squared_topology.evaluate_cut::<f64, Dualt2<f64>>(
                 &loop_momenta,
@@ -1163,7 +1164,7 @@ impl PythonCrossSection {
                 &mut Some(&mut self.integrand.event_manager),
                 cut_index,
                 scaling,
-                None,
+                d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
             ),
             [2, 2] => self.squared_topology.evaluate_cut::<f64, Dualkt2<f64>>(
                 &loop_momenta,
@@ -1172,7 +1173,7 @@ impl PythonCrossSection {
                 &mut Some(&mut self.integrand.event_manager),
                 cut_index,
                 scaling,
-                None,
+                d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
             ),
             [4] => self.squared_topology.evaluate_cut::<f64, Dualt3<f64>>(
                 &loop_momenta,
@@ -1181,7 +1182,7 @@ impl PythonCrossSection {
                 &mut Some(&mut self.integrand.event_manager),
                 cut_index,
                 scaling,
-                None,
+                d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
             ),
             [2, 3] => self.squared_topology.evaluate_cut::<f64, Dualkt3<f64>>(
                 &loop_momenta,
@@ -1190,7 +1191,7 @@ impl PythonCrossSection {
                 &mut Some(&mut self.integrand.event_manager),
                 cut_index,
                 scaling,
-                None,
+                d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
             ),
             [2, 2, 2] => self.squared_topology.evaluate_cut::<f64, Dualklt3<f64>>(
                 &loop_momenta,
@@ -1199,7 +1200,7 @@ impl PythonCrossSection {
                 &mut Some(&mut self.integrand.event_manager),
                 cut_index,
                 scaling,
-                None,
+                d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
             ),
             _ => {
                 return Err(pyo3::exceptions::PyValueError::new_err(
@@ -1211,14 +1212,13 @@ impl PythonCrossSection {
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-    #[args(diagram_set = "None")]
+    #[args(deformation = "None")]
     fn evaluate_cut_f128(
         &mut self,
         loop_momenta: Vec<LorentzVector<f64>>,
         cut_index: usize,
         scaling: f64,
-        _scaling_jac: f64,
-        _diagram_set: Option<usize>,
+        deformation: Option<(Vec<LorentzVector<Complex<f64>>>, (f64, f64))>,
     ) -> PyResult<(f64, f64)> {
         let (use_pf, prec) = self
             .squared_topology
@@ -1251,6 +1251,16 @@ impl PythonCrossSection {
                 .map(|cc| cc.power)
                 .collect();
 
+        let mut d = deformation.map(|d| {
+            (
+                d.0.iter()
+                    .map(|m| m.map(|c| Complex::new(c.re.into(), c.im.into())))
+                    .collect::<Vec<_>>(),
+                Complex::new(d.1 .0.into(), d.1 .1.into()),
+                true,
+            )
+        });
+
         let res = match &raised_cut_powers[..] {
             [] => self
                 .squared_topology
@@ -1261,7 +1271,7 @@ impl PythonCrossSection {
                     &mut Some(&mut self.integrand.event_manager),
                     cut_index,
                     f128::f128::from_f64(scaling).unwrap(),
-                    None,
+                    d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
                 ),
             [2] => self
                 .squared_topology
@@ -1272,7 +1282,7 @@ impl PythonCrossSection {
                     &mut Some(&mut self.integrand.event_manager),
                     cut_index,
                     f128::f128::from_f64(scaling).unwrap(),
-                    None,
+                    d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
                 ),
             [3] => self
                 .squared_topology
@@ -1283,7 +1293,7 @@ impl PythonCrossSection {
                     &mut Some(&mut self.integrand.event_manager),
                     cut_index,
                     f128::f128::from_f64(scaling).unwrap(),
-                    None,
+                    d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
                 ),
             [2, 2] => self
                 .squared_topology
@@ -1294,7 +1304,7 @@ impl PythonCrossSection {
                     &mut Some(&mut self.integrand.event_manager),
                     cut_index,
                     f128::f128::from_f64(scaling).unwrap(),
-                    None,
+                    d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
                 ),
             [4] => self
                 .squared_topology
@@ -1305,7 +1315,7 @@ impl PythonCrossSection {
                     &mut Some(&mut self.integrand.event_manager),
                     cut_index,
                     f128::f128::from_f64(scaling).unwrap(),
-                    None,
+                    d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
                 ),
             [2, 3] => self
                 .squared_topology
@@ -1316,7 +1326,7 @@ impl PythonCrossSection {
                     &mut Some(&mut self.integrand.event_manager),
                     cut_index,
                     f128::f128::from_f64(scaling).unwrap(),
-                    None,
+                    d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
                 ),
             [2, 2, 2] => self
                 .squared_topology
@@ -1327,7 +1337,7 @@ impl PythonCrossSection {
                     &mut Some(&mut self.integrand.event_manager),
                     cut_index,
                     f128::f128::from_f64(scaling).unwrap(),
-                    None,
+                    d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
                 ),
             _ => {
                 return Err(pyo3::exceptions::PyValueError::new_err(
@@ -1339,13 +1349,11 @@ impl PythonCrossSection {
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
 
-    #[args(diagram_set = "None")]
     fn get_cut_deformation(
         &mut self,
         loop_momenta: Vec<LorentzVector<f64>>,
         cut_index: usize,
         scaling: f64,
-        _diagram_set: Option<usize>,
     ) -> PyResult<(Vec<LorentzVector<Complex<f64>>>, (f64, f64))> {
         let external_momenta: ArrayVec<[LorentzVector<f64>; MAX_LOOP]> = self
             .squared_topology
@@ -1373,7 +1381,7 @@ impl PythonCrossSection {
                 &mut Some(&mut self.integrand.event_manager),
                 cut_index,
                 scaling,
-                Some((&mut deformation, &mut def_jacobian)),
+                Some((&mut deformation, &mut def_jacobian, false)),
             ),
             [2] => self
                 .squared_topology
@@ -1384,7 +1392,7 @@ impl PythonCrossSection {
                     &mut Some(&mut self.integrand.event_manager),
                     cut_index,
                     scaling,
-                    Some((&mut deformation, &mut def_jacobian)),
+                    Some((&mut deformation, &mut def_jacobian, false)),
                 ),
             [3] => self.squared_topology.evaluate_cut::<f64, Dualt2<f64>>(
                 &loop_momenta,
@@ -1393,7 +1401,7 @@ impl PythonCrossSection {
                 &mut Some(&mut self.integrand.event_manager),
                 cut_index,
                 scaling,
-                Some((&mut deformation, &mut def_jacobian)),
+                Some((&mut deformation, &mut def_jacobian, false)),
             ),
             [2, 2] => self.squared_topology.evaluate_cut::<f64, Dualkt2<f64>>(
                 &loop_momenta,
@@ -1402,7 +1410,7 @@ impl PythonCrossSection {
                 &mut Some(&mut self.integrand.event_manager),
                 cut_index,
                 scaling,
-                Some((&mut deformation, &mut def_jacobian)),
+                Some((&mut deformation, &mut def_jacobian, false)),
             ),
             [4] => self.squared_topology.evaluate_cut::<f64, Dualt3<f64>>(
                 &loop_momenta,
@@ -1411,7 +1419,7 @@ impl PythonCrossSection {
                 &mut Some(&mut self.integrand.event_manager),
                 cut_index,
                 scaling,
-                Some((&mut deformation, &mut def_jacobian)),
+                Some((&mut deformation, &mut def_jacobian, false)),
             ),
             [2, 3] => self.squared_topology.evaluate_cut::<f64, Dualkt3<f64>>(
                 &loop_momenta,
@@ -1420,7 +1428,7 @@ impl PythonCrossSection {
                 &mut Some(&mut self.integrand.event_manager),
                 cut_index,
                 scaling,
-                Some((&mut deformation, &mut def_jacobian)),
+                Some((&mut deformation, &mut def_jacobian, false)),
             ),
             [2, 2, 2] => self.squared_topology.evaluate_cut::<f64, Dualklt3<f64>>(
                 &loop_momenta,
@@ -1429,7 +1437,7 @@ impl PythonCrossSection {
                 &mut Some(&mut self.integrand.event_manager),
                 cut_index,
                 scaling,
-                Some((&mut deformation, &mut def_jacobian)),
+                Some((&mut deformation, &mut def_jacobian, false)),
             ),
             _ => {
                 return Err(pyo3::exceptions::PyValueError::new_err(
