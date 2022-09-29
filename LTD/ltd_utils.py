@@ -585,6 +585,8 @@ class TopologyGenerator(object):
         return list(sorted(cutkosky_cuts))
 
 
+    # Find all thresholds for a non-vacuum graph
+    # TODO: generalize to vacuum graphs
     def find_thresholds(self, fuse_repeated_edges=False, masses=None):
         if not self.spanning_trees:
             accum = []
@@ -630,8 +632,6 @@ class TopologyGenerator(object):
         thresholds = []
         for cut_momenta in cut_momenta_options:
             cut_momenta_set = set(cut_momenta)
-            if len(cut_momenta_set) == 0:
-                continue
 
             cut_tree = TopologyGenerator([e for i, e in enumerate(self.edge_map_lin) if i in cut_momenta_set])
             sub_tree_indices = []

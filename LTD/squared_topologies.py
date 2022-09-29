@@ -342,14 +342,14 @@ class SquaredTopologyGenerator:
                                             diag_info['propagators'].append(new_prop)
 
                                 # construct all thresholds
-                                thresholds = stripped_topo.find_thresholds(fuse_repeated_edges=False)
+                                thresholds = d['graph'].find_thresholds(fuse_repeated_edges=False)
                                 for t in thresholds:
                                     foci_no_uv = [next(p['id'] for p in new_props if p['name'] == f and not p['uv_mass']) for f in t[0]]
                                     foci_uv = [next(p['id'] for p in new_props if p['name'] == f and p['uv_mass']) for f in t[0]]
                                     shift = ([0]*self.topo.n_loops, [0]*len(self.topo.ext))
 
-                                    if uv_subgraph['onshell']:
-                                        # TODO: only add when not internal soft! how to check?
+                                    # add a +m and -m to the surfaces of every massive propagator that have a dependency on the external momentum
+                                    if uv_subgraph['onshell'] and len(t[1]) == 1:
                                         for sign in (1.,-1.):
                                             threshold = {'foci': foci_no_uv, 'shift_in_lmb_sig': shift, 'mass_shift': sign * masses[uv_subgraph['onshell'][0]]}
                                             if threshold not in diag_info['thresholds']: diag_info['thresholds'].append(threshold)
