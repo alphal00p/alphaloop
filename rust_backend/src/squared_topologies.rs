@@ -2956,7 +2956,6 @@ impl SquaredTopology {
                     [1 + mom_index * 3..1 + mom_index * 3 + amplitudes.n_loops * 3]
                     .copy_from_slice(&lambda_flat[1..]);
                 dampening_factor = dampening_factor.min(lambda_sg);
-                dbg!(dampening_factor);
 
                 let dual_len = 1 + amplitudes.n_loops * 3;
                 for i in 0..amplitudes.n_loops {
@@ -2976,7 +2975,9 @@ impl SquaredTopology {
                     kappas_all_amps.push(kappa);
                 }
             } else {
-                kappas_all_amps.push(LorentzVector::default());
+                for _ in 0..subgraph.n_loops {
+                    kappas_all_amps.push(LorentzVector::default());
+                }
             };
 
             for (lm, kappa) in cmb_momenta[k_def_index..k_def_index + subgraph.n_loops]
