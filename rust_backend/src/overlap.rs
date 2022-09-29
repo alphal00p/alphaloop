@@ -712,6 +712,10 @@ impl DeformationSubgraph {
             .filter(|t| t.exists && !t.pinched)
             .collect();
 
+        if ellipsoid_list.len() == 0 {
+            return vec![];
+        }
+
         let t = Instant::now();
 
         let mut problem_count = 0;
@@ -748,7 +752,7 @@ impl DeformationSubgraph {
             }
 
             if origin_inside_radius > 0. {
-                if self.settings.general.debug > 0 {
+                if self.settings.general.debug > 1 {
                     println!("Origin inside for all E-surface");
                 }
 

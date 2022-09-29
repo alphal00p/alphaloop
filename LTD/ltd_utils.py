@@ -630,6 +630,8 @@ class TopologyGenerator(object):
         thresholds = []
         for cut_momenta in cut_momenta_options:
             cut_momenta_set = set(cut_momenta)
+            if len(cut_momenta_set) == 0:
+                continue
 
             cut_tree = TopologyGenerator([e for i, e in enumerate(self.edge_map_lin) if i in cut_momenta_set])
             sub_tree_indices = []

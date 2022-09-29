@@ -2696,6 +2696,10 @@ impl SquaredTopology {
                 if t.exists && !t.pinched {
                     t.interior_point = t.get_interior_point();
                 }
+
+                if self.settings.general.debug > 1 {
+                    println!("  | surf {} = {}", t.id, t);
+                }
             }
 
             // the stability topologies will inherit the sources
@@ -2707,6 +2711,10 @@ impl SquaredTopology {
                 let overlap_structure = subgraph.find_overlap_structure(
                     !self.settings.cross_section.fixed_cut_momenta.is_empty(),
                 );
+
+                if self.settings.general.debug > 1 {
+                    println!("  | overlap structure = {:#?}", overlap_structure);
+                }
 
                 cache
                     .get_deformation_cache(cut_index, sg_index)
@@ -2972,7 +2980,12 @@ impl SquaredTopology {
 
                     let v = LorentzVector::from_slice(&vs);
                     let kappa = v * dampening_factor;
-                    kappas_all_amps.push(kappa);
+
+                    if amplitudes.conjugate_deformation {
+                        kappas_all_amps.push(-kappa);
+                    } else {
+                        kappas_all_amps.push(kappa);
+                    }
                 }
             } else {
                 for _ in 0..subgraph.n_loops {
@@ -2984,15 +2997,10 @@ impl SquaredTopology {
                 .iter()
                 .zip_eq(&kappas_all_amps[mom_index..mom_index + subgraph.n_loops])
             {
-                // TODO: scale the deformation with t
-                k_def[k_def_index] = if amplitudes.conjugate_deformation {
-                    // take the complex conjugate of the deformation
-                    lm.map(|x| Complex::new(x, D::zero()))
-                        - kappa.map(|x| Complex::new(D::zero(), x.real().into()))
-                } else {
-                    lm.map(|x| Complex::new(x, D::zero()))
-                        + kappa.map(|x| Complex::new(D::zero(), x.real().into()))
-                };
+                // TODO: scale the deformation with t, this should then also enter the Jacobian
+                // through kappa_all_amps
+                k_def[k_def_index] = lm.map(|x| Complex::new(x, D::zero()))
+                    + kappa.map(|x| Complex::new(D::zero(), x.real().into()));
 
                 if let Some((stored_kappa, _, read)) = deformation.as_mut() {
                     if *read {
