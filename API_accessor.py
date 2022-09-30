@@ -139,7 +139,7 @@ def API_initialise(
                 cross_section_set=False
             )
         except Exception as e:
-            print("ERROR: could not instantiate a cross-sectin worker: %s"%str(e))
+            print("ERROR: could not instantiate a cross-section worker: %s"%str(e))
             raise
     rust_instances.append(rust_instance)
 
@@ -149,14 +149,12 @@ def API_is_alive():
 def API_exit():
     sys.exit(1)
 
-def API_get_deformation(f128_mode, momenta_input, cut_ID=None, diagram_set_ID=-1,scaling=1.0):
+def API_get_deformation(f128_mode, momenta_input, cut_ID=None,scaling=1.0):
     if _MODEs[0]=='LTD':
         kappas, jac_re, jac_im = rust_instances[-1].deform(momenta_input)
         return {'jac':jac_re+jac_im*1j, 'kappas':kappas}
     elif _MODEs[0]=='cross_section':
         call_opts = {}
-        if diagram_set_ID >= 0:
-            call_opts['diagram_set'] = diagram_set_ID
         deformed_momenta, (def_jac_re, def_jac_im) = rust_instances[-1].get_cut_deformation(momenta_input, cut_ID, scaling, **call_opts)
         return {'deformed_momenta':deformed_momenta, 'deformation_jacobian':(def_jac_re+def_jac_im*1j)}
 
@@ -189,16 +187,27 @@ def API_evaluate(f128_mode, momenta_input):
     else:
         print("ERROR Function %s not support for LTD mode yet."%"evaluate")
 
-def API_evaluate_cut(f128_mode, cut_ID, diagram_set_ID, scaling, scaling_jac, momenta_input):
+def API_evaluate_cut(f128_mode, cut_ID, scaling, momenta_input, deformation=-1, deformation_jac=-1):
     if _MODEs[0] == 'cross_section':
         momenta_input = [ [0.0]+[ki for ki in k] for k in momenta_input ]
         call_opts = {}
-        if diagram_set_ID >= 0:
-            call_opts['diagram_set'] = diagram_set_ID
+        if deformation != -1:
+            # call_opts['deformation'] = (
+            #     [ [0.0]+[ki for ki in k] for k in momenta_input ],
+            #     [ [0.0]+[ki for ki in k] for k in deformed_momenta_input ]
+            # )
+            #call_opts['deformation'] = [ [0.0+0.0j]+[ kre+1j*kim for kre,kim in zip(kres,kims)] for kres,kims in zip(momenta_input,deformation) ]
+            call_opts['deformation'] = [ [(0.0,0.0),]+[ (kre,kim) for kre,kim in zip(kres,kims)] for kres,kims in zip(momenta_input,deformation) ]
+            if deformation_jac != -1:
+                call_opts['deformation'] = ( call_opts['deformation'], (deformation_jac[0], deformation_jac[1]) )
+            else:
+                call_opts['deformation'] = ( call_opts['deformation'], (1.0,0.0) )
+
         if f128_mode:
-            res_re, res_im = rust_instances[-1].evaluate_cut_f128(momenta_input,cut_ID,scaling,scaling_jac,**call_opts)
+            res_re, res_im = rust_instances[-1].evaluate_cut_f128(momenta_input,cut_ID,scaling,**call_opts)
         else:
-            res_re, res_im = rust_instances[-1].evaluate_cut(momenta_input,cut_ID,scaling,scaling_jac,**call_opts)
+            res_re, res_im = rust_instances[-1].evaluate_cut(momenta_input,cut_ID,scaling,**call_opts)
+
         return {'res':res_re+res_im*1j}
     else:
         print("ERROR Function %s not support for LTD mode yet."%"evaluate_cut")

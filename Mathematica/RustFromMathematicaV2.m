@@ -38,7 +38,7 @@ RFM$GetRescaling[hook_, CutID_,RealMomenta_,OptionsPattern[DEBUG->False]]
 RFM$Parameterize[hook_,LoopIndex_,ECM_,Xs_,OptionsPattern[{DEBUG->False,f128->False}]]
 RFM$InvParameterize[hook_,LoopIndex_,ECM_,Momentum_,OptionsPattern[{DEBUG->False,f128->False}]]
 RFM$Evaluate[hook_,Momenta_,OptionsPattern[{DEBUG->False,f128->False}]]
-RFM$EvaluateCut[hook_,CutID_,scalingFactor_, scalingFactorJacobian_,Momenta_,OptionsPattern[{DEBUG->False,f128->False}]]
+RFM$EvaluateCut[hook_,CutID_,scalingFactor_,Momenta_,OptionsPattern[{DEBUG->False,f128->False,Deformation->None,DeformationJacobian->None}]]
 RFM$EvaluateIntegrand[hook_,Xs_,OptionsPattern[{DEBUG->False,f128->False}]]
 
 Set your environment variables as follows:
@@ -208,20 +208,22 @@ RFM$GetLTDDeformation[hook_, RealMomenta_,OptionsPattern[DEBUG->False]]:=Module[
 {Res},
 
 Res=ExternalEvaluate[hook,<|"Command"->"API_get_deformation","Arguments"->{False,RealMomenta,-1,-1}|>];
-
+If[Not[MemberQ[Keys[Res],"jac"]],Res,
 (* Return *)
 <|"Jacobian"->Res["jac"],"DeformationVectors"->Res["kappas"]|>
+]
 ]
 
 
 (* ::Input::GetCrossSectionDeformation:: *)
-RFM$GetCrossSectionDeformation[hook_, CutID_, scalingFactor_, RealMomenta_,OptionsPattern[{DEBUG->False,DiagramSet->-1}]]:=Module[
+RFM$GetCrossSectionDeformation[hook_, CutID_, scalingFactor_, RealMomenta_,OptionsPattern[{DEBUG->False}]]:=Module[
 {Res},
 
-Res=ExternalEvaluate[hook,<|"Command"->"API_get_deformation","Arguments"->{False,RealMomenta,CutID,OptionValue[DiagramSet],scalingFactor}|>];
-
+Res=ExternalEvaluate[hook,<|"Command"->"API_get_deformation","Arguments"->{False,RealMomenta,CutID,scalingFactor}|>];
+If[Not[MemberQ[Keys[Res],"deformed_momenta"]],Res,
 (* Return *)
 <|"DeformedMomenta"->Res["deformed_momenta"],"DeformationJacobian"->Res["deformation_jacobian"]|>
+]
 ]
 
 
@@ -231,7 +233,9 @@ RFM$GetRescaling[hook_, CutID_,RealMomenta_,OptionsPattern[DEBUG->False]]:=Modul
 
 Res=ExternalEvaluate[hook,<|"Command"->"API_get_scaling","Arguments"->{False,CutID,RealMomenta}|>];
 (* Return *)
+If[Not[MemberQ[Keys[Res],"solutions"]],Res,
 <|"tSolutions"->Table[s[[1]],{s,Res["solutions"]}],"tJacobians"->Table[s[[2]],{s,Res["solutions"]}]|>
+]
 ]
 
 
@@ -240,9 +244,10 @@ RFM$Parameterize[hook_,LoopIndex_,ECM_,Xs_,OptionsPattern[{DEBUG->False,f128->Fa
 {Res},
 
 Res=ExternalEvaluate[hook,<|"Command"->"API_parameterize","Arguments"->{OptionValue[f128],LoopIndex,ECM,Xs}|>];
-
+If[Not[MemberQ[Keys[Res],"momentum"]],Res,
 (* Return *)
 <|"Momentum"->Res["momentum"],"Jacobian"->Res["jacobian"]|>
+]
 ]
 
 
@@ -251,9 +256,10 @@ RFM$InvParameterize[hook_,LoopIndex_,ECM_,Momentum_,OptionsPattern[{DEBUG->False
 {Res},
 
 Res=ExternalEvaluate[hook,<|"Command"->"API_inv_parameterize","Arguments"->{OptionValue[f128],LoopIndex,ECM,Momentum}|>];
-
+If[Not[MemberQ[Keys[Res],"xs"]],Res,
 (* Return *)
 <|"Xs"->Res["xs"],"Jacobian"->Res["jacobian"]|>
+]
 ]
 
 
@@ -263,18 +269,24 @@ RFM$Evaluate[hook_,Momenta_,OptionsPattern[{DEBUG->False,f128->False}]]:=Module[
 
 Res=ExternalEvaluate[hook,<|"Command"->"API_evaluate","Arguments"->{OptionValue[f128],Momenta}|>];
 (* Return *)
+If[Not[MemberQ[Keys[Res],"res"]],Res,
 Res["res"]
+]
 ]
 
 
 (* ::Input::EvaluateCut:: *)
-RFM$EvaluateCut[hook_,CutID_,scalingFactor_, scalingFactorJacobian_,Momenta_,OptionsPattern[{DEBUG->False,f128->False,DiagramSet->-1}]]:=Module[
+RFM$EvaluateCut[hook_,CutID_,scalingFactor_,Momenta_,OptionsPattern[{DEBUG->False,f128->False,Deformation->None,DeformationJacobian->None}]]:=Module[
 {Res},
 
-Res=ExternalEvaluate[hook,<|"Command"->"API_evaluate_cut","Arguments"->{OptionValue[f128],CutID,OptionValue[DiagramSet],scalingFactor,scalingFactorJacobian,Momenta}|>];
-
+Res=ExternalEvaluate[hook,<|"Command"->"API_evaluate_cut","Arguments"->{
+    OptionValue[f128],CutID,scalingFactor,Momenta,
+    If[Not[OptionValue[Deformation]===None],OptionValue[Deformation],-1],
+    If[Not[OptionValue[DeformationJacobian]===None],{Re[OptionValue[DeformationJacobian]],Im[OptionValue[DeformationJacobian]]},-1]}|>];
+If[Not[MemberQ[Keys[Res],"res"]],Res,
 (* Return *)
 Res["res"]
+]
 ]
 
 
@@ -283,7 +295,8 @@ RFM$EvaluateIntegrand[hook_,Xs_,OptionsPattern[{DEBUG->False,f128->False}]]:=Mod
 {Res},
 
 Res=ExternalEvaluate[hook,<|"Command"->"API_evaluate_integrand","Arguments"->{OptionValue[f128],Xs}|>];
-
+If[Not[MemberQ[Keys[Res],"res"]],Res,
 (* Return *)
 Res["res"]
+]
 ]
