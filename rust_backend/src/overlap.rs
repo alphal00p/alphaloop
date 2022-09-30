@@ -89,8 +89,25 @@ impl Threshold {
             }
         }
 
+        if self.evaluate_surface(&ll_on_foci) >= Into::<T>::into(1e-8 * self.shift.t.abs()) {
+            // point not inside, so the shift had the wrong sign
+            // TODO: predict the sign to use
+            for ll in &mut ll_on_foci {
+                *ll = LorentzVector::default();
+            }
+
+            for (f, cm) in self.focal_points[..self.foci.len() - 1]
+                .iter()
+                .zip(&cb_on_foci)
+            {
+                for (lm, s) in ll_on_foci.iter_mut().zip(&f.sig) {
+                    *lm += (-cm - f.shift.cast()).multiply_sign(*s);
+                }
+            }
+        }
+
         assert!(
-            self.evaluate_surface(&ll_on_foci) < Into::<T>::into(1e-8 * self.shift.t),
+            self.evaluate_surface(&ll_on_foci) < Into::<T>::into(1e-8 * self.shift.t.abs()),
             "Point {:?} not in interior of {}",
             ll_on_foci,
             self
@@ -124,7 +141,7 @@ impl Display for Threshold {
                     String::new()
                 },
                 if focus.mass > 0. {
-                    format!("{:.2e}", focus.mass * focus.mass)
+                    format!("+{}^2", focus.mass)
                 } else {
                     String::new()
                 }
