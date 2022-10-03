@@ -327,7 +327,7 @@ class SquaredTopologyGenerator:
                                             'lmb_sig': (lmb_sig.tolist(), [0]*len(self.topo.ext)),
                                             'amp_sig': amp_sig.tolist(),
                                             'amp_shift_in_cmb_sig': tuple(x.tolist() for x in ext_shift_in_cmb),
-                                            'mass': masses[e],
+                                            'mass': 0. if uv else masses[e],
                                             'uv_mass': uv,
                                             'uv_only': True,
                                         }
