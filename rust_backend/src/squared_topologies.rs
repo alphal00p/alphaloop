@@ -243,6 +243,8 @@ pub struct Threshold {
     pub id: usize,
     pub foci: Vec<usize>,
     pub shift_in_lmb_sig: (Vec<i8>, Vec<i8>),
+    pub fb_to_cmb: Vec<f64>,
+    pub sig_in_fb: Vec<i8>,
     pub mass_shift: f64,
     // data computed at runtime
     #[serde(default)]
@@ -2780,28 +2782,31 @@ impl SquaredTopology {
                     .map(|x| Hyperdual::from_real(x));
 
                 for i in 0..self.n_loops {
+                    let mut cmbsig = 0;
                     for j in 0..self.n_loops {
                         // note: transposed matrix
-                        match mat[i + j * self.n_loops] * p.signature.0[j] {
-                            0 => {}
-                            s @ 1 | s @ -1 => {
-                                let mut mom = cut_momenta_deformation_dual[i];
-                                if i < n_cuts - 1 {
-                                    mom -= utils::evaluate_signature(
-                                        &self.cutkosky_cuts[cut_index].cuts[i].signature.1,
-                                        &external_momenta[..self.external_momenta.len()],
-                                    )
-                                    .map(|x| Hyperdual::from_real(x));
-                                }
+                        cmbsig += mat[i + j * self.n_loops] * p.signature.0[j];
+                    }
 
-                                if s == 1 {
-                                    momentum += mom;
-                                } else {
-                                    momentum -= mom;
-                                }
+                    match cmbsig {
+                        0 => {}
+                        s @ 1 | s @ -1 => {
+                            let mut mom = cut_momenta_deformation_dual[i];
+                            if i < n_cuts - 1 {
+                                mom -= utils::evaluate_signature(
+                                    &self.cutkosky_cuts[cut_index].cuts[i].signature.1,
+                                    &external_momenta[..self.external_momenta.len()],
+                                )
+                                .map(|x| Hyperdual::from_real(x));
                             }
-                            _ => unreachable!(),
+
+                            if s == 1 {
+                                momentum += mom;
+                            } else {
+                                momentum -= mom;
+                            }
                         }
+                        _ => unreachable!(),
                     }
                 }
 
@@ -2852,33 +2857,34 @@ impl SquaredTopology {
                                 let mut momentum = LorentzVector::default();
 
                                 for ii in 0..self.n_loops {
+                                    let mut cmbsig = 0;
                                     for jj in 0..self.n_loops {
-                                        // note: transposed matrix
-                                        match mat[ii + jj * self.n_loops]
-                                            * collinear_edge.signature.0[jj]
-                                        {
-                                            0 => {}
-                                            s @ 1 | s @ -1 => {
-                                                let mut mom = cut_momenta_deformation_dual[ii];
-                                                if ii < n_cuts - 1 {
-                                                    mom -= utils::evaluate_signature(
-                                                        &self.cutkosky_cuts[cut_index].cuts[ii]
-                                                            .signature
-                                                            .1,
-                                                        &external_momenta
-                                                            [..self.external_momenta.len()],
-                                                    )
-                                                    .map(|x| Hyperdual::from_real(x));
-                                                }
+                                        cmbsig += mat[ii + jj * self.n_loops]
+                                            * collinear_edge.signature.0[jj];
+                                    }
 
-                                                if s == 1 {
-                                                    momentum += mom;
-                                                } else {
-                                                    momentum -= mom;
-                                                }
+                                    match cmbsig {
+                                        0 => {}
+                                        s @ 1 | s @ -1 => {
+                                            let mut mom = cut_momenta_deformation_dual[ii];
+                                            if ii < n_cuts - 1 {
+                                                mom -= utils::evaluate_signature(
+                                                    &self.cutkosky_cuts[cut_index].cuts[ii]
+                                                        .signature
+                                                        .1,
+                                                    &external_momenta
+                                                        [..self.external_momenta.len()],
+                                                )
+                                                .map(|x| Hyperdual::from_real(x));
                                             }
-                                            _ => unreachable!(),
+
+                                            if s == 1 {
+                                                momentum += mom;
+                                            } else {
+                                                momentum -= mom;
+                                            }
                                         }
+                                        _ => unreachable!(),
                                     }
                                 }
 

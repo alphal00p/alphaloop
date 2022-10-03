@@ -69,39 +69,34 @@ impl Threshold {
 
         let mut cb_on_foci = [LorentzVector::default(); MAX_LOOP];
 
+        let mut shift = self.focal_points.last().unwrap().shift;
+        for (m, f) in self
+            .sig_in_fb
+            .iter()
+            .zip(&self.focal_points[..self.focal_points.len() - 1])
+        {
+            shift += f.shift.multiply_sign(-*m);
+        }
+
         for (m, f) in cb_on_foci
             .iter_mut()
             .zip(&self.focal_points[..self.foci.len() - 1])
         {
             if !mass_sum.is_zero() && !f.mass.is_zero() {
-                *m = -self.shift.cast() * Into::<T>::into(f.mass) / mass_sum;
+                *m = -shift.cast() * Into::<T>::into(f.mass) / mass_sum;
             }
         }
 
         // do the basis transformation from the cut basis
         let mut ll_on_foci = vec![LorentzVector::default(); self.focal_points[0].sig.len()];
-        for (f, cm) in self.focal_points[..self.foci.len() - 1]
-            .iter()
-            .zip(&cb_on_foci)
+        for (r, lm) in self
+            .fb_to_cmb
+            .chunks(self.focal_points[0].sig.len())
+            .zip(&mut ll_on_foci)
         {
-            for (lm, s) in ll_on_foci.iter_mut().zip(&f.sig) {
-                *lm += (cm - f.shift.cast()).multiply_sign(*s);
-            }
-        }
-
-        if self.evaluate_surface(&ll_on_foci) >= Into::<T>::into(1e-8 * self.shift.t.abs()) {
-            // point not inside, so the shift had the wrong sign
-            // TODO: predict the sign to use
-            for ll in &mut ll_on_foci {
-                *ll = LorentzVector::default();
-            }
-
-            for (f, cm) in self.focal_points[..self.foci.len() - 1]
-                .iter()
-                .zip(&cb_on_foci)
-            {
-                for (lm, s) in ll_on_foci.iter_mut().zip(&f.sig) {
-                    *lm += (-cm - f.shift.cast()).multiply_sign(*s);
+            for ((cm, s), f) in cb_on_foci.iter().zip(r).zip(&self.focal_points) {
+                if *s != 0. {
+                    *lm += (cm - f.shift.cast()) * Into::<T>::into(*s);
                 }
             }
         }

@@ -348,18 +348,24 @@ class SquaredTopologyGenerator:
                                     foci_uv = [next(p['id'] for p in new_props if p['name'] == f and p['uv_mass']) for f in t[0]]
                                     shift = ([0]*self.topo.n_loops, [0]*len(self.topo.ext))
 
+                                    # create a map into the focus basis
+                                    m = Matrix([diag_info['propagators'][d]['amp_sig'] for d in foci[:len(foci) - 1]])
+                                    dm = m.T * (m * m.T)**-1 # the right inverse should always work
+                                    # dependent edge in focus basis, should be integer
+                                    sig_in_fb = Matrix(diag_info['propagators'][foci[-1]]['amp_sig']).T * dm
+
                                     # add a +m and -m to the surfaces of every massive propagator that have a dependency on the external momentum
                                     if uv_subgraph['onshell'] and len(t[1]) == 1:
                                         for sign in (1.,-1.):
-                                            threshold = {'foci': foci_no_uv, 'shift_in_lmb_sig': shift, 'mass_shift': sign * masses[uv_subgraph['onshell'][0]]}
+                                            threshold = {'foci': foci_no_uv, 'fb_to_cmb': [float(x) for x in dm], 'sig_in_fb': [int(x) for x in sig_in_fb], 'shift_in_lmb_sig': shift, 'mass_shift': sign * masses[uv_subgraph['onshell'][0]]}
                                             if threshold not in diag_info['thresholds']: diag_info['thresholds'].append(threshold)
                                     else:
                                         # not needed when dod = 0
                                         if len(uv_subgraph['derived_graphs']) > 1:
-                                            threshold = {'foci': foci_no_uv, 'shift_in_lmb_sig': shift, 'mass_shift': 0.}
+                                            threshold = {'foci': foci_no_uv, 'fb_to_cmb': [float(x) for x in dm], 'sig_in_fb': [int(x) for x in sig_in_fb], 'shift_in_lmb_sig': shift, 'mass_shift': 0.}
                                             if threshold not in diag_info['thresholds']: diag_info['thresholds'].append(threshold)
 
-                                    threshold = {'foci': foci_uv, 'shift_in_lmb_sig': shift, 'mass_shift': 0.}
+                                    threshold = {'foci': foci_uv, 'fb_to_cmb': [float(x) for x in dm], 'sig_in_fb': [int(x) for x in sig_in_fb], 'shift_in_lmb_sig': shift, 'mass_shift': 0.}
                                     if threshold not in diag_info['thresholds']: diag_info['thresholds'].append(threshold)
 
                             # note: the shift map signs may get swapped when edges switch orientation
@@ -528,8 +534,14 @@ class SquaredTopologyGenerator:
                         ext_shift[:len(self.topo.ext) // 2] += ext_shift[len(self.topo.ext) // 2:]
                         ext_shift[len(self.topo.ext) // 2:] = [0]*(len(self.topo.ext) // 2)
 
+                        # create a map into the focus basis
+                        m = Matrix([diag_info['propagators'][d]['amp_sig'] for d in foci[:len(foci) - 1]])
+                        dm = m.T * (m * m.T)**-1 # the right inverse should always work
+                        # dependent edge in focus basis, should be integer
+                        sig_in_fb = Matrix(diag_info['propagators'][foci[-1]]['amp_sig']).T * dm
+
                         for sign in (1,-1):
-                            threshold = {'foci': foci, 'shift_in_lmb_sig': ((sign * lm_shift).tolist(), (sign * ext_shift).tolist()), 'mass_shift': 0.}
+                            threshold = {'foci': foci, 'fb_to_cmb': [float(x) for x in dm], 'sig_in_fb': [int(x) for x in sig_in_fb], 'shift_in_lmb_sig': ((sign * lm_shift).tolist(), (sign * ext_shift).tolist()), 'mass_shift': 0.}
                             if threshold not in diag_info['thresholds']:
                                 diag_info['thresholds'].append(threshold)
 
