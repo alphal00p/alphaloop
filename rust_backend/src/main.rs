@@ -835,7 +835,17 @@ fn bench(
         };
     }
 
-    println!("{:#?}", now.elapsed());
+    match integrand {
+        Integrands::CrossSection(cst) => {
+            println!(
+                "Time: {:#?}, Unstable point count: {:?}, evals: {} f64, {} f128",
+                now.elapsed(),
+                cst.integrand_statistics.unstable_point_count,
+                cst.integrand_statistics.total_f64_evals,
+                cst.integrand_statistics.total_f128_evals
+            );
+        }
+    }
 }
 
 fn inspect<'a>(

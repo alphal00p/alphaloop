@@ -77,7 +77,9 @@ pub struct IntegrandStatistics {
     pub target: Option<Complex<f64>>,
     pub running_max_re: (f64, f64, usize),
     pub running_max_im: (f64, f64, usize),
-    pub total_samples: usize,
+    pub total_f64_evals: usize,
+    pub total_f128_evals: usize,
+    pub total_samples: usize, // not counting stability samples
     pub nan_point_count: usize,
     pub unstable_point_count: Vec<usize>,
     pub regular_point_count: usize,
@@ -105,6 +107,8 @@ impl IntegrandStatistics {
             running_max_re: (0., 0., 0),
             running_max_im: (0., 0., 0),
             total_samples: 0,
+            total_f64_evals: 0,
+            total_f128_evals: 0,
             regular_point_count: 0,
             unstable_point_count: vec![0; num_stability_levels],
             nan_point_count: 0,
@@ -121,6 +125,8 @@ impl IntegrandStatistics {
     pub fn merge(&mut self, other: &mut IntegrandStatistics) {
         self.total_samples += other.total_samples;
         self.regular_point_count += other.regular_point_count;
+        self.total_f64_evals += other.total_f64_evals;
+        self.total_f128_evals += other.total_f128_evals;
 
         for (u, ou) in self
             .unstable_point_count
@@ -154,6 +160,8 @@ impl IntegrandStatistics {
         }
 
         other.total_samples = 0;
+        other.total_f64_evals = 0;
+        other.total_f128_evals = 0;
         other.regular_point_count = 0;
         other.nan_point_count = 0;
         other.total_sample_time = 0.;
@@ -190,7 +198,7 @@ macro_rules! check_stability_precision {
         cache: &mut I::Cache,
         event_manager: &mut EventManager,
         timing: bool,
-    ) -> ($ty, $ty, Complex<$ty>, Complex<$ty>, bool) {
+    ) -> ($ty, $ty, Complex<$ty>, Complex<$ty>, bool, usize) {
         event_manager.integrand_evaluation_timing = 0;
         event_manager.time_integrand_evaluation = timing;
 
@@ -242,7 +250,8 @@ macro_rules! check_stability_precision {
             Into::<$ty>::into(self.settings.general.absolute_precision),
             result,
             result,
-            escalate
+            escalate,
+            1
         );
 
         if self.topologies.len() == 1
@@ -267,6 +276,7 @@ macro_rules! check_stability_precision {
             }
 
             let result_rot = rot_topo.$eval_fn(x, cache, Some(event_manager));
+            ret.5 += 1;
 
             // compute the number of similar digits
             match self.settings.integrator.integrated_phase {
@@ -321,7 +331,7 @@ macro_rules! check_stability_precision {
 
             let diff = Float::abs(num - num_rot);
 
-            ret = (d, Float::abs(num - num_rot), min, max, false);
+            ret = (d, Float::abs(num - num_rot), min, max, false, ret.5);
 
             // if we see the point is unstable, stop further samples
             if !result_rot.is_finite()
@@ -477,7 +487,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
             let abs_diff;
             let escalate;
             if stability_check.prec == 16 {
-                let (d, diff, min_rot, max_rot, esc) = self.check_stability_float(
+                let (d, diff, min_rot, max_rot, esc, n_sampled) = self.check_stability_float(
                     weight,
                     x,
                     16,
@@ -494,12 +504,13 @@ impl<I: IntegrandImplementation> Integrand<I> {
                     level == 0 && self.integrand_statistics.integrand_evaluation_timing_record,
                 );
 
+                self.integrand_statistics.total_f64_evals += n_sampled;
                 stable_digits = d;
                 abs_diff = diff;
                 escalate = esc;
                 result = (min_rot + max_rot) / 2.;
             } else {
-                let (d, diff, min_rot, max_rot, esc) = self.check_stability_quad(
+                let (d, diff, min_rot, max_rot, esc, n_sampled) = self.check_stability_quad(
                     weight,
                     x,
                     stability_check.prec,
@@ -516,6 +527,7 @@ impl<I: IntegrandImplementation> Integrand<I> {
                     level == 0,
                 );
 
+                self.integrand_statistics.total_f128_evals += n_sampled;
                 let sum = min_rot + max_rot;
                 stable_digits = d.to_f64().unwrap();
                 abs_diff = diff.to_f64().unwrap();

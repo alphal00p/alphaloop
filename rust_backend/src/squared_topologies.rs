@@ -40,6 +40,11 @@ pub const MAX_SG_LOOP: usize = 10;
 
 pub const MAX_DUAL_SIZE: usize = 12;
 
+#[cfg(feature = "n3lo")]
+pub const MAX_AMP_LOOP: usize = 3;
+#[cfg(not(feature = "n3lo"))]
+pub const MAX_AMP_LOOP: usize = 2;
+
 mod form_integrand {
     use super::FORMIntegrandCallSignature;
 
@@ -301,6 +306,8 @@ pub struct CutkoskyCuts {
     pub amplitudes: Vec<DeformationSubgraph>,
     pub lmb_to_cb: Vec<i8>,
     pub cb_to_lmb: Vec<i8>,
+    #[serde(default)]
+    pub sg_thresholds: Vec<Vec<(Vec<i8>, Vec<i8>, i8)>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -493,6 +500,7 @@ pub struct SquaredTopology {
     #[serde(skip_deserializing)]
     pub is_stability_check_topo: bool,
     pub propagators: Vec<SupergraphPropagator>,
+    pub collinear_surfaces: Vec<Vec<(usize, i8)>>,
 }
 
 #[derive(Clone)]
@@ -2180,6 +2188,7 @@ impl SquaredTopology {
         let mut result = Complex::<T>::zero();
         for cut_index in 0..self.cutkosky_cuts.len() {
             let cutkosky_cuts = &mut self.cutkosky_cuts[cut_index];
+            let free_loops: usize = cutkosky_cuts.amplitudes.iter().map(|a| a.n_loops).sum();
             raised_cut_powers = cutkosky_cuts
                 .cuts
                 .iter()
@@ -2234,10 +2243,10 @@ impl SquaredTopology {
                     continue;
                 }
 
-                macro_rules! select_eval {
-                    ($( $c:pat, $dual:ty ),*) => (
-                        match &raised_cut_powers[..] {
-                            $($c => self.evaluate_cut::<T, $dual>(
+                macro_rules! select_eval_free_loops {
+                    ($dual:ty, $($c:literal),*) => (
+                        match free_loops {
+                            $(#[cfg(feature = "fitting_dual")] $c => self.evaluate_cut::<T, $dual, {$c * 3 + 1}>(
                                 &loop_momenta,
                                 &external_momenta,
                                 cache,
@@ -2246,7 +2255,29 @@ impl SquaredTopology {
                                 scaling,
                                 None,
                             ),)+
-                            _ => panic!("No supported dual for raised cut configuration"),
+                            #[cfg(feature = "fitting_dual")]
+                            x => panic!("No supported number of free loops; {:?}", x),
+                            #[cfg(not(feature = "fitting_dual"))]
+                            _ => self.evaluate_cut::<T, $dual, {MAX_AMP_LOOP * 3 + 1}>(
+                                &loop_momenta,
+                                &external_momenta,
+                                cache,
+                                event_manager,
+                                cut_index,
+                                scaling,
+                                None,
+                            ),
+                        }
+
+                    )
+                }
+
+                macro_rules! select_eval {
+                    ($( $c:pat, $dual:ty ),*) => (
+                        match &raised_cut_powers[..] {
+                            $(#[cfg(feature = "n3lo")] $c => select_eval_free_loops!($dual, 0, 1, 2, 3) ,)+
+                            $(#[cfg(not(feature = "n3lo"))] $c => select_eval_free_loops!($dual, 0, 1, 2) ,)+
+                            x => panic!("No supported dual for raised cut configuration; {:?}", x),
                         }
                     )
                 }
@@ -2305,6 +2336,7 @@ impl SquaredTopology {
             + std::ops::Mul<T, Output = D>
             + std::ops::Div<T, Output = D>
             + FromPrimitive,
+        const SG_DUAL_SIZE: usize,
     >(
         &mut self,
         loop_momenta: &[LorentzVector<T>],
@@ -2544,7 +2576,7 @@ impl SquaredTopology {
         // determine the cut momentum basis where every non-cut momentum has a dual
         // TODO: only do when a deformation is needed
         let mut cut_momenta_deformation_dual: SmallVec<
-            [LorentzVector<Hyperdual<T, { MAX_SG_LOOP * 3 }>>; MAX_SG_LOOP],
+            [LorentzVector<Hyperdual<T, SG_DUAL_SIZE>>; MAX_SG_LOOP],
         > = cut_momenta[..n_cuts - 1]
             .iter()
             .map(|cm| cm.map(|x| Hyperdual::from_real(x.get_real())))
@@ -2720,7 +2752,7 @@ impl SquaredTopology {
 
                 cache
                     .get_deformation_cache(cut_index, sg_index)
-                    .overlap_structure = overlap_structure.clone();
+                    .overlap_structure = overlap_structure.clone(); // TODO: prevent clone
                 cache.deformation_vector_cache.push(overlap_structure);
             } else {
                 let overlap_structure =
@@ -2764,16 +2796,23 @@ impl SquaredTopology {
         }
 
         let mut kappas_all_amps: SmallVec<
-            [LorentzVector<Hyperdual<T, { MAX_SG_LOOP * 3 }>>; MAX_SG_LOOP],
+            [LorentzVector<Hyperdual<T, SG_DUAL_SIZE>>; MAX_SG_LOOP],
         > = SmallVec::new();
-        let mut dampening_factor: Hyperdual<T, { MAX_SG_LOOP * 3 }> = Hyperdual::from_real(
+        let mut dampening_factor: Hyperdual<T, SG_DUAL_SIZE> = Hyperdual::from_real(
             Into::<T>::into(self.settings.deformation.scaling.lambda.abs()),
         );
         let mat = &self.cutkosky_cuts[cut_index].cb_to_lmb;
 
         if self.settings.general.deformation_strategy == DeformationStrategy::Fixed {
+            let mut prop_mom = vec![LorentzVector::default(); self.propagators.len()];
+            let mut prop_eval = vec![Hyperdual::default(); self.propagators.len()];
+
             // determine the soft dampening factor
-            for p in &self.propagators {
+            for ((e, pm), p) in prop_eval
+                .iter_mut()
+                .zip(&mut prop_mom)
+                .zip(&self.propagators)
+            {
                 if p.m_squared > 0. || p.signature.0.iter().all(|s| *s == 0) {
                     continue;
                 }
@@ -2810,10 +2849,13 @@ impl SquaredTopology {
                     }
                 }
 
-                let t = (momentum.spatial_squared() / T::convert_from(&self.e_cm_squared)).powf(
-                    Hyperdual::from_real(Into::<T>::into(
-                        self.settings.deformation.scaling.soft_dampening_power,
-                    )),
+                let m = momentum.spatial_squared_impr();
+                *e = m.sqrt();
+                *pm = momentum;
+
+                let t = utils::powf(
+                    m / T::convert_from(&self.e_cm_squared),
+                    Into::<T>::into(self.settings.deformation.scaling.soft_dampening_power),
                 );
 
                 let dampening = t
@@ -2825,114 +2867,53 @@ impl SquaredTopology {
             }
 
             // determine the collinear dampening factor
-            for (i, c1) in self.cutkosky_cuts.iter().enumerate() {
-                'next_cut: for (j, c2) in self.cutkosky_cuts.iter().enumerate() {
-                    if i > j {
-                        if c1.cuts.iter().any(|cc| c2.cuts.contains(cc)) {
-                            let mut surface_eval = Hyperdual::zero();
-                            let mut pos_norm_sum = Hyperdual::zero();
-                            let mut momentum_sum = LorentzVector::default();
-                            for (diff_sign, collinear_edge) in c1
-                                .cuts
-                                .iter()
-                                .filter_map(|cc1| {
-                                    if !c2.cuts.contains(cc1) {
-                                        Some((1, cc1))
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .chain(c2.cuts.iter().filter_map(|cc2| {
-                                    if !c1.cuts.contains(cc2) {
-                                        Some((-1, cc2))
-                                    } else {
-                                        None
-                                    }
-                                }))
-                            {
-                                if collinear_edge.m_squared > 0. {
-                                    continue 'next_cut;
-                                }
+            for col_surf in &self.collinear_surfaces {
+                let mut surface_eval = Hyperdual::zero();
+                let mut pos_norm_sum = Hyperdual::zero();
+                let mut momentum_sum = LorentzVector::default();
 
-                                let mut momentum = LorentzVector::default();
-
-                                for ii in 0..self.n_loops {
-                                    let mut cmbsig = 0;
-                                    for jj in 0..self.n_loops {
-                                        cmbsig += mat[ii + jj * self.n_loops]
-                                            * collinear_edge.signature.0[jj];
-                                    }
-
-                                    match cmbsig {
-                                        0 => {}
-                                        s @ 1 | s @ -1 => {
-                                            let mut mom = cut_momenta_deformation_dual[ii];
-                                            if ii < n_cuts - 1 {
-                                                mom -= utils::evaluate_signature(
-                                                    &self.cutkosky_cuts[cut_index].cuts[ii]
-                                                        .signature
-                                                        .1,
-                                                    &external_momenta
-                                                        [..self.external_momenta.len()],
-                                                )
-                                                .map(|x| Hyperdual::from_real(x));
-                                            }
-
-                                            if s == 1 {
-                                                momentum += mom;
-                                            } else {
-                                                momentum -= mom;
-                                            }
-                                        }
-                                        _ => unreachable!(),
-                                    }
-                                }
-
-                                let d: Hyperdual<T, { MAX_SG_LOOP * 3 }> =
-                                    momentum.spatial_distance();
-                                if diff_sign == 1 {
-                                    surface_eval += d;
-                                    pos_norm_sum += d;
-                                    momentum_sum += momentum;
-                                } else {
-                                    surface_eval -= d;
-                                }
-                            }
-
-                            // TODO: normalize by the size the line segment?
-                            let eta = surface_eval * surface_eval
-                                / (Into::<T>::into(
-                                    self.settings.deformation.fixed.pinch_dampening_k_com,
-                                ) * T::convert_from(&self.e_cm_squared));
-
-                            let existence_condition =
-                                pos_norm_sum - &momentum_sum.spatial_distance();
-
-                            let gamma = existence_condition * existence_condition
-                                / (Into::<T>::into(
-                                    self.settings.deformation.fixed.pinch_dampening_k_com,
-                                ) * T::convert_from(&self.e_cm_squared));
-
-                            let mut t = eta.sqrt().powf(Hyperdual::from_real(Into::<T>::into(
-                                self.settings.deformation.fixed.pinch_dampening_alpha,
-                            )));
-
-                            if gamma > T::zero() {
-                                // for an exact 0, as happens for 1->N surfaces, the derivatives yield NaN
-                                t += gamma.sqrt().powf(Hyperdual::from_real(Into::<T>::into(
-                                    self.settings.deformation.fixed.pinch_dampening_alpha,
-                                )));
-                            }
-
-                            let dampening = t
-                                / (t + Into::<T>::into(
-                                    self.settings.deformation.scaling.pinch_dampening_m.powi(2),
-                                ));
-
-                            dampening_factor = dampening_factor.min(dampening);
-                        }
+                for &(prop_index, sign) in col_surf {
+                    let m = prop_mom[prop_index];
+                    let d = prop_eval[prop_index];
+                    if sign == 1 {
+                        surface_eval += d;
+                        pos_norm_sum += d;
+                        momentum_sum += m;
+                    } else {
+                        surface_eval -= d;
                     }
                 }
+
+                // TODO: normalize by the size the line segment?
+                let eta = surface_eval * surface_eval
+                    / (Into::<T>::into(self.settings.deformation.fixed.pinch_dampening_k_com)
+                        * T::convert_from(&self.e_cm_squared));
+
+                let mut t = utils::powf(
+                    eta.sqrt(),
+                    Into::<T>::into(self.settings.deformation.fixed.pinch_dampening_alpha),
+                );
+
+                let existence_condition = pos_norm_sum - &momentum_sum.spatial_distance();
+
+                let gamma = existence_condition * existence_condition
+                    / (Into::<T>::into(self.settings.deformation.fixed.pinch_dampening_k_com)
+                        * T::convert_from(&self.e_cm_squared));
+
+                if gamma > T::zero() {
+                    // for an exact 0, as happens for 1->N surfaces, the derivatives yield NaN
+                    t += utils::powf(
+                        gamma.sqrt(),
+                        Into::<T>::into(self.settings.deformation.fixed.pinch_dampening_alpha),
+                    );
+                }
+
+                let dampening = t
+                    / (t + Into::<T>::into(
+                        self.settings.deformation.scaling.pinch_dampening_m.powi(2),
+                    ));
+
+                dampening_factor = dampening_factor.min(dampening);
             }
         }
 
@@ -2963,7 +2944,7 @@ impl SquaredTopology {
                 subgraph.deform(&s, subgraph_cache, (&mut kappas_flat, &mut lambda_flat));
 
                 // upgrade the duals to duals of the joint amplitudes
-                let mut lambda_sg: Hyperdual<T, { MAX_SG_LOOP * 3 }> =
+                let mut lambda_sg: Hyperdual<T, SG_DUAL_SIZE> =
                     Hyperdual::from_real(lambda_flat[0]);
 
                 lambda_sg.as_mut_slice()
@@ -2973,7 +2954,7 @@ impl SquaredTopology {
 
                 let dual_len = 1 + amplitudes.n_loops * 3;
                 for i in 0..amplitudes.n_loops {
-                    let mut vs: [Hyperdual<T, { MAX_SG_LOOP * 3 }>; 4] = [Hyperdual::default(); 4];
+                    let mut vs: [Hyperdual<T, SG_DUAL_SIZE>; 4] = [Hyperdual::default(); 4];
                     for j in 0..3 {
                         vs[j + 1][0] = kappas_flat[i * 3 * dual_len + j * dual_len];
                         vs[j + 1].as_mut_slice()

@@ -334,6 +334,16 @@ pub fn powi<T: Float + NumAssign>(c: Complex<T>, n: usize) -> Complex<T> {
     c1
 }
 
+#[inline]
+pub fn powf<T: 'static + Float + NumAssign + std::fmt::Debug, const N: usize>(
+    h: Hyperdual<T, N>,
+    n: T,
+) -> Hyperdual<T, N> {
+    let r = Float::powf(h.real(), n - T::one());
+    let rr = n * r;
+    h.map_dual(r * h.real(), |x| *x * rr)
+}
+
 pub fn evaluate_signature<T: Field>(
     signature: &[i8],
     momenta: &[LorentzVector<T>],

@@ -115,7 +115,10 @@ class SquaredTopologyGenerator:
                 'cuts': [{
                         'edge': c[0],
                         'sign': c[1],
-                        'power': cut_powers[c[0]] }
+                        'power': cut_powers[c[0]],
+                        'signature': copy.deepcopy(edge_map[c[0]]),
+                        'particle_id': self.particle_ids[c[0]] if c[0] in self.particle_ids else 0,
+                        }
                     for c in cutkosky_cut],
                 'diagram_info': [{
                     'graph':  g,
@@ -125,19 +128,41 @@ class SquaredTopologyGenerator:
 
             cut_infos.append(cut_info)
 
+        # determine supergraph collinear thresholds in the cmb
+        self.sg_collinear = []
+        for i1, c1 in enumerate(cut_infos):
+            c1_edges = set(a['edge'] for a in c1['cuts'])
+            for c2 in cut_infos[:i1]: # TDOD: changed order
+                c2_edges = set(a['edge'] for a in c2['cuts'])
+                # one overlap is required
+                if len(c1_edges & c2_edges) == 0:
+                    continue
+
+                # check for crossing
+                c1_left = set(self.topo.split_graph(c1_edges, incoming_momentum_names)[0].edge_name_map.keys())
+                c2_left = set(self.topo.split_graph(c2_edges, incoming_momentum_names)[0].edge_name_map.keys())
+                if not c1_left.issubset(c2_left) and not c2_left.issubset(c1_left):
+                    continue
+
+
+                prop_list = [name for i, (name, v1, v2) in enumerate(self.topo.edge_map_lin) if i not in self.topo.ext]
+
+                col = []
+                for col_edge in c1_edges.symmetric_difference(c2_edges):
+                    edge_info = next(cc for cc in c1['cuts'] if cc['edge'] == col_edge) if col_edge in c1_edges else next(cc for cc in c2['cuts'] if cc['edge'] == col_edge)
+
+                    col.append((prop_list.index(col_edge), 1 if col_edge in c1_edges else -1))
+                col.sort()
+
+                if col not in self.sg_collinear:
+                    self.sg_collinear.append(col)
+
         pure_forest_counter = 0
 
         uv_representative_graphs = {}
 
-        for cutkosky_cut, cut_info in zip(cutkosky_cuts, cut_infos):
-            
+        for cut_info in cut_infos:
             c = cut_info['cuts']
-
-            # determine the signature of the cuts
-            for cut_edge in c:
-                cut_edge['signature'] = copy.deepcopy(edge_map[cut_edge['edge']])
-                cut_edge['particle_id'] = self.particle_ids[cut_edge['edge']] if cut_edge['edge'] in self.particle_ids else 0
-
             cut_name = tuple(a['edge'] for a in c)
 
             # add the uv structure to the diagram
@@ -599,6 +624,7 @@ class SquaredTopologyGenerator:
                 }
                 for i, (name, v1, v2) in enumerate(self.topo.edge_map_lin) if i not in self.topo.ext
             ],
+            'collinear_surfaces': self.sg_collinear,
             'FORM_integrand': self.FORM_integrand,
             # UNCOMMENT the entry below in order to output the information necessary for handling self-energies.
             #'subgraphs_info' : self.subgraphs_info,
