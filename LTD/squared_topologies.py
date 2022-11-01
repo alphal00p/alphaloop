@@ -144,7 +144,6 @@ class SquaredTopologyGenerator:
                 if not c1_left.issubset(c2_left) and not c2_left.issubset(c1_left):
                     continue
 
-
                 prop_list = [name for i, (name, v1, v2) in enumerate(self.topo.edge_map_lin) if i not in self.topo.ext]
 
                 col = []
@@ -153,6 +152,9 @@ class SquaredTopologyGenerator:
 
                     col.append((prop_list.index(col_edge), 1 if col_edge in c1_edges else -1))
                 col.sort()
+
+                if any(masses[prop_list[p]] > 0. for p, _ in col):
+                    continue
 
                 if col not in self.sg_collinear:
                     self.sg_collinear.append(col)
