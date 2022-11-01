@@ -35,7 +35,8 @@ impl Threshold {
             for (m, sig) in loop_momenta.iter().zip(&f.sig) {
                 mom += m.multiply_sign(*sig);
             }
-            eval += (mom.spatial_squared() + Into::<T>::into(f.mass)).sqrt();
+            eval +=
+                (mom.spatial_squared() + Into::<T>::into(f.mass) * Into::<T>::into(f.mass)).sqrt();
         }
         eval
     }
@@ -58,9 +59,8 @@ impl Threshold {
     }
 
     /// Generate a point inside an E-surface. A point that is guaranteed to be on the inside is
-    /// `c_i = -p s_i m_i/(sum_j m_j)`, in the cut basis where `s` is the surface signature in the cut basis.
+    /// `c_i = -p s_i m_i/(sum_j m_j)`, in the focus basis where `s` is the surface signature in the focus basis.
     pub fn get_interior_point<T: FloatLike>(&self) -> Vec<LorentzVector<T>> {
-        // in the focus basis, the last focus has the sum of basis momenta
         let mass_sum: T = self
             .focal_points
             .iter()
@@ -69,6 +69,7 @@ impl Threshold {
 
         let mut cb_on_foci = [LorentzVector::default(); MAX_LOOP];
 
+        // compute the shift of the dependent focus in the focus basis
         let mut shift = self.focal_points.last().unwrap().shift;
         for (m, f) in self
             .sig_in_fb
@@ -78,16 +79,18 @@ impl Threshold {
             shift += f.shift.multiply_sign(-*m);
         }
 
-        for (m, f) in cb_on_foci
+        // construct the interior point in the focus basis
+        for ((m, f), s) in cb_on_foci
             .iter_mut()
             .zip(&self.focal_points[..self.foci.len() - 1])
+            .zip(&self.sig_in_fb)
         {
             if !mass_sum.is_zero() && !f.mass.is_zero() {
-                *m = -shift.cast() * Into::<T>::into(f.mass) / mass_sum;
+                *m = -shift.cast().multiply_sign(*s) * Into::<T>::into(f.mass) / mass_sum;
             }
         }
 
-        // do the basis transformation from the cut basis
+        // do the basis transformation from the focus basis to the lmb
         let mut ll_on_foci = vec![LorentzVector::default(); self.focal_points[0].sig.len()];
         for (r, lm) in self
             .fb_to_cmb
