@@ -1105,7 +1105,7 @@ impl PythonCrossSection {
         &mut self,
         loop_momenta: Vec<LorentzVector<f64>>,
         cut_index: usize,
-        scaling: f64,
+        scaling: f64, // TODO: deprecate
         deformation: Option<(Vec<LorentzVector<Complex<f64>>>, (f64, f64))>,
     ) -> PyResult<(f64, f64)> {
         let (use_pf, prec) = self
@@ -1136,78 +1136,59 @@ impl PythonCrossSection {
 
         let mut d = deformation.map(|d| (d.0, Complex::new(d.1 .0, d.1 .1), true));
 
-        let res = match &raised_cut_powers[..] {
-            [] => self.squared_topology.evaluate_cut::<f64, f64>(
-                &loop_momenta,
-                &external_momenta,
-                &mut self.caches,
-                &mut Some(&mut self.integrand.event_manager),
-                cut_index,
-                scaling,
-                d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
-            ),
-            [2] => self
-                .squared_topology
-                .evaluate_cut::<f64, Hyperdual<f64, 2>>(
-                    &loop_momenta,
-                    &external_momenta,
-                    &mut self.caches,
-                    &mut Some(&mut self.integrand.event_manager),
-                    cut_index,
-                    scaling,
-                    d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
-                ),
-            [3] => self.squared_topology.evaluate_cut::<f64, Dualt2<f64>>(
-                &loop_momenta,
-                &external_momenta,
-                &mut self.caches,
-                &mut Some(&mut self.integrand.event_manager),
-                cut_index,
-                scaling,
-                d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
-            ),
-            [2, 2] => self.squared_topology.evaluate_cut::<f64, Dualkt2<f64>>(
-                &loop_momenta,
-                &external_momenta,
-                &mut self.caches,
-                &mut Some(&mut self.integrand.event_manager),
-                cut_index,
-                scaling,
-                d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
-            ),
-            [4] => self.squared_topology.evaluate_cut::<f64, Dualt3<f64>>(
-                &loop_momenta,
-                &external_momenta,
-                &mut self.caches,
-                &mut Some(&mut self.integrand.event_manager),
-                cut_index,
-                scaling,
-                d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
-            ),
-            [2, 3] => self.squared_topology.evaluate_cut::<f64, Dualkt3<f64>>(
-                &loop_momenta,
-                &external_momenta,
-                &mut self.caches,
-                &mut Some(&mut self.integrand.event_manager),
-                cut_index,
-                scaling,
-                d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
-            ),
-            [2, 2, 2] => self.squared_topology.evaluate_cut::<f64, Dualklt3<f64>>(
-                &loop_momenta,
-                &external_momenta,
-                &mut self.caches,
-                &mut Some(&mut self.integrand.event_manager),
-                cut_index,
-                scaling,
-                d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
-            ),
-            _ => {
-                return Err(pyo3::exceptions::PyValueError::new_err(
-                    "No scaling could be obtained",
-                ));
-            }
-        };
+        let free_loops: usize = self.squared_topology.cutkosky_cuts[cut_index]
+            .amplitudes
+            .iter()
+            .map(|a| a.n_loops)
+            .sum();
+
+        macro_rules! select_eval_free_loops {
+            ($dual:ty, $($c:literal),*) => (
+                match free_loops {
+                    $(#[cfg(feature = "fitting_dual")] $c => self.squared_topology.evaluate_cut::<f64, $dual, {$c * 3 + 1}>(
+                        &loop_momenta,
+                        &external_momenta,
+                        &mut self.caches,
+                        &mut Some(&mut self.integrand.event_manager),
+                        cut_index,
+                        scaling,
+                        d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
+                    ),)+
+                    #[cfg(feature = "fitting_dual")]
+                    _ => {return Err(pyo3::exceptions::PyValueError::new_err("No support for requested number of free loops"));},
+                    #[cfg(not(feature = "fitting_dual"))]
+                    _ => self.squared_topology.evaluate_cut::<f64, $dual, {MAX_AMP_LOOP * 3 + 1}>(
+                        &loop_momenta,
+                        &external_momenta,
+                        &mut self.caches,
+                        &mut Some(&mut self.integrand.event_manager),
+                        cut_index,
+                        scaling,
+                        d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
+                    ),
+                }
+
+            )
+        }
+
+        macro_rules! select_eval {
+            ($( $c:pat, $dual:ty ),*) => (
+                match &raised_cut_powers[..] {
+                    $(#[cfg(feature = "n3lo")] $c => select_eval_free_loops!($dual, 0, 1, 2, 3) ,)+
+                    $(#[cfg(not(feature = "n3lo"))] $c => select_eval_free_loops!($dual, 0, 1, 2) ,)+
+                    _ => {return Err(pyo3::exceptions::PyValueError::new_err("No supported dual for raised cut configuration"));},
+                }
+            )
+        }
+
+        let res = select_eval!(
+            [], f64,
+            [2], Hyperdual<f64, 2>,
+            [3], Dualt2<f64>,
+            [2,2], Dualkt2<f64>,
+            [4], Dualt3<f64>,
+            [2,3], Dualkt3<f64>,
+            [2,2,2], Dualklt3<f64>);
 
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
@@ -1261,10 +1242,28 @@ impl PythonCrossSection {
             )
         });
 
-        let res = match &raised_cut_powers[..] {
-            [] => self
-                .squared_topology
-                .evaluate_cut::<f128::f128, f128::f128>(
+        let free_loops: usize = self.squared_topology.cutkosky_cuts[cut_index]
+            .amplitudes
+            .iter()
+            .map(|a| a.n_loops)
+            .sum();
+
+        macro_rules! select_eval_free_loops {
+        ($dual:ty, $($c:literal),*) => (
+            match free_loops {
+                $(#[cfg(feature = "fitting_dual")] $c => self.squared_topology.evaluate_cut::<f128::f128, $dual, {$c * 3 + 1}>(
+                    &moms,
+                    &external_momenta,
+                    &mut self.caches_f128,
+                    &mut Some(&mut self.integrand.event_manager),
+                    cut_index,
+                    f128::f128::from_f64(scaling).unwrap(),
+                    d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
+                ),)+
+                #[cfg(feature = "fitting_dual")]
+                _ => {return Err(pyo3::exceptions::PyValueError::new_err("No support for requested number of free loops"));},
+                #[cfg(not(feature = "fitting_dual"))]
+                _ => self.squared_topology.evaluate_cut::<f128::f128, $dual, {MAX_AMP_LOOP * 3 + 1}>(
                     &moms,
                     &external_momenta,
                     &mut self.caches_f128,
@@ -1273,78 +1272,29 @@ impl PythonCrossSection {
                     f128::f128::from_f64(scaling).unwrap(),
                     d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
                 ),
-            [2] => self
-                .squared_topology
-                .evaluate_cut::<f128::f128, Hyperdual<f128::f128, 2>>(
-                    &moms,
-                    &external_momenta,
-                    &mut self.caches_f128,
-                    &mut Some(&mut self.integrand.event_manager),
-                    cut_index,
-                    f128::f128::from_f64(scaling).unwrap(),
-                    d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
-                ),
-            [3] => self
-                .squared_topology
-                .evaluate_cut::<f128::f128, Dualt2<f128::f128>>(
-                    &moms,
-                    &external_momenta,
-                    &mut self.caches_f128,
-                    &mut Some(&mut self.integrand.event_manager),
-                    cut_index,
-                    f128::f128::from_f64(scaling).unwrap(),
-                    d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
-                ),
-            [2, 2] => self
-                .squared_topology
-                .evaluate_cut::<f128::f128, Dualkt2<f128::f128>>(
-                    &moms,
-                    &external_momenta,
-                    &mut self.caches_f128,
-                    &mut Some(&mut self.integrand.event_manager),
-                    cut_index,
-                    f128::f128::from_f64(scaling).unwrap(),
-                    d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
-                ),
-            [4] => self
-                .squared_topology
-                .evaluate_cut::<f128::f128, Dualt3<f128::f128>>(
-                    &moms,
-                    &external_momenta,
-                    &mut self.caches_f128,
-                    &mut Some(&mut self.integrand.event_manager),
-                    cut_index,
-                    f128::f128::from_f64(scaling).unwrap(),
-                    d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
-                ),
-            [2, 3] => self
-                .squared_topology
-                .evaluate_cut::<f128::f128, Dualkt3<f128::f128>>(
-                    &moms,
-                    &external_momenta,
-                    &mut self.caches_f128,
-                    &mut Some(&mut self.integrand.event_manager),
-                    cut_index,
-                    f128::f128::from_f64(scaling).unwrap(),
-                    d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
-                ),
-            [2, 2, 2] => self
-                .squared_topology
-                .evaluate_cut::<f128::f128, Dualklt3<f128::f128>>(
-                    &moms,
-                    &external_momenta,
-                    &mut self.caches_f128,
-                    &mut Some(&mut self.integrand.event_manager),
-                    cut_index,
-                    f128::f128::from_f64(scaling).unwrap(),
-                    d.as_mut().map(|d| (d.0.as_mut_slice(), &mut d.1, true)),
-                ),
-            _ => {
-                return Err(pyo3::exceptions::PyValueError::new_err(
-                    "No scaling could be obtained",
-                ));
             }
-        };
+
+        )
+    }
+
+        macro_rules! select_eval {
+        ($( $c:pat, $dual:ty ),*) => (
+            match &raised_cut_powers[..] {
+                $(#[cfg(feature = "n3lo")] $c => select_eval_free_loops!($dual, 0, 1, 2, 3) ,)+
+                $(#[cfg(not(feature = "n3lo"))] $c => select_eval_free_loops!($dual, 0, 1, 2) ,)+
+                _ => {return Err(pyo3::exceptions::PyValueError::new_err("No supported dual for raised cut configuration"));},
+            }
+        )
+    }
+
+        let res = select_eval!(
+        [], f128::f128,
+        [2], Hyperdual<f128::f128, 2>,
+        [3], Dualt2<f128::f128>,
+        [2,2], Dualkt2<f128::f128>,
+        [4], Dualt3<f128::f128>,
+        [2,3], Dualkt3<f128::f128>,
+        [2,2,2], Dualklt3<f128::f128>);
 
         Ok((res.re.to_f64().unwrap(), res.im.to_f64().unwrap()))
     }
@@ -1373,78 +1323,59 @@ impl PythonCrossSection {
                 .map(|cc| cc.power)
                 .collect();
 
-        match &raised_cut_powers[..] {
-            [] => self.squared_topology.evaluate_cut::<f64, f64>(
-                &loop_momenta,
-                &external_momenta,
-                &mut self.caches,
-                &mut Some(&mut self.integrand.event_manager),
-                cut_index,
-                scaling,
-                Some((&mut deformation, &mut def_jacobian, false)),
-            ),
-            [2] => self
-                .squared_topology
-                .evaluate_cut::<f64, Hyperdual<f64, 2>>(
-                    &loop_momenta,
-                    &external_momenta,
-                    &mut self.caches,
-                    &mut Some(&mut self.integrand.event_manager),
-                    cut_index,
-                    scaling,
-                    Some((&mut deformation, &mut def_jacobian, false)),
-                ),
-            [3] => self.squared_topology.evaluate_cut::<f64, Dualt2<f64>>(
-                &loop_momenta,
-                &external_momenta,
-                &mut self.caches,
-                &mut Some(&mut self.integrand.event_manager),
-                cut_index,
-                scaling,
-                Some((&mut deformation, &mut def_jacobian, false)),
-            ),
-            [2, 2] => self.squared_topology.evaluate_cut::<f64, Dualkt2<f64>>(
-                &loop_momenta,
-                &external_momenta,
-                &mut self.caches,
-                &mut Some(&mut self.integrand.event_manager),
-                cut_index,
-                scaling,
-                Some((&mut deformation, &mut def_jacobian, false)),
-            ),
-            [4] => self.squared_topology.evaluate_cut::<f64, Dualt3<f64>>(
-                &loop_momenta,
-                &external_momenta,
-                &mut self.caches,
-                &mut Some(&mut self.integrand.event_manager),
-                cut_index,
-                scaling,
-                Some((&mut deformation, &mut def_jacobian, false)),
-            ),
-            [2, 3] => self.squared_topology.evaluate_cut::<f64, Dualkt3<f64>>(
-                &loop_momenta,
-                &external_momenta,
-                &mut self.caches,
-                &mut Some(&mut self.integrand.event_manager),
-                cut_index,
-                scaling,
-                Some((&mut deformation, &mut def_jacobian, false)),
-            ),
-            [2, 2, 2] => self.squared_topology.evaluate_cut::<f64, Dualklt3<f64>>(
-                &loop_momenta,
-                &external_momenta,
-                &mut self.caches,
-                &mut Some(&mut self.integrand.event_manager),
-                cut_index,
-                scaling,
-                Some((&mut deformation, &mut def_jacobian, false)),
-            ),
-            _ => {
-                return Err(pyo3::exceptions::PyValueError::new_err(
-                    "No scaling could be obtained",
-                ));
+        let free_loops: usize = self.squared_topology.cutkosky_cuts[cut_index]
+            .amplitudes
+            .iter()
+            .map(|a| a.n_loops)
+            .sum();
+
+        macro_rules! select_eval_free_loops {
+                ($dual:ty, $($c:literal),*) => (
+                    match free_loops {
+                        $(#[cfg(feature = "fitting_dual")] $c => self.squared_topology.evaluate_cut::<f64, $dual, {$c * 3 + 1}>(
+                            &loop_momenta,
+                            &external_momenta,
+                            &mut self.caches,
+                            &mut Some(&mut self.integrand.event_manager),
+                            cut_index,
+                            scaling,
+                            Some((&mut deformation, &mut def_jacobian, false)),
+                        ),)+
+                        #[cfg(feature = "fitting_dual")]
+                        _ => {return Err(pyo3::exceptions::PyValueError::new_err("No support for requested number of free loops"));},
+                        #[cfg(not(feature = "fitting_dual"))]
+                        _ => self.squared_topology.evaluate_cut::<f64, $dual, {MAX_AMP_LOOP * 3 + 1}>(
+                            &loop_momenta,
+                            &external_momenta,
+                            &mut self.caches,
+                            &mut Some(&mut self.integrand.event_manager),
+                            cut_index,
+                            scaling,
+                            Some((&mut deformation, &mut def_jacobian, false)),
+                        ),
+                    }
+
+                )
             }
-        };
+
+        macro_rules! select_eval {
+                ($( $c:pat, $dual:ty ),*) => (
+                    match &raised_cut_powers[..] {
+                        $(#[cfg(feature = "n3lo")] $c => select_eval_free_loops!($dual, 0, 1, 2, 3) ,)+
+                        $(#[cfg(not(feature = "n3lo"))] $c => select_eval_free_loops!($dual, 0, 1, 2) ,)+
+                        _ => {return Err(pyo3::exceptions::PyValueError::new_err("No supported dual for raised cut configuration"));},
+                    }
+                )
+            }
+
+        select_eval!(
+                [], f64,
+                [2], Hyperdual<f64, 2>,
+                [3], Dualt2<f64>,
+                [2,2], Dualkt2<f64>,
+                [4], Dualt3<f64>,
+                [2,3], Dualkt3<f64>,
+                [2,2,2], Dualklt3<f64>);
 
         Ok((deformation, (def_jacobian.re, def_jacobian.im)))
     }
