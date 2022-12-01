@@ -819,25 +819,9 @@ class SuperGraph(dict):
     def get_external_edges(self):
         """ Return the name of the external edges (not cutkosky cuts) to the left and the right of a particular supergraph."""
 
-        external_edges = {'left':[], 'right':[]}
-        for e_name, e_sig in self['edge_signatures'].items():
-            if not all(s==0 for s in e_sig[0]):
-                continue
-            left_external_e_sig = e_sig[1][:len(e_sig[1])//2] 
-            right_external_e_sig = e_sig[1][len(e_sig[1])//2:] 
-            if all(s==0 for s in right_external_e_sig) and left_external_e_sig.count(1)==1 and left_external_e_sig.count(0)==len(left_external_e_sig)-1:
-                external_edges['left'].append((e_name, left_external_e_sig.index(1)))
-            if all(s==0 for s in left_external_e_sig) and right_external_e_sig.count(1)==1 and right_external_e_sig.count(0)==len(right_external_e_sig)-1:
-                external_edges['right'].append((e_name, right_external_e_sig.index(1)))
-        # Now reorder the vertices in the order of the signatures
-        external_edges['left'] = [ edge[0] for edge in sorted(external_edges['left'], key=lambda e: e[1]) ]
-        external_edges['right'] = [ edge[0] for edge in sorted(external_edges['right'], key=lambda e: e[1]) ]
-
-        # Make sure there is at least one in each
-        assert(len(external_edges['left'])>=1)
-        assert(len(external_edges['right'])>=1)
-
-        return external_edges
+        ext_edges = [(e, v1, v2) for e, v1, v2, p in self['topo_edges'] if p == 0]
+        int_vertices = set(v for e, v1, v2, p in self['topo_edges'] for v in (v1,v2) if p != 0)
+        return {'left': [e for e, _, v2 in ext_edges if v2 in int_vertices], 'right': [e for e, v1, _ in ext_edges if v1 in int_vertices]}
 
     def set_integration_channels(self):
         """ This function shrinks all loops within each left- and right- amplitude graph of each cutkosky cut and builds the corresponding

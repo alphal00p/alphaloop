@@ -356,10 +356,11 @@ class TopologyGenerator(object):
 
             # check if the components are not overlapping (ie, they do not share a vertex or they are embedded in the other)
             for ((e1, _), v1), ((e2, _), v2) in combinations(zip(subset, vertex_subset), 2):
-                fuse_len_v12 = len(v1 | v2)
                 fuse_len_e12 = len(set(e1) | set(e2))
-                if fuse_len_v12 != len(v1) and fuse_len_v12 != len(v2) and fuse_len_v12 != len(v1) + len(v2) or \
-                    fuse_len_e12 != len(e1) and fuse_len_e12 != len(e2) and fuse_len_e12 != len(e1) + len(e2):
+                is_embedding = fuse_len_e12 == len(e1) or fuse_len_e12 == len(e2)
+                is_disjoint = len(v1 | v2) == len(v1) + len(v2)
+
+                if not is_embedding and not is_disjoint:
                     break
             else:
                 forest.append(tuple(sorted(((tuple(sorted(self.edge_map_lin[e][0] for e in s)), dod) for s, dod in subset), key=lambda x: len(x[0]))))
@@ -691,10 +692,6 @@ class TopologyGenerator(object):
         for i, (prop, (edge_name, _, _)) in enumerate(zip(self.propagators, self.edge_map_lin)):
             signature = [[0]*len(self.loop_momenta), [0]*len(self.ext)]
 
-            # For tadpole it may be that i is not in self.ext
-            if prop == () and i in self.ext:
-                signature[1][self.ext.index(i)] = 1 # FIXME: is it always +?
-
             for (mom, sign) in prop:
                 s = 1 if sign else -1
                 if mom not in self.ext:
@@ -730,8 +727,8 @@ class TopologyGenerator(object):
         sub_graph_edge_map = sub_graph.get_signature_map()
         loop_momentum_map = [[]]*sub_graph.n_loops
         param_shift = {}
-        for (prop, (edge_name, _, _)) in zip(sub_graph.propagators, sub_graph.edge_map_lin):
-            if prop == ():
+        for ei, (prop, (edge_name, _, _)) in enumerate(zip(sub_graph.propagators, sub_graph.edge_map_lin)):
+            if ei in sub_graph.ext:
                 continue
 
             # determine the loop momentum map from the full loop momentum basis to the one of the subgraph
@@ -812,9 +809,19 @@ class TopologyGenerator(object):
         s = []
         for i, x in enumerate(self.edges):
             if i in self.ext:
-                mom.append(())
-                continue
-            if i in loop_momenta:
+                if i == sink:
+                    newmom = []
+                    for j, y in ext_flows:
+                        overall_sign = 1 if y[0][1] else -1
+                        for yy in y:
+                            if yy[0] == i:
+                                prop_sign = 1 if yy[1] else -1
+                                newmom.append((self.ext[j], True if prop_sign * overall_sign == 1 else False))
+                                break
+                    mom.append(newmom)
+                else:
+                    mom.append(((i, True),))
+            elif i in loop_momenta:
                 mom.append(((i, True),))
                 #s.append("1/k{}^2".format(i))
                 s.append("1/k{}^2".format(loop_momenta.index(i)))
@@ -1005,8 +1012,8 @@ class TopologyGenerator(object):
 
         propagator_map = {}
 
-        for prop, (edge_name, v1, v2) in zip(self.propagators, self.edge_map_lin):
-            if prop == ():
+        for ei, (prop, (edge_name, v1, v2)) in enumerate(zip(self.propagators, self.edge_map_lin)):
+            if ei in self.ext:
                 # external momentum
                 continue
 
