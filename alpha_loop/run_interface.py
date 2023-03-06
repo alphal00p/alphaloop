@@ -2831,16 +2831,25 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                             if len(LU_scaling_solutions)==0:
                                                 break
                                             LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
-                                    
                                     else:
-
                                         LU_scaling, LU_scaling_jacobian = 1.0, 1.0
 
+                                    # Compute deformation if applicable
+                                    deformation = None
+                                    if self.hyperparameters["General"]["deformation_strategy"] != "none":
+                                        # deformation below contains (deformed_momenta, (def_jac_re, def_jac_im))
+                                        deformation = rust_worker.get_cut_deformation(rescaled_momenta_in_defining_LMB, cut_ID, LU_scaling)
                                     with utils.suppress_output(active=(not args.show_rust_warnings)):
                                         if use_f128:
-                                            res_re, res_im = rust_worker.evaluate_cut_f128(rescaled_momenta,cut_ID,LU_scaling,LU_scaling_jacobian)                            
+                                            if self.hyperparameters["General"]["deformation_strategy"] == "none":
+                                                res_re, res_im = rust_worker.evaluate_cut_f128(rescaled_momenta,cut_ID,LU_scaling)
+                                            else:
+                                                res_re, res_im = rust_worker.evaluate_cut_f128(rescaled_momenta,cut_ID,LU_scaling,deformation=deformation)
                                         else:
-                                            res_re, res_im = rust_worker.evaluate_cut(rescaled_momenta,cut_ID,LU_scaling,LU_scaling_jacobian)
+                                            if self.hyperparameters["General"]["deformation_strategy"] == "none":
+                                                res_re, res_im = rust_worker.evaluate_cut(rescaled_momenta,cut_ID,LU_scaling)
+                                            else:
+                                                res_re, res_im = rust_worker.evaluate_cut(rescaled_momenta,cut_ID,LU_scaling,deformation=deformation)
 
                                     results.append( (scaling, (complex(res_re, res_im)/overall_jac)*frozen_jac ) )
 
@@ -4053,10 +4062,21 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                         LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
                     local_results['per_cut'][i_cut]['LU_scalings'].append((scaling, LU_scaling, LU_scaling_jacobian))
 
+                    # Compute deformation if applicable
+                    deformation = None
+                    if self.hyperparameters["General"]["deformation_strategy"] != "none":
+                        # deformation below contains (deformed_momenta, (def_jac_re, def_jac_im))
+                        deformation = rust_worker.get_cut_deformation(rescaled_momenta_in_defining_LMB, cut_ID, LU_scaling)
                     if args.f128:
-                        res_re, res_im = local_rust_worker.evaluate_cut_f128(rescaled_momenta_in_defining_lmb,i_cut,LU_scaling,LU_scaling_jacobian)                            
+                        if self.hyperparameters["General"]["deformation_strategy"] == "none":
+                            res_re, res_im = local_rust_worker.evaluate_cut_f128(rescaled_momenta_in_defining_lmb,i_cut,LU_scaling)                            
+                        else:
+                            res_re, res_im = local_rust_worker.evaluate_cut_f128(rescaled_momenta_in_defining_lmb,i_cut,LU_scaling,deformation=deformation)                            
                     else:
-                        res_re, res_im = local_rust_worker.evaluate_cut(rescaled_momenta_in_defining_lmb,i_cut,LU_scaling,LU_scaling_jacobian)
+                        if self.hyperparameters["General"]["deformation_strategy"] != "none":
+                            res_re, res_im = local_rust_worker.evaluate_cut(rescaled_momenta_in_defining_lmb,i_cut,LU_scaling)
+                        else:
+                            res_re, res_im = local_rust_worker.evaluate_cut(rescaled_momenta_in_defining_lmb,i_cut,LU_scaling,deformation=deformation)
                     local_results['per_cut'][i_cut]['evaluations'].append( (scaling, complex(res_re, res_im) ) )
                     if len(local_results['cuts_sum']['evaluations'])>0 and local_results['cuts_sum']['evaluations'][-1][0] == scaling:
                         local_results['cuts_sum']['evaluations'][-1] = (scaling, local_results['cuts_sum']['evaluations'][-1][1]+complex(res_re, res_im))
@@ -4806,10 +4826,22 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                     break
                                 LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
                             LU_scalings.append((LU_scaling, LU_scaling_jacobian))
+                            # Compute deformation if applicable
+                            deformation = None
+                            if self.hyperparameters["General"]["deformation_strategy"] != "none":
+                                # deformation below contains (deformed_momenta, (def_jac_re, def_jac_im))
+                                deformation = rust_worker.get_cut_deformation(rescaled_momenta_in_defining_LMB, cut_ID, LU_scaling)
                             if use_f128:
-                                res_re, res_im = rust_worker.evaluate_cut_f128(rescaled_momenta_in_defining_LMB,cut_ID,LU_scaling,LU_scaling_jacobian)                            
+                                #res_re, res_im = rust_worker.evaluate_cut_f128(rescaled_momenta_in_defining_LMB,cut_ID,LU_scaling,LU_scaling_jacobian)
+                                if self.hyperparameters["General"]["deformation_strategy"] == "none":
+                                    res_re, res_im = rust_worker.evaluate_cut_f128(rescaled_momenta_in_defining_LMB,cut_ID,LU_scaling)
+                                else:
+                                    res_re, res_im = rust_worker.evaluate_cut_f128(rescaled_momenta_in_defining_LMB,cut_ID,LU_scaling, deformation=deformation)
                             else:
-                                res_re, res_im = rust_worker.evaluate_cut(rescaled_momenta_in_defining_LMB,cut_ID,LU_scaling,LU_scaling_jacobian)
+                                if self.hyperparameters["General"]["deformation_strategy"] == "none":
+                                    res_re, res_im = rust_worker.evaluate_cut(rescaled_momenta_in_defining_LMB,cut_ID,LU_scaling)
+                                else:
+                                    res_re, res_im = rust_worker.evaluate_cut(rescaled_momenta_in_defining_LMB,cut_ID,LU_scaling, deformation=deformation)
                             results.append( (scaling, complex(res_re, res_im) ) )
 
                         dod, standard_error, number_of_points_considered, successful_fit = utils.compute_dod(results)
