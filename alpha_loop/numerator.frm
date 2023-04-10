@@ -38,6 +38,22 @@ On nospacesinnumbers;
 * END SE PDGs
 **************************************************
 
+**************************************************
+* START amp PDGs
+**************************************************
+#define PHOAMPPRIME "2022"
+S FFS, FFT, FFU
+S APHOAMPFFSTU
+S APHOAMPFFTSU
+S APHOAMPFFUST
+S BPHOAMPFFSTU
+S BPHOAMPFFTSU
+S BPHOAMPFFUST
+S CPHOAMPFFSTU
+**************************************************
+* END amp PDGs
+**************************************************
+
 S vev, pi, cw ,sw2 , gw;
 
 Auto S mass;
@@ -177,6 +193,14 @@ Fill masses(1066) = 0;
 Fill masses(-1066) = 0;
 **************************************************
 * END SE parameters
+**************************************************
+
+**************************************************
+* START amp parameters
+**************************************************
+Fill masses(2022) = 0;
+**************************************************
+* END amp parameters
 **************************************************
 
 * note: this set needs to be complete for the UV expansion
@@ -351,6 +375,15 @@ id prop(`GLUPRIME', virtual, p?, idx1?, idx2?) = - i_ * d_(colA[idx1], colA[idx2
 * END SE prop couplings Feynman rules
 **************************************************
 
+**************************************************
+* START amp prop couplings Feynman rules
+**************************************************
+repeat id prop(`PHO', in, p?, idx1?)*prop(`PHOAMPPRIME', out, p?, idx2?) = 1;
+id prop(`PHOAMPPRIME', virtual, p?, idx1?, idx2?) = - i_;
+**************************************************
+* START amp prop couplings Feynman rules
+**************************************************
+
 if (count(prop, 1));
     Print "Unsubstituted propagator: %t";
     exit "Critical error";
@@ -374,6 +407,16 @@ id vx(`GHOPRIMEBAR', `SDUMMY', `GHOPRIMEBAR', p1?, p2?, p3?, idx1?, idx2?, idx3?
 id vx(`GHOPRIME', `SDUMMY', `GHOPRIME', p1?, p2?, p3?, idx1?, idx2?, idx3?) = i_ * d_(colA[idx1], colA[idx3]);
 **************************************************
 * END SE vx couplings Feynman rules
+**************************************************
+
+**************************************************
+* START amp vx couplings Feynman rules
+**************************************************
+id vx(x1?{`QBAR'}, `PHOAMPPRIME', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = charges(x2) * ge * i_ * d_(colF[idx1], colF[idx3]);
+id vx(x1?{`LBAR'}, `PHOAMPPRIME', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = charges(x2) * ge * i_;
+id vx(`PHOAMPPRIME', `PHOAMPPRIME', `PHO', `PHO', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = ge^4 * i_;
+**************************************************
+* END amp vx couplings Feynman rules
 **************************************************
 
 * vertices
@@ -515,6 +558,15 @@ id prop(x?{`GHOPRIME',`GHOPRIMEBAR'}, virtual, p?, idx1?, idx2?) = 1;
 * END SE prop Lorentz Feynman rules
 **************************************************
 
+**************************************************
+* START amp prop Lorentz Feynman rules
+**************************************************
+id prop(`PHOAMPPRIME', virtual, p?, idx1?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
+repeat id prop(`PHO', in, p?, idx1?)*prop(`PHOAMPPRIME', out, p?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
+**************************************************
+* END amp prop Lorentz Feynman rules
+**************************************************
+
 if (count(prop, 1));
     Print "Unsubstituted propagator: %t";
     exit "Critical error";
@@ -540,7 +592,41 @@ id vx(`GHOBAR', `SDUMMY', `GHOPRIMEBAR', p1?, p2?, p3?, idx1?, idx2?, idx3?) = d
 * END SE vx Lorentz Feynman rules
 **************************************************
 
+**************************************************
+* START amp vx Lorentz Feynman rules
+**************************************************
+id vx(x1?{`QBAR'}, `PHOAMPPRIME', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
+id vx(x1?{`LBAR'}, `PHOAMPPRIME', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
+id vx(`PHOAMPPRIME', `PHOAMPPRIME', `PHO', `PHO', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = 
+  ( APHOAMPFFSTU / FFS^2 ) * ( FFS * d_(lorentz[idx1], lorentz[idx2]) - p1(lorentz[idx2])*p2(lorentz[idx1]) ) * ( FFS * d_(lorentz[idx3], lorentz[idx4]) + p1(lorentz[idx3])*p3(lorentz[idx4]) + p2(lorentz[idx3])*p3(lorentz[idx4]) )
++ ( APHOAMPFFTSU / FFT^2 ) * ( FFT * d_(lorentz[idx3], lorentz[idx2]) - p3(lorentz[idx2])*p2(lorentz[idx3]) ) * ( FFT * d_(lorentz[idx1], lorentz[idx4]) + p3(lorentz[idx1])*p1(lorentz[idx4]) + p2(lorentz[idx1])*p1(lorentz[idx4]) )
++ ( APHOAMPFFUST / FFU^2 ) * ( FFU * d_(lorentz[idx3], lorentz[idx1]) - p3(lorentz[idx1])*p1(lorentz[idx3]) ) * ( FFU * d_(lorentz[idx2], lorentz[idx4]) + p3(lorentz[idx2])*p2(lorentz[idx4]) + p1(lorentz[idx2])*p2(lorentz[idx4]) )
++ ( BPHOAMPFFSTU / ( FFS^2 * FFT ) ) * ( - ( FFS * d_(lorentz[idx1], lorentz[idx2]) - p1(lorentz[idx2])*p2(lorentz[idx1]) ) * ( FFT * p1(lorentz[idx3]) - FFU * p2(lorentz[idx3]) ) * ( FFS * p2(lorentz[idx4]) - FFU * p3(lorentz[idx4]) ) )
++ ( BPHOAMPFFTSU / ( FFT^2 * FFS ) ) * ( - ( FFT * d_(lorentz[idx3], lorentz[idx2]) - p3(lorentz[idx2])*p2(lorentz[idx3]) ) * ( FFS * p3(lorentz[idx1]) - FFU * p2(lorentz[idx1]) ) * ( FFT * p2(lorentz[idx4]) - FFU * p1(lorentz[idx4]) ) )
++ ( BPHOAMPFFUST / ( FFU^2 * FFS ) ) * ( - ( FFU * d_(lorentz[idx3], lorentz[idx1]) - p3(lorentz[idx1])*p1(lorentz[idx3]) ) * ( FFS * p3(lorentz[idx2]) - FFT * p1(lorentz[idx2]) ) * ( FFU * p1(lorentz[idx4]) - FFT * p2(lorentz[idx4]) ) )
++ ( CPHOAMPFFSTU / (FFS * FFT^2 * FFU) * ( FFS*p3(lorentz[idx1]) - FFU*p2(lorentz[idx1]) ) * ( FFS*p3(lorentz[idx2]) - FFT*p1(lorentz[idx2]) ) * ( FFU*p2(lorentz[idx3]) - FFT*p1(lorentz[idx3]) ) * ( FFS*p2(lorentz[idx4]) - FFU*p3(lorentz[idx4]) ) );
+**************************************************
+* END amp vx Lorentz Feynman rules
+**************************************************
+
 .sort:feynman-rules-edges;
+
+**************************************************
+* START amp FF substitution
+**************************************************
+id FFS^n? = 3^n;
+id FFU^n? = 5^n;
+id FFT^n? = 7^n;
+id APHOAMPFFSTU = 9;
+id APHOAMPFFTSU = 11;
+id APHOAMPFFUST = 13;
+id BPHOAMPFFSTU = 17;
+id BPHOAMPFFTSU = 19;
+id BPHOAMPFFUST = 23;
+id CPHOAMPFFSTU = 29;
+**************************************************
+* END amp FF substitution
+**************************************************
 
 * vertices
 id vx(x1?{`QBAR'}, `GLU', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gamma(dirac[idx1], lorentz[idx2], dirac[idx3]) ;

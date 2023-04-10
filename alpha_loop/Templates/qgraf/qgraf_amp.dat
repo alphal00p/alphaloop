@@ -1,0 +1,26 @@
+
+output = 'output.py';
+style = './orientedGraphPython.sty';
+model = './model.dat';
+
+* incoming states
+%(incoming_states)s
+
+* outgoing states
+%(outgoing_states)s
+
+loops = %(n_loops)s;
+loop_momentum = k;
+
+options = onshell, notadpole, nosnail;
+true=iprop[photonprime,0,0];
+
+* coupling order
+%(coupling_order)s
+
+* final states
+%(final_states)s
+
+* Vetos
+%(vetos)s
+

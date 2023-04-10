@@ -1,0 +1,84 @@
+*d,u,c,s,b,t -> 1 to 6
+*d~,u~,c~,s~,b~,t~ -> -1 to -6
+*g, photon -> 21, 22
+*e+ e- > -11, 11
+*mu+, mu-, ta+ ,ta- > -12, 12, -12, 13, -13
+*w+ w- z -> 24, -24, 23
+*h -> 25
+
+*****************
+* propagators
+*****************
+
+[higgs, higgs, +; pdg=('25')]
+[gluon,gluon,+; pdg=('21')]
+
+* Psi PsiBar
+[ghost,ghostbar,-; pdg=('82','-82')]
+[photon,photon,+;pdg=('22')]
+[photonprime,photonprime,+;pdg=('2022')]
+
+[eminus, eplus, - , external; pdg= ('+11', '-11')]
+[muminus, muplus, - , external; pdg= ('+12', '-12')]
+[tauminus, tauplus, - , external; pdg= ('+13', '-13')]
+[d, dbar, - ; pdg=('1','-1')]
+[u, ubar, - ; pdg=('2','-2')]
+[c, cbar, - ; pdg=('3','-3')]
+[s, sbar, - ; pdg=('4','-4')]
+[b, bbar, - ; pdg=('5','-5')]
+[t, tbar, - ; pdg=('6','-6')]
+
+*****************
+* vertices
+*****************
+
+* Total QED Coupling supported: 0-99
+* Total QCD Coupling supported: 0-..
+
+[photonprime,photonprime,photon,photon; QCD_QED='0']
+
+* EW
+[eplus,photon,eminus; QCD_QED='1']
+[muplus,photon,muminus; QCD_QED='1']
+[tauplus,photon,tauminus; QCD_QED='1']
+[dbar,photon,d; QCD_QED='1']
+[ubar,photon,u; QCD_QED='1']
+[cbar,photon,c; QCD_QED='1']
+[sbar,photon,s; QCD_QED='1']
+[bbar,photon,b; QCD_QED='1']
+[tbar,photon,t; QCD_QED='1']
+
+* EW photonptime
+[eplus,photonprime,eminus; QCD_QED='1']
+[muplus,photonprime,muminus; QCD_QED='1']
+[tauplus,photonprime,tauminus; QCD_QED='1']
+[dbar,photonprime,d; QCD_QED='1']
+[ubar,photonprime,u; QCD_QED='1']
+[cbar,photonprime,c; QCD_QED='1']
+[sbar,photonprime,s; QCD_QED='1']
+[bbar,photonprime,b; QCD_QED='1']
+[tbar,photonprime,t; QCD_QED='1']
+
+* ghosts
+[ghostbar,gluon,ghost; QCD_QED='100']
+
+* quarks gluon
+[dbar,gluon,d; QCD_QED='100']
+[ubar,gluon,u; QCD_QED='100']
+[cbar,gluon,c; QCD_QED='100']
+[sbar,gluon,s; QCD_QED='100']
+[bbar,gluon,b; QCD_QED='100']
+[tbar,gluon,t; QCD_QED='100']
+
+* gluons
+[gluon,gluon,gluon; QCD_QED='100']
+[gluon,gluon,gluon,gluon; QCD_QED='200']
+
+* higgs
+[tbar,higgs,t; QCD_QED='1']
+[bbar,higgs,b; QCD_QED='1']
+
+* EFT
+*[higgs,gluon,gluon]
+*[higgs,gluon,gluon,gluon]
+*[higgs,gluon,gluon,gluon,gluon]
