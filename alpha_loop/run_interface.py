@@ -381,7 +381,7 @@ class SuperGraph(dict):
         n_loops_right = 0
         sum_n_loops_left = 0
         sum_n_loops_right = 0
-        for diag_info in cut['diagram_info']:
+        for diag_info in cut['amplitudes']:
             if not diag_info['conjugate_deformation']:
                 sum_n_loops_left += diag_info['graph']['n_loops']
             else:
@@ -1890,7 +1890,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 if len(scaling_solutions)==0:
                                     break
                                 scaling, scaling_jacobian = scaling_solutions.pop(0)
-                            _res = cut_evaluate_function(random_momenta,cut_ID,scaling,scaling_jacobian)
+                            if self.hyperparameters["General"]["deformation_strategy"] != "none":
+                                # deformation below contains (deformed_momenta, (def_jac_re, def_jac_im))
+                                deformation = rust_worker.get_cut_deformation(rescaled_momenta_in_defining_LMB, cut_ID, LU_scaling)
+                            if self.hyperparameters["General"]["deformation_strategy"] == "none":
+                                _res_re, _res_im = cut_evaluate_function(random_momenta,cut_ID,scaling)
+                            else:
+                                _res_re, _res_im = cut_evaluate_function(random_momenta,cut_ID,scaling,deformation=deformation)
                             delta_t = time.time()-t_start
                             n_points = max(int(args.time/delta_t),5)
                         else:
@@ -1905,7 +1911,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 if len(scaling_solutions)==0:
                                     break
                                 scaling, scaling_jacobian = scaling_solutions.pop(0)
-                            _res = cut_evaluate_function(random_momenta,cut_ID,scaling,scaling_jacobian)
+                            if self.hyperparameters["General"]["deformation_strategy"] != "none":
+                                # deformation below contains (deformed_momenta, (def_jac_re, def_jac_im))
+                                deformation = rust_worker.get_cut_deformation(rescaled_momenta_in_defining_LMB, cut_ID, LU_scaling)
+                            if self.hyperparameters["General"]["deformation_strategy"] == "none":
+                                _res_re, _res_im = cut_evaluate_function(random_momenta,cut_ID,scaling)
+                            else:
+                                _res_re, _res_im = cut_evaluate_function(random_momenta,cut_ID,scaling,deformation=deformation)
                         delta_t = time.time()-t_start
                         t_cut = (delta_t/float(n_points))*1000.0
                         running_avg_time_per_cut += t_cut
@@ -2751,7 +2763,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                             E_surfaces_to_be_deformed_for_this_CC = {}
                             non_complex_conjugated_propagators = {}
                             complex_conjugated_propagators = {}
-                            for diag_piece in cuts_info['diagram_sets'][0]['diagram_info']:
+                            for diag_piece in cuts_info['diagram_sets'][0]['amplitudes']:
                                 for ll in diag_piece['graph']['loop_lines']:
                                     for prop in ll['propagators']:
                                         if diag_piece['conjugate_deformation']:
