@@ -814,8 +814,8 @@ aGraph=%s;
 """ % self.get_mathematica_rendering_code(model, FORM_id=FORM_id, lmb_id=lmb_id)
         # Export to PDF in landscape format. One graph per page for now.
         # The 1.2 multiplier accounts for margins
-        MM_code += 'Export["%s.pdf", aGraph, ImageSize -> {%f, %f}];' % (
-            file_name, 1.25*self._rendering_size[0], 1.25*self._rendering_size[1])
+        MM_code += 'Export["%s.pdf", aGraph, ImageSize -> {%i, %i}];' % (
+            file_name, int(1.25*self._rendering_size[0]), int(1.25*self._rendering_size[1]))
         open(pjoin(output_dir, '%s.m' % file_name), 'w').write(MM_code)
 
     def generate_numerator_form_input(self, additional_overall_factor='', only_algebra=False):
