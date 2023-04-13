@@ -3251,6 +3251,12 @@ class FORMSuperGraphList(list):
         FORM_iso_sg_list = FORMSuperGraphList([FORMSuperGraphIsomorphicList(
             iso_group) for _, iso_group in iso_groups], name=p.stem)
 
+        #hacky way to remove restriction and get the correct path
+
+        model_dir = model["name"].split('-')
+        model_dir.pop();
+        model_dir = '-'.join(model_dir)
+
         if workspace is not None:
             selected_workspace = workspace
             shutil.copy(pjoin(plugin_path, "multiplicity.frm"),
@@ -3265,6 +3271,10 @@ class FORMSuperGraphList(list):
                         pjoin(selected_workspace, 'Gstring.prc'))
             shutil.copy(pjoin(plugin_path, "integrateduv.frm"),
                         pjoin(selected_workspace, 'integrateduv.frm'))
+            shutil.copy(pjoin(plugin_path, '..', 'models', model_dir, 'model_parameters.frm'),
+                        pjoin(selected_workspace, 'model_parameters.frm'))
+            shutil.copy(pjoin(plugin_path, '..', 'models', model_dir, 'feynman_rules.frm'),
+                        pjoin(selected_workspace, 'feynman_rules.frm'))
             FORM_source = pjoin(selected_workspace, 'multiplicity.frm')
 
             if FORM_processing_options["cores"] == 1:
