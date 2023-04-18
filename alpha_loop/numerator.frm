@@ -205,6 +205,8 @@ repeat id vx(?a, 0, ?b) = vx(?a, pzero, ?b);
 * START amp prop Lorentz Feynman rules
 **************************************************
 #call AmpPropLorentzFeynmanRules()
+
+**************************************************
 * END amp prop Lorentz Feynman rules
 **************************************************
 
@@ -224,7 +226,9 @@ endif;
 **************************************************
 * START amp vx Lorentz Feynman rules
 **************************************************
+
 #call AmpVxLorentzFeynmanRules()
+
 **************************************************
 * END amp vx Lorentz Feynman rules
 **************************************************
@@ -1298,16 +1302,16 @@ argument ellipsoids, constants;
     id energy(p?) = penergy(p);
 endargument;
 
-* Convert the dot products, energies and levi civita tensors to a symbol
+* Convert the dot products, energies and levi civita tensors to a symbol, add your custom form factors to the list of argumetns
 #$OFFSET = 0;
 #do i=1,`$MAXP'
     id penergy(p`i') = lm`$OFFSET';
-    argument energies, ellipsoids, constants, dot;
+    argument energies, ellipsoids, constants, dot, FFS, FFT, FFU, APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;
         id penergy(p`i') = lm`$OFFSET';
     endargument;
     #$OFFSET = $OFFSET + 1;
     #do j=`i',`$MAXP'
-        argument energies, ellipsoids, constants, dot;
+        argument energies, ellipsoids, constants, dot, FFS, FFT, FFU, APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;;
             id p`i'.p`j' = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;

@@ -3251,12 +3251,6 @@ class FORMSuperGraphList(list):
         FORM_iso_sg_list = FORMSuperGraphList([FORMSuperGraphIsomorphicList(
             iso_group) for _, iso_group in iso_groups], name=p.stem)
 
-        #hacky way to remove restriction and get the correct path
-
-        model_dir = model["name"].split('-')
-        model_dir.pop();
-        model_dir = '-'.join(model_dir)
-
         if workspace is not None:
             selected_workspace = workspace
             shutil.copy(pjoin(plugin_path, "multiplicity.frm"),
@@ -3271,12 +3265,29 @@ class FORMSuperGraphList(list):
                         pjoin(selected_workspace, 'Gstring.prc'))
             shutil.copy(pjoin(plugin_path, "integrateduv.frm"),
                         pjoin(selected_workspace, 'integrateduv.frm'))
+            FORM_source = pjoin(selected_workspace, 'multiplicity.frm')
+            
+            #hacky way to remove restriction and get the correct path
+
+            model_dir_temp = model["name"].split('-')
+            model_dir_temp.pop();
+            model_dir = '-'.join(model_dir_temp)
+
+            #copy model specific form files
+
             shutil.copy(pjoin(plugin_path, '..', 'models', model_dir, 'model_parameters.frm'),
                         pjoin(selected_workspace, 'model_parameters.frm'))
             shutil.copy(pjoin(plugin_path, '..', 'models', model_dir, 'feynman_rules.frm'),
                         pjoin(selected_workspace, 'feynman_rules.frm'))
-            FORM_source = pjoin(selected_workspace, 'multiplicity.frm')
 
+            #copy user specified form factor files if they are present
+
+            form_factor_dir = pjoin(plugin_path, '..', 'models', model_dir, 'form_factors')
+            if os.path.exists(form_factor_dir): 
+                shutil.copy(pjoin(form_factor_dir, 'form_factors.h'), pjoin(selected_workspace, '..', 'form_factors.h'))
+                shutil.copy(pjoin(form_factor_dir, 'form_factors.o'), pjoin(selected_workspace, '..', 'form_factors.o'))
+
+            
             if FORM_processing_options["cores"] == 1:
                 graph_it = map(FORMSuperGraphIsomorphicList.multiplicity_factor_helper,
                                (list((iso_graphs, iso_id, selected_workspace, FORM_source))
@@ -3620,6 +3631,11 @@ using complex128 = mppp::complex128;
 const std::complex<double> I{ 0.0, 1.0 };
 
 """
+        # add the user specified form factors header if it exists
+        form_factors_header_path = pjoin(root_output_path, 'form_factors.h')
+        if os.path.exists(form_factors_header_path):
+            numerator_header_general = """\n#include "form_factors.h" """ + numerator_header_general
+            form_factors_header = open(form_factors_header_path)
 
         var_pattern = re.compile(r'Z\d*_')
         lm_pattern = re.compile(r'lm(\d*)')
@@ -3746,6 +3762,7 @@ const std::complex<double> I{ 0.0, 1.0 };
                         integrand_main_code = ''
                         integrand_f128_main_code = ''
                         integrand_mpfr_main_code = ''
+
 
                         # rename all lm in the code with a dot product macro
                         n_incoming = sum(
@@ -3954,16 +3971,34 @@ const std::complex<double> I{ 0.0, 1.0 };
                             conf_sec = re.sub(
                                 r'pow\(([^,]+),-1\.\)', r'1./(\1)', conf_sec)  # fix for 1/E
 
+                            #only add the extra form_factors argument when it is needed
+                            if os.path.exists(form_factors_header_path):
+                                form_factors_function_argument = ", const {0} form_factors[]".format(dual_base_type)
+                                form_factors_function_argument_f128 =  ", const {0} form_factors[]".format(dual_base_type_f128)
+                                form_factors_function_argument_mpfr = ", const {0} form_factors[]".format(dual_base_type_mpfr)
+                                form_factors_regex = r'diag_\1(lm, params, E, invd, form_factors)'
+                                form_factors_regex_f128 = r'diag_\1_f128(lm, params, E, invd, form_factors)'
+                                form_factors_regex_mpfr = r'diag_\1_mpfr(lm, params, E, invd, prec, form_factors)'
+                                form_factors_input = ", form_factors"
+                            else: 
+                                form_factors_function_argument = ""
+                                form_factors_function_argument_f128 = ""
+                                form_factors_function_argument_mpfr = ""
+                                form_factors_regex = r'diag_\1(lm, params, E, invd)'
+                                form_factors_regex_f128 = r'diag_\1_f128(lm, params, E, invd)'
+                                form_factors_regex_mpfr = r'diag_\1_mpfr(lm, params, E, invd, prec)'
+                                form_factors_input = ""
+
                             if denominator_mode == 'FOREST':
                                 main_code = conf_sec.replace('logmUVmu', 'log(mUV*mUV/(mu*mu))').replace(
                                     'logmUV', 'log(mUV*mUV)').replace('logmu', 'log(mu*mu)').replace('logmt', 'log(masst*masst)')
                                 main_code_with_diag_call = diag_pattern.sub(
-                                    r'diag_\1(lm, params, E, invd)', main_code)
-                                integrand_main_code += '\nstatic {0} forest_{2}(const {0} lm[], const {1} params[], const {0} E[], const {0} invd[]) {{{3}\n{4}}}'.format(
+                                   form_factors_regex, main_code)
+                                integrand_main_code += '\nstatic {0} forest_{2}(const {0} lm[], const {1} params[], const {0} E[], const {0} invd[]{5}) {{{3}\n{4}}}'.format(
                                     dual_base_type, base_type, abs(
                                         int(conf[0])),
                                     '\n\t{} {};'.format(dual_base_type, ','.join(temp_vars)) if len(
-                                        temp_vars) > 0 else '', main_code_with_diag_call
+                                        temp_vars) > 0 else '', main_code_with_diag_call, form_factors_function_argument
                                 )
 
                                 main_code_f128 = main_code.replace('pi', 'mppp::real128_pi()').replace(
@@ -3971,12 +4006,12 @@ const std::complex<double> I{ 0.0, 1.0 };
                                 main_code_f128 = float_pattern.sub(
                                     r'real128(\1q)', main_code_f128)
                                 main_code_f128 = diag_pattern.sub(
-                                    r'diag_\1_f128(lm, params, E, invd)', main_code_f128)
-                                integrand_f128_main_code += '\n' + '\nstatic {0} forest_{2}_f128(const {0} lm[], const {1} params[], const {0} E[], const {0} invd[]) {{{3}\n{4}}}'.format(
+                                    form_factors_regex_f128, main_code_f128)
+                                integrand_f128_main_code += '\n' + '\nstatic {0} forest_{2}_f128(const {0} lm[], const {1} params[], const {0} E[], const {0} invd[]{5}) {{{3}\n{4}}}'.format(
                                     dual_base_type_f128, base_type_f128, abs(
                                         int(conf[0])),
                                     '\n\t{} {};'.format(dual_base_type_f128, ','.join(temp_vars)) if len(
-                                        temp_vars) > 0 else '', main_code_f128
+                                        temp_vars) > 0 else '', main_code_f128, form_factors_function_argument_f128
                                 )
 
                                 main_code_mpfr = main_code.replace('pi', 'mppp::real_pi(prec)').replace(
@@ -3984,38 +4019,38 @@ const std::complex<double> I{ 0.0, 1.0 };
                                 main_code_mpfr = float_pattern.sub(
                                     r'mppp::real(real128(\1q), prec)', main_code_mpfr)
                                 main_code_mpfr = diag_pattern.sub(
-                                    r'diag_\1_mpfr(lm, params, E, invd, prec)', main_code_mpfr)
-                                integrand_mpfr_main_code += '\n' + '\nstatic {0} forest_{2}_mpfr(const {0} lm[], const {1} params[], const {0} E[], const {0} invd[], const int prec) {{{3}\n{4}}}'.format(
+                                    form_factors_regex_mpfr, main_code_mpfr)
+                                integrand_mpfr_main_code += '\n' + '\nstatic {0} forest_{2}_mpfr(const {0} lm[], const {1} params[], const {0} E[], const {0} invd[], const int prec{5}) {{{3}\n{4}}}'.format(
                                     dual_base_type_mpfr, base_type_mpfr, abs(
                                         int(conf[0])),
                                     '\n\t{} {};'.format(dual_base_type_mpfr, ','.join(temp_vars)) if len(
-                                        temp_vars) > 0 else '', main_code_mpfr
+                                        temp_vars) > 0 else '', main_code_mpfr, form_factors_function_argument_mpfr
                                 )
                             elif denominator_mode == 'DIAG':
                                 main_code = conf_sec
                                 main_code = main_code.replace('logmUVmu', 'log(mUV*mUV/(mu*mu))').replace(
                                     'logmUV', 'log(mUV*mUV)').replace('logmu', 'log(mu*mu)').replace('logmt', 'log(masst*masst)')
-                                integrand_main_code += '\nstatic {0} diag_{2}(const {0} lm[], const {1} params[], const {0} E[], const {0} invd[]) {{{3}\n{4}}}'.format(dual_base_type, base_type, abs(int(conf[0])),
+                                integrand_main_code += '\nstatic {0} diag_{2}(const {0} lm[], const {1} params[], const {0} E[], const {0} invd[]{5}) {{{3}\n{4}}}'.format(dual_base_type, base_type, abs(int(conf[0])),
                                                                                                                                                                         '\n\t{} {};'.format(dual_base_type, ','.join(temp_vars)) if len(
-                                                                                                                                                                            temp_vars) > 0 else '', main_code
+                                                                                                                                                                            temp_vars) > 0 else '', main_code, form_factors_function_argument
                                                                                                                                                                         )
 
                                 main_code_f128 = main_code.replace('pi', 'mppp::real128_pi()').replace(
                                     'complex<double>', 'complex128')
                                 main_code_f128 = float_pattern.sub(
                                     r'real128(\1q)', main_code_f128)
-                                integrand_f128_main_code += '\n' + '\nstatic {0} diag_{2}_f128(const {0} lm[], const {1} params[], const {0} E[], const {0} invd[]) {{{3}\n{4}}}'.format(dual_base_type_f128, base_type_f128, abs(int(conf[0])),
+                                integrand_f128_main_code += '\n' + '\nstatic {0} diag_{2}_f128(const {0} lm[], const {1} params[], const {0} E[], const {0} invd[]{5}) {{{3}\n{4}}}'.format(dual_base_type_f128, base_type_f128, abs(int(conf[0])),
                                                                                                                                                                                          '\n\t{} {};'.format(dual_base_type_f128, ','.join(temp_vars)) if len(
-                                                                                                                                                                                             temp_vars) > 0 else '', main_code_f128
+                                                                                                                                                                                             temp_vars) > 0 else '', main_code_f128, form_factors_function_argument_f128
                                                                                                                                                                                          )
 
                                 main_code_mpfr = main_code.replace('pi', 'mppp::real_pi(prec)').replace(
                                     'complex<double>', 'mppp::complex')
                                 main_code_mpfr = float_pattern.sub(
                                     r'mppp::real(real128(\1q), prec)', main_code_mpfr)
-                                integrand_mpfr_main_code += '\n' + '\nstatic {0} diag_{2}_mpfr(const {0} lm[], const {1} params[], const {0} E[], const {0} invd[], const int prec) {{{3}\n{4}}}'.format(dual_base_type_mpfr, base_type_mpfr, abs(int(conf[0])),
+                                integrand_mpfr_main_code += '\n' + '\nstatic {0} diag_{2}_mpfr(const {0} lm[], const {1} params[], const {0} E[], const {0} invd[], const int prec{5}) {{{3}\n{4}}}'.format(dual_base_type_mpfr, base_type_mpfr, abs(int(conf[0])),
                                                                                                                                                                                                          '\n\t{} {};'.format(dual_base_type_mpfr, ','.join(temp_vars)) if len(
-                                                                                                                                                                                                             temp_vars) > 0 else '', main_code_mpfr
+                                                                                                                                                                                                             temp_vars) > 0 else '', main_code_mpfr, form_factors_function_argument_mpfr
                                                                                                                                                                                                          )
                             else:
                                 cut_id = int(conf[0])
@@ -4056,20 +4091,20 @@ const std::complex<double> I{ 0.0, 1.0 };
                                     main_code = forest_pattern.sub(
                                         r'forest_\1(lm, params, E, invd)', main_code)
 
-                                integrand_main_code += '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}(const {0} lm[], const {1} params[], {0}* out) {{{5}}}'.format(dual_base_type, base_type, itype, i, int(conf[0]),
-                                                                                                                                                                          diag_pattern.sub(
-                                                                                                                                                                              r'diag_\1(lm, params, E, invd)', main_code)
-                                                                                                                                                                          )
-
+                                integrand_main_code += '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}(const {0} lm[], const {1} params[]{6}, {0}* out) {{{5}}}'.format(dual_base_type, base_type, itype, i, int(conf[0]),
+                                                                                                                                                                            diag_pattern.sub(
+                                                                                                                                                                                form_factors_regex, main_code)
+                                                                                                                                                                            ,form_factors_function_argument)
+                                
                                 main_code_f128 = main_code.replace('pi', 'mppp::real128_pi()').replace(
                                     'complex<double>', 'complex128')
                                 main_code_f128 = float_pattern.sub(
                                     r'real128(\1q)', main_code_f128)
                                 main_code_f128 = main_code_f128.replace(
                                     '(lm,', '_f128(lm,')  # patch forest
-                                integrand_f128_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}_f128(const {0} lm[], const {1} params[], {0}* out) {{{5}}}'.format(dual_base_type_f128, base_type_f128, itype, i, int(conf[0]),
+                                integrand_f128_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}_f128(const {0} lm[], const {1} params[]{6}, {0}* out) {{{5}}}'.format(dual_base_type_f128, base_type_f128, itype, i, int(conf[0]),
                                                                                                                                                                                            diag_pattern.sub(
-                                                                                                                                                                                               r'diag_\1_f128(lm, params, E, invd)', main_code_f128)
+                                                                                                                                                                                               form_factors_regex_f128, main_code_f128), form_factors_function_argument_f128
                                                                                                                                                                                            )
 
                                 # main_code_mpfr = main_code.replace('pi', 'real(mppp::const_pi(prec))').replace('complex<double>', 'mppp::complex')
@@ -4081,9 +4116,9 @@ const std::complex<double> I{ 0.0, 1.0 };
                                     '(lm,', '_mpfr(lm,').replace('invd)', 'invd, prec)')  # patch forest
                                 main_code_mpfr = re.sub(
                                     r'\*out =([^;]*);', '*out = ({})'.format(dual_base_type_f128) + r'(\1);', main_code_mpfr)
-                                integrand_mpfr_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}_mpfr(const {0} lm[], const {1} params[], {6}* out, const int prec) {{{5}}}'.format(dual_base_type_mpfr, base_type_mpfr, itype, i, int(conf[0]),
+                                integrand_mpfr_main_code += '\n' + '\nstatic inline void %(header)sevaluate_{2}_{3}_{4}_mpfr(const {0} lm[], const {1} params[]{7}, {6}* out, const int prec) {{{5}}}'.format(dual_base_type_mpfr, base_type_mpfr, itype, i, int(conf[0]),
                                                                                                                                                                                                            diag_pattern.sub(
-                                                                                                                                                                                                               r'diag_\1_mpfr(lm, params, E, invd, prec)', main_code_mpfr), dual_base_type_f128
+                                                                                                                                                                                                               form_factors_regex_mpfr, main_code_mpfr), dual_base_type_f128, form_factors_function_argument_mpfr
                                                                                                                                                                                                            )
 
                         integrand_main_code = integrand_main_code.replace(
@@ -4119,6 +4154,54 @@ const std::complex<double> I{ 0.0, 1.0 };
                             integrand_mpfr_main_code = integrand_mpfr_main_code.replace(
                                 'diag_', 'diag_{}_'.format(itype)).replace('forest_', 'forest_{}_'.format(itype))
 
+                        # Create an empty list to store function names
+                        form_factor_names = []
+                        fill_form_factor_body = ""
+                        fill_form_factor_body_f128 = ""
+                        fill_form_factor_body_mpfr = ""
+                        form_factor_index = 0;
+
+                        # Open the header file in read mode
+                        with open(form_factors_header_path, "r") as header_file:
+                            # Read the contents of the file
+                            file_contents = header_file.read()
+                            # Use regular expressions to find function definitions
+                            pattern = r"(?<=\n)(?:[a-zA-Z0-9_]+\s)+([a-zA-Z0-9_]+)\((.*?)\);"
+                            matches = re.findall(pattern, file_contents)
+                            # Add the function names to the list
+                            for match in matches:
+                                #remove the type
+                                name = match[0].split("_")[0]
+                                if name not in form_factor_names:
+                                    form_factor_names.append(name)
+
+                        
+                        print(form_factor_names)
+                        # Create an empty dictionary to store function call information
+                        form_factor_calls = {form_factor_name: [] for form_factor_name in form_factor_names}
+
+                        pattern = r"([a-zA-Z0-9_]+)\((.*?)\);"
+                        matches = re.findall(pattern, integrand_main_code)
+                        # Store information about each function call
+                        for match in matches:
+                            form_factor_name = match[0]
+                            if form_factor_name in form_factor_calls:
+                                arguments = match[1].split(",")
+                                if arguments not in form_factor_calls[form_factor_name]:
+                                    form_factor_calls[form_factor_name].append(arguments)
+
+                        # create line in fill_form_factors for each unique function call
+                        for form_factor_name, calls in form_factor_calls.items():
+                            for call in calls:
+                                integrand_main_code = integrand_main_code.replace(form_factor_name + "({0})".format(','.join(call)), "form_factors[{0}]".format(form_factor_index))
+                                integrand_f128_main_code = integrand_f128_main_code.replace(form_factor_name + "({0})".format(','.join(call)), "form_factors[{0}]".format(form_factor_index))
+                                integrand_mpfr_main_code = integrand_mpfr_main_code.replace(form_factor_name + "({0})".format(','.join(call)), "form_factors[{0}]".format(form_factor_index))
+                                fill_form_factor_body += "\t{0}".format(form_factor_name + "_f64" + "({0}".format(', '.join(call)) + ", &out[{0}]);\n".format(form_factor_index))
+                                fill_form_factor_body_f128 += "\t{0}".format(form_factor_name + "_f128" + "({0}".format(', '.join(call)) + ", &out[{0}]);\n".format(form_factor_index))
+                                fill_form_factor_body_mpfr += "\t{0}".format(form_factor_name + "_mpfr" + "({0}".format(', '.join(call)) + ", &out[{0}]);\n".format(form_factor_index))
+                                form_factor_index += 1
+
+                        
                         fill_lm_body = ""
                         out_idx = 0
                         for i1 in range(n_tot):
@@ -4152,6 +4235,11 @@ template<class T>
 static inline void fill_lm(const T moms[], T out[]) {{
 {3}}}
 
+template<class T>
+static inline void fill_form_factors(const T lm[], T out[]) {{
+    {4}    
+}}
+
 extern "C" {{
 void %(header)sevaluate_{0}_{1}(const double* moms, const complex<double>* params, int conf, double* out) {{
    switch(conf) {{
@@ -4161,12 +4249,12 @@ void %(header)sevaluate_{0}_{1}(const double* moms, const complex<double>* param
 }}
 """.format(itype, i,
                                 '\n'.join(
-                                    ['\t\tcase {0}: {{\n\t\t\t{3}complex<double>{4} lm[{5}];\n\t\t\tfill_lm(({3}complex<double>{4}*)moms, lm);\n\t\t\t%(header)sevaluate_{1}_{2}_{0}(lm, params, ({3}complex<double>{4}*)out);\n\t\t}} return;'.format(
-                                        conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '', out_idx) for conf, is_dual, _ in sorted(x for x in confs)] +
+                                    ['\t\tcase {0}: {{\n\t\t\t{3}complex<double>{4} lm[{5}];\n\t\t\t{3}complex<double>{4} form_factors[{7}];\n\t\t\tfill_lm(({3}complex<double>{4}*)moms, lm);\n\t\t\tfill_form_factors(lm, form_factors);\n\t\t\t%(header)sevaluate_{1}_{2}_{0}(lm, params{6}, ({3}complex<double>{4}*)out);\n\t\t}} return;'.format(
+                                        conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '', out_idx, form_factors_input, form_factor_index) for conf, is_dual, _ in sorted(x for x in confs)] +
                                     # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else
                                     (['\t\tdefault: *out = 0.;'])
                                 ),
-                                fill_lm_body,
+                                fill_lm_body, fill_form_factor_body
            )
 
                         integrand_f128_main_code += \
@@ -4178,6 +4266,11 @@ template<class T>
 static inline void fill_lm(const T moms[], T out[]) {{
 {3}}}
 
+template<class T>
+static inline void fill_form_factors(const T lm[], T out[]) {{
+    {4}
+}}
+
 extern "C" {{
 void %(header)sevaluate_{0}_{1}_f128(const complex128* moms, const complex128* params, int conf, complex128* out) {{
     switch(conf) {{
@@ -4187,11 +4280,11 @@ void %(header)sevaluate_{0}_{1}_f128(const complex128* moms, const complex128* p
 }}
 """.format(itype, i,
                                 '\n'.join(
-                                    ['\t\tcase {0}: {{\n\t\t\t{3}complex128{4} lm[{5}];\n\t\t\tfill_lm(({3}complex128{4}*)moms, lm);\n\t\t\t%(header)sevaluate_{1}_{2}_{0}_f128(lm, params, ({3}complex128{4}*)out);\n\t\t}} return;'.format(
-                                        conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '', out_idx) for conf, is_dual, _ in sorted(x for x in confs)] +
+                                    ['\t\tcase {0}: {{\n\t\t\t{3}complex128{4} lm[{5}];\n\t\t\t{3}complex128{4} form_factors[{7}];\n\t\t\tfill_lm(({3}complex128{4}*)moms, lm);\n\t\t\tfill_form_factors(lm, form_factors);\n\t\t\t%(header)sevaluate_{1}_{2}_{0}_f128(lm, params{6}, ({3}complex128{4}*)out);\n\t\t}} return;'.format(
+                                        conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '', out_idx, form_factors_input, form_factor_index) for conf, is_dual, _ in sorted(x for x in confs)] +
                                     (['\t\tdefault: *out = real128(0.q);'])
                                 ),
-                                fill_lm_body,
+                                fill_lm_body, fill_form_factor_body_f128
            )
 
                         integrand_mpfr_main_code = integrand_mpfr_main_code.replace('#include <mp++/complex128.hpp>',
@@ -4204,6 +4297,11 @@ void %(header)sevaluate_{0}_{1}_f128(const complex128* moms, const complex128* p
 template<class T>
 static inline void fill_lm(const T moms[], T out[]) {{
 {3}}}
+
+template<class T>
+static inline void fill_form_factors(const T lm[], T out[]) {{
+    {4}
+}}
 
 extern "C" {{
 void %(header)sevaluate_{0}_{1}_mpfr(complex128* moms, complex128* params, int conf, int prec, complex128* out) {{
@@ -4220,8 +4318,10 @@ void %(header)sevaluate_{0}_{1}_mpfr(complex128* moms, complex128* params, int c
             mppp::complex moms_arb[{6}] = {{{7}}};
             mppp::complex params_arb[{8}] = {{{9}}};
             {3}mppp::complex{4} lm[{5}];
+            {3}mppp::complex{4} form_factors[{11}];
             fill_lm<{3}mppp::complex{4}>(({3}mppp::complex{4}*)moms_arb, lm);
-            %(header)sevaluate_{1}_{2}_{0}_mpfr(lm, params_arb, ({3}complex128{4}*)out, prec);
+            fill_form_factors<{3}mppp::complex{4}>(lm, form_factors);
+            %(header)sevaluate_{1}_{2}_{0}_mpfr(lm, params_arb{10}, ({3}complex128{4}*)out, prec);
         }} return;
 """''.format(conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '', out_idx,
                                             dual_length * n_tot * 4,
@@ -4229,11 +4329,11 @@ void %(header)sevaluate_{0}_{1}_mpfr(complex128* moms, complex128* params, int c
                                                      for i in range(dual_length * n_tot*4)),
                                             5,
                                             ','.join('CONV(params[{}])'.format(
-                                                i) for i in range(5))
-             ) for conf, is_dual, dual_length in sorted(x for x in confs)] +
+                                                i) for i in range(5)),
+            form_factors_input, form_factor_index) for conf, is_dual, dual_length in sorted(x for x in confs)] +
                                     (['\t\tdefault: *out = real128(0.q);']),
                                 ),
-                                fill_lm_body,
+                                fill_lm_body, fill_form_factor_body_mpfr
            )
 
                         bar.update(timing='%d' %
@@ -4450,6 +4550,8 @@ return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
                         fpath), FORM_processing_options['max_n_lines_in_C_source']))
             formatted_dependencies = [d.replace('.cpp', '.o').replace(
                 '.c', '.o') for d in dependencies]
+
+            formatted_dependencies.append('form_factors.o')
 
             repl_dict['all_sg_file_names'].append(
                 '$(LIBBPATH)/libFORM_sg_%d.so' % SG_id)

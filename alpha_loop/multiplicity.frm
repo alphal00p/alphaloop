@@ -16,6 +16,11 @@ L F = F1 + x * (F2+...+F`NUMD');
 
 #call FeynmanRules()
 
+*patch form factors so it doesn't break the check
+#call MultiplictyPatch()
+
+* path form factors
+
 B+ x;
 .sort
 Drop F;
