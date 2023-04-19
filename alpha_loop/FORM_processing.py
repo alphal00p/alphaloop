@@ -3285,7 +3285,7 @@ class FORMSuperGraphList(list):
             form_factor_dir = pjoin(plugin_path, '..', 'models', model_dir, 'form_factors')
             if os.path.exists(form_factor_dir): 
                 shutil.copy(pjoin(form_factor_dir, 'form_factors.h'), pjoin(selected_workspace, '..', 'form_factors.h'))
-                shutil.copy(pjoin(form_factor_dir, 'form_factors.o'), pjoin(selected_workspace, '..', 'form_factors.o'))
+                shutil.copy(pjoin(form_factor_dir, 'form_factors.a'), pjoin(selected_workspace, '..', 'form_factors.a'))
 
             
             if FORM_processing_options["cores"] == 1:
@@ -4175,8 +4175,6 @@ const std::complex<double> I{ 0.0, 1.0 };
                                 if name not in form_factor_names:
                                     form_factor_names.append(name)
 
-                        
-                        print(form_factor_names)
                         # Create an empty dictionary to store function call information
                         form_factor_calls = {form_factor_name: [] for form_factor_name in form_factor_names}
 
@@ -4551,7 +4549,7 @@ return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
             formatted_dependencies = [d.replace('.cpp', '.o').replace(
                 '.c', '.o') for d in dependencies]
 
-            formatted_dependencies.append('form_factors.o')
+            formatted_dependencies.append('form_factors.a')
 
             repl_dict['all_sg_file_names'].append(
                 '$(LIBBPATH)/libFORM_sg_%d.so' % SG_id)
