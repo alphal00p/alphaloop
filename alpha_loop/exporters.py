@@ -1961,7 +1961,8 @@ class LUScalarTopologyExporter(QGRAFExporter):
         form_processor.generate_squared_topology_files(
             pjoin(self.dir_path, 'Rust_inputs'), 0, final_state_particle_ids=(), jet_ids=None,
             filter_non_contributing_graphs=False, workspace=FORM_workspace,
-            integrand_type=self.alphaLoop_options['FORM_integrand_type']
+            integrand_type=self.alphaLoop_options['FORM_integrand_type'],
+            selected_cuts=self.alphaLoop_options['qgraf_cuts']
         )
 
         form_processor.generate_numerator_functions(
