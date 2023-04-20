@@ -1303,25 +1303,49 @@ argument ellipsoids, constants;
 endargument;
 
 * Convert the dot products, energies and levi civita tensors to a symbol, add your custom form factors to the list of argumetns
-#$OFFSET = 0;
-#do i=1,`$MAXP'
-    id penergy(p`i') = lm`$OFFSET';
-    argument energies, ellipsoids, constants, dot, FFS, FFT, FFU, APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;
+
+
+#ifdef `FORM_FACTORS'
+    #$OFFSET = 0;
+    #do i=1,`$MAXP'
         id penergy(p`i') = lm`$OFFSET';
-    endargument;
-    #$OFFSET = $OFFSET + 1;
-    #do j=`i',`$MAXP'
-        argument energies, ellipsoids, constants, dot, FFS, FFT, FFU, APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;;
-            id p`i'.p`j' = lm`$OFFSET';
+        argument energies, ellipsoids, constants, dot, FFS, FFT, FFU, APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;
+            id penergy(p`i') = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
-        id spatial(p`i', p`j') = lm`$OFFSET';
-        argument energies, dot;
+        #do j=`i',`$MAXP'
+            argument energies, ellipsoids, constants, dot, FFS, FFT, FFU, APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;
+                id p`i'.p`j' = lm`$OFFSET';
+            endargument;
+            #$OFFSET = $OFFSET + 1;
             id spatial(p`i', p`j') = lm`$OFFSET';
+            argument energies, dot;
+                id spatial(p`i', p`j') = lm`$OFFSET';
+            endargument;
+            #$OFFSET = $OFFSET + 1;
+        #enddo
+    #enddo
+#else
+    #$OFFSET = 0;
+    #do i=1,`$MAXP'
+        id penergy(p`i') = lm`$OFFSET';
+        argument energies, ellipsoids, constants, dot;
+            id penergy(p`i') = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
+        #do j=`i',`$MAXP'
+            argument energies, ellipsoids, constants, dot;
+                id p`i'.p`j' = lm`$OFFSET';
+            endargument;
+            #$OFFSET = $OFFSET + 1;
+            id spatial(p`i', p`j') = lm`$OFFSET';
+            argument energies, dot;
+                id spatial(p`i', p`j') = lm`$OFFSET';
+            endargument;
+            #$OFFSET = $OFFSET + 1;
+        #enddo
     #enddo
-#enddo
+#endif
 
 .sort:conv-func;
 

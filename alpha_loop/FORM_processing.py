@@ -4154,50 +4154,52 @@ const std::complex<double> I{ 0.0, 1.0 };
                             integrand_mpfr_main_code = integrand_mpfr_main_code.replace(
                                 'diag_', 'diag_{}_'.format(itype)).replace('forest_', 'forest_{}_'.format(itype))
 
-                        # Create an empty list to store function names
-                        form_factor_names = []
                         fill_form_factor_body = ""
                         fill_form_factor_body_f128 = ""
                         fill_form_factor_body_mpfr = ""
                         form_factor_index = 0;
 
-                        # Open the header file in read mode
-                        with open(form_factors_header_path, "r") as header_file:
-                            # Read the contents of the file
-                            file_contents = header_file.read()
-                            # Use regular expressions to find function definitions
-                            pattern = r"(?<=\n)(?:[a-zA-Z0-9_]+\s)+([a-zA-Z0-9_]+)\((.*?)\);"
-                            matches = re.findall(pattern, file_contents)
-                            # Add the function names to the list
+                        if os.path.exists(form_factors_header_path):
+                            # Create an empty list to store function names
+                            form_factor_names = []
+
+                            # Open the header file in read mode
+                            with open(form_factors_header_path, "r") as header_file:
+                                # Read the contents of the file
+                                file_contents = header_file.read()
+                                # Use regular expressions to find function definitions
+                                pattern = r"(?<=\n)(?:[a-zA-Z0-9_]+\s)+([a-zA-Z0-9_]+)\((.*?)\);"
+                                matches = re.findall(pattern, file_contents)
+                                # Add the function names to the list
+                                for match in matches:
+                                    #remove the type
+                                    name = match[0].split("_")[0]
+                                    if name not in form_factor_names:
+                                        form_factor_names.append(name)
+
+                            # Create an empty dictionary to store function call information
+                            form_factor_calls = {form_factor_name: [] for form_factor_name in form_factor_names}
+
+                            pattern = r"([a-zA-Z0-9_]+)\((.*?)\);"
+                            matches = re.findall(pattern, integrand_main_code)
+                            # Store information about each function call
                             for match in matches:
-                                #remove the type
-                                name = match[0].split("_")[0]
-                                if name not in form_factor_names:
-                                    form_factor_names.append(name)
+                                form_factor_name = match[0]
+                                if form_factor_name in form_factor_calls:
+                                    arguments = match[1].split(",")
+                                    if arguments not in form_factor_calls[form_factor_name]:
+                                        form_factor_calls[form_factor_name].append(arguments)
 
-                        # Create an empty dictionary to store function call information
-                        form_factor_calls = {form_factor_name: [] for form_factor_name in form_factor_names}
-
-                        pattern = r"([a-zA-Z0-9_]+)\((.*?)\);"
-                        matches = re.findall(pattern, integrand_main_code)
-                        # Store information about each function call
-                        for match in matches:
-                            form_factor_name = match[0]
-                            if form_factor_name in form_factor_calls:
-                                arguments = match[1].split(",")
-                                if arguments not in form_factor_calls[form_factor_name]:
-                                    form_factor_calls[form_factor_name].append(arguments)
-
-                        # create line in fill_form_factors for each unique function call
-                        for form_factor_name, calls in form_factor_calls.items():
-                            for call in calls:
-                                integrand_main_code = integrand_main_code.replace(form_factor_name + "({0})".format(','.join(call)), "form_factors[{0}]".format(form_factor_index))
-                                integrand_f128_main_code = integrand_f128_main_code.replace(form_factor_name + "({0})".format(','.join(call)), "form_factors[{0}]".format(form_factor_index))
-                                integrand_mpfr_main_code = integrand_mpfr_main_code.replace(form_factor_name + "({0})".format(','.join(call)), "form_factors[{0}]".format(form_factor_index))
-                                fill_form_factor_body += "\t{0}".format(form_factor_name + "_f64" + "({0}".format(', '.join(call)) + ", &out[{0}]);\n".format(form_factor_index))
-                                fill_form_factor_body_f128 += "\t{0}".format(form_factor_name + "_f128" + "({0}".format(', '.join(call)) + ", &out[{0}]);\n".format(form_factor_index))
-                                fill_form_factor_body_mpfr += "\t{0}".format(form_factor_name + "_mpfr" + "({0}".format(', '.join(call)) + ", &out[{0}]);\n".format(form_factor_index))
-                                form_factor_index += 1
+                            # create line in fill_form_factors for each unique function call
+                            for form_factor_name, calls in form_factor_calls.items():
+                                for call in calls:
+                                    integrand_main_code = integrand_main_code.replace(form_factor_name + "({0})".format(','.join(call)), "form_factors[{0}]".format(form_factor_index))
+                                    integrand_f128_main_code = integrand_f128_main_code.replace(form_factor_name + "({0})".format(','.join(call)), "form_factors[{0}]".format(form_factor_index))
+                                    integrand_mpfr_main_code = integrand_mpfr_main_code.replace(form_factor_name + "({0})".format(','.join(call)), "form_factors[{0}]".format(form_factor_index))
+                                    fill_form_factor_body += "\t{0}".format(form_factor_name + "_f64" + "({0}".format(', '.join(call)) + ", &out[{0}]);\n".format(form_factor_index))
+                                    fill_form_factor_body_f128 += "\t{0}".format(form_factor_name + "_f128" + "({0}".format(', '.join(call)) + ", &out[{0}]);\n".format(form_factor_index))
+                                    fill_form_factor_body_mpfr += "\t{0}".format(form_factor_name + "_mpfr" + "({0}".format(', '.join(call)) + ", &out[{0}]);\n".format(form_factor_index))
+                                    form_factor_index += 1
 
                         
                         fill_lm_body = ""
@@ -4382,6 +4384,19 @@ void %(header)sevaluate_{0}_{1}_mpfr(complex128* moms, complex128* params, int c
                         pjoin(workspace, 'Gstring.prc'))
             shutil.copy(pjoin(plugin_path, "integrateduv.frm"),
                         pjoin(workspace, 'integrateduv.frm'))
+            
+            #hacky way to remove restriction and get the correct path
+
+            model_dir_temp = model["name"].split('-')
+            model_dir_temp.pop();
+            model_dir = '-'.join(model_dir_temp)
+
+            #copy model specific form files
+
+            shutil.copy(pjoin(plugin_path, '..', 'models', model_dir, 'model_parameters.frm'),
+                        pjoin(workspace, 'model_parameters.frm'))
+            shutil.copy(pjoin(plugin_path, '..', 'models', model_dir, 'feynman_rules.frm'),
+                        pjoin(workspace, 'feynman_rules.frm'))
 
         max_buffer_size = 0
         all_numerator_ids = []
@@ -4549,7 +4564,8 @@ return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
             formatted_dependencies = [d.replace('.cpp', '.o').replace(
                 '.c', '.o') for d in dependencies]
 
-            formatted_dependencies.append('form_factors.a')
+            if os.path.exists(pjoin(root_output_path, 'form_factors.a')):
+                formatted_dependencies.append('form_factors.a')
 
             repl_dict['all_sg_file_names'].append(
                 '$(LIBBPATH)/libFORM_sg_%d.so' % SG_id)
