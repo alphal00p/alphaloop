@@ -15,6 +15,8 @@ use num_traits::ToPrimitive;
 use rand::prelude::*;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+use smallvec::smallvec;
+use std::collections::VecDeque;
 use std::str::FromStr;
 use std::time::Instant;
 use tabled::{Style, Table, Tabled};
@@ -886,6 +888,32 @@ fn inspect<'a>(
         }
     }
 
+    let disc_pt: VecDeque<_> = matches
+        .values_of("disc")
+        .unwrap_or(clap::Values::default())
+        .map(|x| usize::from_str(x.trim_end_matches(',')).unwrap())
+        .collect();
+
+    fn construct_sample(mut disc_pt: VecDeque<usize>, cont_pt: Vec<f64>) -> Sample {
+        if let Some(x) = disc_pt.pop_front() {
+            Sample::DiscreteGrid(
+                1.,
+                smallvec![x],
+                Some(Box::new(construct_sample(disc_pt, cont_pt))),
+            )
+        } else {
+            Sample::ContinuousGrid(1., cont_pt)
+        }
+    }
+
+    let sample = construct_sample(disc_pt, pt);
+
+    let sample = if let Sample::ContinuousGrid(_, pt) = &sample {
+        IntegrandSample::Flat(1., pt)
+    } else {
+        IntegrandSample::Nested(&sample)
+    };
+
     if matches.is_present("full_integrand") {
         let result = match diagram {
             Diagram::CrossSection(sqt) => Integrand::new(
@@ -897,9 +925,9 @@ fn inspect<'a>(
                 1,
                 None,
             )
-            .evaluate(IntegrandSample::Flat(1., &pt), 1., 1),
+            .evaluate(sample, 1., 1),
         };
-        println!("result={:e}\n  | x={:?}\n", result, pt);
+        println!("result={:e}\n  | x={:?}\n", result, sample);
         return;
     }
 
@@ -914,12 +942,11 @@ fn inspect<'a>(
                 }
 
                 let mut cache = sqt.create_caches();
-                sqt.clone()
-                    .evaluate::<f128::f128>(IntegrandSample::Flat(1., &pt), &mut cache, None)
+                sqt.clone().evaluate::<f128::f128>(sample, &mut cache, None)
             }
         };
 
-        println!("result={:e}\n  | x={:?}\n", result, pt);
+        println!("result={:e}\n  | x={:?}\n", result, sample);
     } else {
         let result = match diagram {
             Diagram::CrossSection(sqt) => {
@@ -930,11 +957,10 @@ fn inspect<'a>(
                 }
 
                 let mut cache = sqt.create_caches();
-                sqt.clone()
-                    .evaluate::<f64>(IntegrandSample::Flat(1., &pt), &mut cache, None)
+                sqt.clone().evaluate::<f64>(sample, &mut cache, None)
             }
         };
-        println!("result={:e}\n  | x={:?}\n", result, pt);
+        println!("result={:e}\n  | x={:?}\n", result, sample);
     }
 }
 
@@ -1085,6 +1111,15 @@ fn main() -> Result<(), Report> {
                         .required(true)
                         .min_values(3)
                         .allow_hyphen_values(true),
+                )
+                .arg(
+                    Arg::with_name("disc")
+                        .short("d")
+                        .long("disc")
+                        .required(false)
+                        .takes_value(true)
+                        .multiple(true)
+                        .help("Points in the discrete dimensions"),
                 )
                 .arg(
                     Arg::with_name("use_f128")

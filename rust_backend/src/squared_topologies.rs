@@ -674,7 +674,7 @@ impl SquaredTopologySet {
         self.multi_channeling_channels = unique_multi_channeling_channels;
     }
 
-    /// Create a rotated version of this squared topology. The axis needs to be normalized.
+    /// Create a rotated version of this squared topology set. The axis needs to be normalized.
     fn rotate(&self, angle: f128, axis: (f128, f128, f128)) -> SquaredTopologySet {
         let rotated_topologies: Vec<_> = self
             .topologies
@@ -3279,6 +3279,21 @@ impl SquaredTopology {
         let mut rotated_topology = self.clone();
         rotated_topology.name += "_rot";
         rotated_topology.rotation_matrix = rot_matrix.clone();
+
+        for (_, _, shifts, _) in &mut rotated_topology.multi_channeling_channels {
+            for shift in shifts.iter_mut() {
+                let old_shift = shift.clone();
+                shift.x = rot_matrix[0][0] * old_shift.x
+                    + rot_matrix[0][1] * old_shift.y
+                    + rot_matrix[0][2] * old_shift.z;
+                shift.y = rot_matrix[1][0] * old_shift.x
+                    + rot_matrix[1][1] * old_shift.y
+                    + rot_matrix[1][2] * old_shift.z;
+                shift.z = rot_matrix[2][0] * old_shift.x
+                    + rot_matrix[2][1] * old_shift.y
+                    + rot_matrix[2][2] * old_shift.z;
+            }
+        }
 
         // remove the SOCP problem allocations from the rotated topology as we will always inherit them
         for cc in &mut rotated_topology.cutkosky_cuts {
