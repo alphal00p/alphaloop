@@ -17,7 +17,9 @@ L F = F1 + x * (F2+...+F`NUMD');
 #call FeynmanRules()
 
 *patch form factors so it doesn't break the check
+#ifdef `FORMFACTORS'
 #call MultiplictyPatch()
+#endif
 
 * path form factors
 

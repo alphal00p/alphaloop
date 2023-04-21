@@ -158,6 +158,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
         computed_model = model_reader.ModelReader(model)
         computed_model.set_parameters_and_couplings(
             pjoin(self.dir_path, 'Cards', 'param_card.dat'))
+        computed_model['name'] = model['name']
 
         # Now write out a yaml file for each of these
         rust_inputs_path = pjoin(self.dir_path, 'Rust_inputs')
@@ -394,9 +395,11 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             computed_model = model_reader.ModelReader(model)
             computed_model.set_parameters_and_couplings(
                 pjoin(self.dir_path, 'Cards', 'param_card.dat'))
+            computed_model['name'] = model['name']
             characteristic_process_definition = self.all_super_graphs[0][1].get('processes')[
                 0]
             logger.info("Numerators processing with FORM...")
+            print("from alphaLoopExporter:" + computed_model['name'])
             FORM_processor = FORM_processing.FORMProcessor(
                 FORM_processing.FORMSuperGraphList.from_dict(
                     pjoin(FORM_output_path, 'all_MG_supergraphs.py'),
@@ -1406,7 +1409,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             pjoin(self.dir_path, 'Source', 'MODEL', 'param_card.dat'))
 
         # Assign the name of the model to be qgraf name, as it is useful for deciding between SM and HEFT renormalisation
-        computed_model.set('name', self.alphaLoop_options['qgraf_model'])
+        computed_model.set('name', self.model['name'])
 
         final_state_particle_ids = [
             abs(pdg) for pdg in self.alphaLoop_options['_jet_PDGs']]
@@ -1508,7 +1511,6 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             form_processor = pickle.load(open(self.checkpoint[1][1], 'rb'))
 
         if self.alphaLoop_options['n_rust_inputs_to_generate'] < 0:
-
             form_processor.generate_numerator_functions(pjoin(self.dir_path, 'FORM'),
                                                         output_format=self.alphaLoop_options[
                                                             'FORM_processing_output_format'],
@@ -1946,6 +1948,7 @@ class LUScalarTopologyExporter(QGRAFExporter):
         computed_model = model_reader.ModelReader(self.model)
         computed_model.set_parameters_and_couplings(
             pjoin(self.dir_path, 'Source', 'MODEL', 'param_card.dat'))
+        computed_model['name'] = self.model['name']
 
         # Dummy process definition is good enough in this case.
         process_definition = self.cli.extract_process(

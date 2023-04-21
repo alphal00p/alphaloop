@@ -3270,7 +3270,7 @@ class FORMSuperGraphList(list):
             #hacky way to remove restriction and get the correct path
 
             model_dir_temp = model["name"].split('-')
-            model_dir_temp.pop();
+            model_dir_temp.pop()
             model_dir = '-'.join(model_dir_temp)
 
             #copy model specific form files
@@ -4388,10 +4388,8 @@ void %(header)sevaluate_{0}_{1}_mpfr(complex128* moms, complex128* params, int c
             #hacky way to remove restriction and get the correct path
 
             model_dir_temp = model["name"].split('-')
-            model_dir_temp.pop();
+            model_dir_temp.pop()
             model_dir = '-'.join(model_dir_temp)
-
-            #copy model specific form files
 
             shutil.copy(pjoin(plugin_path, '..', 'models', model_dir, 'model_parameters.frm'),
                         pjoin(workspace, 'model_parameters.frm'))
@@ -5222,7 +5220,6 @@ if __name__ == "__main__":
     computed_model = model_reader.ModelReader(cli._curr_model)
     computed_model.set_parameters_and_couplings(args.restrict_card)
     process_definition = cli.extract_process(args.process, proc_number=0)
-
     FORM_processing_options['generate_renormalisation_graphs'] = False
     FORM_processing_options['generate_integrated_UV_CTs'] = False
     # FORM_processing_options['UV_min_dod_to_subtract'] = -2

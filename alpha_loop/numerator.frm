@@ -1304,8 +1304,8 @@ endargument;
 
 * Convert the dot products, energies and levi civita tensors to a symbol, add your custom form factors to the list of argumetns
 
-
-#ifdef `FORM_FACTORS'
+*this should eventually not have to be hardcoded anymore
+#ifdef `FORMFACTORS'
     #$OFFSET = 0;
     #do i=1,`$MAXP'
         id penergy(p`i') = lm`$OFFSET';
