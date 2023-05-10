@@ -17,6 +17,19 @@ extern void FFU_f64(complex<double>, complex<double>, complex<double>, complex<d
 extern void FFU_f128(complex128, complex128, complex128, complex128*);
 extern void FFU_mpfr(mppp::complex, mppp::complex, mppp::complex, mppp::complex*);
 
+extern void FFSINV_f64(complex<double>, complex<double>, complex<double>, complex<double>*);
+extern void FFSINV_f128(complex128, complex128, complex128, complex128*);
+extern void FFSINV_mpfr(mppp::complex, mppp::complex, mppp::complex, mppp::complex*);
+
+extern void FFTINV_f64(complex<double>, complex<double>, complex<double>, complex<double>*);
+extern void FFTINV_f128(complex128, complex128, complex128, complex128*);
+extern void FFTINV_mpfr(mppp::complex, mppp::complex, mppp::complex, mppp::complex*);
+
+extern void FFUINV_f64(complex<double>, complex<double>, complex<double>, complex<double>*);
+extern void FFUINV_f128(complex128, complex128, complex128, complex128*);
+extern void FFUINV_mpfr(mppp::complex, mppp::complex, mppp::complex, mppp::complex*);
+
+
 extern void APHOAMPFFSTU_f64(complex<double>, complex<double>, complex<double>, complex<double>, complex<double>, complex<double>, complex<double>*);
 extern void APHOAMPFFSTU_f128(complex128, complex128, complex128, complex128, complex128, complex128, complex128*);
 extern void APHOAMPFFSTU_mpfr(mppp::complex, mppp::complex, mppp::complex, mppp::complex, mppp::complex, mppp::complex, mppp::complex*);

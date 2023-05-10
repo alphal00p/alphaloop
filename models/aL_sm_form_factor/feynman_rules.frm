@@ -301,15 +301,20 @@
 #procedure AmpVxLorentzFeynmanRules()
     id vx(x1?{`QBAR'}, `PHOAMPPRIME', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
     id vx(x1?{`LBAR'}, `PHOAMPPRIME', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
-    id vx(`PHOAMPPRIME', `PHOAMPPRIME', `PHO', `PHO', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = 
-      ( APHOAMPFFSTU(p1,p2,p3) ) * ( FFS(p1, p2) * d_(lorentz[idx1], lorentz[idx2]) - p1(lorentz[idx2])*p2(lorentz[idx1]) ) * ( FFS(p1, p2) * d_(lorentz[idx3], lorentz[idx4]) + p1(lorentz[idx3])*p3(lorentz[idx4]) + p2(lorentz[idx3])*p3(lorentz[idx4]) )
-    + ( APHOAMPFFTSU(p1,p2,p3))  * ( FFT(p1, p3) * d_(lorentz[idx3], lorentz[idx2]) - p3(lorentz[idx2])*p2(lorentz[idx3]) ) * ( FFT(p1, p3) * d_(lorentz[idx1], lorentz[idx4]) + p3(lorentz[idx1])*p1(lorentz[idx4]) + p2(lorentz[idx1])*p1(lorentz[idx4]) )
-    + ( APHOAMPFFUST(p1,p2,p3) ) * ( FFU(p2, p3) * d_(lorentz[idx3], lorentz[idx1]) - p3(lorentz[idx1])*p1(lorentz[idx3]) ) * ( FFU(p2, p3) * d_(lorentz[idx2], lorentz[idx4]) + p3(lorentz[idx2])*p2(lorentz[idx4]) + p1(lorentz[idx2])*p2(lorentz[idx4]) )  
-    + ( BPHOAMPFFSTU(p1,p2,p3) ) * ( - ( FFS(p1, p2) * d_(lorentz[idx1], lorentz[idx2]) - p1(lorentz[idx2])*p2(lorentz[idx1]) ) * ( FFT(p1, p3) * p1(lorentz[idx3]) - FFU(p2, p3) * p2(lorentz[idx3]) ) * ( FFS(p1, p2) * p2(lorentz[idx4]) - FFU(p2, p3) * p3(lorentz[idx4]) ) )
-    + ( BPHOAMPFFTSU(p1,p2,p3) ) * ( - ( FFT(p1, p3) * d_(lorentz[idx3], lorentz[idx2]) - p3(lorentz[idx2])*p2(lorentz[idx3]) ) * ( FFS(p1, p2) * p3(lorentz[idx1]) - FFU(p2, p3) * p2(lorentz[idx1]) ) * ( FFT(p1, p3) * p2(lorentz[idx4]) - FFU(p2, p3) * p1(lorentz[idx4]) ) )
-    + ( BPHOAMPFFUST(p1,p2,p3) ) * ( - ( FFU(p2, p3) * d_(lorentz[idx3], lorentz[idx1]) - p3(lorentz[idx1])*p1(lorentz[idx3]) ) * ( FFS(p1, p2) * p3(lorentz[idx2]) - FFT(p1, p3) * p1(lorentz[idx2]) ) * ( FFU(p2, p3) * p1(lorentz[idx4]) - FFT(p1, p3) * p2(lorentz[idx4]) ) )
-    + ( CPHOAMPFFSTU(p1,p2,p3) ) * ( FFS(p1, p2)*p3(lorentz[idx1]) - FFU(p2, p3)*p2(lorentz[idx1]) ) * ( FFS(p1,p2)*p3(lorentz[idx2]) - FFT(p1,p3)*p1(lorentz[idx2]) ) * ( FFU(p2, p3)*p2(lorentz[idx3]) - FFT(p1, p3)*p1(lorentz[idx3]) ) * ( FFS(p1, p2)*p2(lorentz[idx4]) - FFU(p2, p3)*p3(lorentz[idx4]) ) ;
-
+    id vx(`PHOAMPPRIME', `PHOAMPPRIME', `PHO', `PHO', p4?, p3?, p2?, p1?, idx4?, idx3?, idx2?, idx1?) = 
+    ( APHOAMPFFSTU(p1,p2,p3) ) * (d_(lorentz[idx1], lorentz[idx2]) - (2*FFS(p1, p2, p3)^-1)*p1(lorentz[idx2])*p2(lorentz[idx1])  ) * ( d_(lorentz[idx3], lorentz[idx4]) + (2*FFS(p1, p2, p3)^-1)*p1(lorentz[idx3])*p3(lorentz[idx4]) + (2*FFS(p1, p2, p3)^-1)*p2(lorentz[idx3])*p3(lorentz[idx4]) + (2*FFS(p1, p2, p3)^-1)*p3(lorentz[idx3])*p3(lorentz[idx4]))
++ ( APHOAMPFFTSU(p1,p2,p3) ) * (d_(lorentz[idx3], lorentz[idx2]) - (2*FFT(p1, p2, p3)^-1)*p3(lorentz[idx2])*p2(lorentz[idx3])  ) * ( d_(lorentz[idx1], lorentz[idx4]) + (2*FFT(p1, p2, p3)^-1)*p3(lorentz[idx1])*p1(lorentz[idx4]) + (2*FFT(p1, p2, p3)^-1)*p2(lorentz[idx1])*p1(lorentz[idx4]) + (2*FFT(p1, p2, p3)^-1)*p1(lorentz[idx1])*p1(lorentz[idx4]))
++ ( APHOAMPFFUST(p1,p2,p3) ) * (d_(lorentz[idx3], lorentz[idx1]) - (2*FFU(p1, p2, p3)^-1)*p3(lorentz[idx1])*p1(lorentz[idx3])  ) * ( d_(lorentz[idx2], lorentz[idx4]) + (2*FFU(p1, p2, p3)^-1)*p3(lorentz[idx2])*p2(lorentz[idx4]) + (2*FFU(p1, p2, p3)^-1)*p1(lorentz[idx2])*p2(lorentz[idx4]) + (2*FFU(p1, p2, p3)^-1)*p2(lorentz[idx2])*p2(lorentz[idx4]))
++ ( BPHOAMPFFSTU(p1,p2,p3) ) * (( - ( d_(lorentz[idx1], lorentz[idx2]) - (2*FFS(p1, p2, p3)^-1)*p1(lorentz[idx2])*p2(lorentz[idx1]) ) * ( p1(lorentz[idx3]) - (FFU(p1, p2, p3)*FFT(p1, p2, p3)^-1) * p2(lorentz[idx3]) ) * ( p2(lorentz[idx4]) - (FFU(p1, p2, p3)*FFS(p1, p2, p3)^-1) * p3(lorentz[idx4]) ) ) 
++ (p3(lorentz[idx1]) - (FFU(p1, p2, p3)*FFS(p1, p2, p3)^-1) * p2(lorentz[idx1]) )* (p1(lorentz[idx2]) - (FFS(p1, p2, p3)*FFT(p1, p2, p3)^-1) * p3(lorentz[idx2])) * (d_(lorentz[idx3], lorentz[idx4]) + (2*FFT(p1, p2, p3)^-1) * p2(lorentz[idx3]) * p1(lorentz[idx4]) + (2*FFU(p1, p2, p3)^-1)*p1(lorentz[idx3]) * p2(lorentz[idx4]) 
++ (2*FFS(p1, p2, p3)^-1) * (p1(lorentz[idx3]) + p2(lorentz[idx3]) + p3(lorentz[idx3])) * (p1(lorentz[idx4]) + p2(lorentz[idx4]) + p3(lorentz[idx4])) + p3(lorentz[idx3])*p3(lorentz[idx4])) ) 
++ ( BPHOAMPFFTSU(p1,p2,p3) ) * (( - ( d_(lorentz[idx3], lorentz[idx2]) - (2*FFT(p1, p2, p3)^-1)*p3(lorentz[idx2])*p2(lorentz[idx3]) ) * ( p3(lorentz[idx1]) - (FFU(p1, p2, p3)*FFS(p1, p2, p3)^-1) * p2(lorentz[idx1]) ) * ( p2(lorentz[idx4]) - (FFU(p1, p2, p3)*FFT(p1, p2, p3)^-1) * p1(lorentz[idx4]) ) ) 
++ (p1(lorentz[idx3]) - (FFU(p1, p2, p3)*FFT(p1, p2, p3)^-1) * p2(lorentz[idx3]) )* (p3(lorentz[idx2]) - (FFT(p1, p2, p3)*FFS(p1, p2, p3)^-1) * p1(lorentz[idx2])) * (d_(lorentz[idx1], lorentz[idx4]) + (2*FFS(p1, p2, p3)^-1) * p2(lorentz[idx1]) * p3(lorentz[idx4]) + (2*FFU(p1, p2, p3)^-1)*p3(lorentz[idx1]) * p2(lorentz[idx4]) 
++ (2*FFT(p1, p2, p3)^-1) * (p3(lorentz[idx1]) + p2(lorentz[idx1]) + p1(lorentz[idx1])) * (p3(lorentz[idx4]) + p2(lorentz[idx4]) + p1(lorentz[idx4])) + p1(lorentz[idx1])*p1(lorentz[idx4])) ) 
++ ( BPHOAMPFFUST(p1,p2,p3) ) * (( - ( d_(lorentz[idx3], lorentz[idx1]) - (2*FFU(p1, p2, p3)^-1)*p3(lorentz[idx1])*p1(lorentz[idx3]) ) * ( p3(lorentz[idx2]) - (FFT(p1, p2, p3)*FFS(p1, p2, p3)^-1) * p1(lorentz[idx2]) ) * ( p1(lorentz[idx4]) - (FFT(p1, p2, p3)*FFU(p1, p2, p3)^-1) * p2(lorentz[idx4]) ) ) 
++ (p2(lorentz[idx3]) - (FFT(p1, p2, p3)*FFU(p1, p2, p3)^-1) * p1(lorentz[idx3]) )* (p3(lorentz[idx1]) - (FFU(p1, p2, p3)*FFS(p1, p2, p3)^-1) * p2(lorentz[idx1])) * (d_(lorentz[idx2], lorentz[idx4]) + (2*FFS(p1, p2, p3)^-1) * p1(lorentz[idx2]) * p3(lorentz[idx4]) + (2*FFT(p1, p2, p3)^-1)*p3(lorentz[idx2]) * p1(lorentz[idx4]) 
++ (2*FFU(p1, p2, p3)^-1) * (p3(lorentz[idx2]) + p1(lorentz[idx2]) + p2(lorentz[idx2])) * (p3(lorentz[idx4]) + p1(lorentz[idx4]) + p2(lorentz[idx4])) + p2(lorentz[idx2])*p2(lorentz[idx4])) ) 
++ ( CPHOAMPFFSTU(p1,p2,p3)*FFS(p1, p2, p3)^-1*FFT(p1, p2, p3)^-1*FFT(p1, p2, p3)^-1*FFU(p1, p2, p3)^-1) * ( FFS(p1, p2, p3) * p3(lorentz[idx1]) - FFU(p1, p2, p3) * p2(lorentz[idx1]) ) * ( FFS(p1, p2, p3) * p3(lorentz[idx2]) - FFT(p1, p2, p3) * p1(lorentz[idx2]) ) * ( FFU(p1, p2, p3) * p2(lorentz[idx3]) - FFT(p1, p2, p3) * p1(lorentz[idx3]) ) * ( FFS(p1, p2, p3) * p2(lorentz[idx4]) - FFU(p1, p2, p3) * p3(lorentz[idx4]) ) ;
 #endprocedure
 **************************************************
 * END amp vx Lorentz Feynman rules
@@ -319,16 +324,20 @@
 * START amp FF substitution
 **************************************************
 #procedure AmpFFSubstitution()
-    id APHOAMPFFSTU(p1?, p2?, p3?) = APHOAMPFFSTU(p1.p1, p2.p2, p3.p3, p1.p2, p1.p3, p2.p3);
-    id APHOAMPFFTSU(p1?, p2?, p3?) = APHOAMPFFTSU(p1.p1, p2.p2, p3.p3, p1.p2, p1.p3, p2.p3);
-    id APHOAMPFFUST(p1?, p2?, p3?) = APHOAMPFFUST(p1.p1, p2.p2, p3.p3, p1.p2, p1.p3, p2.p3);
-    id BPHOAMPFFSTU(p1?, p2?, p3?) = BPHOAMPFFSTU(p1.p1, p2.p2, p3.p3, p1.p2, p1.p3, p2.p3);
-    id BPHOAMPFFTSU(p1?, p2?, p3?) = BPHOAMPFFTSU(p1.p1, p2.p2, p3.p3, p1.p2, p1.p3, p2.p3);
-    id BPHOAMPFFUST(p1?, p2?, p3?) = BPHOAMPFFUST(p1.p1, p2.p2, p3.p3, p1.p2, p1.p3, p2.p3);
-    id CPHOAMPFFSTU(p1?, p2?, p3?) = CPHOAMPFFSTU(p1.p1, p2.p2, p3.p3, p1.p2, p1.p3, p2.p3);
-    id FFS(p1?, p2?) = FFS(p1.p1, p2.p2, p1.p2);
-    id FFT(p1?, p3?) = FFT(p1.p1, p3.p3, p1.p3);
-    id FFU(p2?, p3?) = FFU(p2.p2, p3.p3, p2.p3);
+    CF FFSINV, FFTINV, FFUINV;
+    id FFS(p1?, p2?, p3?) = 2*p1.p2;
+    id FFT(p1?, p2?, p3?) = 2*p2.p3;
+    id FFU(p1?, p2?, p3?) = 2*p1.p3;
+    id FFS(p1?, p2?, p3?)^-1 = FFSINV(0,0,p1.p2);
+    id FFT(p1?, p2?, p3?)^-1 = FFTINV(0,0,p2.p3);
+    id FFU(p1?, p2?, p3?)^-1 = FFUINV(0,0,p1.p3);
+    id APHOAMPFFSTU(p1?, p2?, p3?) = APHOAMPFFSTU(0, 0, 0, p1.p2, p1.p3, p2.p3);
+    id APHOAMPFFTSU(p1?, p2?, p3?) = APHOAMPFFTSU(0, 0, 0, p1.p2, p1.p3, p2.p3);
+    id APHOAMPFFUST(p1?, p2?, p3?) = APHOAMPFFUST(0, 0, 0, p1.p2, p1.p3, p2.p3);
+    id BPHOAMPFFSTU(p1?, p2?, p3?) = BPHOAMPFFSTU(0, 0, 0, p1.p2, p1.p3, p2.p3);
+    id BPHOAMPFFTSU(p1?, p2?, p3?) = BPHOAMPFFTSU(0, 0, 0, p1.p2, p1.p3, p2.p3);
+    id BPHOAMPFFUST(p1?, p2?, p3?) = BPHOAMPFFUST(0, 0, 0, p1.p2, p1.p3, p2.p3);
+    id CPHOAMPFFSTU(p1?, p2?, p3?) = CPHOAMPFFSTU(0, 0, 0, p1.p2, p1.p3, p2.p3);
 #endprocedure
 **************************************************
 * END amp FF substitution
@@ -345,8 +354,12 @@ id BPHOAMPFFUST(?p) = 1;
 id CPHOAMPFFSTU(?p) = 1;
 
 id FFS(?p) = 1;
-id FFT(?p) = 1;
+id FFT(?p)= 1;
 id FFU(?p) = 1;
+
+id FFSINV(?p) = 1;
+id FFTINV(?p) = 1;
+id FFUINV(?p) = 1; 
 #endprocedure
 
 * vertices
