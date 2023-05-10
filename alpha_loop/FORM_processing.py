@@ -4157,7 +4157,7 @@ const std::complex<double> I{ 0.0, 1.0 };
                         fill_form_factor_body = ""
                         fill_form_factor_body_f128 = ""
                         fill_form_factor_body_mpfr = ""
-                        form_factor_index = 0;
+                        form_factor_index = 0
 
                         if os.path.exists(form_factors_header_path):
                             # Create an empty list to store function names
@@ -4178,30 +4178,64 @@ const std::complex<double> I{ 0.0, 1.0 };
                                         form_factor_names.append(name)
 
                             # Create an empty dictionary to store function call information
-                            form_factor_calls = {form_factor_name: [] for form_factor_name in form_factor_names}
+                            form_factor_calls_f64 = {form_factor_name: [] for form_factor_name in form_factor_names}
+                            form_factor_calls_f128 = {form_factor_name: [] for form_factor_name in form_factor_names}
+                            form_factor_calls_mpfr = {form_factor_name: [] for form_factor_name in form_factor_names}
 
                             pattern = r"([a-zA-Z0-9_]+)\((.*?)\);"
+
+                            #have to do it for each type seperately
                             matches = re.findall(pattern, integrand_main_code)
                             # Store information about each function call
                             for match in matches:
                                 form_factor_name = match[0]
-                                if form_factor_name in form_factor_calls:
+                                if form_factor_name in form_factor_calls_f64:
                                     arguments = match[1].split(",")
-                                    if arguments not in form_factor_calls[form_factor_name]:
-                                        form_factor_calls[form_factor_name].append(arguments)
+                                    if arguments not in form_factor_calls_f64[form_factor_name]:
+                                        form_factor_calls_f64[form_factor_name].append(arguments)
+
+                            matches = re.findall(pattern, integrand_f128_main_code)
+                            # Store information about each function call
+                            for match in matches:
+                                form_factor_name = match[0]
+                                if form_factor_name in form_factor_calls_f128:
+                                    arguments = match[1].split(",")
+                                    if arguments not in form_factor_calls_f128[form_factor_name]:
+                                        form_factor_calls_f128[form_factor_name].append(arguments)
+                            
+                            matches = re.findall(pattern, integrand_mpfr_main_code)
+                            # Store information about each function call
+                            for match in matches:
+                                form_factor_name = match[0]
+                                if form_factor_name in form_factor_calls_mpfr:
+                                    arguments = match[1].split(",")
+                                    if arguments not in form_factor_calls_mpfr[form_factor_name]:
+                                        form_factor_calls_mpfr[form_factor_name].append(arguments)
 
                             # create line in fill_form_factors for each unique function call
-                            for form_factor_name, calls in form_factor_calls.items():
+                            for form_factor_name, calls in form_factor_calls_f64.items():
                                 for call in calls:
                                     integrand_main_code = integrand_main_code.replace(form_factor_name + "({0})".format(','.join(call)), "form_factors[{0}]".format(form_factor_index))
-                                    integrand_f128_main_code = integrand_f128_main_code.replace(form_factor_name + "({0})".format(','.join(call)), "form_factors[{0}]".format(form_factor_index))
-                                    integrand_mpfr_main_code = integrand_mpfr_main_code.replace(form_factor_name + "({0})".format(','.join(call)), "form_factors[{0}]".format(form_factor_index))
                                     fill_form_factor_body += "\t{0}".format(form_factor_name + "_f64" + "({0}".format(', '.join(call)) + ", &out[{0}]);\n".format(form_factor_index))
-                                    fill_form_factor_body_f128 += "\t{0}".format(form_factor_name + "_f128" + "({0}".format(', '.join(call)) + ", &out[{0}]);\n".format(form_factor_index))
-                                    fill_form_factor_body_mpfr += "\t{0}".format(form_factor_name + "_mpfr" + "({0}".format(', '.join(call)) + ", &out[{0}]);\n".format(form_factor_index))
                                     form_factor_index += 1
 
-                        
+                            form_factor_index = 0
+                            for form_factor_name, calls in form_factor_calls_f128.items():
+                                for call in calls:
+                                    integrand_f128_main_code = integrand_f128_main_code.replace(form_factor_name + "({0})".format(','.join(call)), "form_factors[{0}]".format(form_factor_index))
+                                    fill_form_factor_body_f128 += "\t{0}".format(form_factor_name + "_f128" + "({0}".format(', '.join(call)) + ", &out[{0}]);\n".format(form_factor_index))
+                                    form_factor_index += 1
+
+                            form_factor_index = 0 
+                            for form_factor_name, calls in form_factor_calls_mpfr.items():
+                                for call in calls:
+                                    integrand_mpfr_main_code = integrand_mpfr_main_code.replace(form_factor_name + "({0})".format(','.join(call)), "form_factors[{0}]".format(form_factor_index))
+                                    fill_form_factor_body_mpfr += "\t{0}".format(form_factor_name + "_mpfr" + "({0}".format(', '.join(call)) + ", &out[{0}]);\n".format(form_factor_index))
+                                    form_factor_index += 1       
+
+                            if form_factor_index == 0:
+                                form_factor_index = 1     
+
                         fill_lm_body = ""
                         out_idx = 0
                         for i1 in range(n_tot):
@@ -4299,7 +4333,7 @@ static inline void fill_lm(const T moms[], T out[]) {{
 {3}}}
 
 template<class T>
-static inline void fill_form_factors(const T lm[], T out[]) {{
+static inline void fill_form_factors(const T lm[], int prec, T out[]) {{
     {4}
 }}
 
@@ -4320,7 +4354,7 @@ void %(header)sevaluate_{0}_{1}_mpfr(complex128* moms, complex128* params, int c
             {3}mppp::complex{4} lm[{5}];
             {3}mppp::complex{4} form_factors[{11}];
             fill_lm<{3}mppp::complex{4}>(({3}mppp::complex{4}*)moms_arb, lm);
-            fill_form_factors<{3}mppp::complex{4}>(lm, form_factors);
+            fill_form_factors<{3}mppp::complex{4}>(lm, prec, form_factors);
             %(header)sevaluate_{1}_{2}_{0}_mpfr(lm, params_arb{10}, ({3}complex128{4}*)out, prec);
         }} return;
 """''.format(conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '', out_idx,

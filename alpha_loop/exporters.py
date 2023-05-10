@@ -1409,6 +1409,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             pjoin(self.dir_path, 'Source', 'MODEL', 'param_card.dat'))
 
         # Assign the name of the model to be qgraf name, as it is useful for deciding between SM and HEFT renormalisation
+        # Assign model name, such that we are able to find the model directory. 
         computed_model.set('name', self.model['name'])
 
         final_state_particle_ids = [
@@ -1533,8 +1534,8 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
     def build_qgraf_epem(self, representative_process):
         # Check if e+ e- > a/z > ...
-        check_initial_states = [leg.get('id') for leg in representative_process.get(
-            'legs') if leg.get('state') == False] == [-11, 11]
+        check_initial_states = all(l in [-11,11,22] for l in [leg.get('id') for leg in representative_process.get(
+            'legs') if leg.get('state') == False])
         # representative_process.get('required_s_channels') == [[22]]
         check_s_channel = True
         if not (check_initial_states and check_s_channel):
@@ -1573,6 +1574,24 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                     "Unsupported Coupling for QGRAF: %s" % sq_coupling)
         dict_replace['coupling_order'] = 'true=vsum[QCD_QED,{0},{0}];\n'.format(
             coupling_order_id)
+
+        # Set externals and enforce final states
+        dict_replace['incoming_states'] = 'in = '
+        dict_replace['outgoing_states'] = 'out = '
+        incoming_fields = []
+        pn = 1
+        for field in self.initial_states:
+            if field >= 0:
+                incoming_fields += [
+                    (self.qgraf_field_replace[self.model.get_particle(abs(field))['name']], 'p%d' % pn)]
+            else:
+                incoming_fields += [(self.qgraf_field_replace[self.model.get_particle(
+                    abs(field))['antiname']], 'p%d' % pn)]
+            pn += 1
+        dict_replace['incoming_states'] += ", ".join(
+            ["{}[{}]".format(*field) for field in incoming_fields])+";"
+        dict_replace['outgoing_states'] += ", ".join(
+            [("{}[{}]").format(*field) for field in incoming_fields])+";"
 
         # Ensure final state
         dict_replace['final_states'] = ''
@@ -1630,7 +1649,10 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         pdg_model_map = self.model['particles'].generate_dict()
 
         dict_replace = {}
-        dict_replace['n_loops'] = n_final_states - 1 + virtual_loops
+        dict_replace['n_loops'] = n_final_states - len(self.initial_states) + virtual_loops
+
+        if qgraf_template==self.qgraf_template_amp:
+            dict_replace['n_loops']+=1
 
         # # Veto particles that are forbidden
         # dict_replace['vetos'] = ''

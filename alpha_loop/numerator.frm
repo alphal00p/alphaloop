@@ -1309,12 +1309,13 @@ endargument;
     #$OFFSET = 0;
     #do i=1,`$MAXP'
         id penergy(p`i') = lm`$OFFSET';
-        argument energies, ellipsoids, constants, dot, FFS, FFT, FFU, APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;
+        argument energies, ellipsoids, constants, dot, FFS, FFT, FFU, FFSINV, FFTINV, FFUINV, APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;
             id penergy(p`i') = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
         #do j=`i',`$MAXP'
-            argument energies, ellipsoids, constants, dot, FFS, FFT, FFU, APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;
+            id p`i'.p`j'^-1 = lm`$OFFSET'^-1;
+            argument energies, ellipsoids, constants, dot, FFS, FFT, FFU, FFSINV, FFTINV, FFUINV, APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;
                 id p`i'.p`j' = lm`$OFFSET';
             endargument;
             #$OFFSET = $OFFSET + 1;
@@ -1325,6 +1326,9 @@ endargument;
             #$OFFSET = $OFFSET + 1;
         #enddo
     #enddo
+    id FFSINV(0,0,x?) = 1/2*x^-1;
+    id FFTINV(0,0,x?) = 1/2*x^-1;
+    id FFUINV(0,0,x?) = 1/2*x^-1;
 #else
     #$OFFSET = 0;
     #do i=1,`$MAXP'
