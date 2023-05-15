@@ -113,7 +113,8 @@ FORM_processing_options = {
         #   'MaxTermSize':'100K',
         #   'Workspace':'1G'
     },
-    'optimize_c_output_mode_per_pair_of_factors': 'flat'
+    'optimize_c_output_mode_per_pair_of_factors': 'flat',
+    'physical_transverse_spin_sum': False
 }
 
 dummy_scalar_PDGs = {
@@ -830,6 +831,7 @@ aGraph=%s;
                 ','.join(node['momenta']),
                 ','.join(str(i) for i in node['indices'])
             )
+
 
         for edge in self.edges.values():
             form_diag += '*\n prop({},{},{},{})'.format(
@@ -2300,7 +2302,7 @@ CTable ltdtopo(0:{});
                         if cc < len(cut['cuts'][:-1]):
                             # note the sign inversion
                             s += self.momenta_decomposition_to_string(
-                                ([0] * n_loops, cut['cuts'][cc]['signature'][1]), False, -cs, True)
+                                ([0] * n_loops, cut['cuts'][cc]['signature'][1]), True, -cs, True)
                 if s[0] == '+':
                     s = str(s[1:])
                 cmb_map.append(('k' + str(i + 1), s))
@@ -2521,6 +2523,10 @@ class FORMSuperGraphIsomorphicList(list):
                                 FORM_source_to_run)
 
         with open(pjoin(selected_workspace, 'input_%d.h' % i_graph), 'w') as f:
+            
+            if FORM_processing_options['physical_transverse_spin_sum']:
+                f.write('\n #define TRANSVERSESPINSUM \"1\"\n')
+
             (uv_map, uv_conf, uv_forest,
              conf) = characteristic_super_graph.configurations
             f.write('* Graph {}\n'.format(self[0].name))
@@ -3745,7 +3751,6 @@ const std::complex<double> I{ 0.0, 1.0 };
 
                         # TODO Remove when FORM will have fixed its C output bug
                         num = temporary_fix_FORM_output(num)
-
                         total_time += time.time()-time_before
                         num = num.replace('i_', 'I')
                         num = num.replace('\nZ', '\n\tZ')  # nicer indentation
@@ -3932,7 +3937,7 @@ const std::complex<double> I{ 0.0, 1.0 };
                             conf_sec = denom_pattern.sub(r'invd[\1]', energy_pattern.sub(
                                 r'E[\1]', lm_pattern.sub(r'lm[\1]', conf_sec)))
                             conf_sec = re.sub(
-                                r'(^|[+\-*=])(\s*\d+)($|[^.\d\w])', r'\1\2.\3', conf_sec)
+                                r'(^|[+\-*=\(])(\s*\d+)($|[^.\d\w])', r'\1\2.\3', conf_sec)
                             returnval = list(return_exp.finditer(conf_sec))[
                                 0].groups()[0]
                             returnval = re.sub(
@@ -4235,6 +4240,10 @@ const std::complex<double> I{ 0.0, 1.0 };
 
                             if form_factor_index == 0:
                                 form_factor_index = 1     
+                        
+
+                        #this is a bad temporary hack to get the FF x FF working. 
+                        integrand_main_code = integrand_main_code.replace("2*c1_0", "2.*c1_0")
 
                         fill_lm_body = ""
                         out_idx = 0

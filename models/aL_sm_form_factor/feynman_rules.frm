@@ -25,6 +25,7 @@
 #procedure SpinSum()
     
     repeat id prop(`PHO', in, p?, idx1?)*prop(`PHO', out, p?, idx2?) = 1;
+    repeat id prop(`PHO', in, p?, gaugevector(p?), idx1?)*prop(`PHO', out, p?, gaugevector(p?), idx2?) = 1;
     repeat id prop(`GLU', in, p?, idx1?)*prop(`GLU', out, p?, idx2?) = d_(colA[idx1], colA[idx2]);
     repeat id prop(`Z', in, p?, idx1?)*prop(`Z', out, p?, idx2?) = 1;
     repeat id prop(x?{`L'}, in, p?, idx1?)*prop(x?{`L',}, out, p?, idx2?) = 1;
@@ -40,6 +41,7 @@
     id prop(`GLU', virtual, p?, idx1?, idx2?) = - i_ * d_(colA[idx1], colA[idx2]);
     id prop(x?{`GHO',`GHOBAR'}, virtual, p?, idx1?, idx2?) = - i_ *d_(colA[idx1], colA[idx2]);
     id prop(`PHO', virtual, p?, idx1?, idx2?) = - i_;
+*    id prop(`PHO', virtual, p1?, p2?, idx1?, idx2?) = - i_;
     id prop(`Z', virtual, p?, idx1?, idx2?) = - i_;
     id prop(x?{`L'}, virtual, p?, idx1?, idx2?) = i_;
     id prop(x?{`LBAR'}, virtual, p?, idx1?, idx2?) = - i_;
@@ -60,6 +62,7 @@
 #procedure SEPropCouplings()
 
     repeat id prop(`PHO', in, p?, idx1?)*prop(`PHOPRIME', out, p?, idx2?) = 1;
+    repeat id prop(`PHO', in, p?, gaugevector(p?), idx1?)*prop(`PHOPRIME', out, p1?, gaugevector(p?), idx2?) = 1;
     repeat id prop(x1?{`QBARMASSIVEPRIME'}, in, p?, idx1?)*prop(x2?{`QBARMASSIVE'}, out, p?, idx2?) = d_(colF[idx1], colF[idx2]);
     repeat id prop(x1?{`QBARMASSIVE'}, in, p?, idx1?)*prop(x2?{`QBARMASSIVEPRIME'}, out, p?, idx2?) = d_(colF[idx1], colF[idx2]);
     repeat id prop(x1?{`QMASSIVEPRIME'}, in, p?, idx1?)*prop(x2?{`QMASSIVE'}, out, p?, idx2?) = d_(colF[idx2], colF[idx1]);
@@ -71,6 +74,7 @@
     id prop(`SDUMMY', in, p?, idx1?) = 1;
     id prop(`SDUMMY', out, p?, idx1?) = 1;
     id prop(`PHOPRIME', virtual, p?, idx1?, idx2?) = 1;
+*    id prop(`PHOPRIME', virtual, p?, n?, idx1?, idx2?) = 1;
     id prop(x?{`QMASSIVEPRIME'}, virtual, p?, idx1?, idx2?) = i_ * d_(colF[idx2], colF[idx1]);
     id prop(x?{`QBARMASSIVEPRIME'}, virtual, p?, idx1?, idx2?) = - i_ * d_(colF[idx1], colF[idx2]);
     id prop(x?{`GHOPRIME',`GHOPRIMEBAR'}, virtual, p?, idx1?, idx2?) = - i_ *d_(colA[idx1], colA[idx2]);
@@ -87,7 +91,9 @@
 #procedure AmpPropCouplings()
 
     repeat id prop(`PHO', in, p?, idx1?)*prop(`PHOAMPPRIME', out, p?, idx2?) = 1;
+    repeat id prop(`PHO', in, p?, gaugevector(p?), idx1?)*prop(`PHOAMPPRIME', out, p?, gaugevector(p?), idx2?) = 1;
     id prop(`PHOAMPPRIME', virtual, p?, idx1?, idx2?) = - i_;
+    id prop(`PHOAMPPRIME', virtual, p?, gaugevector(p?), idx1?, idx2?) = - i_;
 
 #endprocedure
 **************************************************
@@ -196,8 +202,14 @@
 
 * do the spin sum external particles
 #procedure SpinSumMomentum()
-
-    repeat id prop(`PHO', in, p?, idx1?)*prop(`PHO', out, p?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
+#ifndef `TRANSVERSESPINSUM'
+    id prop(`PHO', in, p?, idx1?)*prop(`PHO', out, p?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
+#else
+* transverse spin sum for photons and massless gauge vector n:
+    id prop(`PHO', in, p?, idx1?)*prop(`PHO', out, p?, idx2?) =- d_(lorentz[idx1], lorentz[idx2])
+     + invdotgauge(p)*( p(lorentz[idx1])*gaugevector(p, idx2) + gaugevector(p, idx1)*p(lorentz[idx2]))
+     - invdotgauge(p)^2*(p(lorentz[idx1])*p(lorentz[idx2]));
+#endif
     repeat id prop(`GLU', in, p?, idx1?)*prop(`GLU', out, p?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
     repeat id prop(`Z', in, p?, idx1?)*prop(`Z', out, p?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
     repeat id prop(x?{`L'}, in, p?, idx1?)*prop(x?{`L',}, out, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x)*gamma(dirac[idx1], dirac[idx2]);
@@ -205,6 +217,7 @@
     repeat id prop(x?{`Q'}, in, p?, idx1?)*prop(x?{`Q'}, out, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x)*gamma(dirac[idx1], dirac[idx2]);
     repeat id prop(x?{`LBAR'}, out, p?, idx1?)*prop(x?{`LBAR'}, in, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) - masses(x)*gamma(dirac[idx1], dirac[idx2]);
     repeat id prop(x?{`QBAR'}, out, p?, idx1?)*prop(x?{`QBAR'}, in, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) - masses(x)*gamma(dirac[idx1], dirac[idx2]);
+
 
 #endprocedure
 
@@ -226,6 +239,9 @@
     id prop(x?{`PSI'}, in, p?, idx1?) = 1;
     id prop(x?{`PSI'}, out, p?, idx1?) = 1;
 
+*   support for massless gauge vectors
+*    id prop(`PHO', virtual, p1?, p2?, idx1?, idx2?) = d_(lorentz[idx1], lorentz[idx2]) + invdot(p1.p2)*( p1(lorentz[idx1])*p2(lorentz[idx2]) + p2(lorentz[idx1])*p1(lorentz[idx2]));
+
 #endprocedure
 
 **************************************************
@@ -245,12 +261,11 @@
     id prop(`SDUMMY', virtual, p?, idx1?, idx2?) = 1;
     id prop(`SDUMMY', in, p?, idx1?) = 1;
     id prop(`SDUMMY', out, p?, idx1?) = 1;
-    id prop(`PHOPRIME', virtual, p?, idx1?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
+*    id prop(`PHOPRIME', virtual, p?, idx1?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
     id prop(x?{`QMASSIVEPRIME'}, virtual, p?, idx1?, idx2?) = gamma(dirac[idx2], p, dirac[idx1]) + masses(x) * gamma(dirac[idx2], dirac[idx1]);
     id prop(x?{`QBARMASSIVEPRIME'}, virtual, p?, idx1?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x) * gamma(dirac[idx1], dirac[idx2]);
     id prop(`GLUPRIME', virtual, p?, idx1?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
     id prop(x?{`GHOPRIME',`GHOPRIMEBAR'}, virtual, p?, idx1?, idx2?) = 1;
-
 #endprocedure
 **************************************************
 * END SE prop Lorentz Feynman rules
@@ -260,10 +275,21 @@
 * START amp prop Lorentz Feynman rules
 **************************************************
 #procedure AmpPropLorentzFeynmanRules()
-
+#ifndef `TRANSVERSESPINSUM'
     id prop(`PHOAMPPRIME', virtual, p?, idx1?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
-    repeat id prop(`PHO', in, p?, idx1?)*prop(`PHOAMPPRIME', out, p?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
+    id prop(`PHO', in, p?, idx1?)*prop(`PHOAMPPRIME', out, p?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
+#else
+* support for massless gauge vectors n:
+    id prop(`PHOAMPPRIME', virtual, p? idx1?, idx2?) = -d_(lorentz[idx1], lorentz[idx2]) 
+    + invdotgauge(p)*( p(lorentz[idx1])*gaugevector(p, idx2) + p(lorentz[idx2])*gaugevector(p, idx1))
+    - invdotgauge(p)^2*(p(lorentz[idx1])*p(lorentz[idx2]));
 
+    repeat id prop(`PHO', in, p?, idx1?)*prop(`PHOAMPPRIME', out, p?, gaugevector(p?), idx2?) 
+    = - d_(lorentz[idx1], lorentz[idx2])
+     + invdotgauge(p)*( p(lorentz[idx1])*gaugevector(p, idx2) + gaugevector(p, idx1)*p(lorentz[idx2]))
+     - invdotgauge(p)^2*(p(lorentz[idx1])*p(lorentz[idx2]));
+
+#endif
 #endprocedure
 **************************************************
 * END amp prop Lorentz Feynman rules
@@ -302,18 +328,15 @@
     id vx(x1?{`QBAR'}, `PHOAMPPRIME', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
     id vx(x1?{`LBAR'}, `PHOAMPPRIME', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
     id vx(`PHOAMPPRIME', `PHOAMPPRIME', `PHO', `PHO', p4?, p3?, p2?, p1?, idx4?, idx3?, idx2?, idx1?) = 
-    ( APHOAMPFFSTU(p1,p2,p3) ) * (d_(lorentz[idx1], lorentz[idx2]) - (2*FFS(p1, p2, p3)^-1)*p1(lorentz[idx2])*p2(lorentz[idx1])  ) * ( d_(lorentz[idx3], lorentz[idx4]) + (2*FFS(p1, p2, p3)^-1)*p1(lorentz[idx3])*p3(lorentz[idx4]) + (2*FFS(p1, p2, p3)^-1)*p2(lorentz[idx3])*p3(lorentz[idx4]) + (2*FFS(p1, p2, p3)^-1)*p3(lorentz[idx3])*p3(lorentz[idx4]))
-+ ( APHOAMPFFTSU(p1,p2,p3) ) * (d_(lorentz[idx3], lorentz[idx2]) - (2*FFT(p1, p2, p3)^-1)*p3(lorentz[idx2])*p2(lorentz[idx3])  ) * ( d_(lorentz[idx1], lorentz[idx4]) + (2*FFT(p1, p2, p3)^-1)*p3(lorentz[idx1])*p1(lorentz[idx4]) + (2*FFT(p1, p2, p3)^-1)*p2(lorentz[idx1])*p1(lorentz[idx4]) + (2*FFT(p1, p2, p3)^-1)*p1(lorentz[idx1])*p1(lorentz[idx4]))
-+ ( APHOAMPFFUST(p1,p2,p3) ) * (d_(lorentz[idx3], lorentz[idx1]) - (2*FFU(p1, p2, p3)^-1)*p3(lorentz[idx1])*p1(lorentz[idx3])  ) * ( d_(lorentz[idx2], lorentz[idx4]) + (2*FFU(p1, p2, p3)^-1)*p3(lorentz[idx2])*p2(lorentz[idx4]) + (2*FFU(p1, p2, p3)^-1)*p1(lorentz[idx2])*p2(lorentz[idx4]) + (2*FFU(p1, p2, p3)^-1)*p2(lorentz[idx2])*p2(lorentz[idx4]))
+    ( APHOAMPFFSTU(p1,p2,p3) ) * (d_(lorentz[idx1], lorentz[idx2]) - (2*FFS(p1, p2, p3)^-1)*p1(lorentz[idx2])*p2(lorentz[idx1])  ) * ( d_(lorentz[idx3], lorentz[idx4]) + (2*FFS(p1, p2, p3)^-1)*p1(lorentz[idx3])*p3(lorentz[idx4]) + (2*FFS(p1, p2, p3)^-1)*p2(lorentz[idx3])*p3(lorentz[idx4]))
++ ( APHOAMPFFTSU(p1,p2,p3) ) * (d_(lorentz[idx3], lorentz[idx2]) - (2*FFT(p1, p2, p3)^-1)*p3(lorentz[idx2])*p2(lorentz[idx3])  ) * ( d_(lorentz[idx1], lorentz[idx4]) + (2*FFT(p1, p2, p3)^-1)*p3(lorentz[idx1])*p1(lorentz[idx4]) + (2*FFT(p1, p2, p3)^-1)*p2(lorentz[idx1])*p1(lorentz[idx4]))
++ ( APHOAMPFFUST(p1,p2,p3) ) * (d_(lorentz[idx3], lorentz[idx1]) - (2*FFU(p1, p2, p3)^-1)*p3(lorentz[idx1])*p1(lorentz[idx3])  ) * ( d_(lorentz[idx2], lorentz[idx4]) + (2*FFU(p1, p2, p3)^-1)*p3(lorentz[idx2])*p2(lorentz[idx4]) + (2*FFU(p1, p2, p3)^-1)*p1(lorentz[idx2])*p2(lorentz[idx4]))
 + ( BPHOAMPFFSTU(p1,p2,p3) ) * (( - ( d_(lorentz[idx1], lorentz[idx2]) - (2*FFS(p1, p2, p3)^-1)*p1(lorentz[idx2])*p2(lorentz[idx1]) ) * ( p1(lorentz[idx3]) - (FFU(p1, p2, p3)*FFT(p1, p2, p3)^-1) * p2(lorentz[idx3]) ) * ( p2(lorentz[idx4]) - (FFU(p1, p2, p3)*FFS(p1, p2, p3)^-1) * p3(lorentz[idx4]) ) ) 
-+ (p3(lorentz[idx1]) - (FFU(p1, p2, p3)*FFS(p1, p2, p3)^-1) * p2(lorentz[idx1]) )* (p1(lorentz[idx2]) - (FFS(p1, p2, p3)*FFT(p1, p2, p3)^-1) * p3(lorentz[idx2])) * (d_(lorentz[idx3], lorentz[idx4]) + (2*FFT(p1, p2, p3)^-1) * p2(lorentz[idx3]) * p1(lorentz[idx4]) + (2*FFU(p1, p2, p3)^-1)*p1(lorentz[idx3]) * p2(lorentz[idx4]) 
-+ (2*FFS(p1, p2, p3)^-1) * (p1(lorentz[idx3]) + p2(lorentz[idx3]) + p3(lorentz[idx3])) * (p1(lorentz[idx4]) + p2(lorentz[idx4]) + p3(lorentz[idx4])) + p3(lorentz[idx3])*p3(lorentz[idx4])) ) 
++ (p3(lorentz[idx1]) - (FFU(p1, p2, p3)*FFS(p1, p2, p3)^-1) * p2(lorentz[idx1]) )* (p1(lorentz[idx2]) - (FFS(p1, p2, p3)*FFT(p1, p2, p3)^-1) * p3(lorentz[idx2])) * (d_(lorentz[idx3], lorentz[idx4]) + (2*FFT(p1, p2, p3)^-1) * p2(lorentz[idx3]) * p1(lorentz[idx4]) + (2*FFU(p1, p2, p3)^-1)*p1(lorentz[idx3]) * p2(lorentz[idx4]) )) 
 + ( BPHOAMPFFTSU(p1,p2,p3) ) * (( - ( d_(lorentz[idx3], lorentz[idx2]) - (2*FFT(p1, p2, p3)^-1)*p3(lorentz[idx2])*p2(lorentz[idx3]) ) * ( p3(lorentz[idx1]) - (FFU(p1, p2, p3)*FFS(p1, p2, p3)^-1) * p2(lorentz[idx1]) ) * ( p2(lorentz[idx4]) - (FFU(p1, p2, p3)*FFT(p1, p2, p3)^-1) * p1(lorentz[idx4]) ) ) 
-+ (p1(lorentz[idx3]) - (FFU(p1, p2, p3)*FFT(p1, p2, p3)^-1) * p2(lorentz[idx3]) )* (p3(lorentz[idx2]) - (FFT(p1, p2, p3)*FFS(p1, p2, p3)^-1) * p1(lorentz[idx2])) * (d_(lorentz[idx1], lorentz[idx4]) + (2*FFS(p1, p2, p3)^-1) * p2(lorentz[idx1]) * p3(lorentz[idx4]) + (2*FFU(p1, p2, p3)^-1)*p3(lorentz[idx1]) * p2(lorentz[idx4]) 
-+ (2*FFT(p1, p2, p3)^-1) * (p3(lorentz[idx1]) + p2(lorentz[idx1]) + p1(lorentz[idx1])) * (p3(lorentz[idx4]) + p2(lorentz[idx4]) + p1(lorentz[idx4])) + p1(lorentz[idx1])*p1(lorentz[idx4])) ) 
++ (p1(lorentz[idx3]) - (FFU(p1, p2, p3)*FFT(p1, p2, p3)^-1) * p2(lorentz[idx3]) )* (p3(lorentz[idx2]) - (FFT(p1, p2, p3)*FFS(p1, p2, p3)^-1) * p1(lorentz[idx2])) * (d_(lorentz[idx1], lorentz[idx4]) + (2*FFS(p1, p2, p3)^-1) * p2(lorentz[idx1]) * p3(lorentz[idx4]) + (2*FFU(p1, p2, p3)^-1)*p3(lorentz[idx1]) * p2(lorentz[idx4]) ))
 + ( BPHOAMPFFUST(p1,p2,p3) ) * (( - ( d_(lorentz[idx3], lorentz[idx1]) - (2*FFU(p1, p2, p3)^-1)*p3(lorentz[idx1])*p1(lorentz[idx3]) ) * ( p3(lorentz[idx2]) - (FFT(p1, p2, p3)*FFS(p1, p2, p3)^-1) * p1(lorentz[idx2]) ) * ( p1(lorentz[idx4]) - (FFT(p1, p2, p3)*FFU(p1, p2, p3)^-1) * p2(lorentz[idx4]) ) ) 
-+ (p2(lorentz[idx3]) - (FFT(p1, p2, p3)*FFU(p1, p2, p3)^-1) * p1(lorentz[idx3]) )* (p3(lorentz[idx1]) - (FFU(p1, p2, p3)*FFS(p1, p2, p3)^-1) * p2(lorentz[idx1])) * (d_(lorentz[idx2], lorentz[idx4]) + (2*FFS(p1, p2, p3)^-1) * p1(lorentz[idx2]) * p3(lorentz[idx4]) + (2*FFT(p1, p2, p3)^-1)*p3(lorentz[idx2]) * p1(lorentz[idx4]) 
-+ (2*FFU(p1, p2, p3)^-1) * (p3(lorentz[idx2]) + p1(lorentz[idx2]) + p2(lorentz[idx2])) * (p3(lorentz[idx4]) + p1(lorentz[idx4]) + p2(lorentz[idx4])) + p2(lorentz[idx2])*p2(lorentz[idx4])) ) 
++ (p2(lorentz[idx3]) - (FFT(p1, p2, p3)*FFU(p1, p2, p3)^-1) * p1(lorentz[idx3]) )* (p3(lorentz[idx1]) - (FFU(p1, p2, p3)*FFS(p1, p2, p3)^-1) * p2(lorentz[idx1])) * (d_(lorentz[idx2], lorentz[idx4]) + (2*FFS(p1, p2, p3)^-1) * p1(lorentz[idx2]) * p3(lorentz[idx4]) + (2*FFT(p1, p2, p3)^-1)*p3(lorentz[idx2]) * p1(lorentz[idx4]) ))
 + ( CPHOAMPFFSTU(p1,p2,p3)*FFS(p1, p2, p3)^-1*FFT(p1, p2, p3)^-1*FFT(p1, p2, p3)^-1*FFU(p1, p2, p3)^-1) * ( FFS(p1, p2, p3) * p3(lorentz[idx1]) - FFU(p1, p2, p3) * p2(lorentz[idx1]) ) * ( FFS(p1, p2, p3) * p3(lorentz[idx2]) - FFT(p1, p2, p3) * p1(lorentz[idx2]) ) * ( FFU(p1, p2, p3) * p2(lorentz[idx3]) - FFT(p1, p2, p3) * p1(lorentz[idx3]) ) * ( FFS(p1, p2, p3) * p2(lorentz[idx4]) - FFU(p1, p2, p3) * p3(lorentz[idx4]) ) ;
 #endprocedure
 **************************************************

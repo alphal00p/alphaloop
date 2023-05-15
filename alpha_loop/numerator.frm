@@ -33,6 +33,7 @@ CF dot, f, vx, vxs(s), uvx, vec, vec1;
 CF subs, configurations, conf, tder, cmb, cbtofmb, fmbtocb, diag, forestid, nloops, der, energy, spatial(s), onshell;
 CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, irtopo, intuv, integrateduv;
 CT gammatracetensor(c),opengammastring;
+CF gaugevector, invdot, invdotgauge;
 
 CF logmUVmu; * make it a function so that the optimizer makes sure it is only computed once
 S UVRenormFINITE, ICT, mUV, logmu, logmUV, logmt, z3, mi1L1, alarmMi1L1, gamma0;
@@ -232,6 +233,16 @@ endif;
 **************************************************
 * END amp vx Lorentz Feynman rules
 **************************************************
+
+* substitute the gauge vector
+id gaugevector(p?, idx?) = energyselector(lorentz[idx]);
+id invdotgauge(p?) = invdot(energyselector.p);
+
+*this can be used to simplify the FF x FF
+*id p1.p1 = 0;
+*id p2.p2 = 0;
+*id k1.k1 = 0;
+
 
 .sort:feynman-rules-edges;
 
@@ -806,6 +817,15 @@ id energyselector.p?spatialparts = 0;
 id p?.energyselector = penergy(p);
 id p1?spatialparts.p2?spatialparts = -p1.p2; * add a -1 to fix the metric
 id p1?spatialparts.p? = spatial(p1,p);
+
+argument invdot;
+    id energyselector.energyselector = 1;
+    id energyselector.p?spatialparts = 0;
+    id p?.energyselector = penergy(p);
+    id p1?spatialparts.p2?spatialparts = -p1.p2; * add a -1 to fix the metric
+    id p1?spatialparts.p? = spatial(p1,p);
+endargument;
+
 argument spatial;
     Multiply replace_(<ps1,p1>,...,<ps40,p40>,<cs1,c1>,...,<cs40,c40>);
 endargument;
@@ -1309,13 +1329,13 @@ endargument;
     #$OFFSET = 0;
     #do i=1,`$MAXP'
         id penergy(p`i') = lm`$OFFSET';
-        argument energies, ellipsoids, constants, dot, FFS, FFT, FFU, FFSINV, FFTINV, FFUINV, APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;
+        argument invdot, energies, ellipsoids, constants, dot, FFS, FFT, FFU, FFSINV, FFTINV, FFUINV, APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;
             id penergy(p`i') = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
         #do j=`i',`$MAXP'
             id p`i'.p`j'^-1 = lm`$OFFSET'^-1;
-            argument energies, ellipsoids, constants, dot, FFS, FFT, FFU, FFSINV, FFTINV, FFUINV, APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;
+            argument invdot, energies, ellipsoids, constants, dot, FFS, FFT, FFU, FFSINV, FFTINV, FFUINV, APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;
                 id p`i'.p`j' = lm`$OFFSET';
             endargument;
             #$OFFSET = $OFFSET + 1;
@@ -1350,7 +1370,7 @@ endargument;
         #enddo
     #enddo
 #endif
-
+id invdot(x?) = x^-1;
 .sort:conv-func;
 
 #do i1=1,`$MAXP'
