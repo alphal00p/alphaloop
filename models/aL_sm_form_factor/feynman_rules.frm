@@ -226,7 +226,13 @@
 
     id prop(`GLU', virtual, p?, idx1?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
     id prop(x?{`GHO',`GHOBAR'}, virtual, p?, idx1?, idx2?) = 1;
+#ifndef `TRANSVERSESPINSUM'
     id prop(`PHO', virtual, p?, idx1?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
+#else 
+    id prop(`PHO', virtual, p?, idx1?, idx2?) = - d_(lorentz[idx1], lorentz[idx2])
+     + invdotgauge(p)*( p(lorentz[idx1])*gaugevector(p, idx2) + gaugevector(p, idx1)*p(lorentz[idx2]))
+     - invdotgauge(p)^2*(p(lorentz[idx1])*p(lorentz[idx2]));
+#endif
     id prop(`Z', virtual, p?, idx1?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
     id prop(x?{`L'}, virtual, p?, idx1?, idx2?) = gamma(dirac[idx2], p, dirac[idx1]) + masses(x) * gamma(dirac[idx2], dirac[idx1]);
     id prop(x?{`LBAR'}, virtual, p?, idx1?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x) * gamma(dirac[idx1], dirac[idx2]);
@@ -284,7 +290,12 @@
     + invdotgauge(p)*( p(lorentz[idx1])*gaugevector(p, idx2) + p(lorentz[idx2])*gaugevector(p, idx1))
     - invdotgauge(p)^2*(p(lorentz[idx1])*p(lorentz[idx2]));
 
-    repeat id prop(`PHO', in, p?, idx1?)*prop(`PHOAMPPRIME', out, p?, gaugevector(p?), idx2?) 
+    repeat id prop(`PHO', in, p?, idx1?)*prop(`PHOAMPPRIME', out, p?, idx2?) 
+    = - d_(lorentz[idx1], lorentz[idx2])
+     + invdotgauge(p)*( p(lorentz[idx1])*gaugevector(p, idx2) + gaugevector(p, idx1)*p(lorentz[idx2]))
+     - invdotgauge(p)^2*(p(lorentz[idx1])*p(lorentz[idx2]));
+
+     repeat id prop(`PHOAMPPRIME', in, p?, idx1?)*prop(`PHOAMPPRIME', out, p?, idx2?) 
     = - d_(lorentz[idx1], lorentz[idx2])
      + invdotgauge(p)*( p(lorentz[idx1])*gaugevector(p, idx2) + gaugevector(p, idx1)*p(lorentz[idx2]))
      - invdotgauge(p)^2*(p(lorentz[idx1])*p(lorentz[idx2]));
