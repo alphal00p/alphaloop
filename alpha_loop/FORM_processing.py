@@ -3937,7 +3937,7 @@ const std::complex<double> I{ 0.0, 1.0 };
                             conf_sec = denom_pattern.sub(r'invd[\1]', energy_pattern.sub(
                                 r'E[\1]', lm_pattern.sub(r'lm[\1]', conf_sec)))
                             conf_sec = re.sub(
-                                r'(^|[+\-*=\(])(\s*\d+)($|[^.\d\w])', r'\1\2.\3', conf_sec)
+                                r'(^|[+\-*=])(\s*\d+)($|[^.\d\w])', r'\1\2.\3', conf_sec)
                             returnval = list(return_exp.finditer(conf_sec))[
                                 0].groups()[0]
                             returnval = re.sub(
