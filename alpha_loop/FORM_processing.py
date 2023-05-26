@@ -4243,7 +4243,7 @@ const std::complex<double> I{ 0.0, 1.0 };
                         
 
                         #this is a bad temporary hack to get the FF x FF working. 
-                        integrand_main_code = integrand_main_code.replace("2*c1_0", "2.*c1_0")
+                        #integrand_main_code = integrand_main_code.replace("2*c1_0", "2.*c1_0")
 
                         fill_lm_body = ""
                         out_idx = 0

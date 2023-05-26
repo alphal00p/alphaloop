@@ -33,7 +33,7 @@ CF dot, f, vx, vxs(s), uvx, vec, vec1;
 CF subs, configurations, conf, tder, cmb, cbtofmb, fmbtocb, diag, forestid, nloops, der, energy, spatial(s), onshell;
 CF subgraph, uvconf, uvconf1, uvconf2, uvprop, uv, uvtopo, irtopo, intuv, integrateduv;
 CT gammatracetensor(c),opengammastring;
-CF gaugevector, invdot, invdotgauge;
+CF gaugevector, invdot, invdotgauge, ffguard;
 
 CF logmUVmu; * make it a function so that the optimizer makes sure it is only computed once
 S UVRenormFINITE, ICT, mUV, logmu, logmUV, logmt, z3, mi1L1, alarmMi1L1, gamma0;
@@ -818,13 +818,15 @@ id p?.energyselector = penergy(p);
 id p1?spatialparts.p2?spatialparts = -p1.p2; * add a -1 to fix the metric
 id p1?spatialparts.p? = spatial(p1,p);
 
-argument invdot;
+argument APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;
     id energyselector.energyselector = 1;
     id energyselector.p?spatialparts = 0;
     id p?.energyselector = penergy(p);
     id p1?spatialparts.p2?spatialparts = -p1.p2; * add a -1 to fix the metric
     id p1?spatialparts.p? = spatial(p1,p);
 endargument;
+
+*id invdot(x?) * x? = 1;
 
 argument spatial;
     Multiply replace_(<ps1,p1>,...,<ps40,p40>,<cs1,c1>,...,<cs40,c40>);
