@@ -946,6 +946,7 @@ aGraph=%s;
         # Count the powers beyond 1 inside the LMB
         raised_powers_in_LMB = 0
 
+        photon_count = 0
         edge_weights = []
         for edge_key in sorted(self.edges.keys()):
             particle = model.get_particle(abs(self.edges[edge_key]['PDG']))
@@ -965,6 +966,10 @@ aGraph=%s;
 
             if self.edges[edge_key]['name'] in lmb_edge_names:
                 raised_powers_in_LMB += edge_name_to_power[self.edges[edge_key]['name']]-1
+
+                # this forces a photon to be in the lmb for lbl  
+                if self.edges[edge_key]['PDG'] == 22:
+                    photon_count +=1
 
         node_weights = []
         for node_key in sorted(self.nodes.keys()):
@@ -1017,6 +1022,7 @@ aGraph=%s;
             raise FormProcessingError(
                 "Function complexity_score_lmb only supports the combination rules 'product' and 'sum_squared' in the options.")
 
+        final_score = (photon_count,) + final_score
         return final_score
 
     def score_lmb(self, *args):
@@ -4241,10 +4247,6 @@ const std::complex<double> I{ 0.0, 1.0 };
                             if form_factor_index == 0:
                                 form_factor_index = 1     
                         
-
-                        #this is a bad temporary hack to get the FF x FF working. 
-                        #integrand_main_code = integrand_main_code.replace("2*c1_0", "2.*c1_0")
-
                         fill_lm_body = ""
                         out_idx = 0
                         for i1 in range(n_tot):
