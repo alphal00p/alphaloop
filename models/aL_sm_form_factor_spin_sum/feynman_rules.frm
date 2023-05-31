@@ -337,6 +337,8 @@
 #procedure AmpVxLorentzFeynmanRules()
     id vx(x1?{`QBAR'}, `PHOAMPPRIME', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
     id vx(x1?{`LBAR'}, `PHOAMPPRIME', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
+
+#ifndef `MULPHASE'
     id vx(`PHOAMPPRIME', `PHOAMPPRIME', `PHO', `PHO', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = 
 
     CPHOAMPFFSTU(energyselector.p1, energyselector.p2, energyselector.p3, p1.p2, p1.p3, p2.p3) 
@@ -524,7 +526,10 @@
         id ffguard(x?) = x;
         if (count(ffguard,1)) redefine i "0";
     .sort
-#enddo
+    #enddo
+    #else 
+    id vx(`PHOAMPPRIME', `PHOAMPPRIME', `PHO', `PHO', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = d_(lorentz[idx1], lorentz[idx2])* d_(lorentz[idx3], lorentz[idx4]);
+    #endif
 
 #endprocedure
 **************************************************

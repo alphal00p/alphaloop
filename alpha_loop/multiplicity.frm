@@ -1,8 +1,10 @@
 #-
-Off statistics;
+On statistics;
 CF dotp, myv;
 
-#include numerator.frm # setup
+#define MULPHASE "1"
+
+#include numerator.frm # setup 
 
 * Load the diagrams
 #include iso_check_`SGID'.frm
@@ -20,8 +22,6 @@ L F = F1 + x * (F2+...+F`NUMD');
 #ifdef `FORMFACTORS'
 #call MultiplictyPatch()
 #endif
-
-* path form factors
 
 B+ x;
 .sort
@@ -54,6 +54,7 @@ L isoF =
 		sF2*1/sF1;
 	#endif
 id 1/rat(x1?,x2?) = rat(x2,x1);
+print +s isoF;
 .sort
 drop sF1, sF2;
 
