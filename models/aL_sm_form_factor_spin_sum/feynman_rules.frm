@@ -338,6 +338,10 @@
     id vx(x1?{`QBAR'}, `PHOAMPPRIME', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
     id vx(x1?{`LBAR'}, `PHOAMPPRIME', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
 
+    Print +s;
+    B+ vx;
+    .sort:amp-start;
+    Keep brackets;
 #ifndef `MULPHASE'
     id vx(`PHOAMPPRIME', `PHOAMPPRIME', `PHO', `PHO', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = 
 
@@ -522,15 +526,27 @@
     energyselector.p2*energyselector.p4*2*p1.p3*energyselector(lorentz[idx2])*p4(lorentz[idx4]) - 2*energyselector.p2*energyselector.p4^2*p2(lorentz[idx2])*p4(lorentz[idx4]) + 
     energyselector.p4*2*p1.p3*p2(lorentz[idx2])*p4(lorentz[idx4]) + 2*energyselector.p2^2*energyselector.p4*p4(lorentz[idx2])*p4(lorentz[idx4]));
 
-     #do i=1,1
-        id ffguard(x?) = x;
+    #do i=1,1
+        id once ffguard(x?) = x;
+        id energyselector.energyselector = 1;
+        id energyselector.p?spatialparts = 0;
+        id p1?spatialparts.p2?spatialparts = -p1.p2; * add a -1 to fix the metric
+
+        argument APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;
+            id energyselector.energyselector = 1;
+            id energyselector.p?spatialparts = 0;
+            id p1?spatialparts.p2?spatialparts = -p1.p2; * add a -1 to fix the metric
+        endargument;
+
         if (count(ffguard,1)) redefine i "0";
-    .sort
+
+        B+ ffguard;
+        .sort:round-`i';
+        Keep brackets;
     #enddo
     #else 
     id vx(`PHOAMPPRIME', `PHOAMPPRIME', `PHO', `PHO', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = d_(lorentz[idx1], lorentz[idx2])* d_(lorentz[idx3], lorentz[idx4]);
     #endif
-
 #endprocedure
 **************************************************
 * END amp vx Lorentz Feynman rules

@@ -614,9 +614,10 @@ repeat id subgraph(?a,p?) = subgraph(?a);
     id opengammastring(?a) = gamma(?a);
     repeat id gamma(s1?,?a,k1?,?b,s2?)*counter(n?) = gamma(s1,?a,n,?b,s2)*vec(k1,n)*counter(n + 1);
 
+*    id cten(mu1?, mu2?, mu3?, mu4?) = ctenfunc(mu1, mu2, mu3, mu4); * do I need to the other line as well?
     id e_(mu1?, mu2?, mu3?, mu4?) = levicivita(mu1, mu2, mu3, mu4); * the reverse substitution is delayed until after the call to IntegrateUV()
     repeat id levicivita(?a, k1?, ?b)*counter(n?) = levicivita(?a,n,?b)*vec(k1,n)*counter(n+1);
-
+*    repeat id ctenfunc(?a, k1?, ?b)*counter(n?) = ctenfunc(?a,n,?b)*vec(k1,n)*counter(n+1);
     repeat id k1?(mu?)*counter(n?) = vec(k1,n)*vec1(mu,n)*counter(n + 1);
 
 * convert every k^0 into k.p0select, where p0select is effectively (1,0,0,0)
@@ -735,7 +736,11 @@ AB+ cmb,energy,diag,fmbtocb;
 .sort:energy-splitoff-1;
 Keep brackets;
 #do i=1,`NFINALMOMENTA'
-    Multiply replace_(fmb`i', fmb`i'*xorig + xsplit*energy(fmb`i')*energyselector - xsplit*fmbs`i');
+    #if (`INTEGRAND' == "LTD") || (`INTEGRAND' == "both")
+        Multiply replace_(fmb`i', fmb`i'*xorig + xsplit*energy(fmb`i')*energyselector - xsplit*fmbs`i');
+    #else
+        Multiply replace_(fmb`i', energy(fmb`i')*energyselector - fmbs`i');
+    #endif
     id xorig * xsplit = 0;
 #enddo
 id energyselector.energyselector = 1;
@@ -818,6 +823,7 @@ id p?.energyselector = penergy(p);
 id p1?spatialparts.p2?spatialparts = -p1.p2; * add a -1 to fix the metric
 id p1?spatialparts.p? = spatial(p1,p);
 
+#ifdef `FORMFACTORS'
 argument APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;
     id energyselector.energyselector = 1;
     id energyselector.p?spatialparts = 0;
@@ -825,6 +831,7 @@ argument APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, B
     id p1?spatialparts.p2?spatialparts = -p1.p2; * add a -1 to fix the metric
     id p1?spatialparts.p? = spatial(p1,p);
 endargument;
+#endif
 
 *id invdot(x?) * x? = 1;
 
@@ -1298,6 +1305,8 @@ id energies(p?) = penergy(p);
 #do i= 1,`$MAXK'
     #$OFFSET = $OFFSET + 1;
     repeat id e_(p1?,p2?,p3?,cs`i') = penergy(p`$OFFSET')*e_(p1,p2,p3,energyselector) - e_(p1,p2,p3,p`$OFFSET');
+****maybe I should do this:
+*    repeat id cten(p1?, p2?, p3?, cs`i') = penergy(p`$OFFSET')*cten(p1,p2,p3,energyselector) - cten(p1,p2,p3,p`$OFFSET');
     multiply replace_(c`i', p`$OFFSET');
 #enddo
 #$MAXP = $MAXP + $MAXK;
@@ -1331,13 +1340,13 @@ endargument;
     #$OFFSET = 0;
     #do i=1,`$MAXP'
         id penergy(p`i') = lm`$OFFSET';
-        argument invdot, energies, ellipsoids, constants, dot, FFS, FFT, FFU, FFSINV, FFTINV, FFUINV, APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;
+        argument invdot, energies, ellipsoids, constants, dot, APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;
             id penergy(p`i') = lm`$OFFSET';
         endargument;
         #$OFFSET = $OFFSET + 1;
         #do j=`i',`$MAXP'
             id p`i'.p`j'^-1 = lm`$OFFSET'^-1;
-            argument invdot, energies, ellipsoids, constants, dot, FFS, FFT, FFU, FFSINV, FFTINV, FFUINV, APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;
+            argument invdot, energies, ellipsoids, constants, APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;
                 id p`i'.p`j' = lm`$OFFSET';
             endargument;
             #$OFFSET = $OFFSET + 1;
@@ -1348,9 +1357,6 @@ endargument;
             #$OFFSET = $OFFSET + 1;
         #enddo
     #enddo
-    id FFSINV(0,0,x?) = 1/2*x^-1;
-    id FFTINV(0,0,x?) = 1/2*x^-1;
-    id FFUINV(0,0,x?) = 1/2*x^-1;
 #else
     #$OFFSET = 0;
     #do i=1,`$MAXP'
@@ -1387,6 +1393,17 @@ id invdot(x?) = x^-1;
         #enddo
     #enddo
 #enddo
+
+*#do i1=1,`$MAXP'
+*    #do i2=1,`$MAXP'
+*        #do i3=1,`$MAXP'
+*            #do i4=1,`$MAXP'
+*                id cten(p`i1',p`i2',p`i3',p`i4') = lm`$OFFSET';
+*                #$OFFSET = $OFFSET + 1;
+*            #enddo
+*        #enddo
+*    #enddo
+*#enddo
 
 #$OFFSET = 0;
 #do i=1,`$MAXP'
