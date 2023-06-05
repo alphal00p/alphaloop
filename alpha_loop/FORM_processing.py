@@ -4607,9 +4607,6 @@ return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
             formatted_dependencies = [d.replace('.cpp', '.o').replace(
                 '.c', '.o') for d in dependencies]
 
-            if os.path.exists(pjoin(root_output_path, 'form_factors.a')):
-                formatted_dependencies.append('form_factors.a')
-
             repl_dict['all_sg_file_names'].append(
                 '$(LIBBPATH)/libFORM_sg_%d.so' % SG_id)
             if FORM_processing_options['max_n_files_in_library'] is None or FORM_processing_options['max_n_files_in_library'] <= 0 or FORM_processing_options['max_n_files_in_library'] > len(formatted_dependencies):
@@ -4662,6 +4659,9 @@ return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
                         'lib_deps': ' '.join('$(LIBBPATH)/lib%s.so' % l for l in libs_used_overall),
                         'lib_links': ' '.join('-l%s' % l for l in libs_used_overall)+(' 'if len(libs_used_overall) > 1 else '')
                     })
+
+            if os.path.exists(pjoin(root_output_path, 'form_factors.a')):
+                formatted_dependencies.append('form_factors.a')
 
         repl_dict['all_sg_file_names'] = ' '.join(
             repl_dict['all_sg_file_names'])
