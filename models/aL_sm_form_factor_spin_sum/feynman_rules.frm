@@ -336,8 +336,8 @@
 
 #procedure AmpVxLorentzFeynmanRules()
 *   flip the arguments if it is needed.
-    Set ffvecs:p1, p2, k1, k2, k3 ,k4;
-    id vx(`PHOAMPPRIME', `PHOAMPPRIME', `PHO', `PHO', p1?, p2?, p3?!ffvecs, p4?, idx1?, idx2?, idx3?, idx4?) =  vx(`PHOAMPPRIME', `PHOAMPPRIME', `PHO', `PHO', p1?, p2?, p4?, p3?, idx1?, idx2?, idx4?, idx3?); 
+    id vx(`PHOAMPPRIME', `PHOAMPPRIME', `PHO', `PHO', p1?, p2?, p3?, p4?vector_, idx1?, idx2?, idx3?, idx4?) =  vx(`PHOAMPPRIME', `PHOAMPPRIME', `PHO', `PHO', p1, p2, p4, p3, idx1, idx2, idx4, idx3);
+    id vx(`PHOAMPPRIME', `PHOAMPPRIME', `PHO', `PHO', p1?, p2?, p3?, -p4?vector_, idx1?, idx2?, idx3?, idx4?) =  vx(`PHOAMPPRIME', `PHOAMPPRIME', `PHO', `PHO', p1, p2, -p4, p3, idx1, idx2, idx4, idx3);
 
     id vx(x1?{`QBAR'}, `PHOAMPPRIME', x2?{`Q'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
     id vx(x1?{`LBAR'}, `PHOAMPPRIME', x2?{`L'}, p1?, p2?, p3?, idx1?, idx2?, idx3?) = gamma(dirac[idx1], lorentz[idx2], dirac[idx3]);
