@@ -29,6 +29,15 @@ CFLAGSFMPR=-Wconversion -fPIC -O$(OPTIMIZATION_LVL_f128) -fcx-fortran-rules -fcx
 
 include makefile_targets.inc
 
+form_factors_f64.o: form_factors_f64.cpp 
+	$(GPP) -c $(CFLAGS) $< -o $@ 
+
+form_factors_f128.o: form_factors_f128.cpp 
+	$(GPP) -c $(CFLAGSf128) $< -o $@ 
+
+form_factors_mpfr.o: form_factors_mpfr.cpp 
+	$(GPP) -c $(CFLAGSFMPR) $< -o $@ 
+
 %_f64.o: %_f64.c
 	$(GPP) -c $(CFLAGS) $< -o $@
 
