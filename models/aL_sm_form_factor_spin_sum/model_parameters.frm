@@ -214,3 +214,6 @@ Fill charges(-4) = -2/3; * c
 Fill charges(-5) = 1/3; * b
 Fill charges(-6) = -2/3; * t
 Fill charges(-11) = 1; * e
+
+
+Set ffvecs:p1, p2, k1, k2, k3 ,k4,-p1, -p2, -k1, -k2, -k3, -k4;    

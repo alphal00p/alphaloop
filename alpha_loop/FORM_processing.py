@@ -3296,8 +3296,13 @@ class FORMSuperGraphList(list):
 
             form_factor_dir = pjoin(plugin_path, '..', 'models', model_dir, 'form_factors')
             if os.path.exists(form_factor_dir): 
-                shutil.copy(pjoin(form_factor_dir, 'form_factors.h'), pjoin(selected_workspace, '..', 'form_factors.h'))
-                shutil.copy(pjoin(form_factor_dir, 'form_factors.a'), pjoin(selected_workspace, '..', 'form_factors.a'))
+                #shutil.copy(pjoin(form_factor_dir, 'form_factors.h'), pjoin(selected_workspace, '..', 'form_factors.h'))
+                #shutil.copy(pjoin(form_factor_dir, 'form_factors.cpp'), pjoin(selected_workspace, '..', 'form_factors.cpp'))
+                extra_files = open(pjoin(form_factor_dir, 'extra_files'), 'r')
+                extra_files_lines = extra_files.readlines()
+
+                for line in extra_files_lines:
+                    shutil.copy(pjoin(form_factor_dir, line.strip()), pjoin(selected_workspace, '..', line.strip()))
 
             
             if FORM_processing_options["cores"] == 1:
@@ -3644,9 +3649,9 @@ const std::complex<double> I{ 0.0, 1.0 };
 
 """
         # add the user specified form factors header if it exists
-        form_factors_header_path = pjoin(root_output_path, 'form_factors.h')
+        form_factors_header_path = pjoin(root_output_path, 'form_factors_f64.h')
         if os.path.exists(form_factors_header_path):
-            numerator_header_general = """\n#include "form_factors.h" """ + numerator_header_general
+            numerator_header_general = """\n#include "form_factors_f64.h"\n#include "form_factors_f128.h" """ + numerator_header_general
             form_factors_header = open(form_factors_header_path)
 
         var_pattern = re.compile(r'Z\d*_')
@@ -4180,6 +4185,7 @@ const std::complex<double> I{ 0.0, 1.0 };
                                 file_contents = header_file.read()
                                 # Use regular expressions to find function definitions
                                 pattern = r"(?<=\n)(?:[a-zA-Z0-9_]+\s)+([a-zA-Z0-9_]+)\((.*?)\);"
+                                
                                 matches = re.findall(pattern, file_contents)
                                 # Add the function names to the list
                                 for match in matches:
@@ -4595,6 +4601,9 @@ return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
         for SG_id in sorted(SG_ids):
 
             dependencies = []
+            if os.path.exists(pjoin(root_output_path, 'form_factors_f64.cpp')): 
+                dependencies.append('form_factors_f64.cpp')
+                dependencies.append('form_factors_f128.cpp')
             for code_type in ['PF', 'LTD',]:
                 all_matches = list(glob_module.glob(pjoin(root_output_path, 'integrand_%s_%d_*.c' % (code_type, SG_id))))+list(
                     glob_module.glob(pjoin(root_output_path, 'integrand_%s_%d_*.cpp' % (code_type, SG_id))))

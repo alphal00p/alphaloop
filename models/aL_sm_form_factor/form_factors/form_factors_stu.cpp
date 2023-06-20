@@ -18,6 +18,8 @@ complex<double> top_Q8_f64(16.0 / 81.0, 0);
 complex128 top_Q8_f128(16.0 / 81.0, 0);
 mppp::complex top_Q8_mpfr(16.0 / 81.0, 0);
 
+double FORM_FACTOR_PHASE = 1.0;
+
 complex<double> zero_f64(0.0, 0.0);
 double scale = 1000.0;
 int zero = 0;

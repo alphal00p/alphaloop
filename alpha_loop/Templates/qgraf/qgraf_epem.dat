@@ -3,8 +3,11 @@ output = 'output.py';
 style = './orientedGraphPython.sty';
 model = './model.dat';
 
-in = eplus[p1], eminus[p2]; 
-out = eplus[p1], eminus[p2];
+* incoming states
+%(incoming_states)s
+
+* outgoing states
+%(outgoing_states)s
 
 loops = %(n_loops)s;
 loop_momentum = k;

@@ -26,6 +26,23 @@ function_dict = {
     "d02ts": "OLO_D0cc(&rslt, &zero_f64, &zero_f64, &zero_f64, &zero_f64, &t_f64, &s_f64, &M2_f64, &M2_f64, &M2_f64, &M2_f64)"
 }
 
+function_dict_massless = {
+    "a02": "OLO_A0c(&rslt, &zero_f64)", 
+    "b02s": "OLO_B0cc(&rslt, &s_f64, &zero_f64, &zero_f64)",
+    "b02t": "OLO_B0cc(&rslt, &t_f64, &zero_f64, &zero_f64)",
+    "b02u": "OLO_B0cc(&rslt, &u_f64, &zero_f64, &zero_f64)",
+    "c02s": "OLO_C0cc(&rslt, &zero_f64, &zero_f64, &s_f64, &zero_f64, &zero_f64, &zero_f64)",
+    "c02t": "OLO_C0cc(&rslt, &zero_f64, &zero_f64, &t_f64, &zero_f64, &zero_f64, &zero_f64)",
+    "c02u": "OLO_C0cc(&rslt, &zero_f64, &zero_f64, &u_f64, &zero_f64, &zero_f64, &zero_f64)",
+    "b020": "OLO_B0cc(&rslt, &zero_f64, &zero_f64, &zero_f64)",
+    "d02su": "OLO_D0cc(&rslt, &zero_f64, &zero_f64, &zero_f64, &zero_f64, &s_f64, &u_f64, &zero_f64, &zero_f64, &zero_f64, &zero_f64)",
+    "d02st": "OLO_D0cc(&rslt, &zero_f64, &zero_f64, &zero_f64, &zero_f64, &s_f64, &t_f64, &zero_f64, &zero_f64, &zero_f64, &zero_f64)",
+    "d02tu": "OLO_D0cc(&rslt, &zero_f64, &zero_f64, &zero_f64, &zero_f64, &t_f64, &u_f64, &zero_f64, &zero_f64, &zero_f64, &zero_f64)",
+    "d02us": "OLO_D0cc(&rslt, &zero_f64, &zero_f64, &zero_f64, &zero_f64, &u_f64, &s_f64, &zero_f64, &zero_f64, &zero_f64, &zero_f64)",
+    "d02ut": "OLO_D0cc(&rslt, &zero_f64, &zero_f64, &zero_f64, &zero_f64, &u_f64, &t_f64, &zero_f64, &zero_f64, &zero_f64, &zero_f64)",
+    "d02ts": "OLO_D0cc(&rslt, &zero_f64, &zero_f64, &zero_f64, &zero_f64, &t_f64, &s_f64, &zero_f64, &zero_f64, &zero_f64, &zero_f64)"
+}
+
 scaling_dict = {
     "a02": "1.0 / (M_f64 * M_f64)", 
     "b02s": "1.0",
@@ -104,11 +121,6 @@ for i in range(len(file_names)):
 
         main_code += "\n"
 
-        #main_code += "\n\t FFS_{0}(p1_p1, p2_p2, p1_p2, &s);".format(float_type[1])
-        #main_code += "\n\t FFT_{0}(p2_p2, p3_p3, p2_p3, &t);".format(float_type[1])
-        #main_code += "\n\t FFU_{0}(p1_p1, p3_p3, p1_p3, &u);".format(float_type[1])
-        #main_code += "\n cout << \"value of t in c: \" << t << endl;"
-        #main_code += "\n cout << \"value of u in c: \" << u << endl;"
         main_code += "\n\t s = 2.0*p1_p2;"
         main_code += "\n\t t = 2.0*p2_p3;"
         main_code += "\n\t u = 2.0*p1_p3;"
@@ -120,7 +132,6 @@ for i in range(len(file_names)):
         main_code += "\n\t u_f64 = (complex<double>)u;"
 
         main_code += "\n\t OLO_SCALE(&scale);"
-        #main_code += "\n\t OLO_UNIT(&zero);"
 
         main_code += "\n"
 
@@ -133,12 +144,8 @@ for i in range(len(file_names)):
         main_code += "\n\t complex<double> rslt[3];" 
         for function in one_loop_functions:
             if function in proto_c:
-                #main_code += "\n\t cout << " + "\"" + function + "\"" + " << endl;"cd
-                #main_code += "\n\t" + "complex<double>" + " " + function + "_res"+ "[3];"
                 main_code += "\n\t" + function_dict[function].replace("type", float_type[1]) + ";"
-                #main_code += "\n\t" + float_type[0] + " " + function + " = ({0}){1}".format(float_type[0], "rslt[0];")
                 main_code += "\n\t" + float_type[0] + " " + function + " = ({0}){1}".format(float_type[0], "rslt[0]*{0};".format(scaling_dict[function]))
-                #main_code += "\n\t" + float_type[0] + " " + function + " = M_{0};".format(float_type[1])
                 main_code += "\n"
 
         main_code += "\n\t" + float_type[0] + " " + file_name + ";"
@@ -146,10 +153,10 @@ for i in range(len(file_names)):
         main_code += "\n\t" + proto_c
 
         main_code += "*out =  " + "2.0*3.0*top_Q8_{0}/(M_{0}*M_{0}*M_{0}*M_{0}*M_PI*M_PI) * ".format(float_type[1]) + file_name + "/" + common_denominators[i] + ";"
-        if float_type[1] != "f64":
-            main_code += "*out = (*out).conj();"
+        #if float_type[1] == "f64":
+        #    main_code += "*out = 0.5*(*out + conj(*out));"
         #else:
-            main_code += "\n*out = (*out).conj();"
+        #    main_code += "\n*out = 0.5*(*out + (*out).conj());"
         main_code += "\n}\n"    
         main_code = main_code.replace("MT", "M_{0}".format(float_type[1]))
 

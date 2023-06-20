@@ -348,7 +348,7 @@
 #ifndef `MULPHASE'
     id vx(`PHOAMPPRIME', `PHOAMPPRIME', `PHO', `PHO', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = 
 
-    CPHOAMPFFSTU(energyselector.p1, energyselector.p2, energyselector.p3, p1.p2, p1.p3, p2.p3) 
+    CPHOAMPFFSTU(energyselector.p1, energyselector.p2, energyselector.p3, p1.p2, p1.p3, p2.p3)
     *ffguard(- energyselector.p1 * p2.p3 * p2(lorentz[idx2]) + energyselector.p2 * p2.p3 * p1(lorentz[idx2])
     - energyselector.p2 * p1.p2 * p3(lorentz[idx2]) + energyselector.p3 * p1.p2 * p2(lorentz[idx2]))
 

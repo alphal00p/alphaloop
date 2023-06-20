@@ -6,7 +6,6 @@ On nospacesinnumbers;
 *--#[ setup :
 
 *import the model parameters, model_parameters.frm should be located in the model directory 
-#include model_parameters.frm
 
 S D, ep(:{`MAXPOLE'+`SELECTEDEPSILONORDER'});
 V energyselector,p1,...,p40,ps1,...,ps40,k1,...,k40,c1,...,c40,cs1,...,cs40,fmb1,...,fmb40,fmbs1,...,fmbs40; * force this internal ordering in FORM
@@ -20,6 +19,8 @@ Auto S lm,ext,E;
 #endif
 Symbol ge, gs, ghhh, type, in, out, virtual;
 Auto S x, idx, t, n;
+
+#include model_parameters.frm
 
 Set spatialparts:ps1,...,ps40,cs1,...,cs40,fmbs1,...,fmbs40;
 Set fmbs: fmb1,...,fmb40;
