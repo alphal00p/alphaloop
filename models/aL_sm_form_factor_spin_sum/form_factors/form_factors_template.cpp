@@ -20,18 +20,38 @@ typedef mppp::complex128 complex128;
 // functions
 double FORM_FACTOR_PHASE = 1.0;
 
-bool debug = true;
+bool debug = false;
+
+int return_val = 0; // 0 = default, 1 = complex conjugate, 2 = real, 3 =
+                    // imaginary, 4 = complex conjugate imaginary
+
+void edit_result_helper(complex<double> *out) {
+  switch (return_val) {
+  case 1:
+    *out = conj(*out);
+    break;
+  case 2:
+    *out = complex<double>(out->real(), 0.0);
+    break;
+  case 3:
+    *out = complex<double>(0.0, out->imag());
+    break;
+  case 4:
+    *out = complex<double>(0.0, -out->imag());
+    break;
+  }
+}
 
 complex<double> global_prefactor(0.0, 2.0 / (M_PI * M_PI));
 
 complex<double> zero_f64(0.0, 0.0);
-double mu2 = 1000.0;
+double mu2 = 10.0;
 
 //  int n_massive = 0;
 //  int n_massless = 1;
 
-int n_massive = 4;
-int n_massless = 5;
+int n_massive = 0;
+int n_massless = 1;
 
 // charm, tau, bottom, top
 double pref_arr_massive[4] = {3.0 * 16.0 / 81.0, 1.0, 3.0 / 81.0,
@@ -800,6 +820,7 @@ void APHOAMPFFSTU_f64(complex<double> E1, complex<double> E2,
   }
 
   *out = global_prefactor * tot_res;
+  edit_result_helper(out);
 }
 
 void APHOAMPFFTSU_f64(complex<double> E1, complex<double> E2,
@@ -847,6 +868,7 @@ void APHOAMPFFTSU_f64(complex<double> E1, complex<double> E2,
   }
 
   *out = global_prefactor * tot_res;
+  edit_result_helper(out);
 }
 
 void APHOAMPFFUST_f64(complex<double> E1, complex<double> E2,
@@ -897,6 +919,7 @@ void APHOAMPFFUST_f64(complex<double> E1, complex<double> E2,
   }
 
   *out = global_prefactor * tot_res;
+  edit_result_helper(out);
 }
 
 void BPHOAMPFFSTU_f64(complex<double> E1, complex<double> E2,
@@ -948,6 +971,7 @@ void BPHOAMPFFSTU_f64(complex<double> E1, complex<double> E2,
   }
 
   *out = global_prefactor * tot_res;
+  edit_result_helper(out);
 }
 
 void BPHOAMPFFTSU_f64(complex<double> E1, complex<double> E2,
@@ -1000,6 +1024,7 @@ void BPHOAMPFFTSU_f64(complex<double> E1, complex<double> E2,
   }
 
   *out = global_prefactor * tot_res;
+  edit_result_helper(out);
 }
 
 void BPHOAMPFFUST_f64(complex<double> E1, complex<double> E2,
@@ -1051,6 +1076,7 @@ void BPHOAMPFFUST_f64(complex<double> E1, complex<double> E2,
   }
 
   *out = global_prefactor * tot_res;
+  edit_result_helper(out);
 }
 
 void CPHOAMPFFSTU_f64(complex<double> E1, complex<double> E2,
@@ -1187,6 +1213,7 @@ void CPHOAMPFFSTU_f64(complex<double> E1, complex<double> E2,
   }
 
   *out = global_prefactor * tot_res;
+  edit_result_helper(out);
   if (debug) {
     cout << "out: " << *out << endl;
     cout << "end evaluation CPHOAMPFFSTU --------------------------" << endl;
