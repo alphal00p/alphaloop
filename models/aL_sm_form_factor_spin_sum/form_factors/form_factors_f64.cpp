@@ -20,21 +20,30 @@ typedef mppp::complex128 complex128;
 // functions
 double FORM_FACTOR_PHASE = 1.0;
 
-bool debug = false;
+bool debug = true;
 
-double global_prefactor = 2.0 / (M_PI * M_PI);
+complex<double> global_prefactor(0.0, 2.0 / (M_PI * M_PI));
 
 complex<double> zero_f64(0.0, 0.0);
-double mu2 = 100.0;
-double scale = 1000.0;
+double mu2 = 1000.0;
 
-int n_massive = 1;
-int n_massless = 0;
+//  int n_massive = 0;
+//  int n_massless = 1;
 
-double pref_arr_massless[0];
-double pref_arr_massive[1] = {3.0 * 16.0 / 81.0};
+int n_massive = 4;
+int n_massless = 5;
 
-double M2_arr[1] = {173.0 * 173.0};
+// charm, tau, bottom, top
+double pref_arr_massive[4] = {3.0 * 16.0 / 81.0, 1.0, 3.0 / 81.0,
+                              3.0 * 16.0 / 81.0};
+
+// up, down, strange, electron, muon
+double pref_arr_massless[5] = {3.0 * 16.0 / 81.0, 3.0 / 81.0, 3.0 / 81.0, 1.0,
+                               1.0};
+
+// charm, tau, bottom, top
+double M2_arr[4] = {1.5 * 1.5, 1.777 * 1.777, 4.75 * 4.75, 173.0 * 173.0};
+// double M2_arr[1] = {173.0 * 173.0};
 
 complex<double> I(0.0, 1.0);
 
@@ -1769,6 +1778,368 @@ cstu = Z[0] + 3.0*Z[1];
  
 return cstu; }
 
+complex<double> astu_polynomial_massless(polynomial_parameters p_a) {
+
+  complex<double> shat = p_a.xs;
+  complex<double> that = p_a.xt;
+  complex<double> uhat = p_a.xu;
+
+  complex<double> shat2 = p_a.xs * p_a.xs;
+  complex<double> that2 = p_a.xt * p_a.xt;
+  complex<double> uhat2 = p_a.xu * p_a.xu;
+
+  complex<double> shat3 = shat2 * shat;
+  complex<double> that3 = that2 * that;
+  complex<double> uhat3 = uhat2 * uhat;
+
+  complex<double> A1stu_FormFactor_Massless =
+      8. - (8. * (shat2 - 3. * that * uhat) * p_a.b02s) / (that * uhat) -
+      (8. * that2 * p_a.b02t) / (shat * uhat) -
+      (4. * (3. * shat2 - 2. * that * uhat + shat * (3. * that + uhat)) *
+       p_a.b02u) /
+          (shat * that) -
+      (2. *
+       (3. * shat * that2 * uhat * (that + 6. * uhat) +
+        3. * that2 * uhat * (that2 + 3. * that * uhat + 2. * uhat2) -
+        4. * shat2 * (that3 - 3. * that2 * uhat - 3. * that * uhat2 + uhat3)) *
+       p_a.c02s) /
+          (that2 * uhat2) +
+      (2. * that *
+       (shat3 * (4. * that - 9. * uhat) +
+        3. * shat2 * (that - 3. * uhat) * uhat + 4. * that * uhat3) *
+       p_a.c02t) /
+          (shat2 * uhat2) -
+      ((-8. * that3 * uhat2 + 3. * shat2 * that2 * (that + 9. * uhat) +
+        shat3 * (3. * that2 + 24. * that * uhat - 8. * uhat2)) *
+       p_a.c02u) /
+          (shat2 * that2) -
+      (2. * shat * that * (2. * shat * (that - 3. * uhat) - 3. * uhat2) *
+       p_a.d02st) /
+          uhat2 -
+      (2. * shat *
+       (3. * that3 + shat * (3. * that2 - 6. * that * uhat + 2. * uhat2)) *
+       p_a.d02su) /
+          that2 +
+      (2. * that *
+       (3. * shat3 - 2. * that * uhat2 + 3. * shat2 * (that + 2. * uhat)) *
+       p_a.d02tu) /
+          shat2;
+
+  return A1stu_FormFactor_Massless;
+}
+
+complex<double> atsu_polynomial_massless(polynomial_parameters p_a) {
+  complex<double> shat = p_a.xs;
+  complex<double> that = p_a.xt;
+  complex<double> uhat = p_a.xu;
+
+  complex<double> shat2 = p_a.xs * p_a.xs;
+  complex<double> that2 = p_a.xt * p_a.xt;
+  complex<double> uhat2 = p_a.xu * p_a.xu;
+
+  complex<double> shat3 = shat2 * shat;
+  complex<double> that3 = that2 * that;
+  complex<double> uhat3 = uhat2 * uhat;
+
+  complex<double> A1tsu_FormFactor_Massless =
+      8. - (8. * shat2 * p_a.b02s) / (that * uhat) -
+      (8. * (that2 - 3. * shat * uhat) * p_a.b02t) / (shat * uhat) -
+      (4. * (shat * (3. * that - 2. * uhat) + that * (3. * that + uhat)) *
+       p_a.b02u) /
+          (shat * that) +
+      (8. * shat2 * (that3 + 3. * that2 * uhat + uhat3) * p_a.c02s) /
+          (that2 * uhat2) -
+      (2. *
+       (3. * shat2 * shat2 * uhat + 12. * shat * that2 * uhat2 -
+        4. * that2 * uhat3 +
+        6. * shat2 * uhat * (2. * that2 + 3. * that * uhat + uhat2) +
+        shat3 * (-4. * that2 + 3. * that * uhat + 9. * uhat2)) *
+       p_a.c02t) /
+          (shat2 * uhat2) -
+      ((24. * shat * that3 * uhat - 8. * that3 * uhat2 +
+        3. * shat2 * that2 * (that + 9. * uhat) +
+        shat3 * (3. * that2 - 8. * uhat2)) *
+       p_a.c02u) /
+          (shat2 * that2) -
+      (2. * shat * that * (2. * shat * that - 3. * uhat * (2. * that + uhat)) *
+       p_a.d02st) /
+          uhat2 +
+      (2. * shat *
+       (3. * that2 * (that + 2. * uhat) + shat * (3. * that2 - 2. * uhat2)) *
+       p_a.d02su) /
+          that2 -
+      (2. * that *
+       (3. * shat3 + 3. * shat2 * that - 6. * shat * that * uhat +
+        2. * that * uhat2) *
+       p_a.d02tu) /
+          shat2;
+  return A1tsu_FormFactor_Massless;
+}
+
+complex<double> aust_polynomial_massless(polynomial_parameters p_a) {
+  complex<double> shat = p_a.xs;
+  complex<double> that = p_a.xt;
+  complex<double> uhat = p_a.xu;
+
+  complex<double> shat2 = p_a.xs * p_a.xs;
+  complex<double> that2 = p_a.xt * p_a.xt;
+  complex<double> uhat2 = p_a.xu * p_a.xu;
+
+  complex<double> shat3 = shat2 * shat;
+  complex<double> that3 = that2 * that;
+  complex<double> uhat3 = uhat2 * uhat;
+
+  complex<double> A1ust_FormFactor_Massless =
+      8. - (8. * shat2 * p_a.b02s) / (that * uhat) -
+      (4. * (shat * (-2. * that + 3. * uhat) + uhat * (that + 3. * uhat)) *
+       p_a.b02t) /
+          (shat * uhat) +
+      (8. * (3. * shat * that - uhat2) * p_a.b02u) / (shat * that) +
+      (8. * shat2 * (that3 + 3. * that * uhat2 + uhat3) * p_a.c02s) /
+          (that2 * uhat2) +
+      ((-24. * shat * that * uhat3 + 8. * that2 * uhat3 -
+        3. * shat2 * uhat2 * (9. * that + uhat) +
+        shat3 * (8. * that2 - 3. * uhat2)) *
+       p_a.c02t) /
+          (shat2 * uhat2) -
+      (2. *
+       (3. * shat2 * shat2 * that + 12. * shat * that2 * uhat2 -
+        4. * that3 * uhat2 +
+        shat3 * (9. * that2 + 3. * that * uhat - 4. * uhat2) +
+        6. * shat2 * that * (that2 + 3. * that * uhat + 2. * uhat2)) *
+       p_a.c02u) /
+          (shat2 * that2) +
+      (2. * shat *
+       (3. * uhat2 * (2. * that + uhat) + shat * (-2. * that2 + 3. * uhat2)) *
+       p_a.d02st) /
+          uhat2 -
+      (2. * shat * uhat * (-3. * that2 + 2. * shat * uhat - 6. * that * uhat) *
+       p_a.d02su) /
+          that2 -
+      (2. * uhat *
+       (3. * shat3 + 3. * shat2 * uhat - 6. * shat * that * uhat +
+        2. * that2 * uhat) *
+       p_a.d02tu) /
+          shat2;
+  return A1ust_FormFactor_Massless;
+}
+
+complex<double> bstu_polynomial_massless(polynomial_parameters p_a) {
+  complex<double> shat = p_a.xs;
+  complex<double> that = p_a.xt;
+  complex<double> uhat = p_a.xu;
+
+  complex<double> shat2 = p_a.xs * p_a.xs;
+  complex<double> that2 = p_a.xt * p_a.xt;
+  complex<double> uhat2 = p_a.xu * p_a.xu;
+
+  complex<double> shat3 = shat2 * shat;
+  complex<double> that3 = that2 * that;
+  complex<double> uhat3 = uhat2 * uhat;
+
+  complex<double> shat4 = shat3 * shat;
+  complex<double> that4 = that3 * that;
+  complex<double> uhat4 = uhat3 * uhat;
+
+  complex<double> DB111stu_FormFactor_Massless =
+      8. / uhat +
+      (4. *
+       (8. * that3 + 9. * that2 * uhat + 11. * that * uhat2 + 4. * uhat3 +
+        shat * (4. * that2 + 3. * that * uhat + 4. * uhat2)) *
+       p_a.b02s) /
+          (that2 * uhat2) -
+      (4. *
+       (shat2 * (4. * that - 3. * uhat) + 2. * that * uhat2 +
+        shat * (8. * that2 + 3. * that * uhat - 3. * uhat2)) *
+       p_a.b02t) /
+          (shat * that * uhat2) +
+      (4. *
+       (shat2 * (3. * that - 4. * uhat) + that2 * (3. * that + 5. * uhat) +
+        shat * (6. * that2 - 5. * that * uhat - 4. * uhat2)) *
+       p_a.b02u) /
+          (shat * that2 * uhat) -
+      (2. * shat *
+       (-12. * that4 + 6. * shat2 * uhat2 + 9. * that2 * uhat2 -
+        17. * that * uhat3 - 26. * uhat4 +
+        shat * (-4. * that3 + 6. * that2 * uhat + 9. * that * uhat2 -
+                12. * uhat3)) *
+       p_a.c02s) /
+          (that2 * uhat3) +
+      (2. *
+       (6. * shat4 * uhat - 3. * shat * that * uhat2 * (that + 3. * uhat) -
+        2. * that * uhat3 * (that + 3. * uhat) +
+        3. * shat2 * that * (4. * that2 + 2. * that * uhat - uhat2) +
+        shat3 * (4. * that2 + 6. * that * uhat + 6. * uhat2)) *
+       p_a.c02t) /
+          (shat2 * uhat3) -
+      ((2. * shat4 * (9. * that - 8. * uhat) +
+        4. * that3 * uhat * (that + 3. * uhat) +
+        3. * shat * that3 * (5. * that + 9. * uhat) +
+        shat3 * (21. * that2 - 24. * that * uhat - 32. * uhat2) +
+        shat2 * (18. * that3 - 27. * that2 * uhat - 58. * that * uhat2 -
+                 16. * uhat3)) *
+       p_a.c02u) /
+          (shat2 * that3) -
+      (2. * shat * that *
+       (2. * shat * that + 6. * that2 - 3. * shat * uhat - 3. * uhat2) *
+       p_a.d02st) /
+          uhat3 +
+      (shat *
+       (3. * that3 + shat2 * (6. * that - 8. * uhat) - 9. * that2 * uhat -
+        26. * that * uhat2 - 8. * uhat3 +
+        shat * (9. * that2 - 12. * that * uhat - 16. * uhat2)) *
+       p_a.d02su) /
+          that3 +
+      (that *
+       (3. * shat2 + 3. * shat * (that + 3. * uhat) +
+        2. * uhat * (that + 3. * uhat)) *
+       p_a.d02tu) /
+          shat2;
+
+  return DB111stu_FormFactor_Massless;
+}
+
+complex<double> btsu_polynomial_massless(polynomial_parameters p_a) {
+  complex<double> shat = p_a.xs;
+  complex<double> that = p_a.xt;
+  complex<double> uhat = p_a.xu;
+
+  complex<double> shat2 = p_a.xs * p_a.xs;
+  complex<double> that2 = p_a.xt * p_a.xt;
+  complex<double> uhat2 = p_a.xu * p_a.xu;
+
+  complex<double> shat3 = shat2 * shat;
+  complex<double> that3 = that2 * that;
+  complex<double> uhat3 = uhat2 * uhat;
+
+  complex<double> shat4 = shat3 * shat;
+  complex<double> that4 = that3 * that;
+  complex<double> uhat4 = uhat3 * uhat;
+
+  complex<double> DB111tsu_FormFactor_Massless =
+      8. / uhat -
+      (8. * (4. * shat * that + 2. * that2 + 3. * that * uhat + uhat2) *
+       p_a.b02s) /
+          (that * uhat2) +
+      (4. *
+       (8. * shat2 + 4. * shat * that + 9. * shat * uhat + 3. * that * uhat +
+        7. * uhat2) *
+       p_a.b02t) /
+          (shat * uhat2) +
+      (4. *
+       (3. * shat2 + 6. * shat * that + 3. * that2 + 5. * shat * uhat -
+        that * uhat) *
+       p_a.b02u) /
+          (shat * that * uhat) +
+      (2. * shat *
+       (-3. * that * uhat2 * (that2 + 3. * that * uhat + 2. * uhat2) +
+        4. * shat2 * (3. * that3 + 2. * uhat3) +
+        shat * (4. * that4 + 6. * that3 * uhat - 3. * that2 * uhat2 +
+                6. * that * uhat3 + 8. * uhat4)) *
+       p_a.c02s) /
+          (that3 * uhat3) +
+      (2. * that *
+       (12. * shat4 + 4. * shat3 * that -
+        3. * shat2 * uhat * (2. * that + 3. * uhat) +
+        shat * uhat2 * (-9. * that + 17. * uhat) +
+        2. * uhat2 * (-3. * that2 + 6. * that * uhat + 13. * uhat2)) *
+       p_a.c02t) /
+          (shat2 * uhat3) +
+      ((16. * shat4 * uhat + shat * that3 * (-21. * that + 43. * uhat) -
+        3. * shat2 * that * (6. * that2 + 9. * that * uhat + 4. * uhat2) +
+        shat3 * (-15. * that2 + 12. * that * uhat + 16. * uhat2) +
+        2. * that3 * (-9. * that2 + 12. * that * uhat + 29. * uhat2)) *
+       p_a.c02u) /
+          (shat2 * that3) -
+      (2. * shat2 * that * (6. * shat + 2. * that + 3. * uhat) * p_a.d02st) /
+          uhat3 -
+      (shat *
+       (8. * shat2 * uhat -
+        3. * that * (that2 + 3. * that * uhat + 2. * uhat2) +
+        shat * (-3. * that2 + 6. * that * uhat + 8. * uhat2)) *
+       p_a.d02su) /
+          that3 +
+      (that *
+       (3. * shat2 + 9. * shat * that + 6. * that2 - 17. * shat * uhat -
+        12. * that * uhat - 26. * uhat2) *
+       p_a.d02tu) /
+          shat2;
+  return DB111tsu_FormFactor_Massless;
+}
+
+complex<double> bust_polynomial_massless(polynomial_parameters p_a) {
+  complex<double> shat = p_a.xs;
+  complex<double> that = p_a.xt;
+  complex<double> uhat = p_a.xu;
+
+  complex<double> shat2 = p_a.xs * p_a.xs;
+  complex<double> that2 = p_a.xt * p_a.xt;
+  complex<double> uhat2 = p_a.xu * p_a.xu;
+
+  complex<double> shat3 = shat2 * shat;
+  complex<double> that3 = that2 * that;
+  complex<double> uhat3 = uhat2 * uhat;
+
+  complex<double> shat4 = shat3 * shat;
+  complex<double> that4 = that3 * that;
+  complex<double> uhat4 = uhat3 * uhat;
+  complex<double> DB111ust_FormFactor_Massless =
+      8. / that -
+      (8. * (that2 + 3. * that * uhat + 2. * uhat * (2. * shat + uhat)) *
+       p_a.b02s) /
+          (that2 * uhat) +
+      (4. *
+       (3. * shat2 + 5. * shat * that + 6. * shat * uhat - that * uhat +
+        3. * uhat2) *
+       p_a.b02t) /
+          (shat * that * uhat) +
+      (4. *
+       (8. * shat2 + 9. * shat * that + 7. * that2 + 4. * shat * uhat +
+        3. * that * uhat) *
+       p_a.b02u) /
+          (shat * that2) +
+      (2. * shat *
+       (-3. * that2 * uhat * (2. * that2 + 3. * that * uhat + uhat2) +
+        4. * shat2 * (2. * that3 + 3. * uhat3) +
+        shat * (8. * that4 + 6. * that3 * uhat - 3. * that2 * uhat2 +
+                6. * that * uhat3 + 4. * uhat4)) *
+       p_a.c02s) /
+          (that3 * uhat3) +
+      ((16. * shat4 * that + shat * (43. * that - 21. * uhat) * uhat3 +
+        shat3 * (16. * that2 + 12. * that * uhat - 15. * uhat2) +
+        2. * uhat3 * (29. * that2 + 12. * that * uhat - 9. * uhat2) -
+        3. * shat2 * uhat * (4. * that2 + 9. * that * uhat + 6. * uhat2)) *
+       p_a.c02t) /
+          (shat2 * uhat3) +
+      (2. * uhat *
+       (12. * shat4 + shat * that2 * (17. * that - 9. * uhat) +
+        4. * shat3 * uhat - 3. * shat2 * that * (3. * that + 2. * uhat) +
+        2. * that2 * (13. * that2 + 6. * that * uhat - 3. * uhat2)) *
+       p_a.c02u) /
+          (shat2 * that3) -
+      (shat *
+       (8. * shat2 * that +
+        shat * (8. * that2 + 6. * that * uhat - 3. * uhat2) -
+        3. * uhat * (2. * that2 + 3. * that * uhat + uhat2)) *
+       p_a.d02st) /
+          uhat3 -
+      (2. * shat2 * uhat * (6. * shat + 3. * that + 2. * uhat) * p_a.d02su) /
+          that3 +
+      (uhat *
+       (3. * shat2 - 17. * shat * that - 26. * that2 + 9. * shat * uhat -
+        12. * that * uhat + 6. * uhat2) *
+       p_a.d02tu) /
+          shat2;
+  return DB111ust_FormFactor_Massless;
+}
+
+complex<double> cstu_polynomial_massless(polynomial_parameters p_a) {
+  return -(4.0 * p_a.xs * p_a.xs * p_a.xt + 8. * p_a.xs * p_a.xt * p_a.xt +
+           4.0 * p_a.xt * p_a.xt * p_a.xt + 13. * p_a.xs * p_a.xt * p_a.xu +
+           10. * p_a.xt * p_a.xt * p_a.xu + 3.0 * p_a.xs * p_a.xu * p_a.xu +
+           12. * p_a.xt * p_a.xu * p_a.xu + 3. * p_a.xu * p_a.xu * p_a.xu);
+}
+
 void APHOAMPFFSTU_f64(complex<double> E1, complex<double> E2,
                       complex<double> E3, complex<double> p1_p2,
                       complex<double> p1_p3, complex<double> p2_p3,
@@ -1797,10 +2168,9 @@ void APHOAMPFFSTU_f64(complex<double> E1, complex<double> E2,
 
   complex<double> expr_massless;
 
-  expr_massless = astu_polynomial(p_a);
+  expr_massless = astu_polynomial_massless(p_a);
 
-  dynamic_prefactor = 1. / (96.0 * p_a.xs * p_a.xs * p_a.xt * p_a.xt * p_a.xu *
-                            p_a.xu * E1 * E2 * E3 * E42 * s * s);
+  dynamic_prefactor = 1. / (96.0 * E1 * E2 * E3 * E42 * s * s);
 
   tot_res += pref_sum * dynamic_prefactor * expr_massless;
 
@@ -1846,10 +2216,9 @@ void APHOAMPFFTSU_f64(complex<double> E1, complex<double> E2,
 
   fill_ff_params_massless(s.real(), t.real(), u.real(), &p_a);
 
-  complex<double> expr_massless = atsu_polynomial(p_a);
+  complex<double> expr_massless = atsu_polynomial_massless(p_a);
 
-  dynamic_prefactor = 1. / (96.0 * p_a.xs * p_a.xs * p_a.xt * p_a.xt * p_a.xu *
-                            p_a.xu * E1 * E2 * E3 * E42 * t * t);
+  dynamic_prefactor = 1. / (96. * E1 * E2 * E3 * E42 * t * t);
 
   tot_res = pref_sum * dynamic_prefactor * expr_massless;
 
@@ -1863,7 +2232,7 @@ void APHOAMPFFTSU_f64(complex<double> E1, complex<double> E2,
     dynamic_prefactor = 1. / (96.0 * p_a.xs * p_a.xs * p_a.xt * p_a.xt *
                               p_a.xu * p_a.xu * E1 * E2 * E3 * E42 * t * t);
 
-    tot_res = pref_arr_massive[n] * dynamic_prefactor * expr_massive;
+    tot_res += pref_arr_massive[n] * dynamic_prefactor * expr_massive;
   }
 
   *out = global_prefactor * tot_res;
@@ -1895,12 +2264,11 @@ void APHOAMPFFUST_f64(complex<double> E1, complex<double> E2,
 
   fill_ff_params_massless(s.real(), t.real(), u.real(), &p_a);
 
-  complex<double> expr_massless = aust_polynomial(p_a);
+  complex<double> expr_massless = aust_polynomial_massless(p_a);
 
   // aust_massless
 
-  dynamic_prefactor = 1. / (96.0 * p_a.xs * p_a.xs * p_a.xt * p_a.xt * p_a.xu *
-                            p_a.xu * E1 * E2 * E3 * E42 * u * u);
+  dynamic_prefactor = 1. / (96.0 * E1 * E2 * E3 * E42 * u * u);
 
   tot_res = pref_sum * dynamic_prefactor * expr_massless;
 
@@ -1914,7 +2282,7 @@ void APHOAMPFFUST_f64(complex<double> E1, complex<double> E2,
     dynamic_prefactor = 1. / (96.0 * p_a.xs * p_a.xs * p_a.xt * p_a.xt *
                               p_a.xu * p_a.xu * E1 * E2 * E3 * E42 * u * u);
 
-    tot_res = pref_arr_massive[n] * dynamic_prefactor * expr_massive;
+    tot_res += pref_arr_massive[n] * dynamic_prefactor * expr_massive;
   }
 
   *out = global_prefactor * tot_res;
@@ -1947,11 +2315,9 @@ void BPHOAMPFFSTU_f64(complex<double> E1, complex<double> E2,
 
   fill_ff_params_massless(s.real(), t.real(), u.real(), &p_a);
 
-  complex<double> expr_massless = bstu_polynomial(p_a);
+  complex<double> expr_massless = bstu_polynomial_massless(p_a);
 
-  dynamic_prefactor = 1. / (48.0 * p_a.xs * p_a.xs * p_a.xs * p_a.xt * p_a.xt *
-                            p_a.xt * p_a.xu * p_a.xu * p_a.xu *
-                            (E1 * E2 * E32 * E42 * s * s * t * t * u));
+  dynamic_prefactor = 1. / (48.0 * (E1 * E2 * E32 * E42 * s * s * t * t * u));
 
   tot_res = pref_sum * dynamic_prefactor * expr_massless;
 
@@ -1967,7 +2333,7 @@ void BPHOAMPFFSTU_f64(complex<double> E1, complex<double> E2,
               p_a.xu * p_a.xu * p_a.xu *
               (E1 * E2 * E32 * E42 * s * s * t * t * u) * M2_arr[n]);
 
-    tot_res = pref_arr_massive[n] * dynamic_prefactor * expr_massive;
+    tot_res += pref_arr_massive[n] * dynamic_prefactor * expr_massive;
   }
 
   *out = global_prefactor * tot_res;
@@ -2000,11 +2366,9 @@ void BPHOAMPFFTSU_f64(complex<double> E1, complex<double> E2,
 
   fill_ff_params_massless(s.real(), t.real(), u.real(), &p_a);
 
-  complex<double> expr_massless = btsu_polynomial(p_a);
+  complex<double> expr_massless = btsu_polynomial_massless(p_a);
 
-  dynamic_prefactor = 1. / (48.0 * p_a.xs * p_a.xs * p_a.xs * p_a.xt * p_a.xt *
-                            p_a.xt * p_a.xu * p_a.xu * p_a.xu *
-                            (E12 * E2 * E3 * E42 * s * s * t * t * u));
+  dynamic_prefactor = 1. / (48.0 * (E12 * E2 * E3 * E42 * s * s * t * t * u));
 
   tot_res = pref_sum * dynamic_prefactor * expr_massless;
 
@@ -2021,7 +2385,7 @@ void BPHOAMPFFTSU_f64(complex<double> E1, complex<double> E2,
               p_a.xu * p_a.xu * p_a.xu *
               (E12 * E2 * E3 * E42 * s * s * t * t * u) * M2_arr[n]);
 
-    tot_res = pref_arr_massive[n] * dynamic_prefactor * expr_massive;
+    tot_res += pref_arr_massive[n] * dynamic_prefactor * expr_massive;
   }
 
   *out = global_prefactor * tot_res;
@@ -2054,11 +2418,9 @@ void BPHOAMPFFUST_f64(complex<double> E1, complex<double> E2,
 
   fill_ff_params_massless(s.real(), t.real(), u.real(), &p_a);
 
-  complex<double> expr_massless = bust_polynomial(p_a);
+  complex<double> expr_massless = bust_polynomial_massless(p_a);
 
-  dynamic_prefactor = 1. / (48.0 * p_a.xs * p_a.xs * p_a.xs * p_a.xt * p_a.xt *
-                            p_a.xt * p_a.xu * p_a.xu * p_a.xu *
-                            (E1 * E22 * E3 * E42 * s * s * t * u * u));
+  dynamic_prefactor = 1. / (48.0 * (E1 * E22 * E3 * E42 * s * s * t * u * u));
 
   tot_res = pref_sum * dynamic_prefactor * expr_massless;
 
@@ -2074,7 +2436,7 @@ void BPHOAMPFFUST_f64(complex<double> E1, complex<double> E2,
               p_a.xu * p_a.xu * p_a.xu *
               (E1 * E22 * E3 * E42 * s * s * t * u * u * M2_arr[n]));
 
-    tot_res = pref_arr_massive[n] * dynamic_prefactor * expr_massive;
+    tot_res += pref_arr_massive[n] * dynamic_prefactor * expr_massive;
   }
 
   *out = global_prefactor * tot_res;
@@ -2120,21 +2482,77 @@ void CPHOAMPFFSTU_f64(complex<double> E1, complex<double> E2,
 
   fill_ff_params_massless(s.real(), t.real(), u.real(), &p_a);
 
-  complex<double> expr_massless = cstu_polynomial(p_a);
+  if (debug) {
+    cout << "massless parameters: " << endl;
+    cout << "xs: " << p_a.xs << endl;
+    cout << "xt: " << p_a.xt << endl;
+    cout << "xu: " << p_a.xu << endl;
+    cout << "a02: " << p_a.a02 << endl;
+    cout << "b02s: " << p_a.b02s << endl;
+    cout << "b02t: " << p_a.b02t << endl;
+    cout << "b02u: " << p_a.b02u << endl;
+    cout << "b020: " << p_a.b020 << endl;
+    cout << "c02s: " << p_a.c02s << endl;
+    cout << "c02t: " << p_a.c02t << endl;
+    cout << "c02u: " << p_a.c02u << endl;
+    cout << "d02su: " << p_a.d02su << endl;
+    cout << "d02st: " << p_a.d02st << endl;
+    cout << "d02tu: " << p_a.d02tu << endl;
+  }
 
-  dynamic_prefactor =
-      1. / (3.0 * p_a.xs * p_a.xs * p_a.xs * p_a.xs * p_a.xt * p_a.xt * p_a.xt *
-            p_a.xt * p_a.xu * p_a.xu * p_a.xu * p_a.xu *
-            (E1 * E2 * E3 * E4 * s * t * t * u));
+  complex<double> expr_massless = cstu_polynomial_massless(p_a);
+
+  if (debug) {
+    cout << "expr_massless: " << expr_massless << endl;
+  }
+
+  dynamic_prefactor = 1. / (3.0 * p_a.xs * p_a.xt * p_a.xt * p_a.xu * p_a.xu *
+                            (E1 * E2 * E3 * E4 * s * t * t * u));
+
+  if (debug) {
+    cout << "dynamic_prefacor: " << dynamic_prefactor << endl;
+  }
 
   tot_res = pref_sum * dynamic_prefactor * expr_massless;
+
+  if (debug) {
+    cout << "total massless contribution " << tot_res << endl;
+  }
 
   // massive loops
 
   for (int n = 0; n < n_massive; n++) {
+    if (debug) {
+      cout << "massless loop #: " << n + 1 << "/" << n_massive << endl;
+      cout << "M2: " << M2_arr[n] << endl;
+      cout << "pref: " << pref_arr_massive[n] << endl;
+    }
+
     fill_ff_params_massive(s.real(), t.real(), u.real(), M2_arr[n], &p_a);
 
+    if (debug) {
+      cout << "massless parameters: " << endl;
+      cout << "xs: " << p_a.xs << endl;
+      cout << "xt: " << p_a.xt << endl;
+      cout << "xu: " << p_a.xu << endl;
+      cout << "a02: " << p_a.a02 << endl;
+      cout << "b02s: " << p_a.b02s << endl;
+      cout << "b02t: " << p_a.b02t << endl;
+      cout << "b02u: " << p_a.b02u << endl;
+      cout << "b020: " << p_a.b020 << endl;
+      cout << "c02s: " << p_a.c02s << endl;
+      cout << "c02t: " << p_a.c02t << endl;
+      cout << "c02u: " << p_a.c02u << endl;
+      cout << "d02su: " << p_a.d02su << endl;
+      cout << "d02st: " << p_a.d02st << endl;
+      cout << "d02tu: " << p_a.d02tu << endl;
+    }
+
     complex<double> expr_massive = cstu_polynomial(p_a);
+
+    if (debug) {
+      cout << "expr_massive: " << expr_massive << endl;
+    }
 
     double M4 = M2_arr[n] * M2_arr[n];
 
@@ -2143,12 +2561,23 @@ void CPHOAMPFFSTU_f64(complex<double> E1, complex<double> E2,
               p_a.xt * p_a.xt * p_a.xu * p_a.xu * p_a.xu * p_a.xu *
               (E1 * E2 * E3 * E4 * s * t * t * u) * M4);
 
-    tot_res = pref_arr_massive[n] * dynamic_prefactor * expr_massive;
+    if (debug) {
+      cout << "dynamic_prefactor: " << dynamic_prefactor << endl;
+    }
+
+    complex<double> massive_contr =
+        pref_arr_massive[n] * dynamic_prefactor * expr_massive;
+
+    if (debug) {
+      cout << "massive contribution: " << massive_contr << endl;
+    }
+
+    tot_res += massive_contr;
   }
 
   *out = global_prefactor * tot_res;
   if (debug) {
-    cout << "out: " << out << endl;
+    cout << "out: " << *out << endl;
     cout << "end evaluation CPHOAMPFFSTU --------------------------" << endl;
   }
 }
