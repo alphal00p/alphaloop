@@ -346,22 +346,24 @@
     .sort:amp-start;
     Keep brackets;
 #ifndef `MULPHASE'
-    id vx(`PHOAMPPRIME', `PHOAMPPRIME', `PHO', `PHO', p1?, p2?, p3?, p4?, idx1?, idx2?, idx3?, idx4?) = 
+    id vx(`PHOAMPPRIME', `PHOAMPPRIME', `PHO', `PHO', p4?, p2?, p3?, p1?, idx4?, idx2?, idx3?, idx1?) = 
 
-    CPHOAMPFFSTU(energyselector.p1, energyselector.p2, energyselector.p3, p1.p2, p1.p3, p2.p3)
+    -CPHOAMPFFSTU(energyselector.p1, energyselector.p2, energyselector.p3, p1.p2, p1.p3, p2.p3) * 2^4
     *ffguard(- energyselector.p1 * p2.p3 * p2(lorentz[idx2]) + energyselector.p2 * p2.p3 * p1(lorentz[idx2])
     - energyselector.p2 * p1.p2 * p3(lorentz[idx2]) + energyselector.p3 * p1.p2 * p2(lorentz[idx2]))
 
     *ffguard(energyselector.p1 * p1.p3 * p2(lorentz[idx1]) - energyselector.p1 * p1.p2 * p3(lorentz[idx1]) 
     - energyselector.p2 * p1.p3 * p1(lorentz[idx1]) + energyselector.p3 * p1.p2 * p1(lorentz[idx1]))
 
+
     *ffguard(- energyselector.p1 * p2.p3 * p3(lorentz[idx3]) + energyselector.p2 * p1.p3 * p3(lorentz[idx3])
     + energyselector.p3 * p2.p3 * p1(lorentz[idx3]) - energyselector.p3 * p1.p3 * p2(lorentz[idx3]))
 
-    *ffguard(- energyselector.p2 * p1.p2 * p4(lorentz[idx4]) + energyselector.p3 * p1.p3 * p2(lorentz[idx4])
+    *ffguard(- energyselector.p2 * p1.p2 * p4(lorentz[idx4]) + energyselector.p3 * p1.p3 * p4(lorentz[idx4])
     + energyselector.p4 * p1.p2 * p2(lorentz[idx4]) - energyselector.p4 * p1.p3 * p3(lorentz[idx4]))
-
-    + BPHOAMPFFSTU(energyselector.p1, energyselector.p2, energyselector.p3, p1.p2, p1.p3, p2.p3) * (
+    
+    +
+    BPHOAMPFFSTU(energyselector.p1, energyselector.p2, energyselector.p3, p1.p2, p1.p3, p2.p3) *(
     ffguard(-(energyselector.p1*energyselector.p2*2*p1.p2*d_(lorentz[idx1], lorentz[idx2])) + 2*energyselector.p1*energyselector.p2*p2(lorentz[idx1])*p1(lorentz[idx2]) + 
     energyselector.p2*p1(lorentz[idx1])*(2*p1.p2*energyselector(lorentz[idx2]) - 2*energyselector.p2*p1(lorentz[idx2])) + 
     (energyselector.p1*2*p1.p2*energyselector(lorentz[idx1]) + (2*energyselector.p1*energyselector.p2 - 2*p1.p2)*p1(lorentz[idx1]) - 2*energyselector.p1^2*p2(lorentz[idx1]))*
@@ -403,7 +405,8 @@
     energyselector.p3^2*2*p2.p3*2*p1.p3*p4(lorentz[idx3])*p4(lorentz[idx4]))*(2*p1.p2) 
     )
 
-    + BPHOAMPFFTSU(energyselector.p1, energyselector.p2, energyselector.p3, p1.p2, p1.p3, p2.p3) * (
+    +
+    BPHOAMPFFTSU(energyselector.p1, energyselector.p2, energyselector.p3, p1.p2, p1.p3, p2.p3) * (
     ffguard(-(energyselector.p2*energyselector.p3*2*p2.p3*d_(lorentz[idx2], lorentz[idx3])) + energyselector.p3*2*p2.p3*p2(lorentz[idx2])*energyselector(lorentz[idx3]) - 
     2*energyselector.p3^2*p2(lorentz[idx2])*p2(lorentz[idx3]) + 2*energyselector.p2*energyselector.p3*p3(lorentz[idx2])*
     p2(lorentz[idx3]) + energyselector.p2*2*p2.p3*energyselector(lorentz[idx2])*p3(lorentz[idx3]) + 
@@ -448,8 +451,8 @@
     p4(lorentz[idx4]) + energyselector.p1^2*2*p1.p2*2*p1.p3*p3(lorentz[idx1])*p4(lorentz[idx4]) + 
     energyselector.p1^2*2*p1.p2*2*p1.p3*p4(lorentz[idx1])*p4(lorentz[idx4])) 
     )
-
-    + BPHOAMPFFUST(energyselector.p1, energyselector.p2, energyselector.p3, p1.p2, p1.p3, p2.p3) * ( 
+    +
+     BPHOAMPFFUST(energyselector.p1, energyselector.p2, energyselector.p3, p1.p2, p1.p3, p2.p3) * ( 
     ffguard(-(energyselector.p1*energyselector.p3*2*p1.p3*d_(lorentz[idx1], lorentz[idx3])) + energyselector.p3*2*p1.p3*p1(lorentz[idx1])*energyselector(lorentz[idx3]) - 
     2*energyselector.p3^2*p1(lorentz[idx1])*p1(lorentz[idx3]) + 2*energyselector.p1*energyselector.p3*p3(lorentz[idx1])*
     p1(lorentz[idx3]) + energyselector.p1*2*p1.p3*energyselector(lorentz[idx1])*p3(lorentz[idx3]) + 
@@ -496,44 +499,75 @@
     energyselector.p2^2*2*p1.p2*2*p2.p3*p4(lorentz[idx2])*p4(lorentz[idx4])) 
     )
     
-    + APHOAMPFFSTU(energyselector.p1, energyselector.p2, energyselector.p3, p1.p2, p1.p3, p2.p3) 
-    * ffguard(energyselector.p1*energyselector.p2*2*p1.p2*d_(lorentz[idx1], lorentz[idx2]) - energyselector.p2*2*p1.p2*p1(lorentz[idx1])*energyselector(lorentz[idx2]) + 
-    2*energyselector.p2^2*p1(lorentz[idx1])*p1(lorentz[idx2]) - 2*energyselector.p1*energyselector.p2*p2(lorentz[idx1])*p1(lorentz[idx2]) - 
-    energyselector.p1*2*p1.p2*energyselector(lorentz[idx1])*p2(lorentz[idx2]) - 2*energyselector.p1*energyselector.p2*p1(lorentz[idx1])*p2(lorentz[idx2]) + 
-    2*p1.p2*p1(lorentz[idx1])*p2(lorentz[idx2]) + 2*energyselector.p1^2*p2(lorentz[idx1])*p2(lorentz[idx2]))
+   +
+   APHOAMPFFSTU(energyselector.p1, energyselector.p2, energyselector.p3, p1.p2, p1.p3, p2.p3)
+   * ffguard(energyselector.p1*energyselector.p2*2*p1.p2*d_(lorentz[idx1], lorentz[idx2]) - energyselector.p2*2*p1.p2*p1(lorentz[idx1])*energyselector(lorentz[idx2]) + 
+   2*energyselector.p2^2*p1(lorentz[idx1])*p1(lorentz[idx2]) - 2*energyselector.p1*energyselector.p2*p2(lorentz[idx1])*p1(lorentz[idx2]) - 
+   energyselector.p1*2*p1.p2*energyselector(lorentz[idx1])*p2(lorentz[idx2]) - 2*energyselector.p1*energyselector.p2*p1(lorentz[idx1])*p2(lorentz[idx2]) + 
+   2*p1.p2*p1(lorentz[idx1])*p2(lorentz[idx2]) + 2*energyselector.p1^2*p2(lorentz[idx1])*p2(lorentz[idx2]))
 
-    * ffguard(energyselector.p3*energyselector.p4^2*2*p1.p2*d_(lorentz[idx3], lorentz[idx4]) - energyselector.p4^2*2*p1.p2*p3(lorentz[idx3])*energyselector(lorentz[idx4]) + 
-    2*energyselector.p4^3*p3(lorentz[idx3])*p3(lorentz[idx4]) - 2*energyselector.p3*energyselector.p4^2*p4(lorentz[idx3])*p3(lorentz[idx4]) - 
-    energyselector.p3*energyselector.p4*2*p1.p2*energyselector(lorentz[idx3])*p4(lorentz[idx4]) - 2*energyselector.p3*energyselector.p4^2*p3(lorentz[idx3])*p4(lorentz[idx4]) + 
-    energyselector.p4*2*p1.p2*p3(lorentz[idx3])*p4(lorentz[idx4]) + 2*energyselector.p3^2*energyselector.p4*p4(lorentz[idx3])*p4(lorentz[idx4]))
+   * ffguard(energyselector.p3*energyselector.p4^2*2*p1.p2*d_(lorentz[idx3], lorentz[idx4]) - energyselector.p4^2*2*p1.p2*p3(lorentz[idx3])*energyselector(lorentz[idx4]) + 
+   2*energyselector.p4^3*p3(lorentz[idx3])*p3(lorentz[idx4]) - 2*energyselector.p3*energyselector.p4^2*p4(lorentz[idx3])*p3(lorentz[idx4]) - 
+   energyselector.p3*energyselector.p4*2*p1.p2*energyselector(lorentz[idx3])*p4(lorentz[idx4]) - 2*energyselector.p3*energyselector.p4^2*p3(lorentz[idx3])*p4(lorentz[idx4]) + 
+   energyselector.p4*2*p1.p2*p3(lorentz[idx3])*p4(lorentz[idx4]) + 2*energyselector.p3^2*energyselector.p4*p4(lorentz[idx3])*p4(lorentz[idx4]))
 
-    + APHOAMPFFTSU(energyselector.p1, energyselector.p2, energyselector.p3, p1.p2, p1.p3, p2.p3) 
-    *ffguard(energyselector.p2*energyselector.p3*2*p2.p3*d_(lorentz[idx2], lorentz[idx3]) - energyselector.p3*2*p2.p3*p2(lorentz[idx2])*energyselector(lorentz[idx3]) + 
-    2*energyselector.p3^2*p2(lorentz[idx2])*p2(lorentz[idx3]) - 2*energyselector.p2*energyselector.p3*p3(lorentz[idx2])*p2(lorentz[idx3]) - 
-    energyselector.p2*2*p2.p3*energyselector(lorentz[idx2])*p3(lorentz[idx3]) - 2*energyselector.p2*energyselector.p3*p2(lorentz[idx2])*p3(lorentz[idx3]) + 
-    2*p2.p3*p2(lorentz[idx2])*p3(lorentz[idx3]) + 2*energyselector.p2^2*p3(lorentz[idx2])*p3(lorentz[idx3]))
+    +
+    APHOAMPFFTSU(energyselector.p1, energyselector.p2, energyselector.p3, p1.p2, p1.p3, p2.p3) 
+    *ffguard(
+        energyselector.p2 * energyselector.p3 * 2*p2.p3 * d_(lorentz[idx2], lorentz[idx3]) 
+        - energyselector.p3* 2*p2.p3 * p2(lorentz[idx2]) * energyselector(lorentz[idx3]) + 
+    2 * energyselector.p3^2 * p2(lorentz[idx2]) * p2(lorentz[idx3]) 
+    - 2 * energyselector.p2 * energyselector.p3 * p3(lorentz[idx2]) * p2(lorentz[idx3]) - 
+    energyselector.p2 * 2*p2.p3 * energyselector(lorentz[idx2]) * p3(lorentz[idx3]) 
+    - 2  *energyselector.p2 * energyselector.p3 * p2(lorentz[idx2]) * p3(lorentz[idx3]) + 
+    2 * p2.p3 * p2(lorentz[idx2]) * p3(lorentz[idx3]) 
+    + 2 * energyselector.p2^2 * p3(lorentz[idx2]) * p3(lorentz[idx3]))
+    *ffguard(energyselector.p4 * (2 * energyselector.p4 * p1(lorentz[idx4]) * 
+        (energyselector.p1 * (p2(lorentz[idx1]) + p3(lorentz[idx1])) - 
+        (energyselector.p2 + energyselector.p3) * p1(lorentz[idx1])) 
+        + 2*p2.p3 * energyselector(lorentz[idx4]) * (-energyselector.p4*p1(lorentz[idx1])) 
+        + energyselector.p1 * energyselector.p4 * 2 * p2.p3 * d_(lorentz[idx1], lorentz[idx4]))
+        + p4(lorentz[idx4]) * ((2*p2.p3 - 2 * energyselector.p1 * energyselector.p4) * (energyselector.p1 
+        * (p2(lorentz[idx1]) + p3(lorentz[idx1])) - (energyselector.p2 + energyselector.p3) * p1(lorentz[idx1]))
+        -energyselector.p1 * energyselector.p4 * 2 * p2.p3 * energyselector(lorentz[idx1]) 
+        + energyselector.p1 * 2*p2.p3 * p4(lorentz[idx1])))
 
-    *ffguard(energyselector.p1*energyselector.p4^2*2*p2.p3*d_(lorentz[idx1], lorentz[idx4]) - energyselector.p4^2*2*p2.p3*p1(lorentz[idx1])*energyselector(lorentz[idx4]) + 
-    2*energyselector.p4^3*p1(lorentz[idx1])*p1(lorentz[idx4]) - 2*energyselector.p1*energyselector.p4^2*p4(lorentz[idx1])*p1(lorentz[idx4]) - 
-    energyselector.p1*energyselector.p4*2*p2.p3*energyselector(lorentz[idx1])*p4(lorentz[idx4]) - 2*energyselector.p1*energyselector.p4^2*p1(lorentz[idx1])*p4(lorentz[idx4]) + 
-    energyselector.p4*2*p2.p3*p1(lorentz[idx1])*p4(lorentz[idx4]) + 2*energyselector.p1^2*energyselector.p4*p4(lorentz[idx1])*p4(lorentz[idx4]))
 
-    + APHOAMPFFUST(energyselector.p1, energyselector.p2, energyselector.p3, p1.p2, p1.p3, p2.p3) 
-    *ffguard(energyselector.p1*energyselector.p3*2*p1.p3*d_(lorentz[idx1], lorentz[idx3]) - energyselector.p3*2*p1.p3*p1(lorentz[idx1])*energyselector(lorentz[idx3]) + 
-    2*energyselector.p3^2*p1(lorentz[idx1])*p1(lorentz[idx3]) - 2*energyselector.p1*energyselector.p3*p3(lorentz[idx1])*p1(lorentz[idx3]) - 
-    energyselector.p1*2*p1.p3*energyselector(lorentz[idx1])*p3(lorentz[idx3]) - 2*energyselector.p1*energyselector.p3*p1(lorentz[idx1])*p3(lorentz[idx3]) + 
-    2*p1.p3*p1(lorentz[idx1])*p3(lorentz[idx3]) + 2*energyselector.p1^2*p3(lorentz[idx1])*p3(lorentz[idx3]))
+    +
+    APHOAMPFFUST(energyselector.p1, energyselector.p2, energyselector.p3, p1.p2, p1.p3, p2.p3)
+    *ffguard(
+        energyselector.p1 * energyselector.p3 * 2*p1.p3 * d_(lorentz[idx1], lorentz[idx3])
+       - energyselector.p3 * 2*p1.p3 * p1(lorentz[idx1]) * energyselector(lorentz[idx3]) + 
+    2*energyselector.p3^2 * p1(lorentz[idx1]) * p1(lorentz[idx3]) 
+    - 2*energyselector.p1 * energyselector.p3 * p3(lorentz[idx1]) * p1(lorentz[idx3]) - 
+    energyselector.p1 * 2*p1.p3 *  energyselector(lorentz[idx1]) * p3(lorentz[idx3]) 
+    - 2*energyselector.p1 * energyselector.p3 * p1(lorentz[idx1]) * p3(lorentz[idx3]) + 
+    2*p1.p3 * p1(lorentz[idx1]) * p3(lorentz[idx3]) 
+    + 2*energyselector.p1^2 * p3(lorentz[idx1]) * p3(lorentz[idx3]))
 
-    *ffguard(energyselector.p2*energyselector.p4^2*2*p1.p3*d_(lorentz[idx2], lorentz[idx4]) - energyselector.p4^2*2*p1.p3*p2(lorentz[idx2])*energyselector(lorentz[idx4]) + 
-    2*energyselector.p4^3*p2(lorentz[idx2])*p2(lorentz[idx4]) - 2*energyselector.p2*energyselector.p4^2*p4(lorentz[idx2])*p2(lorentz[idx4]) - 
-    energyselector.p2*energyselector.p4*2*p1.p3*energyselector(lorentz[idx2])*p4(lorentz[idx4]) - 2*energyselector.p2*energyselector.p4^2*p2(lorentz[idx2])*p4(lorentz[idx4]) + 
-    energyselector.p4*2*p1.p3*p2(lorentz[idx2])*p4(lorentz[idx4]) + 2*energyselector.p2^2*energyselector.p4*p4(lorentz[idx2])*p4(lorentz[idx4]));
+    *ffguard(
+        energyselector.p4 * (2 * energyselector.p4 * p2(lorentz[idx4]) * (energyselector.p2 * (
+            p1(lorentz[idx2]) + p3(lorentz[idx2])) - (energyselector.p1 + energyselector.p3) * p2(lorentz[idx2])
+        ) - 2*p1.p3 * energyselector(lorentz[idx4]) * energyselector.p4 * p2(lorentz[idx2]) + 
+        energyselector.p2 * energyselector.p4 * 2*p1.p3 * d_(lorentz[idx2], lorentz[idx4]))
+        + p4(lorentz[idx4]) * ((2*p1.p3 - 2 * energyselector.p2 * energyselector.p4) * 
+        (energyselector.p2*(p1(lorentz[idx2]) + p3(lorentz[idx2])) - (energyselector.p1 + energyselector.p3)
+        * p2(lorentz[idx2])) - energyselector.p2 * energyselector.p4 * 2*p1.p3 * energyselector(lorentz[idx2])
+        + energyselector.p2 * 2 * p1.p3 * p4(lorentz[idx2]))
+
+    );
 
     #do i=1,1
         id once ffguard(x?) = x;
         id energyselector.energyselector = 1;
         id energyselector.p?spatialparts = 0;
         id p1?spatialparts.p2?spatialparts = -p1.p2; * add a -1 to fix the metric
+        id p1.p1 = 0;
+        id p2.p2 = 0;
+        id p3.p3 = 0;
+        id k1.k1 = 0;
+        id k2.k2 = 0;
+        id k3.k3 = 0;
 
         argument APHOAMPFFSTU, APHOAMPFFTSU, APHOAMPFFUST, BPHOAMPFFSTU, BPHOAMPFFTSU, BPHOAMPFFUST, CPHOAMPFFSTU;
             id energyselector.energyselector = 1;
