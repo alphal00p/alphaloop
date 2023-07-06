@@ -17,6 +17,7 @@
 #define LBAR "-11,-12,-13"
 #define Z "23"
 #define FORMFACTORS "1"
+#define HASAMP "0"
 
 **************************************************
 * START SE PDGs
