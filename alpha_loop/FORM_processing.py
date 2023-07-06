@@ -41,6 +41,8 @@ import stat
 
 pjoin = os.path.join
 
+amp = False
+
 if __name__ == "__main__":
     root_path = os.path.dirname(os.path.realpath(__file__))
     sys.path.insert(0, pjoin(root_path, os.path.pardir))
@@ -3302,6 +3304,8 @@ class FORMSuperGraphList(list):
                 extra_files_lines = extra_files.readlines()
 
                 for line in extra_files_lines:
+                    if line == "amp.hpp":
+                        amp = True
                     shutil.copy(pjoin(form_factor_dir, line.strip()), pjoin(selected_workspace, '..', line.strip()))
 
             
@@ -3650,6 +3654,7 @@ const std::complex<double> I{ 0.0, 1.0 };
 """
         # add the user specified form factors header if it exists
         form_factors_header_path = pjoin(root_output_path, 'form_factors_f64.h')
+
         if os.path.exists(form_factors_header_path):
             numerator_header_general = """\n#include "form_factors_f64.h"\n#include "form_factors_f128.h" """ + numerator_header_general
             form_factors_header = open(form_factors_header_path)
@@ -4174,6 +4179,25 @@ const std::complex<double> I{ 0.0, 1.0 };
                         fill_form_factor_body_f128 = ""
                         fill_form_factor_body_mpfr = ""
                         form_factor_index = 0
+                        
+                        #todo, dynamically determine when amp is set to true/false
+                        #todo, add mpfr support
+                        amp_path = pjoin(root_output_path, 'amp.hpp')
+                        if os.path.exists(amp_path):
+                            fill_form_factor_body = """
+                                LorentzVector<complex<double>> energyselector(1.0, 0.0, 0.0, 0.0);
+                                LorentzVector<complex<double>> p1 = LorentzVector<complex<double>>(&moms[0]);
+                                LorentzVector<complex<double>> p2 = LorentzVector<complex<double>>(&moms[4]);
+                                LorentzVector<complex<double>> p3 = LorentzVector<complex<double>>(&moms[8]);
+                                LorentzVector<complex<double>> p4 = LorentzVector<complex<double>>(&moms[12]);
+                            """
+                            fill_form_factor_body_f128 = """ 
+                                LorentzVector<complex128> energyselector(1.0, 0.0, 0.0, 0.0);
+                                LorentzVector<complex128> p1(&moms[0]);
+                                LorentzVector<complex128> p2(&moms[4]);
+                                LorentzVector<complex128> p3(&moms[8]);
+                                LorentzVector<complex128> p4(&moms[12]);
+                            """
 
                         if os.path.exists(form_factors_header_path):
                             # Create an empty list to store function names
@@ -4287,7 +4311,7 @@ static inline void fill_lm(const T moms[], T out[]) {{
 {3}}}
 
 template<class T>
-static inline void fill_form_factors(const T lm[], T out[]) {{
+static inline void fill_form_factors(const T moms[], const T lm[], T out[]) {{
     {4}    
 }}
 
@@ -4300,7 +4324,7 @@ void %(header)sevaluate_{0}_{1}(const double* moms, const complex<double>* param
 }}
 """.format(itype, i,
                                 '\n'.join(
-                                    ['\t\tcase {0}: {{\n\t\t\t{3}complex<double>{4} lm[{5}];\n\t\t\t{3}complex<double>{4} form_factors[{7}];\n\t\t\tfill_lm(({3}complex<double>{4}*)moms, lm);\n\t\t\tfill_form_factors(lm, form_factors);\n\t\t\t%(header)sevaluate_{1}_{2}_{0}(lm, params{6}, ({3}complex<double>{4}*)out);\n\t\t}} return;'.format(
+                                    ['\t\tcase {0}: {{\n\t\t\t{3}complex<double>{4} lm[{5}];\n\t\t\t{3}complex<double>{4} form_factors[{7}];\n\t\t\tfill_lm(({3}complex<double>{4}*)moms, lm);\n\t\t\tfill_form_factors((complex<double>*)moms, lm, form_factors);\n\t\t\t%(header)sevaluate_{1}_{2}_{0}(lm, params{6}, ({3}complex<double>{4}*)out);\n\t\t}} return;'.format(
                                         conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '', out_idx, form_factors_input, form_factor_index) for conf, is_dual, _ in sorted(x for x in confs)] +
                                     # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else
                                     (['\t\tdefault: *out = 0.;'])
@@ -4318,7 +4342,7 @@ static inline void fill_lm(const T moms[], T out[]) {{
 {3}}}
 
 template<class T>
-static inline void fill_form_factors(const T lm[], T out[]) {{
+static inline void fill_form_factors(const T moms[], const T lm[], T out[]) {{
     {4}
 }}
 
@@ -4331,7 +4355,7 @@ void %(header)sevaluate_{0}_{1}_f128(const complex128* moms, const complex128* p
 }}
 """.format(itype, i,
                                 '\n'.join(
-                                    ['\t\tcase {0}: {{\n\t\t\t{3}complex128{4} lm[{5}];\n\t\t\t{3}complex128{4} form_factors[{7}];\n\t\t\tfill_lm(({3}complex128{4}*)moms, lm);\n\t\t\tfill_form_factors(lm, form_factors);\n\t\t\t%(header)sevaluate_{1}_{2}_{0}_f128(lm, params{6}, ({3}complex128{4}*)out);\n\t\t}} return;'.format(
+                                    ['\t\tcase {0}: {{\n\t\t\t{3}complex128{4} lm[{5}];\n\t\t\t{3}complex128{4} form_factors[{7}];\n\t\t\tfill_lm(({3}complex128{4}*)moms, lm);\n\t\t\tfill_form_factors((complex128*)moms, lm, form_factors);\n\t\t\t%(header)sevaluate_{1}_{2}_{0}_f128(lm, params{6}, ({3}complex128{4}*)out);\n\t\t}} return;'.format(
                                         conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '', out_idx, form_factors_input, form_factor_index) for conf, is_dual, _ in sorted(x for x in confs)] +
                                     (['\t\tdefault: *out = real128(0.q);'])
                                 ),
