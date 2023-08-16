@@ -2531,7 +2531,7 @@ class FORMSuperGraphIsomorphicList(list):
                                 FORM_source_to_run)
 
         with open(pjoin(selected_workspace, 'input_%d.h' % i_graph), 'w') as f:
-            
+           
             if FORM_processing_options['physical_transverse_spin_sum']:
                 f.write('\n #define TRANSVERSESPINSUM \"1\"\n')
 
@@ -3656,7 +3656,7 @@ const std::complex<double> I{ 0.0, 1.0 };
         form_factors_header_path = pjoin(root_output_path, 'form_factors_f64.h')
 
         if os.path.exists(form_factors_header_path):
-            numerator_header_general = """\n#include "form_factors_f64.h"\n#include "form_factors_f128.h" """ + numerator_header_general
+            numerator_header_general = """\n#include "form_factors_f64.hpp"\n#include "form_factors_f128.hpp" """ + numerator_header_general
             form_factors_header = open(form_factors_header_path)
 
         var_pattern = re.compile(r'Z\d*_')
@@ -4180,25 +4180,8 @@ const std::complex<double> I{ 0.0, 1.0 };
                         fill_form_factor_body_mpfr = ""
                         form_factor_index = 0
                         
-                        #todo, dynamically determine when amp is set to true/false
-                        #todo, add mpfr support
-                        amp_path = pjoin(root_output_path, 'amp.hpp')
-                        if os.path.exists(amp_path):
-                            fill_form_factor_body = """
-                                LorentzVector<complex<double>> energyselector(1.0, 0.0, 0.0, 0.0);
-                                LorentzVector<complex<double>> p1 = LorentzVector<complex<double>>(&moms[0]);
-                                LorentzVector<complex<double>> p2 = LorentzVector<complex<double>>(&moms[4]);
-                                LorentzVector<complex<double>> p3 = LorentzVector<complex<double>>(&moms[8]);
-                                LorentzVector<complex<double>> p4 = LorentzVector<complex<double>>(&moms[12]);
-                            """
-                            fill_form_factor_body_f128 = """ 
-                                LorentzVector<complex128> energyselector(1.0, 0.0, 0.0, 0.0);
-                                LorentzVector<complex128> p1(&moms[0]);
-                                LorentzVector<complex128> p2(&moms[4]);
-                                LorentzVector<complex128> p3(&moms[8]);
-                                LorentzVector<complex128> p4(&moms[12]);
-                            """
-
+                       
+                       
                         if os.path.exists(form_factors_header_path):
                             # Create an empty list to store function names
                             form_factor_names = []
@@ -4277,6 +4260,33 @@ const std::complex<double> I{ 0.0, 1.0 };
                             if form_factor_index == 0:
                                 form_factor_index = 1     
                         
+                            fill_form_factor_body = fill_form_factor_body.replace("amp", "amp_tensor_f64.amp")
+                            fill_form_factor_body_f128 = fill_form_factor_body_f128.replace("amp", "amp_tensor_f128.amp")
+                            
+                             #todo, add mpfr support
+                            amp_path = pjoin(root_output_path, 'amp.hpp')
+                            if os.path.exists(amp_path):
+                                arg_string = "{0}, {1}, {2}, {3}".format(form_factor_calls_f64["amp1122"][0][0], form_factor_calls_f64["amp1122"][0][1], form_factor_calls_f64["amp1122"][0][2], form_factor_calls_f64["amp1122"][0][3])
+                                construct_tensor_string_f64 = "AmpTensor_f64 amp_tensor_f64({0});\n".format(arg_string)
+                                construct_tensor_string_f128 = "AmpTensor_f128 amp_tensor_f128({0});\n".format(arg_string)
+                                
+                                construct_momenta_string = ""
+                                construct_momenta_string_f128 = ""
+                                for p_index in range(n_tot):
+                                    construct_momenta_string += "\tLorentzVector<complex<double>> p{0} = LorentzVector<complex<double>>(&moms[{1}]);\n".format(p_index+1, 4*p_index)
+                                    construct_momenta_string_f128 += "\tLorentzVector<complex128> p{0} = LorentzVector<complex128>(&moms[{1}]);\n".format(p_index+1, 4*p_index)
+
+                                fill_form_factor_body = construct_momenta_string + construct_tensor_string_f64 + fill_form_factor_body
+                                fill_form_factor_body_f128 = construct_momenta_string_f128 + construct_tensor_string_f128 + fill_form_factor_body_f128                            
+
+                                fill_form_factor_body = fill_form_factor_body.replace("amp1122_f64("  + arg_string+"," , "amp1122_f64(")
+                                fill_form_factor_body = fill_form_factor_body.replace("amp1212_f64("  + arg_string+"," , "amp1212_f64(")
+                                fill_form_factor_body = fill_form_factor_body.replace("amp1221_f64("  + arg_string+"," , "amp1221_f64(")
+                                
+                                fill_form_factor_body_f128 = fill_form_factor_body_f128.replace("amp1122_f128(" + arg_string + ",", "amp1122_f128(")
+                                fill_form_factor_body_f128 = fill_form_factor_body_f128.replace("amp1212_f128(" + arg_string + ",", "amp1212_f128(")
+                                fill_form_factor_body_f128 = fill_form_factor_body_f128.replace("amp1221_f128(" + arg_string + ",", "amp1221_f128(")
+
                         fill_lm_body = ""
                         out_idx = 0
                         for i1 in range(n_tot):

@@ -1306,7 +1306,10 @@ id energies(p?) = penergy(p);
 #do i= 1,`$MAXK'
     #$OFFSET = $OFFSET + 1;
     repeat id e_(p1?,p2?,p3?,cs`i') = penergy(p`$OFFSET')*e_(p1,p2,p3,energyselector) - e_(p1,p2,p3,p`$OFFSET');
-    repeat id amp(?b,cs`i',?a) = penergy(p`$OFFSET')*amp(?b,energyselector,?a) - amp(?b,p`$OFFSET',?a);
+#if `HASAMP'==1
+*    repeat id amp(?b,cs`i',?a) = penergy(p`$OFFSET')*amp(?b,energyselector,?a) - amp(?b,p`$OFFSET',?a);
+    repeat id amp(?b,cs`i',?a) =  - amp(?b,p`$OFFSET',?a);
+#endif;
     multiply replace_(c`i', p`$OFFSET');
 #enddo
 #$MAXP = $MAXP + $MAXK;
@@ -1347,59 +1350,66 @@ AB amp;
 
 
 *some ward identities
-*id amp(p1, ?p2) = 0;
-*id amp(p1?, p2, ?p3) = 0; 
-*id amp(?p1, k3, p2?) = 0;
+id amp(p1, ?p2) = 0;
+id amp(p1?, p2, ?p3) = 0; 
+id amp(p1?, p2?, p3, p4?) = 0;
 
+id amp(?p1, energyselector, ?p2) = 0;
 
 * merge amp(p1,p2,p3,p4) + amp(p2,p2,p3,p4) into amp(p1+p2,p2,p3,p4)
 * for every index
-id amp(?a) = amp(pq1000,?a);
-#do i = 1,4;
-    Multiply f2(coeff_)/coeff_; * extract coefficient so that it does not get picked up in a collect
-    id amp(p1?,...,p`i'?,p?,?a) = amp(p1,...,p`i',?a)*f(p); * extract ith index
-    AB f; * anti-bracket in index and collect
-    .sort:amp-bracket-`i';
-    Collect f1;
-    id f2(x?) = x;
-
-    argument f1; 
-        id f(p?) = p;
-    endargument;
-    .sort:amp-collect-`i';
-
-    id amp(p1?,...,p`i'?,?a)*f1(?b) = amp(p1,...,p`i',?b,?a);
-    .sort:amp-fuse-`i';
-#enddo 
+*id amp(?a) = amp(pq1000,?a);
+*#do i = 1,4;
+*    .sort
+*    polyratfun;
+*    id rat(a?,x?) = f2(a/x);
+**    repeat id f2(x?)*a?!{amp} = f2(a*x);
+*    id amp(p1?,...,p`i'?,p?,?a) = amp(p1,...,p`i',?a)*f(p); * extract ith index
+*    AB f; * anti-bracket in index and collect
+*    .sort:amp-bracket-`i';
+*    Collect f1;
+*
+*    argument f1; 
+*        id f(p?) = p;
+*    endargument;
+*    id f1(x?) = x;
+*    .sort:amp-collect-`i';
+*
+*    id amp(p1?,...,p`i'?,?a)*f1(?b) = amp(p1,...,p`i',?b,?a);
+*    .sort:amp-fuse-`i';
+*#enddo 
 
 id amp(pq1000,?a) = amp(?a);
 .sort
-id f1(1) = 1;
 
 * ward identities
 
 
+
 * replace contracted amps with seperate functions
-id amp(pq1, pq1, p1?!{pq2}, p2?!{pq2}) = amp12(p1,p2);
-id amp(pq1, p1?!{pq2}, pq1, p2?!{pq2}) = amp13(p1,p2);
-id amp(pq1, p1?!{pq2}, p2?!{pq2}, pq1) = amp14(p1,p2);
-id amp(p1?, pq1, pq1, p2?) = amp23(p1,p2);
-id amp(p1?, pq1, p2?, pq1) = amp24(p1,p2);
-id amp(p1?, p2?, pq1, pq1) = amp34(p1,p2);
 id amp(pq1, pq1, pq2, pq2) = amp1122;
 id amp(pq1, pq2, pq1, pq2) = amp1212;
 id amp(pq1, pq2, pq2, pq1) = amp1221;
+id amp(p1?!{pq2}, pq1, pq1, p2?!{pq2}) = amp23(p1,p2);
+id amp(p1?, pq1, p2?, pq1) = amp24(p1,p2);
+id amp(p1?, p2?, pq1, pq1) = amp34(p1,p2);
+id amp(pq1, pq1, p1?!{pq2}, p2?!{pq2}) = amp12(p1,p2);
+id amp(pq1, p1?!{pq2}, pq1, p2?!{pq2}) = amp13(p1,p2);
+id amp(pq1, p1?!{pq2}, p2?!{pq2}, pq1) = amp14(p1,p2);
 
-id ffinternalmomenta(?p2)*amp(?p1) = amp(?p1, ?p2);
-id ffinternalmomenta(?p2)*amp12(?p1) = amp12(?p1, ?p2);
-id ffinternalmomenta(?p2)*amp13(?p1) = amp13(?p1, ?p2);
-id ffinternalmomenta(?p2)*amp14(?p1) = amp14(?p1, ?p2);
-id ffinternalmomenta(?p2)*amp23(?p1) = amp23(?p1, ?p2);
-id ffinternalmomenta(?p2)*amp24(?p1) = amp24(?p1, ?p2);
-id ffinternalmomenta(?p2)*amp34(?p1) = amp34(?p1, ?p2);
+*id ffinternalmomenta(?p2)*amp(?p1) = amp(?p1);
+*id ffinternalmomenta(?p2)*amp12(?p1) = amp12(?p1);
+*id ffinternalmomenta(?p2)*amp13(?p1) = amp13(?p1);
+*id ffinternalmomenta(?p2)*amp14(?p1) = amp14(?p1);
+*id ffinternalmomenta(?p2)*amp23(?p1) = amp23(?p1);
+*id ffinternalmomenta(?p2)*amp24(?p1) = amp24(?p1);
+*id ffinternalmomenta(?p2)*amp34(?p1) = amp34(?p1);
+*store this information in this function for later, argument will eventually be removed.
+*we also want to keep these as a function
 id ffinternalmomenta(?p)*amp1122 = amp1122(?p);
 id ffinternalmomenta(?p)*amp1212 = amp1212(?p);
 id ffinternalmomenta(?p)*amp1221 = amp1221(?p);
+id ffinternalmomenta(?p) = 1;
 
 #endif
 *ampptrick
