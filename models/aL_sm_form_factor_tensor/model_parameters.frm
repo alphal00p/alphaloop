@@ -44,8 +44,7 @@ CF BPHOAMPFFSTU;
 CF BPHOAMPFFTSU;
 CF BPHOAMPFFUST;
 CF CPHOAMPFFSTU;
-CF amp;
-CF amp12, amp13, amp23, amp14, amp24, amp34, amp1122, amp1212, amp1221; 
+CF amp, amp12, amp13, amp23, amp14, amp24, amp34, amp1122, amp1212, amp1221; 
 CF ffinternalmomenta;
 #define HASAMP "0"
 **************************************************
