@@ -38,10 +38,10 @@ void edit_result_helper(complex<double> *out) {
     *out = complex<double>(out->real(), 0.0);
     break;
   case 3:
-    *out = complex<double>(out->imag(), 0.0);
+    *out = complex<double>(0.0, out->imag());
     break;
   case 4:
-    *out = complex<double>(-out->imag(), 0.0);
+    *out = complex<double>(0.0, -out->imag());
     break;
   }
 }
