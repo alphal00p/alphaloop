@@ -4,6 +4,7 @@
 #include <complex>
 #include <gsl/gsl_sf_dilog.h>
 #include <gsl/gsl_sf_result.h>
+#include <iomanip>
 #include <math.h>
 #include <mp++/complex.hpp>
 #include <mp++/complex128.hpp>
@@ -22,7 +23,8 @@ typedef mppp::complex128 complex128;
 // functions
 double FORM_FACTOR_PHASE = 1.0;
 
-bool debug = false;
+const bool debug = false;
+const bool debug_2 = false;
 
 int return_val = 0; // 0 = default, 1 = complex conjugate, 2 = real, 3 =
                     // imaginary, 4 = complex conjugate imaginary
@@ -36,18 +38,20 @@ void edit_result_helper(complex<double> *out) {
     *out = complex<double>(out->real(), 0.0);
     break;
   case 3:
-    *out = complex<double>(0.0, out->imag());
+    *out = complex<double>(out->imag(), 0.0);
     break;
   case 4:
-    *out = complex<double>(0.0, -out->imag());
+    *out = complex<double>(-out->imag(), 0.0);
     break;
   }
 }
 
-complex<double> global_prefactor(0.0, 2.0 / (M_PI * M_PI));
+// different from fortran code in order to get the correct phase and sign in
+// alphaloop
+complex<double> global_prefactor(-2.0 / (M_PI * M_PI), 0.0);
 
 complex<double> zero_f64(0.0, 0.0);
-double mu2 = 10.0;
+double mu2 = 100.0;
 
 //  int n_massive = 0;
 //  int n_massless = 1;
@@ -256,7 +260,7 @@ c_inf dilog(c_inf const &c) {
 
     return c_inf(complex_res, c.inf);
   } else {
-    double d_log_res = -gsl_sf_dilog(1 / c.val.real());
+    double d_log_res = -gsl_sf_dilog(1. / c.val.real());
     c_inf addition_part = -0.5 * log(-c) * log(-c) - M_PI * M_PI / 6.0;
 
     return d_log_res + addition_part;
@@ -398,6 +402,60 @@ void fill_ff_params_massive(double s, double t, double u, double m2,
 }
 
 complex<double> astu_polynomial(polynomial_parameters p_a) {
+  complex<double> xs, xt, xu, xs2, xt2, xu2, xs3, xt3, xu3, xs4, xt4, xu4;
+  complex<double> bs_term, bt_term, bu_term, cs_term, ct_term, cu_term,
+      dst_term, dsu_term, dtu_term;
+  complex<double> res;
+
+  xs = p_a.xs;
+  xt = p_a.xt;
+  xu = p_a.xu;
+
+  xs2 = xs * xs;
+  xt2 = xt * xt;
+  xu2 = xu * xu;
+
+  xs4 = xs2 * xs2;
+  xt4 = xt2 * xt2;
+  xu4 = xu2 * xu2;
+
+  xs3 = xs * xs2;
+  xt3 = xt * xt2;
+  xu3 = xu * xu2;
+
+  bs_term = 24. - 8. * xs2 / (xt * xu) * p_a.b02s;
+  bt_term = -8. * xt2 / (xs * xu) * p_a.b02t;
+  bu_term = (-12. * xs / xt + 8. * xu / xs - 4. * xu / xt - 12.) * p_a.b02u;
+
+  cs_term = (8. * xt3 / xu2 + 8. * xu3 / xt2 - 8. * xt2 / xu - 8. * xu2 / xt -
+             48. * xt / xu - 48. * xu / xt - 40. * xt - 40. * xu) *
+            p_a.c02s;
+
+  ct_term = (8. * xt2 * xu / xs2 + 8. * xs * xt2 / xu2 - 48. * xt2 / (xs * xu) +
+             24. * xt2 / xu) *
+            p_a.c02t;
+
+  cu_term = (8. * xt * xu2 / xs2 + 8. * xs * xu2 / xt2 - 48. * xu2 / (xs * xt) +
+             24. * xu2 / xt) *
+            p_a.c02u;
+
+  dst_term = (-4. * xs4 / xu2 - 20. * xs3 / xu + 32. * xs2 / xu - 22. * xs2 -
+              6. * xs * xu + 80. * xs - 64.) *
+             p_a.d02st;
+
+  dsu_term = (-4. * xs4 / xt2 - 20. * xs3 / xt - 32. * xs2 / xt - 22. * xs2 -
+              6. * xs * xt + 80. * xs - 64.) *
+             p_a.d02su;
+
+  dtu_term = (-4. * xu4 / xs2 - 8. * xu3 / xs + 32. * xu2 / xs - 6. * xs * xu +
+              48. * xs - 10. * xu2 + 32. * xu - 64.) *
+             p_a.d02tu;
+
+  return 8. + bs_term + bt_term + bu_term + cs_term + ct_term + cu_term +
+         dst_term + dsu_term + dtu_term;
+}
+
+complex<double> _astu_polynomial(polynomial_parameters p_a) {
   complex<double> astu;
   complex<double> Z[18];
 
@@ -1525,7 +1583,58 @@ complex<double> bust_polynomial(polynomial_parameters p_a) {
   return bust;
 }
 
+complex<double> my_pow(complex<double> x, int n) {
+  complex<double> res = 1.0;
+  for (int i = 0; i < n; i++) {
+    res *= x;
+  }
+  return res;
+}
+
 complex<double> cstu_polynomial(polynomial_parameters p_a) {
+  complex<double> rat_term, cs_term, ct_term, cu_term, dst_term, dsu_term,
+      dtu_term;
+  complex<double> res;
+
+  double m_temp_2 = 173. * 173.;
+  complex<double> xs, xt, xu, s, t, u;
+  xs = p_a.xs;
+  xt = p_a.xt;
+  xu = p_a.xu;
+  s = m_temp_2 * xs;
+  t = m_temp_2 * xt;
+  u = m_temp_2 * xu;
+
+  complex<double> xt2 = p_a.xt * p_a.xt;
+  complex<double> xu2 = p_a.xu * p_a.xu;
+  complex<double> xs2 = p_a.xs * p_a.xs;
+
+  complex<double> s2 = s * s;
+  complex<double> t2 = t * t;
+  complex<double> u2 = u * u;
+
+  complex<double> c_numerator = 2. * (xt2 + xu * xt + xu2);
+
+  rat_term = -1. / (xs * xu);
+
+  cs_term = c_numerator / (xs * xt * xu2) * p_a.c02s;
+
+  ct_term = c_numerator / (xs2 * xu2) * p_a.c02t;
+
+  cu_term = c_numerator / (xs2 * xt * xu) * p_a.c02u;
+
+  dst_term = (xs * xt + 2. * xu) / (xs * xu2) * p_a.d02st;
+
+  dsu_term = (xs * xu + 2. * xt) / (xs * xt * xu) * p_a.d02su;
+
+  dtu_term = (xt * xu + 2. * xs) / (xs * xs * xu) * p_a.d02tu;
+
+  res = rat_term + cs_term + ct_term + cu_term + dst_term + dtu_term + dsu_term;
+
+  return res;
+}
+
+complex<double> _cstu_polynomial(polynomial_parameters p_a) {
   complex<double> cstu;
   complex<double> Z[35];
 
@@ -2206,11 +2315,12 @@ void APHOAMPFFSTU_f64(complex<double> E1, complex<double> E2,
 
     fill_ff_params_massive(s.real(), t.real(), u.real(), M2_arr[n], &p_a);
 
-    complex<double> expr_massive = astu_polynomial(p_a);
+    complex<double> expr_massive = _astu_polynomial(p_a);
 
     dynamic_prefactor =
         1. / (96.0 * p_a.xs * p_a.xs * p_a.xt * p_a.xt * p_a.xu * p_a.xu);
 
+    // dynamic_prefactor = 1. / 96.;
     tot_res += pref_arr_massive[n] * dynamic_prefactor * expr_massive;
   }
 
@@ -2471,6 +2581,11 @@ void BPHOAMPFFUST_f64(complex<double> E1, complex<double> E2,
   edit_result_helper(out);
 }
 
+void set_im_to_zero(complex<double> *z) {
+  complex<double> res((*z).real(), 0.);
+  *z = res;
+}
+
 void CPHOAMPFFSTU_f64(complex<double> E1, complex<double> E2,
                       complex<double> E3, complex<double> p1_p2,
                       complex<double> p1_p3, complex<double> p2_p3,
@@ -2559,7 +2674,8 @@ void CPHOAMPFFSTU_f64(complex<double> E1, complex<double> E2,
     fill_ff_params_massive(s.real(), t.real(), u.real(), M2_arr[n], &p_a);
 
     if (debug) {
-      cout << "massless parameters: " << endl;
+      cout << setprecision(16) << endl;
+      cout << "massive parameters: " << endl;
       cout << "xs: " << p_a.xs << endl;
       cout << "xt: " << p_a.xt << endl;
       cout << "xu: " << p_a.xu << endl;
@@ -2576,18 +2692,14 @@ void CPHOAMPFFSTU_f64(complex<double> E1, complex<double> E2,
       cout << "d02tu: " << p_a.d02tu << endl;
     }
 
-    complex<double> expr_massive = cstu_polynomial(p_a);
-
-    if (debug) {
-      cout << "expr_massive: " << expr_massive << endl;
-    }
+    complex<double> expr_massive = _cstu_polynomial(p_a);
 
     double M4 = M2_arr[n] * M2_arr[n];
 
     dynamic_prefactor =
         1. / (3.0 * p_a.xs * p_a.xs * p_a.xs * p_a.xs * p_a.xt * p_a.xt *
               p_a.xt * p_a.xt * p_a.xu * p_a.xu * p_a.xu * p_a.xu * M4);
-
+    // dynamic_prefactor = 1. / (M4);
     if (debug) {
       cout << "dynamic_prefactor: " << dynamic_prefactor << endl;
     }
@@ -2695,9 +2807,11 @@ void AmpTensor_f64::amp34_f64(LorentzVector<complex<double>> mom_1,
 void AmpTensor_f64::amp1122_f64(complex<double> *out) {
   *out = amp_tensor_f64.amp1122();
 }
+
 void AmpTensor_f64::amp1221_f64(complex<double> *out) {
   *out = amp_tensor_f64.amp1221();
 }
+
 void AmpTensor_f64::amp1212_f64(complex<double> *out) {
   *out = amp_tensor_f64.amp1212();
 }
