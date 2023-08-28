@@ -1349,11 +1349,15 @@ AB amp;
 .sort:amp-symmetrize;
 
 
-*some ward identities
-id amp(p1, ?p2) = 0;
-id amp(p1?, p2, ?p3) = 0; 
-id amp(p1?, p2?, p3, p4?) = 0;
-
+* ward identities and spacial projection
+id amp(p1?,p2?,p3?,p4?)*ffinternalmomenta(p1?,p5?,p6?,p7?) = 0;
+id amp(p1?,p2?,p3?,p4?)*ffinternalmomenta(-p1?,p5?,p6?,p7?) = 0;
+id amp(p1?,p2?,p3?,p4?)*ffinternalmomenta(p5?,p2?,p6?,p7?) = 0;
+id amp(p1?,p2?,p3?,p4?)*ffinternalmomenta(p5?,-p2?,p6?,p7?) = 0;
+id amp(p1?,p2?,p3?,p4?)*ffinternalmomenta(p5?,p6?,p3?,p7?) = 0;
+id amp(p1?,p2?,p3?,p4?)*ffinternalmomenta(p5?,p6?,-p3?,p7?) = 0;
+id amp(p1?,p2?,p3?,p4?)*ffinternalmomenta(p5?,p6?,p7?,p4?) = 0;
+id amp(p1?,p2?,p3?,p4?)*ffinternalmomenta(p5?,p6?,p7?,-p4?) = 0;
 id amp(?p1, energyselector, ?p2) = 0;
 
 * merge amp(p1,p2,p3,p4) + amp(p2,p2,p3,p4) into amp(p1+p2,p2,p3,p4)
@@ -1383,8 +1387,6 @@ id amp(pq1000,?a) = amp(?a);
 .sort
 
 * ward identities
-
-
 
 * replace contracted amps with seperate functions
 id amp(pq1, pq1, pq2, pq2) = amp1122;
