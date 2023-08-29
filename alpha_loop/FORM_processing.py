@@ -78,7 +78,7 @@ FORM_processing_options = {
     'compilation-options': [],
     'FORM_parallel_cores': 1,
     'cores': 2,  # multiprocessing.cpu_count(),
-    'extra-options': {'OPTIMITERATIONS': 1000, 'NUMERATOR': 0, 'SUMDIAGRAMSETS': 'nosum', 'MAXVARSFOROPTIM': 3500},
+    'extra-options': {'OPTIMITERATIONS': 1000, 'NUMERATOR': 0, 'SUMDIAGRAMSETS': 'nosum', 'MAXVARSFOROPTIM': 3500}, # 'MAXVARSFOROPTIM': 0
     # If None, only consider the LMB originally chosen.
     # If positive and equal to N, consider the first N LMB from the list of LMB automatically generated
     # If negative consider all possible LMBs.
@@ -96,9 +96,9 @@ FORM_processing_options = {
     'generate_renormalisation_graphs': False,
     # Set the option below to a positive integer so as to enable the splitting of large source files into many
     # with at most around the number of lines specified here. Note that this disables static and inline optimisations!
-    'max_n_lines_in_C_source': 20000,
-    'max_n_lines_in_C_function': 1000,
-    'max_n_files_in_library': 100,
+    'max_n_lines_in_C_source': 20000, #20000
+    'max_n_lines_in_C_function': 1000, #1000
+    'max_n_files_in_library': 100, #100
     'include_integration_channel_info': True,
     'UV_min_dod_to_subtract': 0,
     'selected_epsilon_UV_order': 0,
@@ -313,6 +313,10 @@ def temporary_fix_FORM_output(FORM_output):
     forest_re = re.compile(r'forestid\((\d+)\)')
     power_re = re.compile(r'pow\((\w*)\,(\d+)\)')
 #    power_re = re.compile(r'pow\((mUV)\,(\d+)\)')
+    amp_re = re.compile(r'amp(\(.*?\))')
+    ampdd_re = re.compile(r'amp(\d\d\(.*?\))')
+    ampdddd_re = re.compile(r'amp(\d\d\d\d\(.*?\))')
+
 
     Z_counter = {'count': 2}
     structures_seen = {}
@@ -346,6 +350,20 @@ def temporary_fix_FORM_output(FORM_output):
                     structures_seen[forest_structure], forest_structure))
             processed_line = processed_line.replace(
                 forest_structure, structures_seen[forest_structure])
+
+        amp_list = list(re.findall(amp_re ,l))
+        ampdd_list = list(re.findall(ampdd_re, l))
+        ampdddd_list = list(re.findall(ampdddd_re, l))
+
+        amp_full_list = amp_list + ampdd_list + ampdddd_list 
+        
+        for amp_id in amp_full_list:
+            amp_structure = 'amp%s' % amp_id 
+            if amp_structure not in structures_seen:
+                Z_counter['count'] += 1
+                structures_seen[amp_structure] = 'Z%d_' % Z_counter['count'] 
+                new_lines.append('%s = %s;' % (structures_seen[amp_structure], amp_structure))
+            processed_line = processed_line.replace(amp_structure, structures_seen[amp_structure])
 
         # Optimize know structures
         for structure, var in list(known_structures.items()):
@@ -4635,9 +4653,11 @@ return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
         for SG_id in sorted(SG_ids):
 
             dependencies = []
+            form_factor_dep_string = ' '
             if os.path.exists(pjoin(root_output_path, 'form_factors_f64.cpp')): 
-                dependencies.append('form_factors_f64.cpp')
-                dependencies.append('form_factors_f128.cpp')
+                form_factor_dep_string = ' form_factors_f64.o'
+            if os.path.exists(pjoin(root_output_path, 'form_factors_f128.cpp')):
+                form_factor_dep_string += ' form_factors_f128.o'
             for code_type in ['PF', 'LTD',]:
                 all_matches = list(glob_module.glob(pjoin(root_output_path, 'integrand_%s_%d_*.c' % (code_type, SG_id))))+list(
                     glob_module.glob(pjoin(root_output_path, 'integrand_%s_%d_*.cpp' % (code_type, SG_id))))
@@ -4655,7 +4675,7 @@ return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
             if FORM_processing_options['max_n_files_in_library'] is None or FORM_processing_options['max_n_files_in_library'] <= 0 or FORM_processing_options['max_n_files_in_library'] > len(formatted_dependencies):
                 repl_dict['all_sg_targets'].append(
                     """$(LIBBPATH)/libFORM_sg_%(SGID)d.so: %(dependencies)s
-\t$(GPP) --shared -fPIC $(CFLAGS) -o $@ $^""" % {'SGID': SG_id, 'dependencies': ' '.join(formatted_dependencies)})
+\t$(GPP) --shared -fPIC $(CFLAGS) -o $@ $^""" % {'SGID': SG_id, 'dependencies': ' '.join(formatted_dependencies) + form_factor_dep_string})
             else:
                 type_ordering = {'PF': 0, 'LTD': 1}
                 precision_ordering = {'f64': 0, 'f128': 1, 'mpfr': 2}
@@ -4698,7 +4718,7 @@ return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
                 repl_dict['all_sg_targets'].append(
                     """$(LIBBPATH)/libFORM_sg_%(SGID)d.so: %(dependencies)s %(lib_deps)s
 \t$(GPP) --shared -fPIC $(CFLAGS) -L$(LIBBPATH) %(lib_links)s-o $@ %(dependencies)s""" % {
-                        'SGID': SG_id, 'dependencies': ' '.join(primary_source_files),
+                        'SGID': SG_id, 'dependencies': ' '.join(primary_source_files) + form_factor_dep_string,
                         'lib_deps': ' '.join('$(LIBBPATH)/lib%s.so' % l for l in libs_used_overall),
                         'lib_links': ' '.join('-l%s' % l for l in libs_used_overall)+(' 'if len(libs_used_overall) > 1 else '')
                     })
@@ -4716,7 +4736,7 @@ return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
             out.write(makefile_targets_template.format(**repl_dict))
 
     def split_function(self, function):
-
+         
         # and False:
         if (FORM_processing_options['max_n_lines_in_C_function'] is None or FORM_processing_options['max_n_lines_in_C_function'] <= 20):
             return [function,]
@@ -4887,7 +4907,6 @@ return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
 
         # Reinstate the new line character at the end of each line
         new_functions = [[fl+'\n' for fl in f] for f in new_functions]
-
         return new_functions
 
     def split_source_file(self, root_output_path, source_code_name, max_n_lines):
@@ -4985,7 +5004,11 @@ return  + mom1[0]*mom2[1]*mom3[2]*mom4[3]
         forward_declarations = [f[0].replace('static', '').replace(
             'inline', '').replace(' {', ';').strip()+'\n' for f in functions]
 
-        # print("In source code %s, found %d header lines and %d functions totalling %d lines."%(pjoin(root_output_path, source_code_name),len(header),len(functions), sum(len(f) for f in functions)))
+        #print(header)
+        #print(functions)
+        #print(no_split_C_code)
+
+        print("In source code %s, found %d header lines and %d functions totalling %d lines."%(pjoin(root_output_path, source_code_name),len(header),len(functions), sum(len(f) for f in functions)))
         i_file = 0
         i_func = 0
         files_written = []
