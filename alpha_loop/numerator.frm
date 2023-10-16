@@ -3,6 +3,8 @@
 On statistics;
 On nospacesinnumbers;
 
+#define HASAMP "0"
+
 *--#[ setup :
 
 *import the model parameters, model_parameters.frm should be located in the model directory 

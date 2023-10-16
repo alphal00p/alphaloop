@@ -4352,7 +4352,7 @@ void %(header)sevaluate_{0}_{1}(const double* moms, const complex<double>* param
 }}
 """.format(itype, i,
                                 '\n'.join(
-                                    ['\t\tcase {0}: {{\n\t\t\t{3}complex<double>{4} lm[{5}];\n\t\t\t{3}complex<double>{4} form_factors[{7}];\n\t\t\tfill_lm(({3}complex<double>{4}*)moms, lm);\n\t\t\tfill_form_factors((complex<double>*)moms, lm, form_factors);\n\t\t\t%(header)sevaluate_{1}_{2}_{0}(lm, params{6}, ({3}complex<double>{4}*)out);\n\t\t}} return;'.format(
+                                    ['\t\tcase {0}: {{\n\t\t\t{3}complex<double>{4} lm[{5}];\n\t\t\t{3}complex<double>{4} form_factors[{7}];\n\t\t\tfill_lm(({3}complex<double>{4}*)moms, lm);\n\t\t\tfill_form_factors(({3}complex<double>{4}*)moms, lm, form_factors);\n\t\t\t%(header)sevaluate_{1}_{2}_{0}(lm, params{6}, ({3}complex<double>{4}*)out);\n\t\t}} return;'.format(
                                         conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '', out_idx, form_factors_input, form_factor_index) for conf, is_dual, _ in sorted(x for x in confs)] +
                                     # ['\t\tdefault: raise(SIGABRT);'] if not graph.is_zero else
                                     (['\t\tdefault: *out = 0.;'])
@@ -4383,7 +4383,7 @@ void %(header)sevaluate_{0}_{1}_f128(const complex128* moms, const complex128* p
 }}
 """.format(itype, i,
                                 '\n'.join(
-                                    ['\t\tcase {0}: {{\n\t\t\t{3}complex128{4} lm[{5}];\n\t\t\t{3}complex128{4} form_factors[{7}];\n\t\t\tfill_lm(({3}complex128{4}*)moms, lm);\n\t\t\tfill_form_factors((complex128*)moms, lm, form_factors);\n\t\t\t%(header)sevaluate_{1}_{2}_{0}_f128(lm, params{6}, ({3}complex128{4}*)out);\n\t\t}} return;'.format(
+                                    ['\t\tcase {0}: {{\n\t\t\t{3}complex128{4} lm[{5}];\n\t\t\t{3}complex128{4} form_factors[{7}];\n\t\t\tfill_lm(({3}complex128{4}*)moms, lm);\n\t\t\tfill_form_factors(({3}complex128{4}*)moms, lm, form_factors);\n\t\t\t%(header)sevaluate_{1}_{2}_{0}_f128(lm, params{6}, ({3}complex128{4}*)out);\n\t\t}} return;'.format(
                                         conf, itype, i, (is_dual + '<') if is_dual else '', '>' if is_dual else '', out_idx, form_factors_input, form_factor_index) for conf, is_dual, _ in sorted(x for x in confs)] +
                                     (['\t\tdefault: *out = real128(0.q);'])
                                 ),
