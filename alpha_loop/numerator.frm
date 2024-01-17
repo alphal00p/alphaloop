@@ -3,8 +3,6 @@
 On statistics;
 On nospacesinnumbers;
 
-#define HASAMP "0"
-
 *--#[ setup :
 
 *import the model parameters, model_parameters.frm should be located in the model directory 
@@ -20,7 +18,7 @@ Auto S lm,ext,E;
     Auto I mu=D,s=4;
 #endif
 Symbol ge, gs, ghhh, type, in, out, virtual;
-Auto S x, idx, t, n;
+Auto S x, y, idx, t, n;
 
 #include model_parameters.frm
 
@@ -1490,6 +1488,26 @@ id invdot(x?) = x^-1;
 
 .sort:conv-dots;
 
+B conf,ellipsoids,constants,energies,tder;
+.sort
+* #write<expression_dump_`SGID'.frm> "%E",F;
+#write<expression_dump_`SGID'.frm> "%E",FINTEGRANDPF;
+
+id f?{amp,amp12,amp13,amp14,amp23,amp24,amp34,amp1122,amp1212,amp1221}(?a) = amp(f(?a));
+
+argtoextrasymbol tonumber,amp,1;
+#redefine oldextrasymbols "`extrasymbols_'"
+B+ conf;
+ModuleOption noparallel; * make sure the graph ordering stays intact
+.sort:conf-1;
+
+#do i = {`oldextrasymbols'+1},`extrasymbols_'
+    #$s = extrasymbol_(`i');
+    #write<map_`SGID'.proto_c> "#MAP pow(x,{`i'-`oldextrasymbols' + 1})=%$",$s
+#enddo
+
+id amp(y?) = x^(y-`oldextrasymbols'+1);
+
 * split off every energy configuration into a new expression
 B+ conf;
 .sort:conf-collect;
@@ -1530,6 +1548,15 @@ Keep brackets;
             id ellipsoids(?a$ellipsoids) = 1;
             id energies(?a$energies) = 1;
             id constants(?a$constants) = 1;
+            ModuleOption noparallel;
+            .sort
+ 
+            #if (`$isdenominator' == 0)
+                 B+ x; * bracket in all amp
+                 #WRITE "fuckme" 
+            #endif
+            Print +S;
+            
             ModuleOption noparallel;
             .sort:conf-`ext'-0;
 

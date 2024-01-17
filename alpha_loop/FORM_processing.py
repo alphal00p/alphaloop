@@ -3783,6 +3783,17 @@ const std::complex<double> I{ 0.0, 1.0 };
                         with open(pjoin(root_output_path, 'workspace', 'out_integrand_{}_{}.proto_c'.format(itype, i))) as f:
                             num = f.read()
 
+                        amp_map_str = []
+                        with open(pjoin(root_output_path, 'workspace', 'map_{}.proto_c'.format(i))) as f:
+                            amp_map_str = f.readlines()
+
+                        for line in amp_map_str:
+                            words = line.split(' ')
+                            expr = words[1].split('=')
+                            num = num.replace(expr[0], expr[1])
+
+        
+
                         # TODO Remove when FORM will have fixed its C output bug
                         num = temporary_fix_FORM_output(num)
                         total_time += time.time()-time_before
@@ -4224,10 +4235,13 @@ const std::complex<double> I{ 0.0, 1.0 };
                             form_factor_calls_f128 = {form_factor_name: [] for form_factor_name in form_factor_names}
                             form_factor_calls_mpfr = {form_factor_name: [] for form_factor_name in form_factor_names}
 
-                            pattern = r"([a-zA-Z0-9_]+)\((.*?)\);"
+                            pattern = r"([a-zA-Z0-9_]+)\((.*?)\)"
 
                             #have to do it for each type seperately
                             matches = re.findall(pattern, integrand_main_code)
+                            #print(form_factor_names)
+                            #print(matches)
+                            #print(integrand_main_code)
                             # Store information about each function call
                             for match in matches:
                                 form_factor_name = match[0]
@@ -4281,6 +4295,7 @@ const std::complex<double> I{ 0.0, 1.0 };
                             fill_form_factor_body = fill_form_factor_body.replace("amp", "amp_tensor_f64.amp")
                             fill_form_factor_body_f128 = fill_form_factor_body_f128.replace("amp", "amp_tensor_f128.amp")
                             
+
                              #todo, add mpfr support
                             amp_path = pjoin(root_output_path, 'amp.hpp')
                             if os.path.exists(amp_path):
