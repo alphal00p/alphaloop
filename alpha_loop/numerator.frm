@@ -1555,7 +1555,6 @@ Keep brackets;
                  B+ x; * bracket in all amp
                  #WRITE "fuckme" 
             #endif
-            Print +S;
             
             ModuleOption noparallel;
             .sort:conf-`ext'-0;
