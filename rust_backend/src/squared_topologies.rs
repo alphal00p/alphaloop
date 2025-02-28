@@ -2868,8 +2868,9 @@ impl SquaredTopology {
 
             // determine the collinear dampening factor
             for col_surf in &self.collinear_surfaces {
-                let mut surface_eval = Hyperdual::zero();
-                let mut pos_norm_sum = Hyperdual::zero();
+                // VHHACK: Apparently necessary with new rust to specify SG_DUAL_SIZE
+                let mut surface_eval: Hyperdual<T, SG_DUAL_SIZE> = Hyperdual::zero();
+                let mut pos_norm_sum: Hyperdual<T, SG_DUAL_SIZE> = Hyperdual::zero();
                 let mut momentum_sum = LorentzVector::default();
 
                 for &(prop_index, sign) in col_surf {
@@ -2885,7 +2886,8 @@ impl SquaredTopology {
                 }
 
                 // TODO: normalize by the size the line segment?
-                let eta = surface_eval * surface_eval
+                // VHHACK: Apparently necessary with new rust to specify SG_DUAL_SIZE
+                let eta: Hyperdual<T, SG_DUAL_SIZE> = surface_eval * surface_eval
                     / (Into::<T>::into(self.settings.deformation.fixed.pinch_dampening_k_com)
                         * T::convert_from(&self.e_cm_squared));
 

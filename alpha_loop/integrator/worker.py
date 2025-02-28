@@ -998,7 +998,7 @@ class ALStandaloneIntegrand(object):
             from ltd import CrossSection
         except ImportError as e:
             raise WorkerException("Could not import the rust back-end 'ltd' module in '%s'. Compile it first with:\n" % self.alpha_loop_path +
-                                  " ./make_lib\nfrom within the alphaLoop directory.")
+                                  " ./make_lib\nfrom within the alphaLoop directory. from %s. Error: %s",self.alpha_loop_path,e)
 
         os.environ['MG_NUMERATOR_PATH'] = os.path.abspath(
             os.path.join(self.rust_input_folder, os.path.pardir))

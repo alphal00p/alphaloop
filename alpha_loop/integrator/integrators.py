@@ -126,7 +126,8 @@ class SimpleMonteCarloIntegrator(VirtualIntegrator):
                     discrete_dimensions = integrand.discrete_dimensions.random_sample()
                     continuous_dimensions = integrand.continuous_dimensions.random_sample()
                     try:
-                        new_wgt += phase_space_volumes[i]*integrand(continuous_dimensions,discrete_dimensions)
+                        res_eval = integrand(continuous_dimensions,discrete_dimensions)
+                        new_wgt += phase_space_volumes[i]*res_eval["I"]
                         self.tot_func_evals += 1
                     except AssertionError as err:
                         traceback.print_tb(sys.exc_info()[-1])

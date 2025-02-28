@@ -515,7 +515,9 @@ impl JetClustering {
         {
             // filter for jet particles: u, d, c, s, d, g, QCD_ghost
             //TODO make it a hyperparam of the observable!
-            if id.abs() < 6 || *id == 21 || id.abs() == 82 {
+            //VHHACK FOR LBL
+            if id.abs() < 6 || *id == 21 || id.abs() == 82 || (id.abs() >= 3370 && id.abs() < 3380)
+            {
                 self.fastjet_jets_in.extend(&[e.t, e.x, e.y, e.z]);
                 len += 1;
             }

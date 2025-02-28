@@ -63,7 +63,11 @@ import LTD.ltd_utils as ltd_utils
 import alpha_loop.integrator.sampler as sampler
 import alpha_loop.integrator.integrands as integrands
 import alpha_loop.integrator.integrators as integrators
-import alpha_loop.integrator.vegas3_integrator as vegas3_integrator
+try:
+    import alpha_loop.integrator.vegas3_integrator as vegas3_integrator
+except:
+    print("COULD NOT LOAD VEGAS3 INTEGRATOR IN RUN INTERFACE")
+
 import alpha_loop.integrator.havana as havana
 import alpha_loop.integrator.pyCubaIntegrator as pyCubaIntegrator
 from alpha_loop.integrator.worker import ALStandaloneIntegrand, Havana
@@ -171,6 +175,7 @@ class RunHyperparameters(HyperParameters):
 
             'General.stability_checks'                      : [
                 {
+                    #VHHACK CHANGE TO 1 HERE TO DISABLE STABILITY CHECK
                     # number of samples to take for the numerical stability check
                     'n_samples': 3,
                     'prec': 16,
@@ -1072,7 +1077,12 @@ class SuperGraph(dict):
                             # Add an s- or t-channel
 
                             connected_external_nodes = set(a_node for e, a_node in connected_nodes if a_node not in remaining_internal_nodes)
-                            ancestors_states = [ ancestor_legs_for_node[a_node] for a_node in connected_external_nodes ]
+                            # VHHACK for a a > t t~
+                            #ancestors_states = [ ancestor_legs_for_node[a_node] for a_node in connected_external_nodes ]
+                            if any(a_node not in ancestor_legs_for_node for a_node in connected_external_nodes):
+                                logger.warning("Could not trace externals in diagram '%s'"%self['name'])
+                            ancestors_states = [ (ancestor_legs_for_node[a_node] if a_node in ancestor_legs_for_node else []) for a_node in connected_external_nodes ]
+
                             final_state_ancestors = []
                             initial_state_ancestors = []
                             for ancestors in ancestors_states:
@@ -4060,13 +4070,13 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     if LU_scaling_solutions is None or len(LU_scaling_solutions)==0 or all(LU_scaling[0]<0. for LU_scaling in LU_scaling_solutions):
                         if args.show_warnings:
                             logger.warning("Could not find t-rescaling solution for SG '%s' with cut ID #%d for IR limit %s: %s\nInput LMB momenta: %s"%(
-                                SG['name'], i_cut, SuperGraph.format_ir_limit_str(ir_limit), str(LU_scaling_solutions), str(rescaled_momenta_in_defining_lmb) ))
+                                SG['name'], i_cut, SuperGraph.format_ir_limit_str(ir_limit_info), str(LU_scaling_solutions), str(rescaled_momenta_in_defining_lmb) ))
                         continue
                     LU_scaling_solutions = list(LU_scaling_solutions)
                     LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
                     if LU_scaling>0.0 and args.show_warnings:
                         logger.warning("Found unexpected t-rescaling solution for SG '%s' with cut ID #%d for IR limit %s: %s\nInput LMB momenta: %s"%(
-                                SG['name'], i_cut, SuperGraph.format_ir_limit_str(ir_limit), str(LU_scaling_solutions), str(rescaled_momenta_in_defining_lmb) ))
+                                SG['name'], i_cut, SuperGraph.format_ir_limit_str(ir_limit_info), str(LU_scaling_solutions), str(rescaled_momenta_in_defining_lmb) ))
 
                     while LU_scaling < 0.0:
                         if len(LU_scaling_solutions)==0:
@@ -4076,16 +4086,19 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
 
                     # Compute deformation if applicable
                     deformation = None
-                    if self.hyperparameters["General"]["deformation_strategy"] != "none":
+                    # deformation_param =self.hyperparameters["General"]["deformation_strategy"]
+                    deformation_param = "none"
+                    rescaled_momenta_in_defining_LMB = rescaled_momenta_in_defining_lmb
+                    if deformation_param != "none":
                         # deformation below contains (deformed_momenta, (def_jac_re, def_jac_im))
                         deformation = rust_worker.get_cut_deformation(rescaled_momenta_in_defining_LMB, cut_ID, LU_scaling)
                     if args.f128:
-                        if self.hyperparameters["General"]["deformation_strategy"] == "none":
+                        if deformation_param == "none":
                             res_re, res_im = local_rust_worker.evaluate_cut_f128(rescaled_momenta_in_defining_lmb,i_cut,LU_scaling)                            
                         else:
                             res_re, res_im = local_rust_worker.evaluate_cut_f128(rescaled_momenta_in_defining_lmb,i_cut,LU_scaling,deformation=deformation)                            
                     else:
-                        if self.hyperparameters["General"]["deformation_strategy"] != "none":
+                        if deformation_param != "none":
                             res_re, res_im = local_rust_worker.evaluate_cut(rescaled_momenta_in_defining_lmb,i_cut,LU_scaling)
                         else:
                             res_re, res_im = local_rust_worker.evaluate_cut(rescaled_momenta_in_defining_lmb,i_cut,LU_scaling,deformation=deformation)
@@ -4829,9 +4842,9 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                                 continue
                             LU_scaling_solutions = list(LU_scaling_solutions)
                             LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)
-                            if LU_scaling>0.0 and args.show_warnings:
-                                logger.warning("Found unexpected rescaling solutions for UV profiling of SG '%s' with cut ID #%d with UV edges %s and fixed edges %s: %s\nInput LMB momenta: %s"%(
-                                    SG_name, cut_ID, UV_edges_str, fixed_edges_str, str(LU_scaling_solutions), str(rescaled_momenta_in_defining_LMB) ))
+                            #if LU_scaling>0.0 and args.show_warnings:
+                            #    logger.warning("Found unexpected rescaling solutions for UV profiling of SG '%s' with cut ID #%d with UV edges %s and fixed edges %s: %s\nInput LMB momenta: %s"%(
+                            #        SG_name, cut_ID, UV_edges_str, fixed_edges_str, str(LU_scaling_solutions), str(rescaled_momenta_in_defining_LMB) ))
 
                             while LU_scaling < 0.0:
                                 if len(LU_scaling_solutions)==0:

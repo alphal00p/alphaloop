@@ -639,6 +639,16 @@ class AL_cluster(object):
                 else:
                     worker_env['LD_PRELOAD'] = pjoin(
                         alphaloop_basedir, 'libraries', 'scs', 'out', 'libscsdir.so')
+
+                #VHHACK
+                worker_env['LD_PRELOAD'] = ' '.join([
+                     worker_env['LD_PRELOAD'],
+                     pjoin(alphaloop_basedir,'libraries','scs','out','libscsdir.so'),
+                     '/usr/lib/gcc/x86_64-linux-gnu/9/libstdc++.so',
+                     '/usr/lib/gcc/x86_64-linux-gnu/9/libquadmath.so',
+                     '/scratch2/hirschva/mp++/mppp-0.26_build/lib/libmp++.so'
+                ])
+                
                 # worker_env['LD_PRELOAD'] = ' '.join([
                 #    pjoin(alphaloop_basedir,'libraries','scs','out','libscsdir.so'),
                 #    '/usr/lib/gcc/x86_64-linux-gnu/9/libstdc++.so',

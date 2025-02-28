@@ -379,8 +379,12 @@ class SquaredTopologyGenerator:
                                     m = Matrix([diag_info['propagators'][d]['amp_sig'] for d in foci[:len(foci) - 1]])
                                     dm = m.T * (m * m.T)**-1 # the right inverse should always work
                                     # dependent edge in focus basis, should be integer
-                                    sig_in_fb = Matrix(diag_info['propagators'][foci[-1]]['amp_sig']).T * dm
-
+                                    
+                                    #VHHACK
+                                    try:
+                                        sig_in_fb = Matrix(diag_info['propagators'][foci[-1]]['amp_sig']).T * dm
+                                    except:
+                                        sig_in_fb = [1,]
                                     # add a +m and -m to the surfaces of every massive propagator that have a dependency on the external momentum
                                     if uv_subgraph['onshell'] and len(t[1]) == 1:
                                         for sign in (1.,-1.):
@@ -565,8 +569,11 @@ class SquaredTopologyGenerator:
                         m = Matrix([diag_info['propagators'][d]['amp_sig'] for d in foci[:len(foci) - 1]])
                         dm = m.T * (m * m.T)**-1 # the right inverse should always work
                         # dependent edge in focus basis, should be integer
-                        sig_in_fb = Matrix(diag_info['propagators'][foci[-1]]['amp_sig']).T * dm
-
+                        #VHHACK
+                        try:
+                            sig_in_fb = Matrix(diag_info['propagators'][foci[-1]]['amp_sig']).T * dm
+                        except:
+                            sig_in_fb = [1,]
                         for sign in (1,-1):
                             threshold = {'foci': foci, 'fb_to_cmb': [float(x) for x in dm], 'sig_in_fb': [int(x) for x in sig_in_fb], 'shift_in_lmb_sig': ((sign * lm_shift).tolist(), (sign * ext_shift).tolist()), 'mass_shift': 0.}
                             if threshold not in diag_info['thresholds']:

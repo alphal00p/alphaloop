@@ -3,8 +3,10 @@ output = 'output.py';
 style = './orientedGraphPython.sty';
 model = './model.dat';
 
-in = eplus[p1], eminus[p2]; 
-out = eplus[p1], eminus[p2];
+*in = eplus[p1], eminus[p2]; 
+*out = eplus[p1], eminus[p2];
+in = photon[p1], photon[p2]; 
+out = photon[p1], photon[p2];
 
 loops = %(n_loops)s;
 loop_momentum = k;
@@ -28,8 +30,8 @@ options = onshell, notadpole, nosnail;
 *  true=elink[-1,-3,excl,1,1];
 *  true=elink[-2,-4,excl,1,1];
 * or (see manual of version 3.4)
-true=plink[-1,-3];
-true=plink[-2,-4];
+*true=plink[-1,-3];
+*true=plink[-2,-4];
 
 
 * Vetos

@@ -13,7 +13,10 @@ import yaml
 import shutil
 import alpha_loop.utils as utils
 import random
-from scipy import optimize
+try:
+    from scipy import optimize
+except:
+    print("COULD NOT LOAD SCIPY")
 import warnings
 import traceback
 
@@ -31,7 +34,10 @@ from LTD.vectors import LorentzVector, LorentzVectorList
 
 import alpha_loop.integrator.integrands as integrands
 from alpha_loop.integrator.worker import ALStandaloneIntegrand
-import alpha_loop.integrator.vegas3_integrator as vegas3
+try:
+    import alpha_loop.integrator.vegas3_integrator as vegas3
+except:
+    print("COULD NOT LOAD VEGAS3 INTEGRATOR")
 
 try:
     import scipy.optimize as optimize
@@ -432,13 +438,14 @@ class DefaultALIntegrand(integrands.VirtualIntegrand):
         self.first_final_res = None
 
     def __call__(self, continuous_inputs, discrete_inputs, **opts):
-
+        
+        self.debug = False
         xs, wgt = self.generator(continuous_inputs)
 
-        # ks = []
-        # for i_v, v in enumerate([xs[0:3],xs[3:6],xs[6:9]]):
-        #     kx, ky, kz, jac = self.rust_worker.parameterize(list(v), i_v, 125.0**2)
-        #     ks.append([kx, ky, kz])
+        ks = []
+        for i_v, v in enumerate([xs[0:3],xs[3:6],xs[6:9]]):
+            kx, ky, kz, jac = self.rust_worker.parameterize(list(v), i_v, 125.0**2)
+            ks.append([kx, ky, kz])
 
         # all_aL_xs = []
         # for signs in [
@@ -476,6 +483,29 @@ class DefaultALIntegrand(integrands.VirtualIntegrand):
         else:
             final_res = im*wgt
         
+        #VHHACK 
+        if final_res == 0.:
+            print("INVESTIGATING ZERO POINT", xs, res)
+            for cut_id in range(1):
+                print("cut_id=",cut_id)
+                LU_scaling = self.rust_worker.get_scaling(ks,cut_id)
+                print("LU_scaling", LU_scaling)
+                cut_res = self.rust_worker.evaluate_cut_f128(ks,cut_id,LU_scaling[1][0])
+                print("cut_res f128=",cut_res)
+                cut_res = self.rust_worker.evaluate_cut(ks,cut_id,LU_scaling[1][0])
+                print("cut_res f64=",cut_res)
+            
+            print("aL_xs=",aL_xs)
+            r = self.rust_worker.evaluate_integrand( aL_xs )
+            print("result",r)
+            for tt in [1.5,2.0,3.0,4.0,5.0,10.,100.,100.]:
+                print("scaling=",tt)
+                new_xs = [aL_xs[0]*tt, aL_xs[1], aL_xs[2]]
+                print("new_xs=",new_xs)
+                r = self.rust_worker.evaluate_integrand( new_xs )
+                print("res for scaling",r)
+            print("STOPPING NOW")
+            sys.exit(0)
         if self.debug: logger.debug("Final wgt returned to integrator: %.16e"%final_res)
 
         # Remove the padded xs for frozen momenta if applicable

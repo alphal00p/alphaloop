@@ -20,7 +20,7 @@ default = ["fitting_dual"]
 higher_loops = []
 python_api = ["pyo3", "havana/python_bindings", "lorentz_vector/pyo3_support"]
 use_mpi = ["mpi"]
-fitting_dual = [] # gives 10% performance boost at the cost of compilation time
+fitting_dual = []                                                              # gives 10% performance boost at the cost of compilation time
 n3lo = []
 
 [lib]
@@ -36,30 +36,46 @@ version = "0.15"
 arrayvec = "0.5"
 bincode = "1.3"
 clap = "2.34"
-color-eyre = {version = "^0.3", default-features = false}
+color-eyre = { version = "^0.3", default-features = false }
 colored = "1.8"
 cuba = "^0.2.3"
 dlopen = "0.1"
-hyperdual = {git = "https://gitlab.com/benruijl/hyperdual"}
+hyperdual = { git = "https://gitlab.com/benruijl/hyperdual" }
 ecos-rs = "0.1"
 eyre = "^0.4"
-f128 = {git = "https://github.com/benruijl/f128"}
+f128 = { git = "https://github.com/benruijl/f128" }
 fnv = "1.0.6"
-havana = {git = "https://github.com/benruijl/havana", features = ["gridplotting", "use_serde"]}
+#havana = { git = "https://github.com/benruijl/havana", features = [
+#    "gridplotting",
+#    "use_serde",
+#] }
+#VHHACK we need a version of havana with:
+$[build-dependencies]
+$pyo3-build-config = "*"
+# At least for builds on mac
+# Because we must build with an old version of pyO3
+havana = {path = "/scratch2/hirschva/MG5_aMC_v3_0_2_py3/havana", features = ["gridplotting", "use_serde"]}
 itertools = "0.8"
 libc = "0.2"
-lorentz_vector = {git = "https://github.com/benruijl/lorentz_vector", branch="hyperdual", features = ["serde_support", "hyperdual_support", "f128_support"]}
-mpi = {git = "https://github.com/rsmpi/rsmpi", optional = true}
+lorentz_vector = { git = "https://github.com/benruijl/lorentz_vector", branch = "hyperdual", features = [
+    "serde_support",
+    "hyperdual_support",
+    "f128_support",
+] }
+mpi = { git = "https://github.com/rsmpi/rsmpi", optional = true }
 nalgebra = "0.29"
 num = "0.3"
 num-traits = "0.2"
 rand = "0.8"
 rayon = "1.5"
 scs-rs = "0.1"
-serde = {version = "1.0", features = ["derive"]}
+serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "*"
 termion = "1.5"
 thousands = "0.2.0"
 tui = "^0.9"
 smallvec = "1.7"
 tabled = "0.7"
+
+[build-dependencies]
+pyo3-build-config = "*"
