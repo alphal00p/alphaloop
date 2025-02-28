@@ -141,11 +141,11 @@ class alphaLoopInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
             'checkpoint_lvl': 0,
             # List of SGs to propagate past checkpoint 1
             'SG_name_list': [],
+            'qgraf_spoof': None
         }
         self.FORM_options = FORM_processing.FORM_processing_options
 
         self.plugin_output_format_selected = None
-
         self.model_backup_copy = None
 
         self.qgraf_exporter = None
@@ -839,6 +839,14 @@ set to False, except for debugging, which seems to be what you are doing now, so
             out['Options'] = self.list_completion(text, opt, line)
 
         return self.deal_multiple_categories(out, formatting)
+
+    def do_set_qgraf_spoof(self, line):
+        """ Forces to overwrite qgraf generation with this file containing the graf output."""
+        args = self.split_arg(line)
+        if len(args) !=1 or not os.path.isfile(args[0]):
+            raise alphaLoopInvalidCmd("Invalid QGRAF spoof specified: %s"%str(args))
+        else:
+            self.alphaLoop_options['qgraf_spoof'] = args[0]
 
     def do_qgraf_define(self, line):
         """ define specific multiparticles to be used at generation time. """

@@ -398,6 +398,7 @@ class alphaLoopExporter(export_v4.ProcessExporterFortranSA):
             computed_model['name'] = model['name']
             characteristic_process_definition = self.all_super_graphs[0][1].get('processes')[
                 0]
+
             logger.info("Numerators processing with FORM...")
             print("from alphaLoopExporter:" + computed_model['name'])
             FORM_processor = FORM_processing.FORMProcessor(
@@ -1378,8 +1379,11 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         # Generate all supergraphs using QGRAF
         if self.alphaLoop_options['checkpoint_lvl'] < 1 or not os.path.isfile(self.qgraf_output):
             self.build_output_directory()
-            getattr(self, "build_qgraf_%s" % self.alphaLoop_options['qgraf_template_model'])(
-                representative_proc)
+            if self.alphaLoop_options['qgraf_spoof'] is None:
+                getattr(self, "build_qgraf_%s" % self.alphaLoop_options['qgraf_template_model'])(
+                    representative_proc)
+            else:
+                shutil.copy(self.alphaLoop_options['qgraf_spoof'],pjoin(self.dir_path, 'qgraf', 'output.py'))
             self.standalone_qgraf_file()
 
         # Process supergraph numerators with FORM and output result in the process output.
@@ -1409,7 +1413,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
             pjoin(self.dir_path, 'Source', 'MODEL', 'param_card.dat'))
 
         # Assign the name of the model to be qgraf name, as it is useful for deciding between SM and HEFT renormalisation
-        # Assign model name, such that we are able to find the model directory. 
+        # Assign model name, such that we are able to find the model directory.
         computed_model.set('name', self.model['name'])
 
         final_state_particle_ids = [
@@ -1534,7 +1538,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
 
     def build_qgraf_epem(self, representative_process):
         # Check if e+ e- > a/z > ...
-        check_initial_states = all(l in [-11,11,22] for l in [leg.get('id') for leg in representative_process.get(
+        check_initial_states = all(l in [-11, 11, 22] for l in [leg.get('id') for leg in representative_process.get(
             'legs') if leg.get('state') == False])
         # representative_process.get('required_s_channels') == [[22]]
         check_s_channel = True
@@ -1626,7 +1630,7 @@ class HardCodedQGRAFExporter(QGRAFExporter):
                                cwd=qgraf_folder,
                                capture_output=True)
             if r.returncode != 0 or not os.path.exists(pjoin(qgraf_folder, 'output.py')):
-                raise print("QGRAF generation failed with error:\n%s" %
+                raise Exception("QGRAF generation failed with error:\n%s" %
                             (r.stdout.decode('UTF-8')))
 
     def build_qgraf_no_s(self, representative_process, vetos=None, outgoing_state_suffix='', final_state_suffix='', qgraf_template=None):
@@ -1649,10 +1653,11 @@ class HardCodedQGRAFExporter(QGRAFExporter):
         pdg_model_map = self.model['particles'].generate_dict()
 
         dict_replace = {}
-        dict_replace['n_loops'] = n_final_states - len(self.initial_states) + virtual_loops
+        dict_replace['n_loops'] = n_final_states - \
+            len(self.initial_states) + virtual_loops
 
-        if qgraf_template==self.qgraf_template_amp:
-            dict_replace['n_loops']+=1
+        if qgraf_template == self.qgraf_template_amp:
+            dict_replace['n_loops'] += 1
 
         # # Veto particles that are forbidden
         # dict_replace['vetos'] = ''
