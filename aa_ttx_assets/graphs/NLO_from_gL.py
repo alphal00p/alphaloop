@@ -1168,4 +1168,4 @@ graphs=[{'edges': {1: {'PDG': 22,
                  'momenta': ['k0-k1-p1', 'p1', '-k0+k1'],
                  'vertex_id': 0}},
   'overall_factor': '-2'}]
-graph_names=["SG_QG0","SG_QG1","SG_QG2","SG_QG3","SG_QG4","SG_QG5","SG_QG6","SG_QG7","SG_QG8","SG_QG9"]
+graph_names=["GL16","GL8","GL26","GL4","GL24","GL28","GL12","GL0","GL34","GL18"]

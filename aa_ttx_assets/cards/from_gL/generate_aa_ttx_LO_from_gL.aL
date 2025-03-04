@@ -18,8 +18,8 @@ set_FORM_option cores 20
 set_alphaLoop_option FORM_compile_optimization 1
 set_alphaLoop_option FORM_integrand_type PF
 set_alphaLoop_option checkpoint_lvl 1
+set_qgraf_spoof ./PLUGIN/new_aL_deformation/aa_ttx_assets/graphs/LO_from_gL.py
 set_FORM_option reference_lmb {}
-set_qgraf_spoof ./PLUGIN/new_aL_deformation/aa_ttx_assets/graphs/NLO_from_gL.py
-qgraf_generate  a a > t t~ / u d s c b QCD^2==1 QED^2==2 [QCD]
-!rm -rf ./PLUGIN/new_aL_deformation/aa_ttx_assets/runs/NLO_from_gL
-output qgraf ./PLUGIN/new_aL_deformation/aa_ttx_assets/runs/NLO_from_gL
+qgraf_generate  a a > t t~ / u d s c b QCD^2==0 QED^2==2
+!rm -rf ./PLUGIN/new_aL_deformation/aa_ttx_assets/runs/LO_from_gL
+output qgraf ./PLUGIN/new_aL_deformation/aa_ttx_assets/runs/LO_from_gL

@@ -3365,6 +3365,17 @@ class FORMSuperGraphList(list):
         # Generate additional copies for different LMB of the representative graph of each isomorphic set.
         # Note that depending on the option FORM_processing['representative_lmb'], the function below can also modify the LMB of the representative sg.
         for FORM_iso_sg in FORM_iso_sg_list:
+            #VHHACK: FORCE TO KEEP LMB SPECIFIED IN INPUT
+            #print(FORM_iso_sg[0].squared_topology)
+            lmb = []
+            for edge in FORM_iso_sg[0].edges.values():
+                if edge['momentum'] in ['k0','k1','k2','k3','k4','k5','k6','k7','k8','k9']:
+                    if not any(mom==edge['momentum'] for (mom, _e_name) in lmb):
+                        lmb.append((edge['momentum'],edge['name']))
+            lmb = ['p'+en for (_m, en) in sorted(lmb)]
+            if FORM_processing_options['reference_lmb'] is not None:
+                if FORM_iso_sg[0].name not in FORM_processing_options['reference_lmb']:
+                    FORM_processing_options['reference_lmb'][FORM_iso_sg[0].name] = lmb
             FORM_iso_sg[0].adjust_LMBs(model)
 
         # Export the drawings corresponding to each ISO supergraphs
