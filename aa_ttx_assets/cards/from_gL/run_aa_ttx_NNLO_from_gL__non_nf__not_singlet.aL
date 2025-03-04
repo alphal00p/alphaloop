@@ -38,7 +38,7 @@ all \
 -i havana -bs 1000000 --n_start 1000000000 --n_max 1000000000000 --n_increase 0 \
 -nw 45 -c 1 --cluster_type local \
 --run_id 1337 \
---run_description aa_ttx \
+--run_description aa_ttx_NNLO__non_nf__not_singlet \
 --no_mc_over_channels \
 --show_selected_phase_only \
 --integrand_descriptions m_uv_sq_x_1 m_uv_sq_x_0.25 m_uv_sq_x_4 \
