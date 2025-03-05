@@ -35,7 +35,7 @@ refresh_derived_data
 integrate \
 all \
 --fresh \
--i havana -bs 1000000 --n_start 1000000000 --n_max 1000000000000 --n_increase 0 \
+-i havana -bs 100000 --n_start 100000000 --n_max 1000000000000 --n_increase 0 \
 -nw 45 -c 1 --cluster_type local \
 --run_id 1337 \
 --run_description aa_ttx_NLO \
