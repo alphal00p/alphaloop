@@ -45,16 +45,16 @@ ecos-rs = "0.1"
 eyre = "^0.4"
 f128 = { git = "https://github.com/benruijl/f128" }
 fnv = "1.0.6"
-#havana = { git = "https://github.com/benruijl/havana", features = [
+havana = { git = "https://github.com/benruijl/havana", features = [
 #    "gridplotting",
-#    "use_serde",
-#] }
+    "use_serde",
+] }
 #VHHACK we need a version of havana with:
-$[build-dependencies]
-$pyo3-build-config = "*"
+#$[build-dependencies]
+#$pyo3-build-config = "*"
 # At least for builds on mac
 # Because we must build with an old version of pyO3
-havana = {path = "/scratch2/hirschva/MG5_aMC_v3_0_2_py3/havana", features = ["gridplotting", "use_serde"]}
+#havana = {path = "/scratch2/hirschva/MG5_aMC_v3_0_2_py3/havana", features = ["gridplotting", "use_serde"]}
 itertools = "0.8"
 libc = "0.2"
 lorentz_vector = { git = "https://github.com/benruijl/lorentz_vector", branch = "hyperdual", features = [

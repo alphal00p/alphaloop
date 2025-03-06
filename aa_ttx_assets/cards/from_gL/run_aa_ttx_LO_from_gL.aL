@@ -2,7 +2,7 @@ import model aL_sm-no_widths
 
 launch ./PLUGIN/new_aL_deformation/aa_ttx_assets/runs/LO_from_gL
 set_hyperparameter Selectors []
-set_hyperparameter CrossSection.incoming_momenta [[250.0,0.,0.,-250.0],[250.0,0.,0.,250.0]]
+set_hyperparameter CrossSection.incoming_momenta [[500.0,0.,0.,-500.0],[500.0,0.,0.,500.0]]
 set_hyperparameter CrossSection.picobarns True
 set_hyperparameter General.deformation_strategy "none"
 #set_hyperparameter CrossSection.inherit_deformation_for_uv_counterterm True
@@ -35,7 +35,7 @@ refresh_derived_data
 integrate \
 all \
 --fresh \
--i havana -bs 1000000 --n_start 1000000000 --n_max 1000000000000 --n_increase 0 \
+-i havana -bs 10000 --n_start 1000000000 --n_max 1000000000000 --n_increase 0 \
 -nw 45 -c 1 --cluster_type local \
 --run_id 1337 \
 --run_description aa_ttx_LO \
