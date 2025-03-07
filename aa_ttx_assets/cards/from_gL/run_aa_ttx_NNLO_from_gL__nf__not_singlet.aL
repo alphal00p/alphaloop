@@ -35,8 +35,8 @@ refresh_derived_data
 integrate \
 all \
 --fresh \
--i havana -bs 1000 --n_start 1000000 --n_max 1000000000000 --n_increase 0 \
--nw 45 -c 1 --cluster_type local \
+-i havana -bs 2000 --n_start 10000000 --n_max 1000000000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
 --run_id 1337 \
 --run_description aa_ttx_NNLO__nf__not_singlet \
 --no_mc_over_channels \

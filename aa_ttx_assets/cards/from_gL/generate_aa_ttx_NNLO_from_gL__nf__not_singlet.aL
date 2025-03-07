@@ -11,7 +11,7 @@ set_alphaLoop_option qgraf_template_model epem
 set_FORM_option number_of_lmbs None
 
 set_FORM_option allow_external_momenta_isomorphic_mapping False
-set_alphaLoop_option FORM_compile_cores 40
+set_alphaLoop_option FORM_compile_cores 150
 set_FORM_option cores 20
 #set_FORM_option max_n_lines_in_C_source 300
 
