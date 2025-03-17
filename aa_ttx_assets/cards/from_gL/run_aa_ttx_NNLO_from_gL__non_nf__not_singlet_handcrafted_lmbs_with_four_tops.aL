@@ -1,8 +1,8 @@
 import model aL_sm-no_widths
 
-launch ./PLUGIN/new_aL_deformation/aa_ttx_assets/runs/NNLO_from_gL__outer_nf
+launch ./PLUGIN/new_aL_deformation/aa_ttx_assets/runs/NNLO_from_gL__non_nf__not_singlet_handcrafted_lmbs_with_four_tops
 set_hyperparameter Selectors []
-set_hyperparameter CrossSection.incoming_momenta [[250.0,0.,0.,-250.0],[250.0,0.,0.,250.0]]
+set_hyperparameter CrossSection.incoming_momenta [[500.0,0.,0.,-500.0],[500.0,0.,0.,500.0]]
 set_hyperparameter CrossSection.picobarns True
 set_hyperparameter General.deformation_strategy "none"
 #set_hyperparameter CrossSection.inherit_deformation_for_uv_counterterm True
@@ -35,10 +35,10 @@ refresh_derived_data
 integrate \
 all \
 --fresh \
--i havana -bs 200000 --n_start 1000000000 --n_max 1000000000000 --n_increase 0 \
--nw 45 -c 1 --cluster_type local \
+-i havana -bs 2000 --n_start 10000000 --n_max 10000000000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
 --run_id 1337 \
---run_description aa_ttx_NNLO__outer_nf \
+--run_description aa_ttx_NNLO__non_nf__not_singlet \
 --no_mc_over_channels \
 --show_selected_phase_only \
 --integrand_descriptions m_uv_sq_x_1 m_uv_sq_x_0.25 m_uv_sq_x_4 \

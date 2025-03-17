@@ -13,8 +13,8 @@ set_hyperparameter General.deformation_strategy "none"
 #set_hyperparameter Deformation.scaling.lambda 10.0
 #set_hyperparameter Deformation.overall_scaling "constant"
 #set_hyperparameter Deformation.overall_scaling_constant 10.0
-set_hyperparameter CrossSection.m_uv_sq 160000.0
-set_hyperparameter CrossSection.mu_r_sq 160000.0
+set_hyperparameter CrossSection.m_uv_sq 8315.251344 
+set_hyperparameter CrossSection.mu_r_sq 8315.251344
 set_hyperparameter General.multi_channeling True
 set_hyperparameter General.use_optimal_channels False
 set_hyperparameter General.use_lmb_channels False
@@ -35,14 +35,14 @@ refresh_derived_data
 integrate \
 all \
 --fresh \
--i havana -bs 100000 --n_start 100000000 --n_max 1000000000000 --n_increase 0 \
--nw 45 -c 1 --cluster_type local \
+-i havana -bs 10000 --n_start 10000000 --n_max 1000000000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
 --run_id 1337 \
---run_description aa_ttx_NLO \
+--run_description aa_ttx_NLO_mu_r_mz \
 --no_mc_over_channels \
 --show_selected_phase_only \
 --integrand_descriptions m_uv_sq_x_1 m_uv_sq_x_0.25 m_uv_sq_x_4 \
 --integrands \
-CrossSection.m_uv_sq=160000.0 \
-CrossSection.m_uv_sq=40000.0 \
-CrossSection.m_uv_sq=640000.0
+CrossSection.m_uv_sq=8315.251344 \
+CrossSection.m_uv_sq=2078.812836 \
+CrossSection.m_uv_sq=33261.005376
