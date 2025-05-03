@@ -14,7 +14,7 @@ set_hyperparameter General.deformation_strategy "none"
 #set_hyperparameter Deformation.overall_scaling "constant"
 #set_hyperparameter Deformation.overall_scaling_constant 10.0
 set_hyperparameter CrossSection.m_uv_sq 160000.0
-set_hyperparameter CrossSection.mu_r_sq 160000.0
+set_hyperparameter CrossSection.mu_r_sq 8315.251344
 set_hyperparameter General.multi_channeling True
 set_hyperparameter General.use_optimal_channels False
 set_hyperparameter General.use_lmb_channels False

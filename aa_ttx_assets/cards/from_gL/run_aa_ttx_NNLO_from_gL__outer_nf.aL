@@ -1,6 +1,7 @@
 import model aL_sm-no_widths
 
-launch ./PLUGIN/new_aL_deformation/aa_ttx_assets/runs/NNLO_from_gL__outer_nf
+#launch ./PLUGIN/new_aL_deformation/aa_ttx_assets/runs/NNLO_from_gL__outer_nf
+launch /shared/vhirschi/aa_ttx/runs/NNLO_from_gL__outer_nf
 set_hyperparameter Selectors []
 set_hyperparameter CrossSection.incoming_momenta [[250.0,0.,0.,-250.0],[250.0,0.,0.,250.0]]
 set_hyperparameter CrossSection.picobarns True
@@ -14,8 +15,8 @@ set_hyperparameter General.deformation_strategy "none"
 #set_hyperparameter Deformation.overall_scaling "constant"
 #set_hyperparameter Deformation.overall_scaling_constant 10.0
 set_hyperparameter CrossSection.m_uv_sq 160000.0
-set_hyperparameter CrossSection.mu_r_sq 160000.0
-set_hyperparameter General.multi_channeling True
+set_hyperparameter CrossSection.mu_r_sq 8315.251344
+set_hyperparameter General.multi_channeling False
 set_hyperparameter General.use_optimal_channels False
 set_hyperparameter General.use_lmb_channels False
 
@@ -35,9 +36,9 @@ refresh_derived_data
 integrate \
 all \
 --fresh \
--i havana -bs 200000 --n_start 1000000000 --n_max 1000000000000 --n_increase 0 \
--nw 45 -c 1 --cluster_type local \
---run_id 1337 \
+-i havana -bs 500000 --n_start 1000000000 --n_max 100000000000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 1338 \
 --run_description aa_ttx_NNLO__outer_nf \
 --no_mc_over_channels \
 --show_selected_phase_only \

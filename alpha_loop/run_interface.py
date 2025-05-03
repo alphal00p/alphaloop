@@ -4836,9 +4836,10 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                             # Now obtain the rescaling for these momenta
                             LU_scaling_solutions = rust_worker.get_scaling(rescaled_momenta_in_defining_LMB,cut_ID)
                             if LU_scaling_solutions is None or len(LU_scaling_solutions)==0 or all(LU_scaling[0]<0. for LU_scaling in LU_scaling_solutions):
-                                if args.show_warnings:
+                                if args.show_warnings or True:
                                     logger.warning("Could not find rescaling for UV profiling of SG '%s' with cut ID #%d with UV edges %s and fixed edges %s: %s\nInput LMB momenta: %s"%(
                                         SG_name, cut_ID, UV_edges_str, fixed_edges_str, str(LU_scaling_solutions), str(rescaled_momenta_in_defining_LMB) ))
+                                    stop
                                 continue
                             LU_scaling_solutions = list(LU_scaling_solutions)
                             LU_scaling, LU_scaling_jacobian = LU_scaling_solutions.pop(0)

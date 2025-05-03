@@ -1,6 +1,7 @@
 import model aL_sm-no_widths
 
-launch /shared/vhirschi/aa_ttx/runs/LO_from_gL
+#launch ./PLUGIN/new_aL_deformation/aa_ttx_assets/runs/NNLO_from_gL__nf__not_singlet
+launch /shared/vhirschi/aa_ttx/runs/NNLO_from_gL__nf__not_singlet
 set_hyperparameter Selectors []
 set_hyperparameter CrossSection.incoming_momenta [[250.0,0.,0.,-250.0],[250.0,0.,0.,250.0]]
 set_hyperparameter CrossSection.picobarns True
@@ -34,15 +35,14 @@ refresh_derived_data
 #--integrands CrossSection.m_uv_sq=160000.0
 integrate \
 all \
---fresh \
--i havana -bs 10000 --n_start 1000000000 --n_max 1000000000000 --n_increase 0 \
--nw 45 -c 1 --cluster_type local \
---run_id 1337 \
---run_description aa_ttx_LO \
+-i havana -bs 2000 --n_start 10000000 --n_max 1000000000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 1447 \
+--run_description aa_ttx_NNLO__nf__not_singlet_mu_r_analysis \
 --no_mc_over_channels \
 --show_selected_phase_only \
---integrand_descriptions m_uv_sq_x_1 m_uv_sq_x_0.25 m_uv_sq_x_4 \
+--integrand_descriptions mu_r_x_1 mu_r_x_10 mu_r_x_0_1 \
 --integrands \
-CrossSection.m_uv_sq=160000.0 \
-CrossSection.m_uv_sq=40000.0 \
-CrossSection.m_uv_sq=640000.0
+CrossSection.mu_r_sq=8315.251344 \
+CrossSection.mu_r_sq=831525.1344 \
+CrossSection.mu_r_sq=83.15251344

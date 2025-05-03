@@ -21,5 +21,5 @@ set_alphaLoop_option checkpoint_lvl 1
 set_qgraf_spoof ./PLUGIN/new_aL_deformation/aa_ttx_assets/graphs/LO_from_gL.py
 set_FORM_option reference_lmb {}
 qgraf_generate  a a > t t~ / u d s c b QCD^2==0 QED^2==2
-!rm -rf ./PLUGIN/new_aL_deformation/aa_ttx_assets/runs/LO_from_gL
-output qgraf ./PLUGIN/new_aL_deformation/aa_ttx_assets/runs/LO_from_gL
+!rm -rf /shared/vhirschi/aa_ttx/runs/LO_from_gL
+output qgraf /shared/vhirschi/aa_ttx/runs/LO_from_gL

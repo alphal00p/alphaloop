@@ -2521,11 +2521,14 @@ impl SquaredTopology {
                         "For now the left-right polynomial normalising function only support a center at 1.0.");
                 assert!(self.settings.cross_section.normalising_function.spread>1.,
                         "The left-right polynomial normalising function only support a spread larger than 1.0.");
+
+
                 let sigma =
                     Into::<T>::into(self.settings.cross_section.normalising_function.spread);
+                let sigma_i: i32 = self.settings.cross_section.normalising_function.spread as i32;
                 (
-                    scaling.powf(D::from_real(sigma))
-                        / (scaling.powf(D::from_real(Into::<T>::into(2.0) * sigma))
+                    scaling.powi(sigma_i)
+                        / (scaling.powi(2*sigma_i)
                             + Into::<T>::into(1.0)),
                     <T as FloatConst>::PI()
                         / (Into::<T>::into(2.0)

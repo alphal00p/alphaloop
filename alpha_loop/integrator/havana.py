@@ -941,10 +941,25 @@ class AL_cluster(object):
             [f for f in glob.glob(pjoin(self.run_workspace, '*trashcan*'))]
         for io_file in io_files:
             if os.path.isdir(io_file):
-                shutil.rmtree(io_file)
+                try:
+                    shutil.rmtree(io_file)
+                except:
+                    import time
+                    time.sleep(0.5)
+                    try:
+                        shutil.rmtree(io_file)
+                    except:
+                        pass
             else:
-                os.remove(io_file)
-
+                try:
+                    os.remove(io_file)
+                except:
+                    import time
+                    time.sleep(0.5)
+                    try:
+                        os.remove(io_file)
+                    except:
+                        pass
 
 class HavanaIntegrator(integrators.VirtualIntegrator):
     """ Steering of the havana integrator """
@@ -1189,6 +1204,14 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                 '\n'.join(monitoring_report), stream=self.stream_monitor, overwrite=True)
         else:
             self.canvas.print('\n'.join(monitoring_report))
+            if os.path.isfile(pjoin(self.run_workspace, 'run_description.txt')):
+                with open(pjoin(self.run_workspace, 'run_description.txt'), 'r') as f:
+                    run_description = f.read()
+            else:
+                run_description = f"{self.run_id}"
+            # VHHACK
+            with open(f"{os.path.join(self.run_workspace, run_description+'_results.txt')}", 'w') as f:
+                f.write('\n'.join(monitoring_report))
 
     async def process_job_result(self, job_result):
         if self.exit_now:

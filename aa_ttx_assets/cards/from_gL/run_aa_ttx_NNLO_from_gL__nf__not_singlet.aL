@@ -1,6 +1,7 @@
 import model aL_sm-no_widths
 
-launch ./PLUGIN/new_aL_deformation/aa_ttx_assets/runs/NNLO_from_gL__nf__not_singlet
+#launch ./PLUGIN/new_aL_deformation/aa_ttx_assets/runs/NNLO_from_gL__nf__not_singlet
+launch /shared/vhirschi/aa_ttx/runs/NNLO_from_gL__nf__not_singlet
 set_hyperparameter Selectors []
 set_hyperparameter CrossSection.incoming_momenta [[250.0,0.,0.,-250.0],[250.0,0.,0.,250.0]]
 set_hyperparameter CrossSection.picobarns True
@@ -14,7 +15,7 @@ set_hyperparameter General.deformation_strategy "none"
 #set_hyperparameter Deformation.overall_scaling "constant"
 #set_hyperparameter Deformation.overall_scaling_constant 10.0
 set_hyperparameter CrossSection.m_uv_sq 160000.0
-set_hyperparameter CrossSection.mu_r_sq 160000.0
+set_hyperparameter CrossSection.mu_r_sq 8315.251344
 set_hyperparameter General.multi_channeling True
 set_hyperparameter General.use_optimal_channels False
 set_hyperparameter General.use_lmb_channels False

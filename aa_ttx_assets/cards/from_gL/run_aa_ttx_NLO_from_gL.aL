@@ -1,6 +1,6 @@
 import model aL_sm-no_widths
 
-launch ./PLUGIN/new_aL_deformation/aa_ttx_assets/runs/NLO_from_gL
+launch /shared/vhirschi/aa_ttx/runs/NLO_from_gL
 set_hyperparameter Selectors []
 set_hyperparameter CrossSection.incoming_momenta [[250.0,0.,0.,-250.0],[250.0,0.,0.,250.0]]
 set_hyperparameter CrossSection.picobarns True
@@ -36,7 +36,7 @@ integrate \
 all \
 --fresh \
 -i havana -bs 10000 --n_start 10000000 --n_max 1000000000000 --n_increase 0 \
--nw 500 -c 1 --cluster_type local \
+-nw 100 -c 1 --cluster_type local \
 --run_id 1337 \
 --run_description aa_ttx_NLO_mu_r_mz \
 --no_mc_over_channels \

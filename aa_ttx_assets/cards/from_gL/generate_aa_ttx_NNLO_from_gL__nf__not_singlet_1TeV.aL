@@ -20,6 +20,7 @@ set_alphaLoop_option FORM_integrand_type PF
 set_alphaLoop_option checkpoint_lvl 1
 set_FORM_option reference_lmb {}
 set_qgraf_spoof ./PLUGIN/new_aL_deformation/aa_ttx_assets/graphs/NNLO_from_gL__nf__not_singlet.py
+define j = j t t~
 qgraf_generate  a a > t t~ / u d s c b QCD^2==1 QED^2==2 [QCD]
-!rm -rf /shared/vhirschi/aa_ttx/runs/NNLO_from_gL__nf__not_singlet
-output qgraf /shared/vhirschi/aa_ttx/runs/NNLO_from_gL__nf__not_singlet
+!rm -rf /shared/vhirschi/aa_ttx/runs/NNLO_from_gL__nf__not_singlet_1TeV
+output qgraf /shared/vhirschi/aa_ttx/runs/NNLO_from_gL__nf__not_singlet_1TeV

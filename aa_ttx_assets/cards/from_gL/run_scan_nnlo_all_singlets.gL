@@ -1,0 +1,613 @@
+import model aL_sm-no_widths
+
+launch /shared/vhirschi/aa_ttx/runs/NNLO_from_gL__all_non_singlet_no_four_tops
+set_hyperparameter Selectors []
+set_hyperparameter CrossSection.picobarns True
+set_hyperparameter General.deformation_strategy "none"
+#set_hyperparameter CrossSection.inherit_deformation_for_uv_counterterm True
+#set_hyperparameter Deformation.fixed.dampen_on_pinch True
+#set_hyperparameter Deformation.fixed.dampen_on_pinch_after_lambda True
+#set_hyperparameter Deformation.fixed.pinch_dampening_alpha 1.0
+#set_hyperparameter Deformation.scaling.branch_cut_alpha 1.0
+#set_hyperparameter Deformation.scaling.lambda 10.0
+#set_hyperparameter Deformation.overall_scaling "constant"
+#set_hyperparameter Deformation.overall_scaling_constant 10.0
+set_hyperparameter Parameterization.mapping "log"
+set_hyperparameter CrossSection.m_uv_sq 8315.251344
+set_hyperparameter CrossSection.mu_r_sq 8315.251344
+set_hyperparameter General.multi_channeling True
+set_hyperparameter General.use_optimal_channels True
+set_hyperparameter General.use_lmb_channels False
+
+
+
+set_hyperparameter CrossSection.incoming_momenta [[173.025,0.,0.,-173.025],[173.025,0.,0.,173.025]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 1 \
+--run_description nnlo_all_singlets_1_sqrts_346_05 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[173.05,0.,0.,-173.05],[173.05,0.,0.,173.05]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 2 \
+--run_description nnlo_all_singlets_2_sqrts_346_1 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[173.3,0.,0.,-173.3],[173.3,0.,0.,173.3]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 3 \
+--run_description nnlo_all_singlets_3_sqrts_346_6 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[173.8,0.,0.,-173.8],[173.8,0.,0.,173.8]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 4 \
+--run_description nnlo_all_singlets_4_sqrts_347_6 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[174.3,0.,0.,-174.3],[174.3,0.,0.,174.3]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 5 \
+--run_description nnlo_all_singlets_5_sqrts_348_6 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[174.8,0.,0.,-174.8],[174.8,0.,0.,174.8]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 6 \
+--run_description nnlo_all_singlets_6_sqrts_349_6 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[175.2,0.,0.,-175.2],[175.2,0.,0.,175.2]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 7 \
+--run_description nnlo_all_singlets_7_sqrts_350_4 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[175.5,0.,0.,-175.5],[175.5,0.,0.,175.5]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 8 \
+--run_description nnlo_all_singlets_8_sqrts_351_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[176.5,0.,0.,-176.5],[176.5,0.,0.,176.5]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 9 \
+--run_description nnlo_all_singlets_9_sqrts_353_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[178.5,0.,0.,-178.5],[178.5,0.,0.,178.5]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 10 \
+--run_description nnlo_all_singlets_10_sqrts_357_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[181.0,0.,0.,-181.0],[181.0,0.,0.,181.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 11 \
+--run_description nnlo_all_singlets_11_sqrts_362_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[188.0,0.,0.,-188.0],[188.0,0.,0.,188.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 12 \
+--run_description nnlo_all_singlets_12_sqrts_376_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[195.0,0.,0.,-195.0],[195.0,0.,0.,195.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 13 \
+--run_description nnlo_all_singlets_13_sqrts_390_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[205.0,0.,0.,-205.0],[205.0,0.,0.,205.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 14 \
+--run_description nnlo_all_singlets_14_sqrts_410_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[215.0,0.,0.,-215.0],[215.0,0.,0.,215.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 15 \
+--run_description nnlo_all_singlets_15_sqrts_430_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[230.0,0.,0.,-230.0],[230.0,0.,0.,230.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 16 \
+--run_description nnlo_all_singlets_16_sqrts_460_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[245.0,0.,0.,-245.0],[245.0,0.,0.,245.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 17 \
+--run_description nnlo_all_singlets_17_sqrts_490_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[270.0,0.,0.,-270.0],[270.0,0.,0.,270.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 18 \
+--run_description nnlo_all_singlets_18_sqrts_540_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[295.0,0.,0.,-295.0],[295.0,0.,0.,295.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 19 \
+--run_description nnlo_all_singlets_19_sqrts_590_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[325.0,0.,0.,-325.0],[325.0,0.,0.,325.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 20 \
+--run_description nnlo_all_singlets_20_sqrts_650_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[375.0,0.,0.,-375.0],[375.0,0.,0.,375.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 21 \
+--run_description nnlo_all_singlets_21_sqrts_750_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[425.0,0.,0.,-425.0],[425.0,0.,0.,425.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 22 \
+--run_description nnlo_all_singlets_22_sqrts_850_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[475.0,0.,0.,-475.0],[475.0,0.,0.,475.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 23 \
+--run_description nnlo_all_singlets_23_sqrts_950_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[525.0,0.,0.,-525.0],[525.0,0.,0.,525.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 24 \
+--run_description nnlo_all_singlets_24_sqrts_1050_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[575.0,0.,0.,-575.0],[575.0,0.,0.,575.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 25 \
+--run_description nnlo_all_singlets_25_sqrts_1150_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[700.0,0.,0.,-700.0],[700.0,0.,0.,700.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 26 \
+--run_description nnlo_all_singlets_26_sqrts_1400_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[800.0,0.,0.,-800.0],[800.0,0.,0.,800.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 27 \
+--run_description nnlo_all_singlets_27_sqrts_1600_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[950.0,0.,0.,-950.0],[950.0,0.,0.,950.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 28 \
+--run_description nnlo_all_singlets_28_sqrts_1900_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[1150.0,0.,0.,-1150.0],[1150.0,0.,0.,1150.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 29 \
+--run_description nnlo_all_singlets_29_sqrts_2300_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[1400.0,0.,0.,-1400.0],[1400.0,0.,0.,1400.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 30 \
+--run_description nnlo_all_singlets_30_sqrts_2800_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[1700.0,0.,0.,-1700.0],[1700.0,0.,0.,1700.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 31 \
+--run_description nnlo_all_singlets_31_sqrts_3400_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[2200.0,0.,0.,-2200.0],[2200.0,0.,0.,2200.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 32 \
+--run_description nnlo_all_singlets_32_sqrts_4400_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[2700.0,0.,0.,-2700.0],[2700.0,0.,0.,2700.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 33 \
+--run_description nnlo_all_singlets_33_sqrts_5400_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[4500.0,0.,0.,-4500.0],[4500.0,0.,0.,4500.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 34 \
+--run_description nnlo_all_singlets_34_sqrts_9000_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[6500.0,0.,0.,-6500.0],[6500.0,0.,0.,6500.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 35 \
+--run_description nnlo_all_singlets_35_sqrts_13000_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[15000.0,0.,0.,-15000.0],[15000.0,0.,0.,15000.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 36 \
+--run_description nnlo_all_singlets_36_sqrts_30000_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
+
+
+set_hyperparameter CrossSection.incoming_momenta [[40000.0,0.,0.,-40000.0],[40000.0,0.,0.,40000.0]]
+integrate \
+all \
+--al_h_function left_right_polynomial \
+--al_h_function_sigma 3 \
+-i havana -bs 50000 --n_start 100000000 --n_max 500000000 --n_increase 0 \
+-nw 500 -c 1 --cluster_type local \
+--run_id 37 \
+--run_description nnlo_all_singlets_37_sqrts_80000_0 \
+--no_mc_over_channels \
+--show_selected_phase_only \
+--integrand_descriptions mu_r_x_1 \
+--integrands \
+CrossSection.mu_r_sq=8315.251344
