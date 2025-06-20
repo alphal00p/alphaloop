@@ -371,7 +371,7 @@ class Havana(object):
                         'avg': avg,
                         'err': err,
                         'chi_sq_per_dof': chi_sq/self.n_iterations if self.n_iterations > 0 else 0.,
-                        'max_wgt_infl': 0. if n_evals == 0 else max(abs(max_eval_negative), max_eval_positive)/(err*n_evals),
+                        'max_wgt_infl': 0. if err*n_evals == 0 else max(abs(max_eval_negative), max_eval_positive)/(err*n_evals),
                         'n_evals': n_evals,
                         'n_zero_evals': n_zero_evals
                     }

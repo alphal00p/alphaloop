@@ -1633,7 +1633,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                     if self.exit_now:
                         break
 
-                    timeout = 0.3
+                    timeout = 0.5
                     # Add a threshold of 5% of workers to insure smooth rollover
                     if n_remaining_points > 0 and self.n_jobs_awaiting_completion < self.n_cpus+max(int(self.n_cpus/20.), 2):
 
@@ -1689,7 +1689,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
 
                         self.n_jobs_awaiting_completion += 1
                         n_submitted += 1
-                        timeout = 0.001
+                        timeout = 0.00001
                         show_waiting = True
                         self.update_status(
                             start_time, n_jobs_total_completed, n_submitted, n_done,
@@ -1732,6 +1732,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                     if self.n_points_for_this_iteration > 0:
                         if n_remaining_points == 0 and self.n_jobs_awaiting_completion == 0:
                             break
+                        self.max_iteration_time = 3600.0*4
                         if self.max_iteration_time is not None:
                             curr_iteration_time = time.time()-iteration_start_time
                             if curr_iteration_time > self.max_iteration_time:
