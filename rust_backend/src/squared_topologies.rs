@@ -2573,14 +2573,14 @@ impl SquaredTopology {
             }
         }
 
-        for (label, propagator) in self.propagators.iter().enumerate() {
-            println!(
-                "propagator {}: {}, signature: {:?}, mass: {}",
-                label, propagator.name, propagator.signature, propagator.m_squared
-            );
-        }
+        //for (label, propagator) in self.propagators.iter().enumerate() {
+        //    println!(
+        //        "propagator {}: {}, signature: {:?}, mass: {}",
+        //        label, propagator.name, propagator.signature, propagator.m_squared
+        //    );
+        //}
 
-        panic!("stop");
+        //panic!("stop");
 
         // determine the cut momentum basis where every non-cut momentum has a dual
         // TODO: only do when a deformation is needed
@@ -2610,6 +2610,21 @@ impl SquaredTopology {
 
         let mut constants = Complex::one();
 
+        let non_dual_loop_momenta = rescaled_loop_momenta
+            .iter()
+            .map(|loop_mom| {
+                LorentzVector::from_args(
+                    loop_mom.t.get_real(),
+                    loop_mom.x.get_real(),
+                    loop_mom.y.get_real(),
+                    loop_mom.z.get_real(),
+                )
+            })
+            .collect::<Vec<LorentzVector<T>>>();
+
+        let multi_channeling_factor: T =
+            self.evaluate_multi_channeling_factor(&non_dual_loop_momenta, &external_momenta);
+
         constants *= utils::powi(
             num::Complex::new(
                 Into::<T>::into(1.)
@@ -2617,7 +2632,7 @@ impl SquaredTopology {
                 T::zero(),
             ),
             self.n_loops,
-        );
+        ) * multi_channeling_factor;
 
         // multiply the flux factor
         constants /= if self.n_incoming_momenta == 2 {
@@ -3323,6 +3338,97 @@ impl SquaredTopology {
         }
 
         rotated_topology
+    }
+
+    pub fn evaluate_multi_channeling_factor<T: FloatLike>(
+        &self,
+        rescaled_loop_momenta: &[LorentzVector<T>],
+        external_momenta: &[LorentzVector<T>],
+    ) -> T {
+        let alpha = T::from_f64(2.0).unwrap();
+
+        // GL208
+        let eta_ose_1 = [3, 7, 8];
+        let eta_ose_2 = [1, 5, 6];
+
+        // GL380
+        let eta_ose_3 = [0, 6, 7];
+        let eta_ose_4 = [3, 8, 9];
+        let eta_ose_5 = [1, 2, 3];
+        let eta_ose_6 = [0, 4, 5];
+
+        let etas = [
+            eta_ose_1, eta_ose_2, eta_ose_3, eta_ose_4, eta_ose_5, eta_ose_6,
+        ];
+
+        let eta_evals = etas.map(|eta| {
+            eta.iter()
+                .map(|edge_id| {
+                    let propagator = &self.propagators[*edge_id];
+
+                    let loop_part =
+                        utils::evaluate_signature(&propagator.signature.0, rescaled_loop_momenta);
+                    let shift_part =
+                        utils::evaluate_signature(&propagator.signature.1, external_momenta);
+
+                    let total_momentum = loop_part + shift_part;
+                    let total_momentum_spatial_squared = total_momentum.spatial_squared();
+
+                    (total_momentum_spatial_squared + T::from_f64(propagator.m_squared).unwrap())
+                        .sqrt()
+                        - shift_part.t
+                })
+                .sum::<T>()
+        });
+
+        // group:      (3,5) (3,6) (4,5) (4,6)
+        // complement: (4,6) (4,5) (3,6) (3,5)
+
+        match self.name.as_str() {
+            "GL208_A" => {
+                eta_evals[0].powf(alpha) / (eta_evals[0].powf(alpha) + eta_evals[1].powf(alpha))
+            }
+            "GL208_B" => {
+                eta_evals[1].powf(alpha) / (eta_evals[0].powf(alpha) + eta_evals[1].powf(alpha))
+            }
+            "GL380_A" => {
+                let num = (eta_evals[3] * eta_evals[5]).powf(alpha);
+                let denom = (eta_evals[3] * eta_evals[5]).powf(alpha)
+                    + (eta_evals[3] * eta_evals[4]).powf(alpha)
+                    + (eta_evals[2] * eta_evals[5]).powf(alpha)
+                    + (eta_evals[2] * eta_evals[4]).powf(alpha);
+
+                num / denom
+            }
+            "GL380_B" => {
+                let num = (eta_evals[3] * eta_evals[4]).powf(alpha);
+                let denom = (eta_evals[3] * eta_evals[5]).powf(alpha)
+                    + (eta_evals[3] * eta_evals[4]).powf(alpha)
+                    + (eta_evals[2] * eta_evals[5]).powf(alpha)
+                    + (eta_evals[2] * eta_evals[4]).powf(alpha);
+
+                num / denom
+            }
+            "GL380_C" => {
+                let num = (eta_evals[2] * eta_evals[5]).powf(alpha);
+                let denom = (eta_evals[3] * eta_evals[5]).powf(alpha)
+                    + (eta_evals[3] * eta_evals[4]).powf(alpha)
+                    + (eta_evals[2] * eta_evals[5]).powf(alpha)
+                    + (eta_evals[2] * eta_evals[4]).powf(alpha);
+
+                num / denom
+            }
+            "GL380_D" => {
+                let num = (eta_evals[2] * eta_evals[4]).powf(alpha);
+                let denom = (eta_evals[3] * eta_evals[5]).powf(alpha)
+                    + (eta_evals[3] * eta_evals[4]).powf(alpha)
+                    + (eta_evals[2] * eta_evals[5]).powf(alpha)
+                    + (eta_evals[2] * eta_evals[4]).powf(alpha);
+
+                num / denom
+            }
+            _ => T::one(),
+        }
     }
 }
 
