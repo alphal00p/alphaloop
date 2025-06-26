@@ -2574,7 +2574,10 @@ impl SquaredTopology {
         }
 
         for (label, propagator) in self.propagators.iter().enumerate() {
-            println!("propagator {}: {}", label, propagator.name);
+            println!(
+                "propagator {}: {}, signature: {:?}",
+                label, propagator.name, propagator.signature
+            );
         }
 
         panic!("stop");
