@@ -2573,6 +2573,12 @@ impl SquaredTopology {
             }
         }
 
+        for (label, propagator) in self.propagators.iter().enumerate() {
+            println!("propagator {}: {}", label, propagator.name);
+        }
+
+        panic!("stop");
+
         // determine the cut momentum basis where every non-cut momentum has a dual
         // TODO: only do when a deformation is needed
         let mut cut_momenta_deformation_dual: SmallVec<
