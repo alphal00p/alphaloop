@@ -1829,6 +1829,10 @@ impl SquaredTopology {
         );
 
         // set the external momenta and e_cm
+        if squared_topo.center_shift.is_empty() {
+            squared_topo.center_shift = vec![LorentzVector::default(); squared_topo.n_loops];
+        }
+
         let incoming_momenta: Vec<_> = if settings.cross_section.incoming_momenta.is_empty() {
             &squared_topo.default_fixed_cut_momenta.0
         } else {
