@@ -2567,6 +2567,8 @@ impl SquaredTopology {
             *rlm = lm.convert::<D>() * scaling - center_shift[i].convert::<D>();
         }
 
+        //: {}", center_shift[0]);
+
         // for the evaluation of the numerator we need complex loop momenta of the supergraph.
         // the order is: cut momenta, momenta graph 1, ... graph n
         for (kd, cut_mom) in k_def[..n_cuts - 1]
@@ -3381,6 +3383,7 @@ impl SquaredTopology {
         rescaled_loop_momenta: &[LorentzVector<T>],
         external_momenta: &[LorentzVector<T>],
     ) -> T {
+        //return T::from_f64(1.0).unwrap();
         let alpha = T::from_f64(2.0).unwrap();
 
         // GL208
@@ -3421,13 +3424,13 @@ impl SquaredTopology {
         // complement: (4,6) (4,5) (3,6) (3,5)
 
         match self.name.as_str() {
-            "GL208_A" => {
+            "GL208_A" | "GL208_A_rot" => {
                 eta_evals[0].powf(alpha) / (eta_evals[0].powf(alpha) + eta_evals[1].powf(alpha))
             }
-            "GL208_B" => {
+            "GL208_B" | "GL208_B_rot" => {
                 eta_evals[1].powf(alpha) / (eta_evals[0].powf(alpha) + eta_evals[1].powf(alpha))
             }
-            "GL380_A" => {
+            "GL380_A" | "GL380_A_rot" => {
                 let num = (eta_evals[3] * eta_evals[5]).powf(alpha);
                 let denom = (eta_evals[3] * eta_evals[5]).powf(alpha)
                     + (eta_evals[3] * eta_evals[4]).powf(alpha)
@@ -3436,7 +3439,7 @@ impl SquaredTopology {
 
                 num / denom
             }
-            "GL380_B" => {
+            "GL380_B" | "GL380_B_rot" => {
                 let num = (eta_evals[3] * eta_evals[4]).powf(alpha);
                 let denom = (eta_evals[3] * eta_evals[5]).powf(alpha)
                     + (eta_evals[3] * eta_evals[4]).powf(alpha)
@@ -3445,7 +3448,7 @@ impl SquaredTopology {
 
                 num / denom
             }
-            "GL380_C" => {
+            "GL380_C" | "GL380_C_rot" => {
                 let num = (eta_evals[2] * eta_evals[5]).powf(alpha);
                 let denom = (eta_evals[3] * eta_evals[5]).powf(alpha)
                     + (eta_evals[3] * eta_evals[4]).powf(alpha)
@@ -3454,13 +3457,15 @@ impl SquaredTopology {
 
                 num / denom
             }
-            "GL380_D" => {
+            "GL380_D" | "GL380_D_rot" => {
+                //println!("INNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN");
                 let num = (eta_evals[2] * eta_evals[4]).powf(alpha);
                 let denom = (eta_evals[3] * eta_evals[5]).powf(alpha)
                     + (eta_evals[3] * eta_evals[4]).powf(alpha)
                     + (eta_evals[2] * eta_evals[5]).powf(alpha)
                     + (eta_evals[2] * eta_evals[4]).powf(alpha);
 
+                //println!("MCfactor {}", num/denom);
                 num / denom
             }
             _ => T::one(),
