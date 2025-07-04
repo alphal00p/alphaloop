@@ -479,8 +479,7 @@ pub struct SquaredTopology {
     pub overall_numerator: f64,
     #[serde(skip_deserializing)]
     pub external_momenta: Vec<LorentzVector<f128>>,
-    #[serde(skip_deserializing)]
-    pub center_shift: Vec<LorentzVector<f128>>,
+    pub center_shift: Vec<LorentzVector<f64>>,
     pub cutkosky_cuts: Vec<CutkoskyCuts>,
     pub analytical_result_real: Option<f64>,
     pub analytical_result_imag: Option<f64>,
@@ -3359,12 +3358,18 @@ impl SquaredTopology {
         }
 
         for e in &mut rotated_topology.center_shift {
-            let old_x = e.x;
-            let old_y = e.y;
-            let old_z = e.z;
-            e.x = rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z;
-            e.y = rot_matrix[1][0] * old_x + rot_matrix[1][1] * old_y + rot_matrix[1][2] * old_z;
-            e.z = rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z;
+            let old_x: f128 = e.x.into();
+            let old_y: f128 = e.y.into();
+            let old_z: f128 = e.z.into();
+            e.x = (rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z)
+                .to_f64()
+                .unwrap();
+            e.y = (rot_matrix[1][0] * old_x + rot_matrix[1][1] * old_y + rot_matrix[1][2] * old_z)
+                .to_f64()
+                .unwrap();
+            e.z = (rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z)
+                .to_f64()
+                .unwrap();
         }
 
         rotated_topology
