@@ -1126,6 +1126,13 @@ impl PythonCrossSection {
             .map(|m| m.map(|c| c.into()))
             .collect();
 
+        let center_shift: ArrayVec<[LorentzVector<f64>; MAX_LOOP]> = self
+            .squared_topology
+            .center_shift
+            .iter()
+            .map(|m| m.map(|c| c.into()))
+            .collect();
+
         let raised_cut_powers: ArrayVec<[usize; MAX_LOOP + 4]> =
             self.squared_topology.cutkosky_cuts[cut_index]
                 .cuts
@@ -1148,6 +1155,7 @@ impl PythonCrossSection {
                     $(#[cfg(feature = "fitting_dual")] $c => self.squared_topology.evaluate_cut::<f64, $dual, {$c * 3 + 1}>(
                         &loop_momenta,
                         &external_momenta,
+                        &center_shift,
                         &mut self.caches,
                         &mut Some(&mut self.integrand.event_manager),
                         cut_index,
@@ -1160,6 +1168,7 @@ impl PythonCrossSection {
                     _ => self.squared_topology.evaluate_cut::<f64, $dual, {MAX_AMP_LOOP * 3 + 1}>(
                         &loop_momenta,
                         &external_momenta,
+                        &center_shift,
                         &mut self.caches,
                         &mut Some(&mut self.integrand.event_manager),
                         cut_index,
@@ -1224,6 +1233,13 @@ impl PythonCrossSection {
             .map(|m| m.map(|c| c.into()))
             .collect();
 
+        let center_shift: ArrayVec<[LorentzVector<f128::f128>; MAX_LOOP]> = self
+            .squared_topology
+            .center_shift
+            .iter()
+            .map(|m| m.map(|c| c.into()))
+            .collect();
+
         let raised_cut_powers: ArrayVec<[usize; MAX_LOOP + 4]> =
             self.squared_topology.cutkosky_cuts[cut_index]
                 .cuts
@@ -1254,6 +1270,7 @@ impl PythonCrossSection {
                 $(#[cfg(feature = "fitting_dual")] $c => self.squared_topology.evaluate_cut::<f128::f128, $dual, {$c * 3 + 1}>(
                     &moms,
                     &external_momenta,
+                    &center_shift,
                     &mut self.caches_f128,
                     &mut Some(&mut self.integrand.event_manager),
                     cut_index,
@@ -1266,6 +1283,7 @@ impl PythonCrossSection {
                 _ => self.squared_topology.evaluate_cut::<f128::f128, $dual, {MAX_AMP_LOOP * 3 + 1}>(
                     &moms,
                     &external_momenta,
+                    &center_shift,
                     &mut self.caches_f128,
                     &mut Some(&mut self.integrand.event_manager),
                     cut_index,
@@ -1312,6 +1330,13 @@ impl PythonCrossSection {
             .map(|m| m.map(|c| c.into()))
             .collect();
 
+        let center_shift: ArrayVec<[LorentzVector<f64>; MAX_LOOP]> = self
+            .squared_topology
+            .center_shift
+            .iter()
+            .map(|m| m.map(|c| c.into()))
+            .collect();
+
         let mut def_jacobian = Complex::default();
         let mut deformation = vec![LorentzVector::default(); self.squared_topology.n_loops];
 
@@ -1335,6 +1360,7 @@ impl PythonCrossSection {
                         $(#[cfg(feature = "fitting_dual")] $c => self.squared_topology.evaluate_cut::<f64, $dual, {$c * 3 + 1}>(
                             &loop_momenta,
                             &external_momenta,
+                            &center_shift,
                             &mut self.caches,
                             &mut Some(&mut self.integrand.event_manager),
                             cut_index,
@@ -1347,6 +1373,7 @@ impl PythonCrossSection {
                         _ => self.squared_topology.evaluate_cut::<f64, $dual, {MAX_AMP_LOOP * 3 + 1}>(
                             &loop_momenta,
                             &external_momenta,
+                            &center_shift,
                             &mut self.caches,
                             &mut Some(&mut self.integrand.event_manager),
                             cut_index,
