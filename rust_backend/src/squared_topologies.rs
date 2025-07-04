@@ -479,6 +479,8 @@ pub struct SquaredTopology {
     pub overall_numerator: f64,
     #[serde(skip_deserializing)]
     pub external_momenta: Vec<LorentzVector<f128>>,
+    #[serde(skip_deserializing)]
+    pub center_shift: Vec<LorentzVector<f128>>,
     pub cutkosky_cuts: Vec<CutkoskyCuts>,
     pub analytical_result_real: Option<f64>,
     pub analytical_result_imag: Option<f64>,
@@ -2064,6 +2066,7 @@ impl SquaredTopology {
         cutkosky_cuts: &CutkoskyCuts,
         external_momenta: &[LorentzVector<T>],
         loop_momenta: &[LorentzVector<T>],
+        center_shift: &[LorentzVector<T>],
         incoming_energy: T,
         debug_level: usize,
     ) -> Option<[(T, T); 2]> {
@@ -2083,7 +2086,8 @@ impl SquaredTopology {
             .zip(&cutkosky_cuts.cuts)
         {
             let k = utils::evaluate_signature(&cut.signature.0, loop_momenta);
-            let shift = utils::evaluate_signature(&cut.signature.1, external_momenta);
+            let shift = utils::evaluate_signature(&cut.signature.1, external_momenta)
+                - utils::evaluate_signature(&cut.signature.0, center_shift);
             let k_norm_sq = k.spatial_squared();
             let k_dot_shift = k.spatial_dot(&shift);
             t_start += Float::abs(k_dot_shift) / k_norm_sq;
@@ -2183,6 +2187,12 @@ impl SquaredTopology {
             .map(|m| m.map(|c| T::convert_from(&c)))
             .collect();
 
+        let center_shift: ArrayVec<[LorentzVector<T>; MAX_SG_LOOP]> = self
+            .center_shift
+            .iter()
+            .map(|m| m.map(|c| T::convert_from(&c)))
+            .collect();
+
         let mut raised_cut_powers: ArrayVec<[usize; MAX_SG_LOOP + 1]>;
 
         let mut result = Complex::<T>::zero();
@@ -2214,6 +2224,7 @@ impl SquaredTopology {
                     cutkosky_cuts,
                     &external_momenta[..self.external_momenta.len()],
                     loop_momenta,
+                    &center_shift,
                     incoming_energy,
                     self.settings.general.debug,
                 )
@@ -2249,6 +2260,7 @@ impl SquaredTopology {
                             $(#[cfg(feature = "fitting_dual")] $c => self.evaluate_cut::<T, $dual, {$c * 3 + 1}>(
                                 &loop_momenta,
                                 &external_momenta,
+                                &center_shift,
                                 cache,
                                 event_manager,
                                 cut_index,
@@ -2261,6 +2273,7 @@ impl SquaredTopology {
                             _ => self.evaluate_cut::<T, $dual, {MAX_AMP_LOOP * 3 + 1}>(
                                 &loop_momenta,
                                 &external_momenta,
+                                &center_shift,
                                 cache,
                                 event_manager,
                                 cut_index,
@@ -2341,6 +2354,7 @@ impl SquaredTopology {
         &mut self,
         loop_momenta: &[LorentzVector<T>],
         external_momenta: &[LorentzVector<T>],
+        center_shift: &[LorentzVector<T>],
         cache: &mut SquaredTopologyCache<T>,
         event_manager: &mut Option<&mut EventManager>,
         cut_index: usize,
@@ -2384,10 +2398,11 @@ impl SquaredTopology {
         .enumerate()
         {
             let k = utils::evaluate_signature(&cut.signature.0, loop_momenta);
+            let center_shift = utils::evaluate_signature(&cut.signature.0, center_shift);
             let shift = utils::evaluate_signature(
                 &cut.signature.1,
                 &external_momenta[..self.external_momenta.len()],
-            );
+            ) - center_shift;
 
             *cut_mom = k.convert::<D>() * scaling + shift.convert::<D>();
 
@@ -2542,8 +2557,10 @@ impl SquaredTopology {
         );
 
         // rescale the loop momenta
-        for (rlm, lm) in utils::zip_eq(&mut rescaled_loop_momenta[..self.n_loops], loop_momenta) {
-            *rlm = lm.convert::<D>() * scaling;
+        for (i, (rlm, lm)) in
+            utils::zip_eq(&mut rescaled_loop_momenta[..self.n_loops], loop_momenta).enumerate()
+        {
+            *rlm = lm.convert::<D>() * scaling - center_shift[i].convert::<D>();
         }
 
         // for the evaluation of the numerator we need complex loop momenta of the supergraph.
@@ -3329,6 +3346,15 @@ impl SquaredTopology {
         }
 
         for e in &mut rotated_topology.external_momenta {
+            let old_x = e.x;
+            let old_y = e.y;
+            let old_z = e.z;
+            e.x = rot_matrix[0][0] * old_x + rot_matrix[0][1] * old_y + rot_matrix[0][2] * old_z;
+            e.y = rot_matrix[1][0] * old_x + rot_matrix[1][1] * old_y + rot_matrix[1][2] * old_z;
+            e.z = rot_matrix[2][0] * old_x + rot_matrix[2][1] * old_y + rot_matrix[2][2] * old_z;
+        }
+
+        for e in &mut rotated_topology.center_shift {
             let old_x = e.x;
             let old_y = e.y;
             let old_z = e.z;
