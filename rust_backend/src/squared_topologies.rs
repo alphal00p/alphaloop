@@ -479,6 +479,7 @@ pub struct SquaredTopology {
     pub overall_numerator: f64,
     #[serde(skip_deserializing)]
     pub external_momenta: Vec<LorentzVector<f128>>,
+    #[serde(default)]
     pub center_shift: Vec<LorentzVector<f64>>,
     pub cutkosky_cuts: Vec<CutkoskyCuts>,
     pub analytical_result_real: Option<f64>,
