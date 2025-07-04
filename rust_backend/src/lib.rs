@@ -1068,11 +1068,17 @@ impl PythonCrossSection {
             ext.push(e.cast());
         }
 
+        let mut shift = Vec::with_capacity(self.squared_topology.center_shift.len());
+        for e in &self.squared_topology.center_shift[..self.squared_topology.center_shift.len()] {
+            shift.push(e.cast());
+        }
+
         let cutkosky_cuts = &self.squared_topology.cutkosky_cuts[cut_index];
 
         let scaling = squared_topologies::SquaredTopology::find_scaling(
             cutkosky_cuts,
             &ext,
+            &shift,
             &moms[..self.squared_topology.n_loops],
             incoming_energy,
             self.squared_topology.settings.general.debug,
