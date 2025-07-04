@@ -1078,8 +1078,8 @@ impl PythonCrossSection {
         let scaling = squared_topologies::SquaredTopology::find_scaling(
             cutkosky_cuts,
             &ext,
-            &shift,
             &moms[..self.squared_topology.n_loops],
+            &shift,
             incoming_energy,
             self.squared_topology.settings.general.debug,
         );
