@@ -2122,12 +2122,13 @@ impl SquaredTopology {
                 }
 
                 if debug_level > 4 {
-                    println!("  | t{} finder: f={}, df={}, t={}", i, f, df, t);
+                    println!("  | t{} finder: f={}, df={}, t={}", it, f, df, t);
                 }
 
                 if Float::abs(f) < T::epsilon() * Into::<T>::into(10.) * incoming_energy {
                     if debug_level > 2 {
-                        println!("  | t{} = {}", i, t);
+                        //println!("abs(f): {}, epsilon: {}, incoming_energy: {}, product: {}", Float::abs(f), T::epsilon(), Into::<T>::into(10.) * incoming_energy, T::epsilon() * Into::<T>::into(10.) * incoming_energy);
+                        println!("  | t{} = {}", it, t);
                     }
 
                     solutions[i] = (t, Float::abs(df).inv());
@@ -2138,7 +2139,7 @@ impl SquaredTopology {
                     if debug_level > 2 {
                         println!(
                             "  | no convergence after {} iterations: f={}, df={}, t={}",
-                            i, f, df, t
+                            it, f, df, t
                         );
                     }
                     return None;
@@ -2147,12 +2148,26 @@ impl SquaredTopology {
                 t = t - f / df;
             }
         }
-        if Float::abs(solutions[0].0) + Float::abs(solutions[1].0) == T::zero() {
+
+        //BEFORE IT WAS: if Float::abs(solutions[0].0) + Float::abs(solutions[1].0) == T::zero() {
+        if solutions[0].0 + solutions[1].0 == T::zero() {
             panic!(
                 "Found exact zero solutions: {} for t={} and t={} for k={:?}, ext={:?}",
                 solutions[0].0, -t_start, t_start, loop_momenta, external_momenta
             );
         }
+
+        if (solutions[0].0>T::zero() && solutions[1].0>T::zero()) || (solutions[0].0<T::zero() && solutions[1].0<T::zero()) {
+
+            for edge in cutkosky_cuts
+            .cuts
+            .iter(){
+                println!("edge in the cut {}", edge.name);
+            }
+
+            panic!("found two same sign solutions, t={} and t={}", solutions[0].0, solutions[1].0);
+        } 
+
         if Float::abs(solutions[0].0 - solutions[1].0)
             / (Float::abs(solutions[0].0) + Float::abs(solutions[1].0))
             < Into::<T>::into(1e-12)
@@ -2647,6 +2662,10 @@ impl SquaredTopology {
 
         let multi_channeling_factor: T =
             self.evaluate_multi_channeling_factor(&non_dual_loop_momenta, &external_momenta);
+
+        if self.settings.general.debug >= 2 {
+                println!("  | MC E-surface={:.16e}", multi_channeling_factor);
+        }
 
         constants *= utils::powi(
             num::Complex::new(
@@ -3383,9 +3402,7 @@ impl SquaredTopology {
         rescaled_loop_momenta: &[LorentzVector<T>],
         external_momenta: &[LorentzVector<T>],
     ) -> T {
-        //return T::from_f64(1.0).unwrap();
-        let alpha = T::from_f64(2.0).unwrap();
-
+        let alpha = T::from_f64(1.0).unwrap();
         // GL208
         let eta_ose_1 = [3, 7, 8];
         let eta_ose_2 = [1, 5, 6];
@@ -3401,29 +3418,61 @@ impl SquaredTopology {
         ];
 
         let eta_evals = etas.map(|eta| {
-            eta.iter()
+            (eta.iter()
                 .map(|edge_id| {
                     let propagator = &self.propagators[*edge_id];
 
                     let loop_part =
                         utils::evaluate_signature(&propagator.signature.0, rescaled_loop_momenta);
                     let shift_part =
-                        utils::evaluate_signature(&propagator.signature.1, external_momenta);
+                        utils::evaluate_signature(&propagator.signature.1, &external_momenta[..self.external_momenta.len()]);//external_momenta);
+
+                    //println!("shift part for prop {} is {}", edge_id, shift_part);
 
                     let total_momentum = loop_part + shift_part;
                     let total_momentum_spatial_squared = total_momentum.spatial_squared();
 
                     (total_momentum_spatial_squared + T::from_f64(propagator.m_squared).unwrap())
                         .sqrt()
-                        - shift_part.t
+                        //- shift_part.t
                 })
-                .sum::<T>()
+                .sum::<T>()-(external_momenta[0].t+external_momenta[1].t).abs()).abs()
         });
+
+
+        /*println!("MC INFO");
+        println!("{}", self.name.as_str());
+        println!("rescaled loop momenta: {:?}", rescaled_loop_momenta);
+        println!("eta indices: {:?}", etas);
+        println!("etas: {:?}", eta_evals);
+        /*println!("MC ks {:?}:", etas.map(|eta| {
+            eta.iter()
+                .map(|edge_id| {
+                    let propagator = &self.propagators[*edge_id];
+                    let loop_part =
+                        utils::evaluate_signature(&propagator.signature.0, rescaled_loop_momenta);
+                        T::(loop_part)
+                })
+        })
+        );*/
+
+        println!("MC masses {:?}:", etas.map(|eta| {
+            eta.iter()
+                .map(|edge_id| {
+                    let propagator = &self.propagators[*edge_id];
+                    T::from_f64(propagator.m_squared).unwrap().sqrt()
+                })
+                .sum::<T>().abs()
+        })
+        );*/
 
         // group:      (3,5) (3,6) (4,5) (4,6)
         // complement: (4,6) (4,5) (3,6) (3,5)
 
         match self.name.as_str() {
+
+            
+
             "GL208_A" | "GL208_A_rot" => {
                 eta_evals[0].powf(alpha) / (eta_evals[0].powf(alpha) + eta_evals[1].powf(alpha))
             }
