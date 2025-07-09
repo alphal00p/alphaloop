@@ -5324,6 +5324,8 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                     help='Target accuracy for Vegas survey stage (default: %(default)f).')
     integrate_parser.add_argument('--target_accuracy', metavar='target_accuracy', type=float, default=1.0e-5,
                     help='Target accuracy for Vegas refine stage (default: %(default)f).')
+    integrate_parser.add_argument('--target_abs_accuracy', metavar='target_abs_accuracy', type=float, default=None,
+                    help='Target abs accuracy for Vegas refine stage (default: %(default)f).')
     integrate_parser.add_argument('--load_grids', metavar='load_grids', type=str, default=None,
                     help='Specify a Vegas grid file to load from. (default: None).')
     integrate_parser.add_argument('--n_start', metavar='n_start', type=int, default=-1,
@@ -5689,6 +5691,7 @@ class alphaLoopRunInterface(madgraph_interface.MadGraphCmd, cmd.CmdShell):
                  'all_supergraphs'     : self.all_supergraphs,
                  'run_workspace'       : run_workspace,
                  'accuracy_target'     : args.target_accuracy,
+                 'accuracy_abs_target' : args.target_abs_accuracy,
                  'n_iterations'        : args.n_iterations,
                  'n_start'             : args.n_start,
                  'n_increase'          : args.n_increase,

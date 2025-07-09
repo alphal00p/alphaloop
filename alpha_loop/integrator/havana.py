@@ -958,6 +958,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                  all_supergraphs=None,
                  run_workspace=None,
                  accuracy_target=None,
+                 accuracy_abs_target=None,
                  n_iterations=None,
                  n_start=10000,
                  n_increase=10000,
@@ -1006,6 +1007,7 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
         """ Initialize the simplest MC integrator."""
 
         self.accuracy_target = accuracy_target
+        self.accuracy_abs_target = accuracy_abs_target
         self.n_iterations = n_iterations
         self.cross_section_set = cross_section_set
         self.all_supergraphs = all_supergraphs
@@ -1775,6 +1777,10 @@ class HavanaIntegrator(integrators.VirtualIntegrator):
                 if self.accuracy_target is not None and (res_error/abs(res_int) if res_int != 0. else 0.) < self.accuracy_target:
                     logger.info("Target accuracy of %.2g reached." %
                                 self.accuracy_target)
+                    break
+                if self.accuracy_abs_target is not None and abs(res_error) < self.accuracy_abs_target:
+                    logger.info("Target abs accuracy of %.2g reached." %
+                                self.accuracy_abs_target)
                     break
 
                 current_n_points += current_step
