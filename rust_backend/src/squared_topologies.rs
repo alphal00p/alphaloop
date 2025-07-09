@@ -2149,8 +2149,7 @@ impl SquaredTopology {
             }
         }
 
-        //BEFORE IT WAS: if Float::abs(solutions[0].0) + Float::abs(solutions[1].0) == T::zero() {
-        if solutions[0].0 + solutions[1].0 == T::zero() {
+        if Float::abs(solutions[0].0) + Float::abs(solutions[1].0) == T::zero() {
             panic!(
                 "Found exact zero solutions: {} for t={} and t={} for k={:?}, ext={:?}",
                 solutions[0].0, -t_start, t_start, loop_momenta, external_momenta
@@ -3403,6 +3402,11 @@ impl SquaredTopology {
         external_momenta: &[LorentzVector<T>],
     ) -> T {
         let alpha = T::from_f64(1.0).unwrap();
+
+        if !(["GL208_A","GL208_B","GL380_A","GL380_B","GL380_C","GL380_D","GL208_A_rot","GL208_B_rot","GL380_A_rot","GL380_B_rot","GL380_C_rot","GL380_D_rot"].iter().any(|&n| n == self.name.as_str())) {
+            return T::one();
+        }
+
         // GL208
         let eta_ose_1 = [3, 7, 8];
         let eta_ose_2 = [1, 5, 6];

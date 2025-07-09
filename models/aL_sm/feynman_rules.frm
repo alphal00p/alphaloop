@@ -196,8 +196,8 @@
 
 * do the spin sum external particles
 #procedure SpinSumMomentum()
-
-    repeat id prop(`PHO', in, p?, idx1?)*prop(`PHO', out, p?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
+*    repeat id prop(`PHO', in, p?, idx1?)*prop(`PHO', out, p?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
+    repeat id prop(`PHO', in, p?, idx1?)*prop(`PHO', out, p?, idx2?) = ((energyselector.p)^2 * d_(lorentz[idx1], lorentz[idx2]) - (energyselector.p)*( energyselector(lorentz[idx1])*p(lorentz[idx2]) + energyselector(lorentz[idx2])*p(lorentz[idx1]) ) + p(lorentz[idx1]) * p(lorentz[idx2]));
     repeat id prop(`GLU', in, p?, idx1?)*prop(`GLU', out, p?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
     repeat id prop(`Z', in, p?, idx1?)*prop(`Z', out, p?, idx2?) = d_(lorentz[idx1], lorentz[idx2]);
     repeat id prop(x?{`L'}, in, p?, idx1?)*prop(x?{`L',}, out, p?, idx2?) = gamma(dirac[idx1], p, dirac[idx2]) + masses(x)*gamma(dirac[idx1], dirac[idx2]);

@@ -940,11 +940,13 @@ class AL_cluster(object):
             [f for f in glob.glob(pjoin(self.run_workspace, 'run_%d_job_*.yaml' % self.run_id))] +\
             [f for f in glob.glob(pjoin(self.run_workspace, '*trashcan*'))]
         for io_file in io_files:
-            if os.path.isdir(io_file):
-                shutil.rmtree(io_file)
-            else:
-                os.remove(io_file)
-
+            try:
+                if os.path.isdir(io_file):
+                    shutil.rmtree(io_file)
+                else:
+                    os.remove(io_file)
+            except:
+                pass
 
 class HavanaIntegrator(integrators.VirtualIntegrator):
     """ Steering of the havana integrator """
